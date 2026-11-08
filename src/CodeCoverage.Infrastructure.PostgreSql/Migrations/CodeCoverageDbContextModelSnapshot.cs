@@ -95,13 +95,13 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
 
                     b.Property<string>("Login")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("NormalizedLogin")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("State")
                         .IsRequired()
