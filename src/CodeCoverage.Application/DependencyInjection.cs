@@ -15,11 +15,14 @@ using CodeCoverage.Application.Behaviors;
 namespace CodeCoverage.Application;
 
 /// <summary>Registers the use cases of CodeCoverage.</summary>
-public static class DependencyInjection
+public static partial class DependencyInjection
 {
   #region Methods
 
-  /// <summary>Registers the mediator, its handlers, its pipeline behaviors and the validators.</summary>
+  /// <summary>
+  ///   Registers the mediator, its handlers, its pipeline behaviors, the validators and the services
+  ///   of each area.
+  /// </summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="services" /> is <see langword="null" />.</exception>
@@ -34,6 +37,8 @@ public static class DependencyInjection
   ///   The behaviors need an <see cref="Domain.Ports.ICurrentUser" />, registered by the
   ///   Infrastructure.
   ///   The validators (<c>internal sealed</c> included) are discovered in this assembly.
+  ///   Each area registers its services in its own <c>DependencyInjection.{Area}.cs</c> file, one by
+  ///   one and never by scanning a namespace: the lifetime of a service is part of its behavior.
   /// </remarks>
   public static IServiceCollection AddApplication(this IServiceCollection services)
   {
@@ -51,7 +56,12 @@ public static class DependencyInjection
 
     services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
-    return services;
+    return services
+      .AddCommitServices()
+      .AddUploadServices()
+      .AddComparisonServices()
+      .AddNotificationServices()
+      .AddAccessServices();
   }
 
   #endregion
