@@ -103,6 +103,7 @@ Chaque micro-feature porte les rubriques suivantes :
 - **Patron « forge » (ADR-014).**
   - Un login, un identifiant de compte ou de dépôt n'a de sens que sur sa forge : toute recherche les accompagne de `Forge`, et les identifiants externes sont du texte.
   - Toute adresse d'organisation porte la forge (`/{forge}/{owner}/{repo}`, `/api/v1/repos/{forge}/{owner}/{repo}`, `/orgs/{forge}/{org}`) ; seules les URL compatibles Codecov gardent leur forme.
+  - Un owner à plusieurs niveaux s'écrit avec `:` (`org:project`, `group:sub:sub2`) : le tenant est ce qui précède le premier `:`, le reste est le `Namespace` du dépôt.
   - L'Application appelle une forge par `IForgeGateway` et ses contrats `Domain/Contracts/Forges/` ; ce qui est propre à une forge (authentification, réception des webhooks) reste dans son adaptateur.
 - **Patron « page Web ».**
   - `Web/Components/Pages/{Name}.razor` et `{Name}.razor.cs`, sans bloc `@code` ;
@@ -131,6 +132,7 @@ graph LR
   M5 --> M6["M6 Plus tard"]
   M4 --> M7["M7 Azure DevOps"]
   M7 --> M8["M8 Bitbucket"]
+  M8 --> M9["M9 GitLab.com"]
 ```
 
 Deux exceptions à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible ; M3.03a (appartenances) passe avant M2.03a2, dont les événements de membres alimentent cette table.
@@ -203,7 +205,8 @@ graph TD
   M1_16a1["M1.16a1 ADR-013 et plan"] --> M1_16b["M1.16b Organizations"]
   M1_16a1 --> M1_16a3["M1.16a3 ADR-014 multi-forge"]
   M1_16b --> M1_16c["M1.16c Contexte d'organisation"]
-  M1_16a3 --> M1_16c
+  M1_16a3 --> M1_16a4["M1.16a4 GitLab dans ADR-014"]
+  M1_16a4 --> M1_16c
   M1_16c --> M1_16d1["M1.16d1 Filtre et classement"]
   M1_16d1 --> M1_16d2["M1.16d2 Estampille et garde"]
   M1_16d2 --> M1_16a2["M1.16a2 Documents d'architecture"]
@@ -895,14 +898,14 @@ graph TD
   - `MergeLine_HitsWithHits_ShouldTakeMax` ;
   - `MergeLine_HitsWithBranch_ShouldMakeFullBranch` ;
   - `MergeLine_BranchesWithMissingIds_ShouldIntersect` ;
-  - `MergeLine_BranchesWithoutIds_ShouldKeepBestRatio` ;
+  - `MergeLine_BranchesWithoutIds_ShouldTakeGreatestOfEach` ;
   - `Merge_ShuffledSessions_ShouldBeDeterministic`, test de propriété sur 200 permutations aléatoires à graine fixe.
 - **Acceptation :** fusion commutative et associative sur les jeux de propriété.
 - **Dépend de :** M1.01
 
 #### M1.03 — `PathPattern` et `PathPatternSet`
 - **Issue :** [#4](https://github.com/gaetanthouvenin/code-coverage/issues/4)
-- **Objectif :** motifs `ignore`, `paths` et `branches` (§6.4).
+- **Objectif :** motifs `ignore`, `paths` et `branches` (§6.4), dont le mode branche (`ParseBranch`) et l'inversion (`Invert()`).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Paths/PathPattern.cs` (négation, expression régulière, glob, préfixe ; `NonBacktracking`, timeout de 100 ms), `Domain/Paths/PathPatternSet.cs`.
 - **Tests :** `Domain.Tests/Paths/PathPatternTests` — `Match_Glob_DoubleStar_ShouldCrossDirectories`, `Match_Regex_ShouldBeAnchored`, `Match_Prefix_ShouldMatchSubpaths` ; `PathPatternSetTests` — `Includes_WithOnlyNegatives_ShouldIncludeOthers`.
@@ -953,7 +956,7 @@ graph TD
 - **Couches :** Domain.
 - **Fichiers :**
   - `Domain/Config/ConfigNode.cs`, `ConfigMerger.cs` (maps fusionnées, scalaires et listes remplacés), `CoverageConfigDefaults.cs` (§9.2) ;
-  - `CoverageConfig.cs` (vues typées `precision`, `round`, `range`, `ignore`, `fixes`, `codecov.*`, `parsers`, flags) ;
+  - `CoverageConfig.cs` (vues typées `precision`, `round`, `range`, `ignore`, `fixes`, `codecov.*`, `parsers`, flags ; un motif dont `IsSupported` est faux produit un `ConfigWarning`, `branches` est lu par `PathPattern.ParseBranch` et les entrées de `ignore` sont inversées) ;
   - `FlagRule.cs` (résolution `default_rules`, puis `individual_flags`, puis `flags.<F>`), `ParserRule.cs`, `CoverageRange.cs`, `ConfigWarning.cs` ;
   - `Domain/Ports/ICoverageConfigParser.cs`.
 - **Tests :** `Domain.Tests/Config/ConfigMergerTests` — `Merge_ListShouldReplace`, `Merge_MapShouldMerge` ; `FlagRuleTests` — `Resolve_LegacyFlagsShouldWinOverIndividualFlags`, `Resolve_FlagWithoutPaths_ShouldCoverAll`.
@@ -1053,7 +1056,7 @@ graph TD
 - **Issue :** [#17](https://github.com/gaetanthouvenin/code-coverage/issues/17)
 - **Objectif :** sérialisation compacte et versionnée (§4.3).
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/Ports/ICoverageReportCodec.cs` ; `Infrastructure/Reports/Codecs/CcrCodec.cs` (Brotli qualité 5, varints), `Codecs/FileIndexCodec.cs`, `Codecs/VarIntWriter.cs`, `Codecs/VarIntReader.cs`.
+- **Fichiers :** `Domain/Ports/ICoverageReportCodec.cs` ; `Infrastructure/Reports/Codecs/CcrCodec.cs` (Brotli qualité 5, varints), `Codecs/FileIndexCodec.cs` (chemin vers lignes, hits, misses, partials, branches et méthodes), `Codecs/VarIntWriter.cs`, `Codecs/VarIntReader.cs`.
 - **Tests :** `Infrastructure.Tests/Reports/Codecs/CcrCodecTests` — `RoundTrip_RandomReports_ShouldBeLossless`, `Decode_UnknownVersion_ShouldThrow`, `Encode_5000Files_ShouldStayUnder500Kb`.
 - **Acceptation :** octet de version lu, avec un format v1 figé par un fichier de référence (`tests/fixtures/ccr/v1-sample.bin`).
 - **Dépend de :** M1.02
@@ -1087,6 +1090,15 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** aucune fiche ne fige une identité, une adresse ou un port propre à GitHub en dehors de ce qu'ADR-014 laisse à l'adaptateur GitHub.
 - **Dépend de :** M1.16a1
 
+#### M1.16a4 — GitLab.com dans ADR-014 et le plan
+- **Issue :** à créer
+- **Objectif :** ajouter GitLab.com aux forges préparées, avant que la porte d'entrée et le schéma des dépôts ne se figent.
+- **Couches :** docs.
+- **Fichiers :** `docs/adr/0014-multi-forge.md` ; `docs/PLAN.md` (§1.4, §2.1, §2.3, §9.1, §10, §11, M1.16b, M1.17).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** les sous-groupes, la forme du login, l'organisation, les credentials, le diff, les statuts et les commentaires de GitLab sont tranchés dans ADR-014, avec un jalon et un spike.
+- **Dépend de :** M1.16a3
+
 #### M1.16b — Entité `Organization`, port d'annuaire et table
 - **Issue :** [#68](https://github.com/gaetanthouvenin/code-coverage/issues/68)
 - **Objectif :** la racine d'organisation, identifiée par sa forge et l'identifiant que celle-ci donne au compte (ADR-014).
@@ -1095,8 +1107,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Domain/Organizations/Organization.cs`, `OrganizationState.cs`, `OrganizationAccountType.cs`, `SuspensionReason.cs`, `ReservedLogins.cs`, `Forge.cs` ;
   - `Domain/Ports/IOrganizationDirectory.cs` (`FindByLoginAsync(forge, login)`, `FindByAccountIdAsync(forge, externalAccountId)`, `ListActiveAsync`, `UpsertFromForgeAsync` avec pierre tombale du login limitée à la même forge ; aucune réconciliation n'est mise en file, la synchronisation de M2.03a1 rétablit le login) ;
   - configuration et repository EF ;
-  - Migration `AddOrganizations` (`UX(Forge, ExternalAccountId)`, `UX(Forge, NormalizedLogin)`, `Version`).
-- **Tests :** `Domain.Tests/Organizations/OrganizationTests` — `Admit_FromPending_ShouldBecomeActive`, `Admit_ReservedLogin_ShouldThrow`, `Rename_ReservedLogin_ShouldSuspend`, `Rename_ShouldKeepExternalAccountId` ; `Infrastructure.Tests/Persistence/Repositories/OrganizationDirectoryTests` — `FindByLogin_ShouldBeCaseInsensitive`, `Upsert_LoginHeldByOtherAccount_ShouldTombstoneOldRow`, `Upsert_SameAccountNewLogin_ShouldKeepId`, `FindByLogin_TombstonedLogin_ShouldReturnNull`, `FindByLogin_SameLoginOnTwoForges_ShouldReturnTheRowOfThatForge`, `Upsert_SameLoginOnOtherForge_ShouldNotTombstone`.
+  - Migration `AddOrganizations` (`UX(Forge, ExternalAccountId)`, `UX(Forge, NormalizedLogin)`, `Version`, login de 255 caractères au plus pouvant contenir des points).
+- **Tests :** `Domain.Tests/Organizations/OrganizationTests` — `Admit_FromPending_ShouldBecomeActive`, `Admit_ReservedLogin_ShouldThrow`, `Rename_ReservedLogin_ShouldSuspend`, `Rename_ShouldKeepExternalAccountId` ; `Infrastructure.Tests/Persistence/Repositories/OrganizationDirectoryTests` — `FindByLogin_ShouldBeCaseInsensitive`, `Upsert_LoginHeldByOtherAccount_ShouldTombstoneOldRow`, `Upsert_SameAccountNewLogin_ShouldKeepId`, `FindByLogin_TombstonedLogin_ShouldReturnNull`, `FindByLogin_SameLoginOnTwoForges_ShouldReturnTheRowOfThatForge`, `Upsert_SameLoginOnOtherForge_ShouldNotTombstone`, `Upsert_SameLoginOnGitLabAndGitHub_ShouldKeepBoth`, `FindByLogin_DottedGitLabPath_ShouldBeFound`.
 - **Acceptation :** aucune méthode ne renvoie la ligne d'un autre compte pour un login passé en pierre tombale, et la table ne contient aucune donnée métier.
 - **Dépend de :** M1.16a1, M0.15
 
@@ -1111,7 +1123,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Infrastructure/Identity/OrganizationContext.cs` (`internal Enter(long)` : même valeur sans effet, autre valeur lève), enregistré en portée.
 - **Tests :** `Infrastructure.Tests/Identity/OrganizationContextTests` — `Id_WhenUnset_ShouldThrow`, `Enter_SameValueTwice_ShouldKeepIt`, `Enter_OtherValue_ShouldThrow` ; `OrganizationScopeTests` — `TryEnter_SuspendedOrganization_ShouldReturnFalseAndStayUnset`, `TryEnter_UnknownLogin_ShouldReturnFalse`, `TryEnter_MalformedLogin_ShouldReturnFalse`.
 - **Acceptation :** l'Application ne peut pas faire entrer la portée courante par identifiant (le compilateur le refuse).
-- **Dépend de :** M1.16b, M1.16a3
+- **Dépend de :** M1.16b, M1.16a4
 
 #### M1.16d1 — Filtre de requête, classement et première table d'organisation
 - **Issue :** [#70](https://github.com/gaetanthouvenin/code-coverage/issues/70)
@@ -1236,14 +1248,14 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** entités `Repositories` du Domain et leurs tables.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
-  - `Domain/Repositories/RepositorySlug.cs` (VO, `owner/repo` et `owner::::repo`), `TrackedRepository.cs`, `Installation.cs`, `Branch.cs` ;
+  - `Domain/Repositories/RepositorySlug.cs` (VO, `owner/repo`, `group/sub/repo`, `owner::::repo` et `group:::sub::::repo`, découpé au dernier séparateur), `TrackedRepository.cs`, `Installation.cs`, `Branch.cs` ;
   - `Domain/Ports/IRepositoryRepository.cs`, `IInstallationRepository.cs`, `IBranchRepository.cs` ;
   - configurations et repositories EF ;
   - `Repositories` et `Branches` sont des tables d'organisation (ADR-013) ; `Installations` est globale, avec une clé étrangère `OrganizationId`, et `AccountLogin` passe dans `Organizations` ;
-  - `Repositories` porte `Namespace` (chaîne vide hors Azure DevOps) et `ExternalId` en texte à la place de `GitHubId` (ADR-014) ; `Installations` reste propre à GitHub ;
+  - `Repositories` porte `Namespace` (projet Azure DevOps ou sous-groupes GitLab, 512 caractères au plus, chaîne vide ailleurs) et `ExternalId` en texte à la place de `GitHubId` (ADR-014) ; `Installations` reste propre à GitHub ;
   - la recherche par slug se fait par nom dans l'organisation courante ; `Repositories.Owner` reste une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler GitHub ;
   - Migration `AddRepositories` (`UX(OrganizationId, NormalizedNamespace, NormalizedName)`, `UX(OrganizationId, ExternalId)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
-- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepExternalId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`, `FindBySlug_SameNameInOtherOrganization_ShouldReturnOwnRow`, `Add_SameExternalIdInTwoOrganizations_ShouldKeepBoth`, `FindBySlug_SameNameInOtherNamespace_ShouldReturnOwnRow`.
+- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_GitLabSubgroups_ShouldSplitAtLastSeparator`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepExternalId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`, `FindBySlug_SameNameInOtherOrganization_ShouldReturnOwnRow`, `Add_SameExternalIdInTwoOrganizations_ShouldKeepBoth`, `FindBySlug_SameNameInOtherNamespace_ShouldReturnOwnRow`.
 - **Acceptation :** concurrence optimiste via `Version`.
 - **Dépend de :** M1.03, M0.15, M1.16d2, M1.16f
 
@@ -2545,7 +2557,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - graphes `tree` et `sunburst` ;
 - GitHub Enterprise.
 
-### 9.1 Jalons M7 et M8 – Autres forges (ADR-014)
+### 9.1 Jalons M7, M8 et M9 – Autres forges (ADR-014)
 
 Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub reste la seule forge implémentée jusque-là. Les durées sont des ordres de grandeur non mesurés.
 
@@ -2559,6 +2571,11 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
   - vérification du diff unifié et des UUID de workspace ;
   - connexions, adaptateur `IForgeGateway`, webhooks signés, statuts de build et commentaires ;
   - OIDC de Bitbucket Pipelines, badges `/bb/…` et `/bitbucket/…`, connexion Web et accès aux dépôts, pilote.
+- **M9 – GitLab.com (environ 22 sessions) :**
+  - spike : accès à l'API sur le plan Free (jetons de groupe et de projet réservés à Premium), diffs incomplets, forme réelle des badges de sous-groupes chez Codecov ;
+  - connexions, adaptateur `IForgeGateway`, webhooks par projet signés par HMAC, statuts et notes de merge request ;
+  - owner adressé en `group:sub:sub2`, `Repositories.Namespace` portant les sous-groupes ;
+  - OIDC de GitLab CI lié à `project_id`, badges `/gl/…` et `/gitlab/…`, connexion Web et accès aux dépôts, pilote.
 
 ---
 
@@ -2586,6 +2603,7 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 | 18 | Un jeton d'upload n'est unique que dans son organisation, et trois cas d'usage deviennent six (M1.22). | Une valeur importée est choisie par l'appelant : un index global serait un oracle et bloquerait un import légitime. Chaque message sert une seule audience. |
 | 19 | Les écrans d'exploitation restent au niveau de l'instance et ne montrent que des métadonnées (M3.13, M3.40, M3.41) ; les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27). | L'isolation exige que la vue d'instance masque les données métier. Les écrans par organisation sont au backlog (§11). |
 | 20 | Préparation à plusieurs forges (ADR-014, M1.16a3) : `Forge` et identifiants externes en texte, forge dans les adresses, `IForgeGateway`, `Repositories.Namespace`. L'architecture décrit encore GitHub seul jusqu'à M1.16a2 ; en cas de conflit, ADR-014 prime. | Rien de ce qui fige l'hypothèse n'était construit ; les jalons M7 et M8 ajoutent les adaptateurs. |
+| 21 | GitLab.com rejoint les forges préparées (ADR-014, M1.16a4) : login de 255 caractères pouvant contenir des points, owner à plusieurs niveaux écrit avec `:`, jalon M9. GitLab auto-hébergé reste hors portée. | Décision du propriétaire ; l'identité ne porte donc pas d'URL d'instance. |
 
 ---
 
@@ -2607,7 +2625,7 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 9. **Hébergement** : VM Docker (M4.02) ou Azure Container Apps (M4.03).
 10. **Nom définitif du produit et du dépôt** : tranché, produit `CodeCoverage` et dépôt `code-coverage`. Le projet est indépendant.
 11. **Flux de publication de l'outil `coverage-upload` (M5.03)** : nuget.org public ou flux privé. À trancher au démarrage de M5 ; les binaires autonomes servis par l'Api (ADR-012) ne dépendent pas de ce choix.
-12. **Multi-forge : tranché**, préparé maintenant avec GitHub seul implémenté ([ADR-014](adr/0014-multi-forge.md)). Restent à établir le calcul du diff sur Azure DevOps (spike en tête de M7) et les endpoints de Bitbucket (début de M8).
+12. **Multi-forge : tranché**, préparé maintenant avec GitHub seul implémenté ([ADR-014](adr/0014-multi-forge.md)). Restent à établir le calcul du diff sur Azure DevOps (spike en tête de M7) les endpoints de Bitbucket (début de M8), et l'accès au plan Free de GitLab comme la forme des badges de sous-groupes (spike en tête de M9).
 
 ### Backlog de l'isolation entre organisations
 
