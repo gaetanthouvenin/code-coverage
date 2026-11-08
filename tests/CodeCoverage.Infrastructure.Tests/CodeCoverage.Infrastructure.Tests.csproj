@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\fixtures\**\*" LinkBase="fixtures" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure\CodeCoverage.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure.PostgreSql\CodeCoverage.Infrastructure.PostgreSql.csproj" />
     <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure.SqlServer\CodeCoverage.Infrastructure.SqlServer.csproj" />
