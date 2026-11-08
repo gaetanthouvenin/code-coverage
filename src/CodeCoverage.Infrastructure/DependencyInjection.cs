@@ -103,7 +103,7 @@ public static partial class DependencyInjection
   }
 
   /// <summary>
-  ///   Registers the current principal of each scope, the clock, the token hasher, the metrics, the
+  ///   Registers the principal and the organization of each scope, the clock, the token hasher, the metrics, the
   ///   database, its health checks, the audit trail, the job queue, the settings store and the watcher that
   ///   brings in the settings saved by the other host.
   /// </summary>
@@ -115,6 +115,11 @@ public static partial class DependencyInjection
   ///     <see cref="CurrentUserContext" /> is scoped and resolved both as itself (the hosts set the
   ///     user on it) and as <see cref="ICurrentUser" /> (the use cases read it): one instance per
   ///     scope.
+  ///   </para>
+  ///   <para>
+  ///     <see cref="OrganizationContext" /> is registered the same way, as itself and as
+  ///     <see cref="ICurrentOrganization" />: <see cref="OrganizationScope" /> enters it and the use cases
+  ///     only read it.
   ///   </para>
   ///   <para>
   ///     <see cref="CodeCoverageMeter" /> is a singleton whose meter comes from the
@@ -159,6 +164,9 @@ public static partial class DependencyInjection
 
     services.AddScoped<CurrentUserContext>();
     services.AddScoped<ICurrentUser>(static sp => sp.GetRequiredService<CurrentUserContext>());
+    services.AddScoped<OrganizationContext>();
+    services.AddScoped<ICurrentOrganization>(static sp => sp.GetRequiredService<OrganizationContext>());
+    services.AddScoped<IOrganizationScope, OrganizationScope>();
 
     services.TryAddSingleton(TimeProvider.System);
     services.TryAddSingleton<IClock, SystemClock>();
