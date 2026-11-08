@@ -1,6 +1,6 @@
 # ADR-003 : Mono-tenant
 
-- **Statut :** accepté, à confirmer avant M0.14 (premier modèle EF) ; rappelé dans les décisions ouvertes (`docs/PLAN.md` §11-2)
+- **Statut :** remplacé par [ADR-013](0013-organization-isolation.md) le 2026-11-08 (décision conservée pour l'historique)
 - **Date :** 2026-11-07
 - **Références :** `docs/ARCHITECTURE.md` §1.3, §4.2, §8.1 et §13.1 ; `docs/PLAN.md` §11-2
 

@@ -33,7 +33,7 @@
 
 Chaque micro-feature porte les rubriques suivantes :
 
-- un **ID** `M{jalon}.{nn}` et un titre ;
+- un **ID** `M{jalon}.{nn}` et un titre ; un suffixe (`a`, `a1`…) insère une micro-feature sans renuméroter les autres ;
 - l'**Objectif** ;
 - les **Couches** touchées ;
 - les **Fichiers / types** à créer ;
@@ -89,11 +89,17 @@ Chaque micro-feature porte les rubriques suivantes :
   - La constante est ajoutée dans `Domain/Contracts/Jobs/JobTypes.cs`.
   - Le cas est ajouté dans `Infrastructure/Jobs/JobDispatcher.cs`, du payload JSON vers la commande.
   - La mise en file passe par une **méthode de repository unique**, dans la transaction de la modification, avec un paramètre `JobRequest`. `IJobQueue.EnqueueAsync` reste réservé aux déclenchements isolés (Web, relance).
+  - `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle ; `ForInstance` et `ForOrganization` sont explicites, le second limité à une liste de sources (ADR-013, M1.16g1). `SqlJobQueue` préfixe lui-même `LockKey` et `DedupKey` : une clé métier reste `repo:{githubRepoId}`.
 - **Patron « persistance d'une feature ».**
   - `Infrastructure/Persistence/Configurations/{Entity}Configuration.cs` (`internal sealed`, `IEntityTypeConfiguration<T>`) ;
   - `Infrastructure/Persistence/Repositories/{Entity}Repository.cs` (`internal sealed`, implémente le port) ;
   - enregistrement dans `Infrastructure/DependencyInjection.cs` ;
-  - tests d'intégration paramétrés pour les deux fournisseurs (`Infrastructure.Tests/Support/DatabaseFixture` avec Testcontainers PostgreSQL et MsSql).
+  - tests d'intégration paramétrés pour les deux fournisseurs (`Infrastructure.Tests/Support/DatabaseFixture` avec Testcontainers PostgreSQL et MsSql) ;
+  - une table d'organisation est déclarée par `IsOrganizationOwned`, classée dans `TableClassification`, et son repository a une classe de tests à deux organisations (ADR-013, M1.16d1, M1.16e).
+- **Patron « isolation entre organisations » (ADR-013).**
+  - Une portée DI n'entre dans une organisation que par `AuthorizationBehavior`, `JobWorker` ou `SystemCommandRunner`. `IgnoreQueryFilters` est interdit dans `src`, et les ports ne reçoivent aucun paramètre d'organisation.
+  - Chaque message déclare exactement un marqueur d'accès (`IRepositoryScoped`, `IOrganizationScoped`, `IPublicOwnerAddressed`, `IAnonymousEntry`, `IUserScoped`, `IAdminOnly` ou `ISystemOnly`) et sert une seule audience.
+  - Toute route adressant une donnée d'organisation contient l'owner ou l'organisation, et chaque nouvelle route ou page déclare sa sonde à deux organisations (M3.43a).
 - **Patron « page Web ».**
   - `Web/Components/Pages/{Name}.razor` et `{Name}.razor.cs`, sans bloc `@code` ;
   - ViewModels dans `Web/ViewModels/{Feature}/` ;
@@ -117,10 +123,11 @@ graph LR
   M3 --> M4["M4 Pilote et bascule"]
   M4 --> M5["M5 Confort et compatibilité"]
   M5 -. "M5.06 avant M4.08" .-> M4
+  M3 -. "M3.03a avant M2.03a2" .-> M2
   M5 --> M6["M6 Plus tard"]
 ```
 
-Une seule exception à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible.
+Deux exceptions à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible ; M3.03a (appartenances) passe avant M2.03a2, dont les événements de membres alimentent cette table.
 
 Les graphes suivants ne montrent que les dépendances **internes** à chaque jalon. Les dépendances vers des jalons antérieurs sont indiquées sur chaque fiche.
 
@@ -187,7 +194,21 @@ graph TD
   M1_14 --> M1_15
   M1_07 --> M1_15
   M1_02 --> M1_16["M1.16 CcrCodec"]
+  M1_16a1["M1.16a1 ADR-013 et plan"] --> M1_16b["M1.16b Organizations"]
+  M1_16b --> M1_16c["M1.16c Contexte d'organisation"]
+  M1_16c --> M1_16d1["M1.16d1 Filtre et classement"]
+  M1_16d1 --> M1_16d2["M1.16d2 Estampille et garde"]
+  M1_16d2 --> M1_16a2["M1.16a2 Documents d'architecture"]
+  M1_16d2 --> M1_16e["M1.16e Gardes d'architecture"]
+  M1_16c --> M1_16f["M1.16f Porte et marqueurs"]
+  M1_16d1 --> M1_16g1["M1.16g1 Jobs par organisation"]
+  M1_16g1 --> M1_16g2["M1.16g2 Audit par organisation"]
+  M1_16a1 --> M1_16h["M1.16h Portées de paramètres"]
+  M1_16d1 --> M1_16i["M1.16i Provider d'organisation"]
+  M1_16h --> M1_16i
   M1_03 --> M1_17["M1.17 Dépôts et installations"]
+  M1_16d2 --> M1_17
+  M1_16f --> M1_17
   M1_17 --> M1_18["M1.18 Commits et uploads"]
   M1_18 --> M1_19["M1.19 Sessions et rapports"]
   M1_16 --> M1_19
@@ -197,7 +218,11 @@ graph TD
   M1_07 --> M1_20
   M1_18 --> M1_21["M1.21 Stockage brut"]
   M1_17 --> M1_22["M1.22 Jetons d'upload"]
+  M1_22 --> M1_22a["M1.22a Admission et exécuteur système"]
+  M1_16f --> M1_22a
+  M1_16g1 --> M1_22a
   M1_22 --> M1_23["M1.23 Verbe admin CLI"]
+  M1_22a --> M1_23
   M1_24["M1.24 Port GitHub"] --> M1_25["M1.25 Client GitHub App"]
   M1_25 --> M1_26["M1.26 Passerelle lecture"]
   M1_26 --> M1_27["M1.27 Caches commits et arbres"]
@@ -205,14 +230,17 @@ graph TD
   M1_08 --> M1_28["M1.28 ConfigResolver"]
   M1_26 --> M1_28
   M1_17 --> M1_28
+  M1_16i --> M1_28
   M1_25 --> M1_29["M1.29 Validation OIDC"]
   M1_22 --> M1_30["M1.30 UploadAuthenticator"]
   M1_29 --> M1_30
+  M1_16f --> M1_30
   M1_30 --> M1_31["M1.31 ReceiveUpload"]
   M1_21 --> M1_31
   M1_26 --> M1_31
+  M1_16g1 --> M1_31
   M1_31 --> M1_32["M1.32 POST /uploads"]
-  M1_32 --> M1_33["M1.33 GET /uploads/id"]
+  M1_32 --> M1_33["M1.33 GET repos/uploads/id"]
   M1_31 --> M1_34["M1.34 ProcessUpload"]
   M1_15 --> M1_34
   M1_05 --> M1_34
@@ -249,6 +277,8 @@ graph TD
 graph TD
   M2_01["M2.01 PullRequests"]
   M2_02["M2.02 Réception webhooks"] --> M2_03["M2.03 Installations et dépôts"]
+  M2_03 --> M2_03a1["M2.03a1 Cycle de vie d'une organisation"]
+  M2_03a1 --> M2_03a2["M2.03a2 Membres et renommages"]
   M2_03 --> M2_04["M2.04 push et BranchHeadTracker"]
   M2_03 --> M2_05["M2.05 pull_request"]
   M2_01 --> M2_05
@@ -287,7 +317,9 @@ graph TD
 ```mermaid
 graph TD
   M3_01["M3.01 Utilisateurs"] --> M3_02["M3.02 Passerelle utilisateur"]
-  M3_02 --> M3_03["M3.03 Connexion GitHub"]
+  M3_02 --> M3_03a["M3.03a Appartenances"]
+  M3_03a --> M3_03["M3.03 Connexion GitHub"]
+  M3_02 --> M3_03
   M3_03 --> M3_04["M3.04 Accès par dépôt"]
   M3_04 --> M3_05["M3.05 Jetons API"]
   M3_05 --> M3_06["M3.06 API dépôts"]
@@ -298,6 +330,8 @@ graph TD
   M3_05 --> M3_11["M3.11 API jetons"]
   M3_05 --> M3_12["M3.12 API paramètres et config"]
   M3_06 --> M3_12
+  M3_04 --> M3_12a["M3.12a API paramètres d'organisation"]
+  M3_05 --> M3_12a
   M3_05 --> M3_13["M3.13 API opérations"]
   M3_14["M3.14 Badge Domain et jetons"] --> M3_15["M3.15 Rendu SVG et routes"]
   M3_06 --> M3_15
@@ -306,7 +340,9 @@ graph TD
   M3_17["M3.17 Rétention"]
   M3_18["M3.18 Artefact de design UI (validé)"] --> M3_19["M3.19 Navigation"]
   M3_04 --> M3_19
+  M3_03a --> M3_19
   M3_19 --> M3_20["M3.20 Accueil"]
+  M3_03a --> M3_20
   M3_06 --> M3_20
   M3_16 --> M3_20
   M3_19 --> M3_21["M3.21 Vue d'ensemble : cartes"]
@@ -345,15 +381,30 @@ graph TD
   M3_05 --> M3_36
   M3_35 --> M3_36
   M3_19 --> M3_37["M3.37 Admin paramètres"]
-  M3_19 --> M3_38["M3.38 Admin jetons"]
+  M3_19 --> M3_37a["M3.37a Paramètres d'organisation"]
+  M3_12a --> M3_37a
+  M3_37 --> M3_37a
+  M3_19 --> M3_38["M3.38 Jetons d'organisation"]
   M3_35 --> M3_38
-  M3_19 --> M3_39["M3.39 Admin dépôts"]
+  M3_19 --> M3_39["M3.39 Dépôts d'organisation"]
   M3_07 --> M3_39
   M3_19 --> M3_40["M3.40 Admin opérations"]
   M3_13 --> M3_40
   M3_19 --> M3_41["M3.41 Admin audit"]
+  M3_19 --> M3_41a["M3.41a Admin organisations"]
   M3_42["M3.42 Setup : backend"] --> M3_43["M3.43 Page /setup"]
   M3_18 --> M3_43
+  M3_13 --> M3_43a["M3.43a Suite d'isolation"]
+  M3_15 --> M3_43a
+  M3_20 --> M3_43a
+  M3_37 --> M3_43a
+  M3_37a --> M3_43a
+  M3_38 --> M3_43a
+  M3_39 --> M3_43a
+  M3_40 --> M3_43a
+  M3_41 --> M3_43a
+  M3_41a --> M3_43a
+  M3_43 --> M3_43a
 ```
 
 ### 2.6 M4 et M5
@@ -368,6 +419,8 @@ graph TD
   M4_06["M4.06 Parité quotidienne"] --> M4_08["M4.08 Bascule et résiliation"]
   M4_07 --> M4_08
   M4_02 --> M4_08
+  M4_02 --> M4_02a["M4.02a Vérification sur deux organisations"]
+  M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
   M4_01 --> M5_02["M5.02 Template Azure"]
@@ -999,6 +1052,162 @@ graph TD
 
 ### 4.4 Persistance de l'ingestion
 
+L'isolation entre organisations (ADR-013) passe avant la première table métier : M1.17 attend M1.16d2 et M1.16f, et M1.16a1 à M1.16i peuvent démarrer dès maintenant.
+
+#### M1.16a1 — ADR-013 et réécriture du plan pour le multi-organisation
+- **Issue :** [#67](https://github.com/gaetanthouvenin/code-coverage/issues/67)
+- **Objectif :** consigner la décision et mettre le plan à jour avant tout changement de modèle.
+- **Couches :** docs.
+- **Fichiers :**
+  - `docs/adr/0013-organization-isolation.md` (statut « proposé », avec chaque écart de multi-organisation non configurable) ;
+  - `docs/adr/0003-single-tenant.md` marqué remplacé par ADR-013, et `docs/adr/README.md` ;
+  - `docs/PLAN.md` (fiches, §1.4, §2.3 à §2.6, §4.4, §10, §11) ;
+  - issues #18 à #48 mises à jour dans la même pull request (§1.1).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** chaque micro-feature modifiée par cette décision est à jour dans le plan et dans son issue.
+- **Dépend de :** —
+
+#### M1.16b — Entité `Organization`, port d'annuaire et table
+- **Issue :** [#68](https://github.com/gaetanthouvenin/code-coverage/issues/68)
+- **Objectif :** la racine d'organisation, identifiée par l'identifiant numérique du compte GitHub.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Domain/Organizations/Organization.cs`, `OrganizationState.cs`, `OrganizationAccountType.cs`, `SuspensionReason.cs`, `ReservedLogins.cs` ;
+  - `Domain/Ports/IOrganizationDirectory.cs` (`FindByLoginAsync`, `FindByAccountIdAsync`, `FindCurrentAsync`, `ListActiveAsync`, `UpsertFromGitHubAsync` avec pierre tombale du login) ;
+  - configuration et repository EF ;
+  - Migration `AddOrganizations` (`UX(GitHubAccountId)`, `UX(NormalizedLogin)`, `Version`).
+- **Tests :** `Domain.Tests/Organizations/OrganizationTests` — `Admit_FromPending_ShouldBecomeActive`, `Admit_ReservedLogin_ShouldThrow`, `Rename_ReservedLogin_ShouldSuspend`, `Rename_ShouldKeepGitHubAccountId` ; `Infrastructure.Tests/Persistence/Repositories/OrganizationDirectoryTests` — `FindByLogin_ShouldBeCaseInsensitive`, `Upsert_LoginHeldByOtherAccount_ShouldTombstoneOldRow`, `Upsert_SameAccountNewLogin_ShouldKeepId`.
+- **Acceptation :** aucune méthode ne renvoie la ligne d'un autre compte pour un login passé en pierre tombale, et la table ne contient aucune donnée métier.
+- **Dépend de :** M1.16a1, M0.15
+
+#### M1.16c — Portée d'organisation et contexte à écriture unique
+- **Issue :** [#69](https://github.com/gaetanthouvenin/code-coverage/issues/69)
+- **Objectif :** l'organisation ambiante d'une portée DI.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Domain/Ports/ICurrentOrganization.cs` (`Id` lève si le contexte n'est pas posé, `IsKnown`) ;
+  - `Domain/Ports/IOrganizationScope.cs` (`TryEnterAsync(login, CancellationToken)`, organisations `Active` seulement, `false` pour une entrée nulle, vide ou mal formée) ;
+  - `Infrastructure/Identity/OrganizationContext.cs` (`internal Enter(long)` : même valeur sans effet, autre valeur lève), enregistré en portée.
+- **Tests :** `Infrastructure.Tests/Identity/OrganizationContextTests` — `Id_WhenUnset_ShouldThrow`, `Enter_SameValueTwice_ShouldKeepIt`, `Enter_OtherValue_ShouldThrow` ; `OrganizationScopeTests` — `TryEnter_SuspendedOrganization_ShouldReturnFalseAndStayUnset`, `TryEnter_UnknownLogin_ShouldReturnFalse`, `TryEnter_MalformedLogin_ShouldReturnFalse`.
+- **Acceptation :** l'Application ne peut pas faire entrer la portée courante par identifiant (le compilateur le refuse).
+- **Dépend de :** M1.16b
+
+#### M1.16d1 — Filtre de requête, classement et première table d'organisation
+- **Issue :** [#70](https://github.com/gaetanthouvenin/code-coverage/issues/70)
+- **Objectif :** des lectures filtrées, prouvées sur les deux fournisseurs.
+- **Couches :** Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `CodeCoverageDbContext` reçoit `ICurrentOrganization` et installe le filtre nommé `Organization` dans une boucle après `ApplyConfigurationsFromAssembly` ;
+  - `Infrastructure/Persistence/Organizations/OrganizationOwnedExtensions.cs` (`IsOrganizationOwned`, et l'assistant de clé étrangère pour les quatre tables à index unique commençant par `OrganizationId`) ;
+  - `Infrastructure/Persistence/Organizations/TableClassification.cs` ;
+  - un contexte de conception qui lève, pour les 2 fabriques ; les 5 sites de construction des tests ; une fixture à deux organisations dans `tests/Support` ;
+  - EF `StoredOrganizationSetting` (`Id`, `UX(OrganizationId, Key)`, `Value`, `UpdatedAt`, `UpdatedBy`) ;
+  - Migration `AddOrganizationSettings`.
+- **Tests :** `Infrastructure.Tests/Persistence/Organizations/OrganizationFilterTests` — `Query_WithoutOrganization_ShouldThrow`, `Query_OtherOrganizationRows_ShouldReturnNothing`, `ExecuteUpdate_OtherOrganizationRows_ShouldAffectNone`, `ExecuteDelete_OtherOrganizationRows_ShouldAffectNone`, `TwoContexts_InOneProcess_ShouldUseTheirOwnOrganization` ; `ModelClassificationTests` — `Model_EveryEntity_ShouldBeClassifiedOnce`, `Model_OwnedEntity_ShouldHaveNamedFilter`.
+- **Acceptation :** le filtre tient sur les requêtes, `ExecuteUpdate` et `ExecuteDelete` sur les deux fournisseurs, et la migration ne crée aucun index de clé étrangère en dehors de l'index unique.
+- **Dépend de :** M1.16c
+
+#### M1.16d2 — Estampille et garde d'écriture
+- **Issue :** [#71](https://github.com/gaetanthouvenin/code-coverage/issues/71)
+- **Objectif :** isoler les écritures et clore le spike EF.
+- **Couches :** Infrastructure.
+- **Fichiers :** estampille et garde de `SaveChanges` dans `CodeCoverageDbContext` ; résultats du spike consignés dans ADR-013.
+- **Tests :** `Infrastructure.Tests/Persistence/Organizations/OrganizationWriteGuardTests` — `SaveChanges_Added_ShouldStampCurrentOrganization`, `SaveChanges_AddedWithoutOrganization_ShouldThrow`, `SaveChanges_ModifiedRowOfOtherOrganization_ShouldThrow`, `SaveChanges_DeletedRowOfOtherOrganization_ShouldThrow`.
+- **Acceptation :** l'estampille et la garde tiennent sur PostgreSQL et SQL Server, y compris pour une colonne fantôme comprise dans un index unique.
+- **Dépend de :** M1.16d1
+
+#### M1.16a2 — Documents d'architecture une fois l'isolation prouvée
+- **Issue :** [#72](https://github.com/gaetanthouvenin/code-coverage/issues/72)
+- **Objectif :** écrire les règles après le spike.
+- **Couches :** docs.
+- **Fichiers :**
+  - `AGENT.md` : règle 1 amendée pour les écarts de multi-organisation, nommés dans ADR-013 comme non configurables ; nouvelle règle critique des invariants d'isolation (tables classées, jamais `IgnoreQueryFilters`, une seule porte) ; règle 7 étendue aux 4 paramètres par organisation lus par un provider à portée ; lignes des §1 et §3 pour une table d'organisation et un paramètre d'organisation ;
+  - `docs/ARCHITECTURE.md` §1, §1.3 (retrait du multi-tenant hors périmètre et de l'organisation unique) et §2 ; §3bis.2 (porte, et CLI d'administration comme seule exception à la règle du principal système) ;
+  - `docs/ARCHITECTURE.md` §3bis et §4.2 (nouvelles tables, classement des 32 tables, index uniques modifiés) ; §4bis.1 (clés `Instance` par `IOptionsMonitor`, clés `Organization` par le provider) ; §4bis.3 (portées des paramètres, administrateurs par identifiant numérique) ; §5.1 (ordre d'authentification et table des réponses) ; §6.1 (organisation des jobs, préfixe des clés, coordinateurs) ; §9.1 (YAML d'organisation) ;
+  - `docs/ARCHITECTURE.md` §8.1 (App publique, Members en lecture, nouveaux événements), §8.2 (forme `/repositories/{id}`), §8.3 (filtre à la réception, transfert avec révocation des jetons, libellé de `ReceiveWebhookCommand`) ; §10.2 et §10bis.2-3 (routes, règle d'entrée, rôles, pages) ; §12.5 et §12.6 (sauvegardes et journaux, exposition opérateur de toutes les organisations) ; §13.1 (table des ADR) ;
+  - `docs/CONVENTIONS.md` : mentions du multi-tenant renvoyant à ADR-013 ; §4.2 (les ports restent sans paramètre d'organisation) ; §5.6 (marqueurs de message, règle d'une audience) ; §8 (`IsOrganizationOwned`, patron de migration) ; §12.4 ;
+  - `docs/adr/0006-settings-revision-polling.md` (les paramètres d'organisation n'emploient pas le compteur de révision), `0007-commit-statuses.md` (bascule par organisation), `0011-two-public-hostnames.md` (Web public, §11-6) ;
+  - ADR-013 passe à « accepté ».
+- **Tests :** — (documentation seule).
+- **Acceptation :** hors maquette UI et `docs/ui-design.md`, qui relèvent de M3.18, aucun document n'affirme une organisation unique servie, et le classement des 32 tables figure dans ARCHITECTURE §4.2.
+- **Dépend de :** M1.16d2
+
+#### M1.16e — Gardes d'architecture de l'isolation
+- **Issue :** [#73](https://github.com/gaetanthouvenin/code-coverage/issues/73)
+- **Objectif :** faire échouer le build en cas de contournement ; chaque règle ne fait que se resserrer.
+- **Couches :** Architecture.Tests, Infrastructure.Tests.
+- **Fichiers :**
+  - `Architecture.Tests/OrganizationIsolationTests.cs`, fondé sur Roslyn comme `SourceFileConventionTests` : liste d'exceptions vide pour `IgnoreQueryFilters` ; liste d'exceptions pour le SQL brut et `UseModel`, dont `ReadCommittedSnapshotHealthCheck` ; aucun `SetProperty` sur `OrganizationId` ; consommateurs de `IOrganizationScope` ; appelants de `JobRequest.ForOrganization` ; appelants de `SystemCommandRunner` ; utilisateurs d'`IMemoryCache` ;
+  - règle d'`Infrastructure.Tests` exigeant une classe de tests à deux organisations par repository sur une table d'organisation.
+- **Tests :** `Architecture.Tests/OrganizationIsolationTests` — `Source_ShouldNeverIgnoreQueryFilters`, `Source_RawSqlOutsideAllowList_ShouldFail`, `Source_RawSqlInComment_ShouldBeIgnored`, `Source_SetPropertyOnOrganizationId_ShouldFail`, `Source_OrganizationScopeConsumers_ShouldBeAuthorizationBehaviorOnly`, `Source_ForOrganizationOutsideAllowList_ShouldFail`, `Source_SystemCommandRunnerOutsideAdminCommandLine_ShouldFail`, `Source_MemoryCacheOutsideAllowList_ShouldFail` ; `Infrastructure.Tests/Persistence/RepositoryIsolationCoverageTests` — `EveryOwnedRepository_ShouldHaveTwoOrganizationTests`.
+- **Acceptation :** verts sur le code courant, et chaque règle a un test prouvant qu'elle détecte une violation d'exemple.
+- **Dépend de :** M1.16d2
+
+#### M1.16f — Porte d'autorisation et marqueurs d'accès obligatoires
+- **Issue :** [#74](https://github.com/gaetanthouvenin/code-coverage/issues/74)
+- **Objectif :** une seule entrée dans une organisation, et aucun message sans marqueur.
+- **Couches :** Application, Web, Architecture.Tests.
+- **Fichiers :**
+  - `Application/Security/IOrganizationScoped.cs` (`Login` et `RequiredRole` obligatoire), `IPublicOwnerAddressed.cs` (`Owner` ; entrée si `Active`, sinon portée laissée non posée), `IAnonymousEntry.cs`, `IUserScoped.cs` ;
+  - `AuthorizationBehavior` devient asynchrone, entre par `IOrganizationScope`, refuse `IRepositoryScoped` avec `Repository.NotFound` et `IOrganizationScoped` avec `Organization.NotFound`, et refuse tout expéditeur non système de ces deux marqueurs jusqu'au contrôle réel de M3.04 ;
+  - `PingQuery` devient `IAnonymousEntry` ;
+  - `Features/Repositories/RepositoryErrors.cs` (`Repository.NotFound`) et `Features/Organizations/OrganizationErrors.cs` (`Organization.NotFound`), complétés par M1.31 et M1.22a ; `SecurityErrors` ; `Common.resx` et `Common.fr.resx` ;
+  - `Architecture.Tests/MessageMarkerTests.cs`.
+
+  L'ordre du pipeline ne change pas.
+- **Tests :** `Application.Tests/Behaviors/AuthorizationBehaviorTests` — `Handle_RepositoryScopedActiveOrganization_ShouldEnterBeforeValidation`, `Handle_RepositoryScopedSuspendedOrganization_ShouldThrowRepositoryNotFound`, `Handle_OrganizationScopedUnknownOrganization_ShouldThrowOrganizationNotFound`, `Handle_OwnerAddressedUnknownOrganization_ShouldLeaveScopeUnset`, `Handle_MalformedOwner_ShouldNotThrowServerError`, `Handle_RepositoryScopedBeforeAccessCheck_ShouldRefuseUser`, `Handle_SystemPrincipal_ShouldKeepTheScopeOfTheJob` ; `Architecture.Tests/MessageMarkerTests` — `Messages_ShouldDeclareExactlyOneAccessMarker`.
+- **Acceptation :** `PipelineOrderTests` passent sans modification, et chaque message porte exactement un marqueur.
+- **Dépend de :** M1.16c
+
+#### M1.16g1 — Organisation sur les jobs et les clés de file
+- **Issue :** [#75](https://github.com/gaetanthouvenin/code-coverage/issues/75)
+- **Objectif :** le travail de fond s'exécute dans une organisation, et ses clés ne peuvent pas entrer en collision.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `JobRecord.OrganizationId` nullable, sans clé étrangère ni filtre ;
+  - `JobRequest.ForInstance` et `ForOrganization`, `KeyMaxLength` ramené à 178 (colonne maintenue à 200) ;
+  - `SqlJobQueue` estampille l'organisation et préfixe `LockKey` et `DedupKey` (`o{id}:` ou `i:`) en tête d'`EnqueueInTransactionAsync` ;
+  - `RecurringJobDefinition` emploie `ForInstance` ;
+  - `JobWorker.DispatchAsync` entre à côté de `SetSystem`, termine un job d'une organisation non active et ajoute l'organisation au scope de journalisation ;
+  - `JobWorkerTests`, `SqlJobQueueTests`, `JobClaimConcurrencyTests` et `RecurringJobSchedulerTests` passent à `ForInstance` et aux clés préfixées ;
+  - Migration `AddOrganizationToJobs`.
+- **Tests :** `Domain.Tests/Contracts/Jobs/JobRequestTests` — `ForOrganization_InsideOtherOrganizationScope_ShouldThrow` ; `Infrastructure.Tests/Jobs/SqlJobQueueTests` — `Insert_Default_ShouldStampCurrentOrganization`, `Insert_DefaultWithoutOrganization_ShouldThrow`, `Enqueue_SameDedupKeyOtherOrganization_ShouldNotMerge`, `Enqueue_LongestKey_ShouldFitTheColumn` ; `JobClaimConcurrencyTests` — `Claim_SameLockKeyTwoOrganizations_ShouldRunBoth` ; `JobWorkerTests` — `Dispatch_OrganizationJob_ShouldEnterItsOrganization`, `Dispatch_InstanceJobReadingOwnedTable_ShouldFail`.
+- **Acceptation :** les deux dialectes de réclamation renvoient la nouvelle colonne sur les deux fournisseurs, et les tests de file existants sont verts après le passage à `ForInstance`.
+- **Dépend de :** M1.16d1
+
+#### M1.16g2 — Organisation sur les entrées d'audit
+- **Issue :** [#76](https://github.com/gaetanthouvenin/code-coverage/issues/76)
+- **Objectif :** attribuer les lignes d'audit.
+- **Couches :** Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :** colonne fantôme `OrganizationId` nullable sur `AuditEntries` avec `IX(OrganizationId, At)`, estampillée par `AuditLog` depuis la portée, jamais par un argument de l'appelant ; Migration `AddOrganizationToAuditEntries`.
+- **Tests :** `Infrastructure.Tests/Operations/AuditLogTests` — `Record_InOrganizationScope_ShouldStampIt`, `Record_WithoutOrganization_ShouldStoreNull`.
+- **Acceptation :** les tests d'audit existants restent verts.
+- **Dépend de :** M1.16g1
+
+#### M1.16h — Portées de paramètres et retrait des paramètres d'organisation unique
+- **Issue :** [#77](https://github.com/gaetanthouvenin/code-coverage/issues/77)
+- **Objectif :** chaque paramètre déclare son niveau.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Settings/SettingScope.cs` (`Instance`, `Organization`), obligatoire sur `SettingDefinition` ;
+  - `Organization` (4) : `Coverage:OrganizationYaml`, `Notifications:StatusContextPrefix`, `Notifications:StatusesEnabled`, `Notifications:CommentsEnabled` ;
+  - retirés : `GitHub:Organization`, `Uploads:AllowedOwners` et `UploadOptions.AllowedOwners` ;
+  - `Access:AdminLogins` devient `Access:AdminUserIds` et `AccessOptions.AdminUserIds` ; ajout de `Access:HardExpiryMinutes` (`Instance`) ;
+  - `Min` et `Max` sur `Access:CacheMinutes` et `Access:HardExpiryMinutes`, limite de taille sur `Coverage:OrganizationYaml` ;
+  - `UpdateSetting`, `ResetSetting` et `GetSettings` n'acceptent que les clés `Instance`.
+- **Tests :** `Domain.Tests/Settings/SettingDefinitionsTests` — `All_ShouldDeclareExpectedScope`, `All_Secret_ShouldBeInstanceScope` ; `UpdateSettingCommandHandlerTests` — `Handle_OrganizationKey_ShouldThrow`.
+- **Acceptation :** le catalogue compte 41 clés, et les tests employant `GitHub:Organization` comme exemple passent à une autre clé.
+- **Dépend de :** M1.16a1
+
+#### M1.16i — Provider de paramètres par organisation
+- **Issue :** [#78](https://github.com/gaetanthouvenin/code-coverage/issues/78)
+- **Objectif :** lire les valeurs d'organisation sans cache partagé.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :** `Domain/Ports/IOrganizationSettingsProvider.cs` (`GetAsync(CancellationToken)`) ; `Domain/Settings/OrganizationSettingsSnapshot.cs` (les 4 valeurs) ; implémentation Infrastructure, à portée et mémorisée une fois par portée DI, avec la précédence ligne de l'organisation puis défaut du catalogue. Les 4 clés quittent `NotificationOptions` et `CoverageOptions`.
+- **Tests :** `Infrastructure.Tests/Settings/OrganizationSettingsProviderTests` — `Get_NoRow_ShouldUseCatalogDefault`, `Get_OtherOrganizationRow_ShouldBeIgnored`, `Get_Twice_ShouldReadOnce` ; `Infrastructure.Tests/Settings/SettingsOptionsCatalogTests` — `Catalog_EveryKey_ShouldBeCoveredByOptionsOrSnapshot`.
+- **Acceptation :** une modification est visible à l'envoi suivant sans redémarrage, et `SettingsRevision` n'est pas incrémenté.
+- **Dépend de :** M1.16d1, M1.16h
+
 #### M1.17 — Dépôts, installations et branches
 - **Issue :** [#18](https://github.com/gaetanthouvenin/code-coverage/issues/18)
 - **Objectif :** entités `Repositories` du Domain et leurs tables.
@@ -1007,10 +1216,12 @@ graph TD
   - `Domain/Repositories/RepositorySlug.cs` (VO, `owner/repo` et `owner::::repo`), `TrackedRepository.cs`, `Installation.cs`, `Branch.cs` ;
   - `Domain/Ports/IRepositoryRepository.cs`, `IInstallationRepository.cs`, `IBranchRepository.cs` ;
   - configurations et repositories EF ;
-  - Migration `AddRepositories` (`UX(GitHubId)`, `UX(Owner, Name)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
-- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepGitHubId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`.
+  - `Repositories` et `Branches` sont des tables d'organisation (ADR-013) ; `Installations` est globale, avec une clé étrangère `OrganizationId`, et `AccountLogin` passe dans `Organizations` ;
+  - la recherche par slug se fait par nom dans l'organisation courante ; `Repositories.Owner` reste une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler GitHub ;
+  - Migration `AddRepositories` (`UX(OrganizationId, NormalizedName)`, `UX(OrganizationId, GitHubId)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
+- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepGitHubId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`, `FindBySlug_SameNameInOtherOrganization_ShouldReturnOwnRow`, `Add_SameGitHubIdInTwoOrganizations_ShouldKeepBoth`.
 - **Acceptation :** concurrence optimiste via `Version`.
-- **Dépend de :** M1.03, M0.15
+- **Dépend de :** M1.03, M0.15, M1.16d2, M1.16f
 
 #### M1.18 — Commits, uploads et métadonnées git
 - **Issue :** [#19](https://github.com/gaetanthouvenin/code-coverage/issues/19)
@@ -1019,9 +1230,9 @@ graph TD
 - **Fichiers :**
   - `Domain/Commits/Commit.cs` (`ConfigSource` est une simple chaîne : la `Source` de `CommitConfigs`, ou `codecov-import` en M5.06), `CommitState.cs`, `CarryforwardStatus.cs`, `Upload.cs`, `UploadState.cs`, `PrincipalKind.cs`, `ProcessingLog.cs` (plafond de 64 Ko, 200 premiers chemins et total), `GitCommit.cs` ;
   - `Domain/Ports/ICommitRepository.cs` (`GetOrCreateAsync` par insertion puis relecture, `NextUploadSequenceAsync` atomique), `IUploadRepository.cs`, `IGitCommitRepository.cs` ;
-  - EF ;
+  - EF (`Commits`, `GitCommits` et `Uploads` sont des tables d'organisation) ;
   - Migration `AddCommitsAndUploads`, qui pose aussi la FK `Branches.CoveredCommitId` vers `Commits` (`NoAction` : SQL Server refuse les chemins de cascade multiples).
-- **Tests :** `Domain.Tests/Commits/CommitTests` — `MarkPending_FromKnown_ShouldSetPending` ; `ProcessingLogTests` — `Add_Over64Kb_ShouldTruncateKeepingTotal` ; `Infrastructure.Tests/Persistence/Repositories/CommitRepositoryTests` — `GetOrCreate_Concurrent_ShouldCreateOnce`, `NextUploadSequence_Concurrent_ShouldBeUnique`.
+- **Tests :** `Domain.Tests/Commits/CommitTests` — `MarkPending_FromKnown_ShouldSetPending` ; `ProcessingLogTests` — `Add_Over64Kb_ShouldTruncateKeepingTotal` ; `Infrastructure.Tests/Persistence/Repositories/CommitRepositoryTests` — `GetOrCreate_Concurrent_ShouldCreateOnce`, `NextUploadSequence_Concurrent_ShouldBeUnique`, `GetOrCreate_SameShaInTwoOrganizations_ShouldCreateTwoCommits`.
 - **Acceptation :** les courses entre uploads parallèles sont absorbées sur les deux fournisseurs.
 - **Dépend de :** M1.17
 
@@ -1033,9 +1244,9 @@ graph TD
   - `Domain/Commits/Session.cs`, `SessionKind.cs`, `CommitFlagTotals.cs` ;
   - `Domain/Ports/ICommitReportRepository.cs` (`GetUploadCoverageAsync`, `SaveProcessedUploadAsync(upload, blob, JobRequest)`, `SaveFinalizedAsync(...)`, `GetReportAsync`, `GetFileIndexAsync`) ;
   - `Features/Commits/CommitErrors.cs` (`Commit.ConcurrentSave`, code du `ConflictException` de `SaveFinalizedAsync`) ;
-  - EF `UploadCoverages`, `CommitSessions`, `CommitReports`, `CommitFlagTotals` ;
+  - EF `UploadCoverages`, `CommitSessions`, `CommitReports`, `CommitFlagTotals`, tables d'organisation ;
   - Migration `AddCommitReports`.
-- **Tests :** `Infrastructure.Tests/Persistence/Repositories/CommitReportRepositoryTests` — `SaveFinalized_WithStaleVersion_ShouldThrowConflict`, `SaveProcessedUpload_ShouldEnqueueInSameTransaction`.
+- **Tests :** `Infrastructure.Tests/Persistence/Repositories/CommitReportRepositoryTests` — `SaveFinalized_WithStaleVersion_ShouldThrowConflict`, `SaveProcessedUpload_ShouldEnqueueInSameTransaction`, `GetReport_OtherOrganization_ShouldReturnNull`.
 - **Acceptation :** aucun chemin de fichier n'est clé d'index.
 - **Dépend de :** M1.18, M1.16
 
@@ -1056,7 +1267,7 @@ graph TD
   - `Domain/Contracts/Uploads/UploadPart.cs`, `UploadPartKind.cs` ;
   - `Domain/Ports/IRawUploadStore.cs` (`WriteAsync(uploadId, UploadPart, CancellationToken)` qui renvoie le SHA-256 et les tailles ; `OpenReadAsync` ; `DeleteAsync`) ;
   - `Infrastructure/Uploads/SqlRawUploadStore.cs` (morceaux de 1 Mo), `Uploads/BoundedDecompressionStream.cs`, `Uploads/GzipDetector.cs` (`1F 8B`) ;
-  - EF `UploadRawFiles` et `UploadRawChunks` ;
+  - EF `UploadRawFiles` et `UploadRawChunks`, tables d'organisation ; les écritures passent par EF pour rester sous les gardes ;
   - Migration `AddRawUploads`.
 - **Tests :** `Infrastructure.Tests/Uploads/SqlRawUploadStoreTests` — `Write_200MbStream_ShouldNotMaterialize` (mémoire bornée), `Read_ShouldRestoreBytes` ; `BoundedDecompressionStreamTests` — `Read_ZipBomb_ShouldThrowOverLimit`.
 - **Acceptation :** pic mémoire inférieur à 32 Mo pour un upload de 200 Mo.
@@ -1071,23 +1282,37 @@ graph TD
   - `Domain/Contracts/Uploads/UploadCredential.cs` (VO, `ToString()` caviardé) ;
   - `Domain/Ports/IUploadTokenRepository.cs` ;
   - `Infrastructure/Security/TokenGenerator.cs` (`cvc_` suivi de 43 caractères base64url) et `Domain/Ports/ITokenGenerator.cs` ;
-  - UC `Features/UploadTokens/Commands/CreateUploadToken` `+V` (génération ou import UUID ; `IAdminOnly`, audit) ;
-  - UC `Features/UploadTokens/Commands/RevokeUploadToken` ;
-  - UC `Features/UploadTokens/Queries/ListUploadTokens` ;
+  - UC `Features/UploadTokens/Commands/CreateOrganizationUploadToken` `+V` et `CreateRepositoryUploadToken` `+V` (génération ou import UUID, audit) ;
+  - UC `Features/UploadTokens/Commands/RevokeOrganizationUploadToken` et `RevokeRepositoryUploadToken` ;
+  - UC `Features/UploadTokens/Queries/ListOrganizationUploadTokens` et `ListRepositoryUploadTokens` ;
+  - marqueurs : `IOrganizationScoped(Admin)` pour les messages d'organisation, `IRepositoryScoped(Admin)` pour ceux de dépôt ; les six partagent `Application/Services/UploadTokenService.cs` ;
   - `Features/UploadTokens/UploadTokenErrors.cs` ;
+  - `UploadTokens` est une table d'organisation : colonne `Owner` retirée, `UX(OrganizationId, Hash)` à la place de `UX(Hash)`, `RotationAdvisedAt` ajoutée ;
   - Migration `AddUploadTokens`.
-- **Tests :** `Domain.Tests/Contracts/Uploads/UploadCredentialTests` — `ToString_ShouldRedactValue` ; `Application.Tests/Features/UploadTokens/Commands/CreateUploadToken/CreateUploadTokenCommandHandlerTests` — `Handle_Import_ShouldStoreHashOnly`, `Handle_ShouldReturnPlainValueOnce`.
-- **Acceptation :** seul le hash est stocké, et un même hash est refusé par `UX(Hash)` (409).
+- **Tests :** `Domain.Tests/Contracts/Uploads/UploadCredentialTests` — `ToString_ShouldRedactValue` ; `Application.Tests/Features/UploadTokens/Commands/CreateOrganizationUploadToken/CreateOrganizationUploadTokenCommandHandlerTests` — `Handle_Import_ShouldStoreHashOnly`, `Handle_ShouldReturnPlainValueOnce`, `Handle_SameImportedValueInOtherOrganization_ShouldAccept`, `Handle_SameImportedValueTwiceInOrganization_ShouldThrowConflict`.
+- **Acceptation :** seul le hash est stocké, et une même valeur importée est acceptée dans deux organisations et refusée deux fois dans une seule (409).
 - **Dépend de :** M1.17, M0.16, M0.17
+
+#### M1.22a — Cas d'usage d'admission et exécuteur de commandes système
+- **Issue :** [#79](https://github.com/gaetanthouvenin/code-coverage/issues/79)
+- **Objectif :** créer des organisations avant M2 et M3, et rendre M1.23 réalisable.
+- **Couches :** Application, Infrastructure.
+- **Fichiers :**
+  - UC `Features/Organizations/Commands/AdmitOrganization` (`IAdminOnly`, audit ; création depuis `Login` et `GitHubAccountId`, ou activation d'une ligne `Pending`) et `SuspendOrganization` ;
+  - `Features/Organizations/OrganizationErrors.cs` complété, dans les deux `.resx` ;
+  - `Infrastructure/Administration/SystemCommandRunner.cs`, public, non enregistré en DI, qui exécute une liste nommée de commandes comme système dans une nouvelle portée avec une organisation facultative, de sorte que `SetSystem` reste `internal`.
+- **Tests :** `AdmitOrganizationCommandHandlerTests` — `Handle_Pending_ShouldActivateAndAudit`, `Handle_UnknownAccount_ShouldCreateActive`, `Handle_ReservedLogin_ShouldThrow` ; `SuspendOrganizationCommandHandlerTests` — `Handle_ShouldBlockTheNextEntry` ; `Infrastructure.Tests/Administration/SystemCommandRunnerTests` — `Run_CommandOutsideList_ShouldThrow`, `Run_WithOrganization_ShouldEnterIt` ; `JobWorkerTests` — `Dispatch_SuspendedOrganization_ShouldEndTheJob`.
+- **Acceptation :** M1.23 n'emploie plus `SetSystem` directement, `SetSystem_ShouldNeverBeVisibleFromTheHosts` est inchangé, et une organisation `Active` peut être créée à partir de rien.
+- **Dépend de :** M1.22, M1.16f, M1.16g1
 
 #### M1.23 — Verbe d'administration en ligne de commande (amorçage du pilote)
 - **Issue :** [#24](https://github.com/gaetanthouvenin/code-coverage/issues/24)
-- **Objectif :** créer et importer des jetons d'upload avant l'arrivée de l'UI et de l'API de gestion en M3 (voir §10).
+- **Objectif :** admettre une organisation, créer et importer des jetons d'upload avant l'arrivée de l'UI et de l'API de gestion en M3 (voir §10).
 - **Couches :** Api (composition).
-- **Fichiers :** `Api/Configuration/Administration/AdminCommandLine.cs`. Il gère `dotnet CodeCoverage.Api.dll admin create-upload-token --scope … --owner … [--repository …] --label … [--import-value-stdin]` et `admin revoke-upload-token --id …`. Il exécute la commande Application avec le principal système, puis quitte sans démarrer Kestrel.
-- **Tests :** `Api.Tests/Administration/AdminCommandLineTests` — `Run_CreateUploadToken_ShouldPrintValueOnce`, `Run_ImportFromStdin_ShouldNotEchoValue`.
+- **Fichiers :** `Api/Configuration/Administration/AdminCommandLine.cs`. Il gère `dotnet CodeCoverage.Api.dll admin create-upload-token --owner … --scope organization|repository [--repository …] --label … [--import-value-stdin]`, `admin revoke-upload-token --owner … --id …` et `admin admit-organization --login … --account-id …`. `--owner` est obligatoire et doit désigner une organisation `Active`, et `--scope` choisit le message d'organisation ou de dépôt. Il exécute la commande Application par `SystemCommandRunner` (M1.22a), auditée avec un acteur distinct, puis quitte sans démarrer Kestrel.
+- **Tests :** `Api.Tests/Administration/AdminCommandLineTests` — `Run_CreateUploadToken_ShouldPrintValueOnce`, `Run_ImportFromStdin_ShouldNotEchoValue`, `Run_AdmitOrganization_ShouldCreateActiveOrganization`, `Run_OwnerNotActive_ShouldFail`.
 - **Acceptation :** la valeur importée n'apparaît jamais dans les arguments de processus, et la commande est utilisable via `docker compose exec api`.
-- **Dépend de :** M1.22, M0.24
+- **Dépend de :** M1.22, M0.24, M1.22a
 
 ### 4.5 Passerelle GitHub minimale
 
@@ -1097,7 +1322,7 @@ graph TD
 - **Couches :** Domain.
 - **Fichiers :**
   - `Domain/Contracts/GitHub/GitHubRepositoryInfo.cs`, `GitHubCommitInfo.cs`, `GitHubCompareResult.cs`, `GitHubChangedFile.cs`, `GitHubPullInfo.cs`, `GitHubTreeEntry.cs`, `GitHubTree.cs`, `GitHubInstallationInfo.cs` ;
-  - `Domain/Ports/IGitHubAppGateway.cs`, partie lecture : `GetRepositoryInstallationAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`.
+  - `Domain/Ports/IGitHubAppGateway.cs`, partie lecture : `GetRepositoryInstallationAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`. Chaque méthode au niveau d'un dépôt prend l'identifiant d'installation et l'identifiant GitHub du dépôt suivi, sans installation par défaut ; `GetRepositoryInstallationAsync` renvoie aussi l'identifiant du compte.
 - **Tests :** Architecture.Tests (règles des ports).
 - **Acceptation :** chaque méthode du port prend un `CancellationToken` obligatoire.
 - **Dépend de :** M0.05
@@ -1121,8 +1346,8 @@ graph TD
 - **Issue :** [#27](https://github.com/gaetanthouvenin/code-coverage/issues/27)
 - **Objectif :** implémenter le port en lecture.
 - **Couches :** Infrastructure.
-- **Fichiers :** `Infrastructure/GitHub/GitHubAppGateway.cs` (partie lecture) ; `GitHub/Models/*.cs` (records JSON internes) ; fixtures `tests/fixtures/github/{repo,commits,compare,pull,tree,contents}.json`.
-- **Tests :** `Infrastructure.Tests/GitHub/GitHubAppGatewayReadTests` (WireMock) — `ListCommits_ShouldMapParents`, `Compare_Truncated_ShouldFlag`, `GetTree_Truncated_ShouldFlag`, `GetContent_ShouldUseRawMediaType`, `GetRepositoryInstallation_NotInstalled_ShouldReturnNull`.
+- **Fichiers :** `Infrastructure/GitHub/GitHubAppGateway.cs` (partie lecture) ; `GitHub/Models/*.cs` (records JSON internes) ; fixtures `tests/fixtures/github/{repo,commits,compare,pull,tree,contents}.json`, sur la forme par identifiant. Les lectures d'un dépôt suivi emploient `/repositories/{GitHubId}/…` ; seule la recherche d'installation d'un dépôt inconnu emploie owner et nom.
+- **Tests :** `Infrastructure.Tests/GitHub/GitHubAppGatewayReadTests` (WireMock) — `ListCommits_ShouldMapParents`, `Compare_Truncated_ShouldFlag`, `GetTree_Truncated_ShouldFlag`, `GetContent_ShouldUseRawMediaType`, `GetRepositoryInstallation_NotInstalled_ShouldReturnNull`, `ListCommits_TrackedRepository_ShouldUseRepositoryIdRoute`.
 - **Acceptation :** chaque appel porte `X-GitHub-Api-Version: 2022-11-28`.
 - **Dépend de :** M1.25
 
@@ -1134,7 +1359,7 @@ graph TD
   - `Domain/Ports/IRepositoryTreeRepository.cs` (ajout, §10) ;
   - `Application/Services/CommitAncestry.cs` (`GetFirstParentChainAsync(repo, sha, maxDepth)`, rempli via `ListCommitsAsync(per_page=50)`) ;
   - `Application/Services/RepositoryTreeProvider.cs` ;
-  - EF `RepositoryTrees` (gzip) ;
+  - EF `RepositoryTrees` (gzip), table d'organisation ;
   - Migration `AddRepositoryTrees`.
 - **Tests :** `Application.Tests/Services/CommitAncestryTests` — `GetChain_WhenCached_ShouldNotCallGitHub`, `GetChain_ShouldFetch50PerCall` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryTreeRepositoryTests`.
 - **Acceptation :** au plus un appel GitHub pour 50 ancêtres, et les parents ne sont jamais déduits d'un webhook.
@@ -1147,12 +1372,12 @@ graph TD
 - **Fichiers :**
   - `Domain/Config/CommitConfig.cs`, `ConfigSource.cs` (énumération de `CommitConfigs.Source`) ;
   - `Domain/Ports/ICommitConfigRepository.cs` ;
-  - `Application/Services/ConfigResolver.cs` (arbre racine, puis `.github`, puis `dev`, puis `contents` ; repli sur `DefaultBranchYaml`, puis `Coverage:OrganizationYaml`, puis défauts) ;
-  - EF `CommitConfigs` ;
+  - `Application/Services/ConfigResolver.cs` (arbre racine, puis `.github`, puis `dev`, puis `contents` ; repli sur `DefaultBranchYaml`, puis `Coverage:OrganizationYaml` lu par `IOrganizationSettingsProvider`, puis défauts) ;
+  - EF `CommitConfigs`, table d'organisation ;
   - Migration `AddCommitConfigs`.
-- **Tests :** `Application.Tests/Services/ConfigResolverTests` — `Resolve_ShouldPreferRootThenGithubThenDev`, `Resolve_InvalidYaml_ShouldFallBackAndKeepError`, `Resolve_Twice_ShouldHitCache`, `Resolve_ShouldMergeOrganizationYaml`.
+- **Tests :** `Application.Tests/Services/ConfigResolverTests` — `Resolve_ShouldPreferRootThenGithubThenDev`, `Resolve_InvalidYaml_ShouldFallBackAndKeepError`, `Resolve_Twice_ShouldHitCache`, `Resolve_ShouldMergeOrganizationYaml`, `Resolve_ShouldNotUseOtherOrganizationYaml`.
 - **Acceptation :** quatre appels GitHub au plus par SHA, puis zéro.
-- **Dépend de :** M1.08, M1.26, M1.17
+- **Dépend de :** M1.08, M1.26, M1.17, M1.16i
 
 ### 4.6 Réception des uploads
 
@@ -1160,7 +1385,7 @@ graph TD
 - **Issue :** [#30](https://github.com/gaetanthouvenin/code-coverage/issues/30)
 - **Objectif :** valider l'issuer, le JWKS, l'audience et les conditions du dépôt.
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/Contracts/Identity/GitHubOidcIdentity.cs` ; `Domain/Ports/IOidcTokenValidator.cs` ; `Infrastructure/Identity/GitHubOidcTokenValidator.cs` (`ConfigurationManager<OpenIdConnectConfiguration>`, tolérance d'une minute).
+- **Fichiers :** `Domain/Contracts/Identity/GitHubOidcIdentity.cs` (expose `repository_owner_id` et `repository_id`, sans liste de propriétaires autorisés) ; `Domain/Ports/IOidcTokenValidator.cs` ; `Infrastructure/Identity/GitHubOidcTokenValidator.cs` (`ConfigurationManager<OpenIdConnectConfiguration>`, tolérance d'une minute).
 - **Tests :** `Infrastructure.Tests/Identity/GitHubOidcTokenValidatorTests` (JWKS WireMock, clés de test) — `Validate_WrongAudience_ShouldFail`, `Validate_Expired_ShouldFail`, `Validate_Valid_ShouldReturnRepositoryId`.
 - **Acceptation :** aucun appel réseau par validation une fois le JWKS en cache.
 - **Dépend de :** M1.25
@@ -1170,17 +1395,19 @@ graph TD
 - **Objectif :** authentifier un credential pour un dépôt (§5.1).
 - **Couches :** Application.
 - **Fichiers :**
-  - `Application/Services/UploadAuthenticator.cs` (JWT, puis jeton, sans mode anonyme ; cache de 60 s par hash ; `LastUsedAt` au plus une fois par minute) ;
+  - `Application/Services/UploadAuthenticator.cs` (ordre uniforme d'ADR-013, sans mode anonyme ; OIDC : `repository_owner_id` égal au compte de l'organisation et `repository_id` égal à `GitHubId`, ou à l'identifiant renvoyé par GitHub pour un dépôt inconnu ; `LastUsedAt` au plus une fois par minute) ;
+  - `Domain/Ports/IUploadCredentialCache.cs` et son implémentation Infrastructure (`IMemoryCache`, 60 s, clé préfixée par l'organisation), qui ne met en cache que l'identité du credential, jamais la décision ;
   - `Domain/Uploads/UploadAuthorization.cs` ;
-  - UC `Features/Uploads/Queries/AuthorizeUpload` `+V` ;
+  - UC `Features/Uploads/Queries/AuthorizeUpload` `+V` (`IPublicOwnerAddressed`) ;
   - `Features/Uploads/UploadErrors.cs` (`Upload.TokenInvalid`, `Upload.TokenNotForRepository`, `Upload.OidcMismatch`, `Upload.MetadataMustPrecedeFiles`, `Upload.NoFileMapped`, `Upload.UnsupportedFormat`, `Upload.MergeCommitRewritten`).
 - **Tests :** `Application.Tests/Services/UploadAuthenticatorTests` :
-  - `Authenticate_OrgTokenOtherOwner_ShouldThrowForbidden` ;
+  - `Authenticate_TokenOfOtherOrganization_ShouldThrowUnauthorized` ;
+  - `Authenticate_TokenAgainstUnknownOwner_ShouldThrowUnauthorized`, avec le même statut que le cas du mauvais jeton ;
   - `Authenticate_OidcRepositoryIdMismatch_ShouldThrowForbidden` ;
   - `Authenticate_RevokedToken_ShouldThrowUnauthorized` ;
   - `Authenticate_ImportedCodecovToken_ShouldPass`.
-- **Acceptation :** les codes 401 et 403 conformes au tableau §5.1.
-- **Dépend de :** M1.22, M1.29
+- **Acceptation :** les codes 401 et 403 conformes au tableau §5.1, et aucune réponse ne dépend de l'état de l'organisation avant qu'un credential soit prouvé.
+- **Dépend de :** M1.22, M1.29, M1.16f
 
 #### M1.31 — `ReceiveUploadCommand`
 - **Issue :** [#32](https://github.com/gaetanthouvenin/code-coverage/issues/32)
@@ -1188,20 +1415,21 @@ graph TD
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
   - `Domain/Contracts/Uploads/UploadMetadata.cs`, `CiContext.cs` ;
-  - UC `Features/Uploads/Commands/ReceiveUpload` `+V` (`ReceiveUploadCommand(UploadCredential, UploadMetadata, IAsyncEnumerable<UploadPart>, string? IdempotencyKey)` qui renvoie `Upload`) ;
-  - le handler suit les étapes 1 à 7 de §5.1 : ré-authentification, résolution ou création du dépôt via l'installation, commit par insertion puis relecture, séquence atomique, brut en flux, transaction `Upload(Received)` avec job `ProcessUpload`, rejeu idempotent et réveil ;
-  - `Features/Repositories/RepositoryErrors.cs` (`Repository.NotFound`, `Repository.Inactive`) ;
+  - UC `Features/Uploads/Commands/ReceiveUpload` `+V` (`IPublicOwnerAddressed` ; `ReceiveUploadCommand(UploadCredential, UploadMetadata, IAsyncEnumerable<UploadPart>, string? IdempotencyKey)` qui renvoie `Upload`) ;
+  - le handler suit les étapes 1 à 7 de §5.1 : ré-authentification, résolution ou création du dépôt via l'installation (le compte de l'installation doit être celui de l'organisation courante, sinon `Repository.NotFound` ; la ligne `Installations` est écrite avec l'organisation), commit par insertion puis relecture, séquence atomique, brut en flux, transaction `Upload(Received)` avec job `ProcessUpload`, rejeu idempotent et réveil ;
+  - `Features/Repositories/RepositoryErrors.cs` complété (`Repository.Inactive`) ;
   - `Domain/Ports/IJobWakeUp.cs` (réveil en process) ;
   - `JobTypes.ProcessUpload`.
 - **Tests :** `Application.Tests/Features/Uploads/Commands/ReceiveUpload/ReceiveUploadCommandHandlerTests` :
   - `Handle_UnknownRepoWithInstallation_ShouldCreateTrackedRepository` ;
   - `Handle_NoInstallation_ShouldThrowNotFound` ;
+  - `Handle_InstallationOfOtherAccount_ShouldThrowNotFound` ;
   - `Handle_InactiveRepo_ShouldThrowUnprocessable` ;
   - `Handle_SameIdempotencyKey_ShouldReturnExistingAndDeleteOrphanRaw`.
 
   `Infrastructure.Tests/Uploads/ReceiveUploadIntegrationTests` couvre les uploads parallèles d'une matrice.
 - **Acceptation :** aucun parsing dans le handler, et le job est inséré dans la même transaction que l'upload.
-- **Dépend de :** M1.30, M1.21, M1.26, M0.22
+- **Dépend de :** M1.30, M1.21, M1.26, M0.22, M1.16g1
 
 #### M1.32 — `POST /api/v1/uploads` en flux
 - **Issue :** [#33](https://github.com/gaetanthouvenin/code-coverage/issues/33)
@@ -1211,9 +1439,9 @@ graph TD
   - `Api/Controllers/UploadsController.cs` (`CreateAsync`, Name `CreateUpload`) ;
   - `Api/Uploads/UploadMultipartReader.cs` (`MultipartReader` ; champs texte accumulés ; `MultipartFilePart` défini côté Api) ;
   - `Api/Uploads/UploadCredentialReader.cs` (`Bearer`, `token`, `X-Upload-Token`) ;
-  - `Api/Contracts/Uploads/UploadAcceptedResponse.cs` ;
+  - `Api/Contracts/Uploads/UploadAcceptedResponse.cs` (`StatusUrl` sur la route du dépôt) ;
   - `Api/Mapping/UploadMapper.cs` (`ToMetadataQuery`, `ToCommand`, conversion des parties en `UploadPart`, `ReceiveUploadResponseAsync`) ;
-  - `Api/Configuration/RateLimiting/UploadRateLimiterConfiguration.cs` (fenêtre fixe par paire hash et dépôt, `IOptionsMonitor`) ;
+  - `Api/Configuration/RateLimiting/UploadRateLimiterConfiguration.cs` (fenêtre fixe par paire hash et dépôt, `IOptionsMonitor` ; partition calculée une fois lu le champ `slug` du multipart) ;
   - `Api/Configuration/Uploads/RequestBodyLimitMiddleware.cs` (`IHttpMaxRequestBodySizeFeature` à chaque requête).
 - **Tests :** `Api.Tests/Uploads/UploadsControllerTests` :
   - `Post_Unauthenticated_ShouldRejectBeforeReadingBody` ;
@@ -1225,12 +1453,12 @@ graph TD
 - **Acceptation :** réponse en moins de 300 ms hors transfert sur un rapport de 5 Mo, et aucun type du Domain dans le contrôleur (Architecture.Tests).
 - **Dépend de :** M1.31, M0.11
 
-#### M1.33 — `GET /api/v1/uploads/{id}`
+#### M1.33 — `GET /api/v1/repos/{owner}/{repo}/uploads/{id}`
 - **Issue :** [#34](https://github.com/gaetanthouvenin/code-coverage/issues/34)
 - **Objectif :** donner l'état et le journal d'un upload, avec authentification par credential d'upload. Le jeton API est ajouté en M3.09.
 - **Couches :** Application, Api.
-- **Fichiers :** UC `Features/Uploads/Queries/GetUpload` ; UC `Features/Uploads/Queries/ListCommitUploads` ; `Api/Contracts/Uploads/UploadResponse.cs`, `UploadTotalsModel.cs` ; `UploadMapper.GetUploadResponseAsync`.
-- **Tests :** `Application.Tests/Features/Uploads/Queries/GetUpload/GetUploadQueryHandlerTests` — `Handle_CredentialForOtherRepo_ShouldThrowNotFound` ; `Api.Tests/Uploads/GetUploadTests`.
+- **Fichiers :** route `GET /api/v1/repos/{owner}/{repo}/uploads/{id:guid}` ; UC `Features/Uploads/Queries/GetUploadByCredential` (`IPublicOwnerAddressed`, credential d'upload seulement) ; UC `Features/Uploads/Queries/ListCommitUploads` (`IRepositoryScoped(Read)`) ; `Api/Contracts/Uploads/UploadResponse.cs`, `UploadTotalsModel.cs` ; `UploadMapper.GetUploadResponseAsync`.
+- **Tests :** `Application.Tests/Features/Uploads/Queries/GetUploadByCredential/GetUploadByCredentialQueryHandlerTests` — `Handle_CredentialForOtherRepo_ShouldThrowNotFound` ; `Api.Tests/Uploads/GetUploadTests`.
 - **Acceptation :** le journal présente les chemins non résolus ou ambigus et les formats inconnus.
 - **Dépend de :** M1.32
 
@@ -1314,8 +1542,8 @@ graph TD
 - **Issue :** [#40](https://github.com/gaetanthouvenin/code-coverage/issues/40)
 - **Objectif :** retraitement depuis le brut et relance d'un upload échoué.
 - **Couches :** Application.
-- **Fichiers :** UC `Features/Commits/Commands/ReprocessCommit` (`LockKey commit:{id}`, `DedupKey reprocess:{id}`) ; UC `Features/Uploads/Commands/RetryUpload` ; `JobTypes.ReprocessCommit` ; audit.
-- **Tests :** `ReprocessCommitCommandHandlerTests` — `Handle_RawExpired_ShouldThrowUnprocessable`, `Handle_ShouldRequeueEveryUpload` ; `RetryUploadCommandHandlerTests` — `Handle_ProcessedUpload_ShouldThrowConflict`.
+- **Fichiers :** UC `Features/Commits/Commands/ReprocessCommit` (`IRepositoryScoped(Admin)`, `LockKey commit:{id}`, `DedupKey reprocess:{id}`) ; UC `Features/Uploads/Commands/RetryUpload` (`IRepositoryScoped(Admin)`) ; `JobTypes.ReprocessCommit` ; audit.
+- **Tests :** `ReprocessCommitCommandHandlerTests` — `Handle_RawExpired_ShouldThrowUnprocessable`, `Handle_ShouldRequeueEveryUpload` ; `RetryUploadCommandHandlerTests` — `Handle_ProcessedUpload_ShouldThrowConflict`, `Handle_UploadOfOtherOrganization_ShouldThrowNotFound`.
 - **Acceptation :** un retraitement produit un rapport identique si le parseur n'a pas changé.
 - **Dépend de :** M1.38
 
@@ -1374,7 +1602,7 @@ graph TD
 - **Issue :** [#46](https://github.com/gaetanthouvenin/code-coverage/issues/46)
 - **Objectif :** attendre le traitement et afficher le journal.
 - **Couches :** Uploader.
-- **Fichiers :** `Uploader/Http/UploadStatusPoller.cs` (timeout de 120 s), `Uploader/Output/ProcessingLogPrinter.cs`, `Uploader/Commands/DryRunPrinter.cs`.
+- **Fichiers :** `Uploader/Http/UploadStatusPoller.cs` (timeout de 120 s ; interroge le `StatusUrl` renvoyé par le serveur, sans jamais construire l'URL), `Uploader/Output/ProcessingLogPrinter.cs`, `Uploader/Commands/DryRunPrinter.cs`.
 - **Tests :** `Uploader.Tests/Http/UploadStatusPollerTests` — `Poll_UntilProcessed_ShouldPrintResolvedCounts`, `Poll_Timeout_ShouldExitZero`.
 - **Acceptation :** affiche « resolved 412/415 files; unresolved: … ».
 - **Dépend de :** M1.44, M1.33
@@ -1412,7 +1640,7 @@ graph TD
 #### M2.01 — Pull requests (Domain et persistance)
 - **Objectif :** représenter les PR, la table GitHub faisant foi.
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/PullRequests/PullRequest.cs`, `PullRequestState.cs` ; `Domain/Ports/IPullRequestRepository.cs` (`FindOpenByHeadShaAsync`, `ListOpenByForkPointAsync`, `UpsertAsync`) ; EF ; Migration `AddPullRequests`.
+- **Fichiers :** `Domain/PullRequests/PullRequest.cs`, `PullRequestState.cs` ; `Domain/Ports/IPullRequestRepository.cs` (`FindOpenByHeadShaAsync` par `RepositoryId`, `ListOpenByForkPointAsync`, `UpsertAsync`) ; EF (`PullRequests`, table d'organisation) ; Migration `AddPullRequests`.
 - **Tests :** `Domain.Tests/PullRequests/PullRequestTests` — `Close_Merged_ShouldStopComments` ; `Infrastructure.Tests/Persistence/Repositories/PullRequestRepositoryTests`.
 - **Acceptation :** `UX(RepositoryId, Number)` et `Version`.
 - **Dépend de :** M1.17
@@ -1425,27 +1653,47 @@ graph TD
   - `Domain/Ports/IWebhookSignatureValidator.cs` (ajout, §10), `IWebhookDeliveryRepository.cs` ;
   - `Domain/Operations/WebhookDeliverySummary.cs` ;
   - `Infrastructure/GitHub/WebhookSignatureValidator.cs` (secret courant et précédent, `FixedTimeEquals`) ;
-  - UC `Features/GitHubEvents/Commands/ReceiveWebhook` (authentifiée par signature dans le handler, **pas** `ISystemOnly`, voir §10) ;
+  - UC `Features/GitHubEvents/Commands/ReceiveWebhook` (`IAnonymousEntry`, authentifiée par signature dans le handler, **pas** `ISystemOnly`, voir §10 ; une seule lecture de `installation.id` dans `Installations`, sans appel GitHub ; organisation `Active` : stockée et mise en file par `ForOrganization` ; sinon seuls `installation`, `installation_repositories` et `installation_target` sont stockés, sur la voie d'instance, le reste est abandonné avec 202 ; `LockKey repo:{githubRepoId}`, préfixée par la file) ;
   - `Features/GitHubEvents/GitHubEventErrors.cs` ;
   - `Api/Controllers/GitHubWebhooksController.cs` (`[AllowAnonymous]`, corps de 25 Mo au plus) ;
-  - EF `WebhookDeliveries` ; Migration `AddWebhookDeliveries` ;
+  - EF `WebhookDeliveries`, table opérationnelle à `OrganizationId` nullable ; la lecture de traitement vérifie que l'organisation de la ligne est la courante ou nulle ; Migration `AddWebhookDeliveries` ;
   - `JobTypes.HandleWebhook`.
-- **Tests :** `Application.Tests/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandlerTests` — `Handle_InvalidSignature_ShouldThrowUnauthorized`, `Handle_PreviousSecret_ShouldAccept`, `Handle_KnownDelivery_ShouldDoNothing` ; `Api.Tests/GitHub/GitHubWebhooksControllerTests` — `Post_Valid_ShouldReturn202WithoutCallingGitHub`.
+- **Tests :** `Application.Tests/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandlerTests` — `Handle_InvalidSignature_ShouldThrowUnauthorized`, `Handle_PreviousSecret_ShouldAccept`, `Handle_KnownDelivery_ShouldDoNothing`, `Handle_ActiveOrganization_ShouldQueueForOrganization`, `Handle_NonActiveOrganizationPush_ShouldDropWith202`, `Handle_NonActiveOrganizationInstallation_ShouldQueueInInstanceLane` ; `Api.Tests/GitHub/GitHubWebhooksControllerTests` — `Post_Valid_ShouldReturn202WithoutCallingGitHub`.
 - **Acceptation :** métrique `webhook_signature_failures_total`, et aucun appel GitHub pendant la requête.
-- **Dépend de :** M1.25, M0.24
+- **Dépend de :** M1.25, M0.24, M1.17, M1.16g1
 
 #### M2.03 — Traitement des webhooks : installations et dépôts
 - **Objectif :** dispatcher les livraisons et réconcilier les installations.
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
-  - UC `Features/GitHubEvents/Commands/HandleWebhookDelivery` (`ISystemOnly`, dispatcher par événement) ;
-  - UC `Features/GitHubEvents/Commands/SyncInstallations` ;
+  - UC `Features/GitHubEvents/Commands/HandleWebhookDelivery` (`ISystemOnly`, dispatcher par événement, exécuté dans l'organisation de la livraison) ;
+  - UC `Features/GitHubEvents/Commands/SyncInstallations`, coordinateur (`ForInstance`) qui met en file un enfant par installation ; une organisation non active ne crée aucun dépôt ;
   - `IGitHubAppGateway.ListInstallationsAsync` et `ListInstallationRepositoriesAsync` ;
   - traitement de `installation`, `installation_repositories` et `repository` (`renamed`, `transferred`, `deleted`, `privatized`, `publicized`) ;
+  - `repository.transferred` crée une nouvelle ligne chez le destinataire et met en file la réconciliation de la voie d'instance, qui désactive l'ancienne ligne, révoque ses jetons de dépôt, fait tourner son jeton de badge (`TrackedRepository.RotateBadgeToken`, réutilisé par M3.14), marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces actions ;
   - `RecurringJobCatalog` : `SyncInstallations` quotidien.
-- **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_RepositoryRenamed_ShouldUpdateOwnerAndNameByGitHubId`, `Handle_InstallationRepositoriesRemoved_ShouldDeactivate` ; `SyncInstallationsCommandHandlerTests` — `Handle_ShouldUpsertAndDeactivateMissing`.
+- **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_RepositoryRenamed_ShouldUpdateNameInsideOrganization`, `Handle_InstallationRepositoriesRemoved_ShouldDeactivate`, `Handle_TransferredAway_ShouldRevokeRepositoryTokens`, `Handle_TransferredBack_ShouldNotRestoreTokens` ; `SyncInstallationsCommandHandlerTests` — `Handle_ShouldUpsertAndDeactivateMissing`.
 - **Acceptation :** une redélivrance est absorbée.
-- **Dépend de :** M2.02, M1.17, M1.26
+- **Dépend de :** M2.02, M1.17, M1.26, M1.22
+
+#### M2.03a1 — Cycle de vie d'une organisation depuis les événements d'installation
+- **Objectif :** suivre les installations et les événements perdus.
+- **Couches :** Application, Infrastructure.
+- **Fichiers :**
+  - traitement de `installation.created` (`Pending`, liée par identifiant de compte, rien n'est suivi), `installation.deleted` et `suspend` (`Suspended`), et de la réinstallation (rattachement, réactivation si la suspension venait de la désinstallation) ;
+  - le coordinateur `SyncInstallations` appelle `UpsertFromGitHubAsync` par identifiant de compte pour chaque installation, ce qui crée les lignes `Pending` et met à jour les logins ;
+  - l'admission met en file la synchronisation de son installation.
+- **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_InstallationCreated_ShouldCreatePendingOrganization`, `Handle_ReinstallSameAccount_ShouldReattachAndReactivate`, `Handle_AdminSuspended_ShouldStaySuspendedOnReinstall` ; `SyncInstallationsCommandHandlerTests` — `Handle_UnknownInstallation_ShouldCreatePendingOrganization`.
+- **Acceptation :** aucun événement n'admet automatiquement une organisation, et un `installation.created` perdu pendant une indisponibilité produit une ligne `Pending` à la synchronisation suivante.
+- **Dépend de :** M2.03, M1.22a
+
+#### M2.03a2 — Événements de membres et de renommage
+- **Objectif :** suivre les départs et les renommages.
+- **Couches :** Application, Infrastructure.
+- **Fichiers :** les événements `organization`, `member` et `membership` mettent en file `RefreshUserMemberships` ; `installation_target` renommé, pour les organisations et les comptes personnels, met à jour le login par identifiant de compte, avec la réécriture par lots de `Repositories.Owner` dans un job enfant ; un nouveau login réservé suspend l'organisation avec un motif.
+- **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_InstallationTargetRenamed_ShouldUpdateLoginByAccountId`, `Handle_PersonalAccountRenamed_ShouldRewriteRepositoryOwner`, `Handle_RenamedToReservedLogin_ShouldSuspend`, `Handle_MemberRemoved_ShouldQueueMembershipRefresh`.
+- **Acceptation :** un renommage met à jour un compte personnel aussi bien qu'une organisation.
+- **Dépend de :** M2.03a1, M3.03a
 
 #### M2.04 — `push` et `BranchHeadTracker`
 - **Objectif :** suivre la tête de branche et la tête couverte (§11.1).
@@ -1488,15 +1736,15 @@ graph TD
 #### M2.08 — `ValidateCoverageYaml` et `POST /api/v1/validate`
 - **Objectif :** valider un `codecov.yml` sans authentification, avec rate limit.
 - **Couches :** Application, Api.
-- **Fichiers :** UC `Features/Configuration/Queries/ValidateCoverageYaml` (renvoie `Domain/Config/ConfigValidationResult.cs`) ; `Api/Controllers/ConfigurationController.cs` ; `Api/Contracts/Configuration/ValidationResultResponse.cs` ; `Api/Mapping/ConfigurationMapper.cs`.
-- **Tests :** `ValidateCoverageYamlQueryHandlerTests` — `Handle_UnknownKey_ShouldWarn` ; `Api.Tests/Configuration/ValidateTests` — `Post_ShouldBeRateLimited`.
+- **Fichiers :** UC `Features/Configuration/Queries/ValidateCoverageYaml` (`IAnonymousEntry`, renvoie `Domain/Config/ConfigValidationResult.cs`) ; `Api/Controllers/ConfigurationController.cs` ; `Api/Contracts/Configuration/ValidationResultResponse.cs` ; `Api/Mapping/ConfigurationMapper.cs`.
+- **Tests :** `ValidateCoverageYamlQueryHandlerTests` — `Handle_UnknownKey_ShouldWarn`, `Handle_ShouldNeverMergeOrganizationYaml` ; `Api.Tests/Configuration/ValidateTests` — `Post_ShouldBeRateLimited`.
 - **Acceptation :** renvoie la configuration normalisée, les avertissements et les erreurs.
-- **Dépend de :** M2.06, M2.07, M1.08
+- **Dépend de :** M2.06, M2.07, M1.08, M1.16f
 
 #### M2.09 — `DiffProvider` et `DiffCache`
 - **Objectif :** diffs de PR (3000 fichiers) et de comparaison (300 fichiers), mis en cache.
 - **Couches :** Domain, Application, Infrastructure.
-- **Fichiers :** `IGitHubAppGateway.ListPullFilesAsync` (pagination `per_page=50`) ; `Domain/Ports/IDiffCacheRepository.cs` (ajout, §10) ; `Application/Services/DiffProvider.cs` ; EF `DiffCache` (gzip JSON) ; Migration `AddDiffCache`.
+- **Fichiers :** `IGitHubAppGateway.ListPullFilesAsync` (pagination `per_page=50`) ; `Domain/Ports/IDiffCacheRepository.cs` (ajout, §10) ; `Application/Services/DiffProvider.cs` ; EF `DiffCache` (gzip JSON), table d'organisation ; Migration `AddDiffCache`.
 - **Tests :** `Application.Tests/Services/DiffProviderTests` — `GetPullDiff_Over3000_ShouldMarkIncomplete`, `GetCompareDiff_Cached_ShouldNotCallGitHub`, `GetPullDiff_NullPatch_ShouldKeepFileMarkedUnavailable`.
 - **Acceptation :** le cache est immuable par couple base/tête.
 - **Dépend de :** M1.26, M1.06, M1.17
@@ -1540,7 +1788,7 @@ graph TD
   - `Application/Services/ComparisonBuilder.cs` ;
   - `Domain/Ports/IComparisonRepository.cs` ;
   - `Infrastructure/Comparisons/ComparisonDataSerializer.cs` (versionné) ;
-  - EF `Comparisons` ; Migration `AddComparisons`.
+  - EF `Comparisons`, table d'organisation ; base et tête se résolvent dans le dépôt de la route ; Migration `AddComparisons`.
 - **Tests :** `Application.Tests/Services/ComparisonBuilderTests` — `Build_ShouldUsePatchDiffForPatchAndComparisonDiffForIndirect` ; `Infrastructure.Tests/Comparisons/ComparisonDataSerializerTests` — `RoundTrip_ShouldBeLossless`.
 - **Acceptation :** `UX(CommitId, PullNumber)` et `DiffIncomplete` propagé.
 - **Dépend de :** M2.10, M2.12
@@ -1584,11 +1832,11 @@ graph TD
   - `Domain/Notifications/NotificationGate.cs`, `NotificationDecision.cs` ;
   - mise en file de `NotifyCommit` dans `SaveFinalizedAsync` (`DedupKey notify:{id}`, `DebounceSeconds`, `MaxDelaySeconds`) ;
   - `JobTypes.NotifyCommit` ;
-  - UC `Features/Uploads/Commands/CompleteUploads` (credential d'upload, forcé) ;
+  - UC `Features/Uploads/Commands/CompleteUploads` (`IPublicOwnerAddressed`, credential d'upload contrôlé comme en M1.30, forcé) ;
   - `Api/Controllers/CommitsController.cs` (`POST …/uploads-complete`) ;
   - `Api/Contracts/Uploads/UploadsCompleteResponse.cs` ;
   - `Uploader/Http/FinalizeClient.cs` (`--finalize`).
-- **Tests :** `Domain.Tests/Notifications/NotificationGateTests` — `Decide_UploadsProcessing_ShouldWait`, `Decide_ManualTrigger_ShouldWaitUnlessForced`, `Decide_AfterNBuilds_ShouldCountCarriedForwardSessions` ; `CompleteUploadsCommandHandlerTests` ; `Uploader.Tests/Http/FinalizeClientTests`.
+- **Tests :** `Domain.Tests/Notifications/NotificationGateTests` — `Decide_UploadsProcessing_ShouldWait`, `Decide_ManualTrigger_ShouldWaitUnlessForced`, `Decide_AfterNBuilds_ShouldCountCarriedForwardSessions` ; `CompleteUploadsCommandHandlerTests` — `Handle_CredentialOfOtherOrganization_ShouldThrowUnauthorized` ; `Uploader.Tests/Http/FinalizeClientTests`.
 - **Acceptation :** une notification au plus après une rafale d'uploads, dans la limite de `MaxDelaySeconds`.
 - **Dépend de :** M2.07, M1.38, M1.44
 
@@ -1598,7 +1846,7 @@ graph TD
 - **Fichiers :**
   - `Domain/Notifications/PostedStatus.cs` (`CommitId`, `CommitStatus`, `TargetUrl`, `PostedAt`) ;
   - `Domain/Ports/IPostedStatusRepository.cs` (`ListByCommitAsync`, `UpsertAsync`) ;
-  - EF `PostedStatuses` ;
+  - EF `PostedStatuses`, table d'organisation ;
   - Migration `AddPostedStatuses`.
 - **Tests :** `Infrastructure.Tests/Persistence/Repositories/PostedStatusRepositoryTests` — `Upsert_SameContext_ShouldReplace`, `ListByCommit_ShouldReturnEveryContext`.
 - **Acceptation :** clé primaire `(CommitId, Context)` et description de 140 caractères au plus, sur les deux fournisseurs.
@@ -1609,7 +1857,7 @@ graph TD
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
   - `IGitHubAppGateway.CreateStatusAsync` ;
-  - `Application/Services/NotificationService.cs` (statuts) ;
+  - `Application/Services/NotificationService.cs` (statuts ; `StatusContextPrefix` et `StatusesEnabled` viennent d'`IOrganizationSettingsProvider`) ;
   - UC `Features/Notifications/Commands/NotifyCommit` (`ISystemOnly`, `LockKey commit:{id}`) ;
   - `Features/Notifications/NotificationErrors.cs`.
 - **Tests :** `NotificationServiceTests` — `Publish_SameStateAndDescription_ShouldSkip`, `Publish_AllUploadsFailed_ShouldPostErrorOnExpectedContexts`, `Publish_ShouldUseConfiguredPrefix`, `Publish_StatusesDisabled_ShouldPostNothing`.
@@ -1637,7 +1885,7 @@ graph TD
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
   - `IGitHubAppGateway.ListIssueCommentsAsync`, `CreateIssueCommentAsync`, `UpdateIssueCommentAsync` ;
-  - `NotificationService` (commentaire) : conditions de §8.4, `require_changes` à la première publication seulement, 404 avec `default` ou `once`, `CommentBodyHash`, `PullRequest.Version`.
+  - `NotificationService` (commentaire ; `CommentsEnabled` vient d'`IOrganizationSettingsProvider`, l'installation de la ligne du dépôt) : conditions de §8.4, `require_changes` à la première publication seulement, 404 avec `default` ou `once`, `CommentBodyHash`, `PullRequest.Version`.
 - **Tests :** `NotificationServiceCommentTests` :
   - `Comment_StaleHead_ShouldNotComment` ;
   - `Comment_UnchangedHash_ShouldSkipPatch` ;
@@ -1654,7 +1902,7 @@ graph TD
   - re-notification dans `FinalizeCommit` des PR dont `ForkPointSha` vaut ce SHA ;
   - `NotifyCommit` mis en file par `pull_request` si la tête est `Complete` ;
   - UC `Features/Notifications/Commands/TriggerNotify` (`IRepositoryScoped(Admin)` ; le marqueur est actif à partir de M3.04) ;
-  - UC `Features/Notifications/Commands/SweepPendingCommits` (récurrent toutes les 5 minutes, suffixe « (partial: n/m uploads) »).
+  - UC `Features/Notifications/Commands/SweepPendingCommits` (coordinateur à un enfant par organisation `Active`, récurrent toutes les 5 minutes, suffixe « (partial: n/m uploads) »).
 - **Tests :** `SweepPendingCommitsCommandHandlerTests` — `Handle_StaleNeverNotified_ShouldForceNotify` ; `FinalizeCommitCommandHandlerTests` — `Handle_BaseProcessedAfterPr_ShouldRenotifyPrHead`.
 - **Acceptation :** aucun statut `pending` n'est jamais posté.
 - **Dépend de :** M2.22
@@ -1670,10 +1918,10 @@ graph TD
 #### M3.01 — Utilisateurs (Domain et persistance)
 - **Objectif :** utilisateurs GitHub, avec jetons stockés côté serveur seulement.
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/Users/AppUser.cs`, `RepositoryAccess.cs` ; `Domain/Ports/IUserRepository.cs`, `IUserRepositoryAccessRepository.cs` ; EF `Users` et `UserRepositoryAccess` ; Migration `AddUsers`.
+- **Fichiers :** `Domain/Users/AppUser.cs`, `RepositoryAccess.cs` ; `Domain/Ports/IUserRepository.cs`, `IUserRepositoryAccessRepository.cs` ; EF `Users`, table globale dont `IsAdmin` désigne l'administrateur d'instance, et `UserRepositoryAccess`, table d'organisation avec `Id` de substitution et `UX(OrganizationId, UserId, GitHubRepositoryId)` ; Migration `AddUsers`.
 - **Tests :** `Domain.Tests/Users/AppUserTests` — `ReplaceTokens_ShouldStoreProtectedValuesOnly` ; tests de repository.
 - **Acceptation :** les colonnes de jetons ne contiennent que des valeurs protégées par Data Protection, et `UserRepositoryAccess.GitHubRepositoryId` porte l'identifiant GitHub du dépôt, sans FK vers `Repositories`.
-- **Dépend de :** M0.16
+- **Dépend de :** M0.16, M1.16d2
 
 #### M3.02 — Passerelle utilisateur GitHub et rafraîchissement des jetons
 - **Objectif :** user-to-server tokens avec rotation du refresh token.
@@ -1683,31 +1931,47 @@ graph TD
 - **Acceptation :** le refresh token, à usage unique, n'est jamais utilisé deux fois.
 - **Dépend de :** M3.01, M1.25
 
+#### M3.03a — Appartenances aux organisations
+- **Objectif :** qui est lié à quelle organisation, avec quel rôle, en échouant fermé.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Organizations/OrganizationMembership.cs`, `OrganizationRole.cs` (`Participant`, `Admin`) ;
+  - `Domain/Ports/IOrganizationMembershipRepository.cs` (lecture par identifiant d'utilisateur), `IOrganizationRoleResolver.cs` ;
+  - `IGitHubUserGateway.ListInstallationsAsync` et `GetOrganizationMembershipAsync` ;
+  - UC `Features/Access/Commands/RefreshUserMemberships` ;
+  - UC `Features/Organizations/Queries/ListMyOrganizations` (`IUserScoped`) ;
+  - table globale `OrganizationMemberships`, `UX(UserId, OrganizationId)`, `RefreshedAt` ; `Admin` seulement si l'appartenance est active avec le rôle admin, ou si l'utilisateur possède le compte personnel ;
+  - Migration `AddOrganizationMemberships`.
+- **Tests :** `OrganizationRoleResolverTests` — `Resolve_PastHardExpiry_ShouldGrantNothing`, `Resolve_PersonalAccountOwner_ShouldBeAdmin` ; `RefreshUserMembershipsCommandHandlerTests` — `Handle_OutsideCollaborator_ShouldBeParticipant`, `Handle_ActiveOrganizationAdmin_ShouldBeAdmin`, `Handle_PendingInvitation_ShouldNotBeAdmin`, `Handle_UserLeftOrganization_ShouldRemoveRow`, `Handle_NonActiveOrganization_ShouldNotCreateRow`.
+- **Acceptation :** une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien, y compris si le job de rafraîchissement est mort ou si le refresh token a expiré.
+- **Dépend de :** M3.02, M1.16b, M1.16f, M1.16h
+
 #### M3.03 — Connexion GitHub sur le Web
 - **Objectif :** cookie et OAuth GitHub App, rechargés à chaud.
 - **Couches :** Application, Web.
 - **Fichiers :**
-  - UC `Features/Access/Commands/SignInUser` ;
+  - UC `Features/Access/Commands/SignInUser` (énumère `GET /user/installations`, croise avec les organisations `Active`, écrit les appartenances et refuse avec `Access.NoRepository` s'il n'en reste aucune ; un administrateur d'instance sans organisation peut entrer) ;
   - UC `Features/Access/Queries/GetCurrentUser` ;
   - `Features/Access/AccessErrors.cs` (`Access.NoRepository`) ;
   - `Web/Configuration/Authentication/AuthenticationConfiguration.cs` (cookie et `AddGitHub`) ;
   - `Web/Configuration/Authentication/ConfigureGitHubOAuthOptions.cs` (`IConfigureNamedOptions<OAuthOptions>`, invalidation de `IOptionsMonitorCache` à chaque changement) ;
-  - `Web/Configuration/Identity/CircuitCurrentUserInitializer.cs` ;
+  - `Web/Configuration/Identity/CircuitUserScopeInitializer.cs` (existant) : ne copie plus que l'identité, sans `IsAdmin` ;
   - `Web/Mapping/AccessMapper.cs` ;
   - `Web/ViewModels/Access/CurrentUserViewModel.cs`.
-- **Tests :** `Web.Tests/Authentication/ConfigureGitHubOAuthOptionsTests` — `ClientIdChange_ShouldInvalidateCache` ; `SignInUserCommandHandlerTests` — `Handle_NoAccessibleRepository_ShouldThrowForbidden`.
-- **Acceptation :** le cookie ne contient que l'identifiant utilisateur et un horodatage, et un rafraîchissement échoué redirige vers la connexion.
-- **Dépend de :** M3.02, M0.13, M0.20, M1.17
+- **Tests :** `Web.Tests/Authentication/ConfigureGitHubOAuthOptionsTests` — `ClientIdChange_ShouldInvalidateCache` ; `SignInUserCommandHandlerTests` — `Handle_NoAccessibleRepository_ShouldThrowForbidden`, `Handle_NoActiveOrganization_ShouldThrowForbidden`, `Handle_InstanceAdminWithoutOrganization_ShouldSignIn`.
+- **Acceptation :** le cookie ne contient que l'identifiant utilisateur et un horodatage, et aucune organisation, et un rafraîchissement échoué redirige vers la connexion.
+- **Dépend de :** M3.02, M0.13, M0.20, M1.17, M3.03a
 
 #### M3.04 — Accès par dépôt et `IRepositoryScoped`
 - **Objectif :** n'afficher que les dépôts lisibles sur GitHub (exigence 9).
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
   - `Domain/Ports/IRepositoryAccessService.cs` (ajout, §10) ;
-  - `Infrastructure/Identity/RepositoryAccessService.cs` (cache `UserRepositoryAccess` de `Access:CacheMinutes`, admin global via `Access:AdminLogins` ou `Bootstrap:AdminLogins`) ;
-  - UC `Features/Access/Commands/RefreshUserAccess` (job `user:{id}`) ;
-  - `AuthorizationBehavior` étendu : lecture refusée donne `NotFoundException(Repository.NotFound)`, administration refusée donne `ForbiddenException`.
-- **Tests :** `AuthorizationBehaviorTests` — `Handle_RepositoryScopedWithoutRead_ShouldThrowNotFound`, `Handle_RepositoryScopedWithoutAdmin_ShouldThrowForbidden` ; `RepositoryAccessServiceTests` — `Can_CacheExpired_ShouldEnqueueRefresh`.
+  - `Infrastructure/Identity/RepositoryAccessService.cs` (cache `UserRepositoryAccess` de `Access:CacheMinutes` ; une lecture de dépôt n'exige que `UserRepositoryAccess`, pas d'appartenance, et une ligne au-delà de `Access:HardExpiryMinutes` n'accorde rien ; l'administrateur d'instance n'a aucun passe-droit) ;
+  - `CurrentUserContext` calcule `IsAdmin` à chaque lecture à partir de `Access:AdminUserIds` et de `CodeCoverage__Bootstrap__AdminUserIds` ;
+  - UC `Features/Access/Commands/RefreshUserAccess` (job par couple utilisateur et organisation, clé `user:{id}`, préfixée par la file) ;
+  - `AuthorizationBehavior` applique `IRepositoryScoped` et `IOrganizationScoped` après la porte, ce qui retire le refus temporaire de M1.16f : lecture refusée donne `NotFoundException(Repository.NotFound)`, administration refusée donne `ForbiddenException`.
+- **Tests :** `AuthorizationBehaviorTests` — `Handle_RepositoryScopedWithoutRead_ShouldThrowNotFound`, `Handle_RepositoryScopedWithoutAdmin_ShouldThrowForbidden`, `Handle_InstanceAdminNotMember_ShouldThrowNotFound`, `Handle_OrganizationScopedAdminAsParticipant_ShouldThrowForbidden` ; `RepositoryAccessServiceTests` — `Can_CacheExpired_ShouldEnqueueRefresh`, `Can_PastHardExpiry_ShouldDeny` ; `CurrentUserContextTests` — `IsAdmin_AfterSettingChange_ShouldFollowOnNextRead`.
 - **Acceptation :** un dépôt privé inaccessible est indiscernable d'un dépôt inexistant.
 - **Dépend de :** M3.03, M1.17, M1.31
 
@@ -1719,7 +1983,8 @@ graph TD
   - UC `Features/Access/Commands/CreateApiToken` `+V`, `RevokeApiToken` ; UC `Features/Access/Queries/ListApiTokens`, `AuthenticateApiToken` ;
   - `Api/Configuration/Authentication/ApiTokenAuthenticationHandler.cs` (`cvp_…`) ;
   - `Api/Configuration/Identity/HttpCurrentUserMiddleware.cs` (utilisateur réel) ;
-  - EF `ApiTokens` ; Migration `AddApiTokens`.
+  - EF `ApiTokens` avec `OrganizationId` fixé à la création ; `null` désigne un jeton d'instance, créé seulement par un administrateur d'instance et qui n'entre dans aucune organisation ; `ICurrentUser` expose l'organisation du jeton, et la porte refuse une autre organisation avec le code introuvable du marqueur ;
+  - Migration `AddApiTokens`.
 - **Tests :** `Api.Tests/Authentication/ApiTokenAuthenticationHandlerTests` — `Authenticate_RevokedToken_ShouldReturn401`, `Authenticate_Valid_ShouldUseStoredGitHubUserToken`.
 - **Acceptation :** les contrôles d'accès utilisent le user-to-server token stocké de l'utilisateur, jamais un `gh auth token`.
 - **Dépend de :** M3.04, M0.10, M1.22
@@ -1727,10 +1992,10 @@ graph TD
 ### 6.2 API de gestion
 
 #### M3.06 — API dépôts : lecture
-- **Objectif :** `GET /repos`, `GET /repos/{owner}/{repo}` et `GET /repos/{owner}/{repo}/branches`.
+- **Objectif :** `GET /orgs/{org}/repos` (à la place de `GET /repos`), `GET /repos/{owner}/{repo}` et `GET /repos/{owner}/{repo}/branches`.
 - **Couches :** Application, Api.
 - **Fichiers :**
-  - UC `Features/Repositories/Queries/ListRepositories` (filtrée par accès) ;
+  - UC `Features/Repositories/Queries/ListRepositories` (`IOrganizationScoped(Participant)`, filtrée par accès) ;
   - UC `Features/Repositories/Queries/GetRepository` (`IRepositoryScoped(Read)`, renvoie `Domain/Repositories/RepositoryOverview.cs`) ;
   - UC `Features/Repositories/Queries/ListBranches` ;
   - `Api/Controllers/RepositoriesController.cs` ;
@@ -1743,7 +2008,7 @@ graph TD
 #### M3.07 — Activer ou désactiver un dépôt
 - **Objectif :** commandes réservées aux administrateurs.
 - **Couches :** Application, Api.
-- **Fichiers :** UC `Features/Repositories/Commands/ActivateRepository`, `DeactivateRepository` (`IAdminOnly`, audit) ; endpoints `POST …/activate` et `…/deactivate`.
+- **Fichiers :** UC `Features/Repositories/Commands/ActivateRepository`, `DeactivateRepository` (`IRepositoryScoped(Admin)`, audit) ; endpoints `POST …/activate` et `…/deactivate`.
 - **Tests :** `ActivateRepositoryCommandHandlerTests` ; `Api.Tests/Repositories/ActivationTests` — `Post_NonAdmin_ShouldReturn403`.
 - **Acceptation :** un upload vers un dépôt inactif renvoie 422.
 - **Dépend de :** M3.06, M1.31
@@ -1763,7 +2028,7 @@ graph TD
 #### M3.09 — Notify et reprocess via l'API, `GetUpload` par jeton API
 - **Objectif :** exposer les actions d'administration du dépôt.
 - **Couches :** Api, Application.
-- **Fichiers :** endpoints `POST …/commits/{sha}/notify` et `…/reprocess` (202) ; `IRepositoryScoped(Admin)` sur `TriggerNotify` et `ReprocessCommit` ; `UploadsController` accepte aussi `ApiToken`.
+- **Fichiers :** endpoints `POST …/commits/{sha}/notify` et `…/reprocess` (202) ; `IRepositoryScoped(Admin)` sur `TriggerNotify` et `ReprocessCommit`, déjà posé par M2.23 et M1.39 ; UC `Features/Uploads/Queries/GetUpload` (`IRepositoryScoped(Read)`, jeton API) à côté de `GetUploadByCredential`, le contrôleur choisissant selon le schéma d'authentification.
 - **Tests :** `Api.Tests/Commits/CommitActionsTests` — `Post_Notify_AsRepoAdmin_ShouldReturn202`, `Post_Reprocess_AsReader_ShouldReturn403`.
 - **Acceptation :** chaque action est auditée.
 - **Dépend de :** M3.08, M2.23, M1.39, M1.33
@@ -1779,29 +2044,41 @@ graph TD
 #### M3.11 — API jetons d'upload et jetons API
 - **Objectif :** endpoints `upload-tokens` et `api-tokens`.
 - **Couches :** Api.
-- **Fichiers :** `Api/Controllers/UploadTokensController.cs`, `ApiTokensController.cs` ; `Api/Contracts/Tokens/CreateUploadTokenRequest.cs`, `IssuedUploadTokenResponse.cs`, `UploadTokenResponse.cs`, `CreateApiTokenRequest.cs`, `IssuedApiTokenResponse.cs`, `ApiTokenResponse.cs` ; `Api/Mapping/TokenMapper.cs` ; la portée dépôt est ouverte à l'admin du dépôt.
+- **Fichiers :** `Api/Controllers/UploadTokensController.cs`, `ApiTokensController.cs` ; `Api/Contracts/Tokens/CreateUploadTokenRequest.cs`, `IssuedUploadTokenResponse.cs`, `UploadTokenResponse.cs`, `CreateApiTokenRequest.cs`, `IssuedApiTokenResponse.cs`, `ApiTokenResponse.cs` ; `Api/Mapping/TokenMapper.cs`. Les jetons d'upload sont adressés sous `/api/v1/orgs/{org}/upload-tokens` et `/api/v1/repos/{owner}/{repo}/upload-tokens`, associés aux six messages de M1.22 ; la suppression par identifiant seul disparaît. Les jetons API restent filtrés par utilisateur.
 - **Tests :** `Api.Tests/Tokens/UploadTokensControllerTests` — `Post_ShouldReturnValueOnce`, `Get_ShouldNeverReturnValue`.
 - **Acceptation :** valeur en clair renvoyée une seule fois.
 - **Dépend de :** M3.05, M1.22
 
 #### M3.12 — API paramètres et configuration effective
-- **Objectif :** `GET` et `PUT /settings`, `PUT /settings/{key}/secret` et `GET …/config`.
+- **Objectif :** `GET` et `PUT /settings`, `PUT /settings/{key}/secret` (clés `Instance` seulement) et `GET …/config`.
 - **Couches :** Application, Api.
-- **Fichiers :** `Api/Controllers/SettingsController.cs` ; `Api/Contracts/Settings/SettingResponse.cs`, `UpdateSettingRequest.cs`, `ReplaceSecretRequest.cs` ; UC `Features/Repositories/Queries/GetEffectiveConfig` ; `Api/Contracts/Repositories/EffectiveConfigResponse.cs` ; mappers.
+- **Fichiers :** `Api/Controllers/SettingsController.cs` ; `Api/Contracts/Settings/SettingResponse.cs`, `UpdateSettingRequest.cs`, `ReplaceSecretRequest.cs` ; UC `Features/Repositories/Queries/GetEffectiveConfig` (ne fusionne que le YAML de l'organisation du dépôt) ; `Api/Contracts/Repositories/EffectiveConfigResponse.cs` ; mappers.
 - **Tests :** `Api.Tests/Settings/SettingsControllerTests` — `Get_ShouldMaskSecrets`, `Put_EnvironmentKey_ShouldReturn422`.
 - **Acceptation :** aucun secret ne sort.
 - **Dépend de :** M3.05, M0.21, M1.28, M1.17, M3.06
 
+#### M3.12a — Cas d'usage et API des paramètres d'organisation
+- **Objectif :** modifier les paramètres d'organisation au niveau de l'organisation.
+- **Couches :** Application, Infrastructure, Api.
+- **Fichiers :**
+  - `Domain/Ports/IOrganizationSettingRepository.cs` et son implémentation ;
+  - UC `Features/Organizations/Queries/GetOrganizationSettings`, `Commands/UpdateOrganizationSetting` et `Commands/ResetOrganizationSetting` (`IOrganizationScoped(Admin)`, audit, `SettingRules.Check` réutilisé) ;
+  - `Api/Controllers/OrganizationsController.cs` : `GET /api/v1/orgs`, `GET` et `PUT /api/v1/orgs/{org}/settings`, sans route de secret ;
+  - contrats et `Api/Mapping/OrganizationMapper.cs`.
+- **Tests :** `UpdateOrganizationSettingCommandHandlerTests` — `Handle_InstanceKey_ShouldThrow`, `Handle_ShouldWriteOnlyCurrentOrganization` ; `OrganizationSettingRepositoryTests` — `Update_OtherOrganization_ShouldChangeNothing` ; `Api.Tests/Organizations/OrganizationsControllerTests` — `Get_Participant_ShouldReturn403`, `Put_Participant_ShouldReturn403`, `Put_OtherOrganization_ShouldReturn404`.
+- **Acceptation :** une clé `Instance` est refusée, et l'Api ne manipule aucun type du Domain.
+- **Dépend de :** M3.04, M3.05, M1.16i
+
 #### M3.13 — API opérations
-- **Objectif :** jobs, webhooks et état du système.
+- **Objectif :** jobs, webhooks et état du système, au niveau de l'instance seulement (`IAdminOnly`).
 - **Couches :** Domain, Application, Infrastructure, Api.
 - **Fichiers :**
   - `Domain/Operations/SystemStatus.cs` ;
-  - `Infrastructure/Jobs/SqlJobMonitor.cs` (`IJobMonitor`) ;
+  - `Infrastructure/Jobs/SqlJobMonitor.cs` (`IJobMonitor`) ; `IJobMonitor` et le lecteur de webhooks renvoient des projections de métadonnées, sans `LastError`, `LockKey`, `DedupKey` ni payload ;
   - UC `Features/Operations/Queries/ListJobs`, `ListWebhookDeliveries`, `GetSystemStatus` ;
-  - UC `Features/Operations/Commands/RetryJob` (409 si le job n'est pas relançable) ;
+  - UC `Features/Operations/Commands/RetryJob` (409 si le job n'est pas relançable), à `/api/v1/ops/jobs/{id}/retry`, exécutée sous l'organisation du job ;
   - `Api/Controllers/OperationsController.cs` ; contrats `JobPageResponse`, `WebhookDeliveryResponse`, `SystemStatusResponse` ; `Api/Mapping/OperationsMapper.cs`.
-- **Tests :** `RetryJobCommandHandlerTests` — `Handle_RunningJob_ShouldThrowConflict` ; `SqlJobMonitorTests` — `GetStatus_ShouldReportOldestQueuedAge`.
+- **Tests :** `RetryJobCommandHandlerTests` — `Handle_RunningJob_ShouldThrowConflict` ; `SqlJobMonitorTests` — `GetStatus_ShouldReportOldestQueuedAge` ; `Infrastructure.Tests/Operations/OperationalReadModelTests` — `ReadModels_ShouldExposeNoPayloadOrKeys`.
 - **Acceptation :** heartbeats du worker et quota GitHub restant visibles.
 - **Dépend de :** M3.05, M0.24, M2.02
 
@@ -1812,7 +2089,7 @@ graph TD
 - **Couches :** Domain, Application.
 - **Fichiers :**
   - `Domain/Badges/Badge.cs`, `BadgeColorScale.cs` (101 pas ; plage YAML explicite, sinon `[70, 100]`) ;
-  - UC `Features/Repositories/Queries/GetBadge` (anonyme ; comparaison en temps constant ; inconnu donne « unknown ») ;
+  - UC `Features/Repositories/Queries/GetBadge` (`IPublicOwnerAddressed` ; comparaison en temps constant ; une organisation non active ou un dépôt inconnu donne « unknown ») ;
   - UC `Features/Repositories/Commands/RotateBadgeToken`, `ImportBadgeToken` `+V` (`IRepositoryScoped(Admin)`).
 - **Tests :** `Domain.Tests/Badges/BadgeColorScaleTests` — `Color_AtLow_ShouldBeRed`, `Color_RawYamlRangeAbsent_ShouldUse70To100` ; `GetBadgeQueryHandlerTests` — `Handle_WrongToken_ShouldReturnUnknownNotThrow`.
 - **Acceptation :** jamais de 404 ni de 403.
@@ -1842,7 +2119,7 @@ graph TD
 #### M3.17 — Rétention : `PurgeExpiredData`
 - **Objectif :** purges quotidiennes par lots de 5 000 (§4.4).
 - **Couches :** Application, Infrastructure.
-- **Fichiers :** UC `Features/Operations/Commands/PurgeExpiredData` (`ISystemOnly`) ; `Domain/Ports/IRetentionRepository.cs` (ajout, §10) ; passage à l'état `Compacted` ; récurrent quotidien.
+- **Fichiers :** UC `Features/Operations/Commands/PurgeExpiredData` (`ISystemOnly`), coordinateur à un enfant par organisation avec la rétention de l'instance, plus un job d'instance pour `Jobs` et `WebhookDeliveries` ; `Domain/Ports/IRetentionRepository.cs` (ajout, §10) ; passage à l'état `Compacted` ; récurrent quotidien.
 - **Tests :** `Infrastructure.Tests/Operations/RetentionRepositoryTests` — `Purge_ShouldKeepDefaultBranchAndOpenPrReports`, `Purge_ShouldKeepCarryforwardSources`, `Purge_ShouldDeleteInBatches`.
 - **Acceptation :** `FinalizeCommit` sur un commit compacté renvoie 422 `Commit.Compacted`.
 - **Dépend de :** M0.25, M1.38, M2.13, M2.02
@@ -1850,7 +2127,7 @@ graph TD
 ### 6.4 Interface Web (après validation de l'artefact de design)
 
 #### M3.18 — Artefact de design UI (porte de validation)
-- **Objectif :** produire les maquettes de toutes les pages de §10bis.3 et les faire **valider par l'utilisateur** avant toute page Web. Elles couvrent la navigation, les états vides, de chargement et d'erreur, le mode sombre et la largeur mobile, avec les composants maison `Cc*` de `Web/Components/Ui` (préfixe CSS `cc-`).
+- **Objectif :** produire les maquettes de toutes les pages de §10bis.3 et les faire **valider par l'utilisateur** avant toute page Web. Elles couvrent la navigation, les états vides, de chargement et d'erreur, le mode sombre et la largeur mobile, avec les composants maison `Cc*` de `Web/Components/Ui` (préfixe CSS `cc-`). Elles ajoutent le sélecteur d'organisation, la section Organisation, `/orgs/{org}/*` et `/admin/organizations`, et retirent l'organisation unique.
 - **Couches :** design, sans code de production.
 - **Fichiers :** artefact de design publié, dont le lien est consigné dans `docs/ui-design.md` (inventaire des écrans, des composants et des libellés clés en anglais et en français).
 - **Tests :** —
@@ -1860,20 +2137,20 @@ graph TD
 - **Dépend de :** M0.12
 
 #### M3.19 — Navigation et gabarit de dépôt
-- **Objectif :** menu latéral, onglets de dépôt et menu utilisateur.
+- **Objectif :** menu latéral, onglets de dépôt, menu utilisateur et sélecteur d'organisation (navigation seule).
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Layout/MainLayout.razor` (`CcTopNav`, `CcPillTabs`, `CcUserMenu`) ; `Web/Components/Layout/NavMenu.razor(.cs)` (section Administration visible par les administrateurs) ; `Web/Components/Repositories/RepositoryTabs.razor(.cs)` (`CcFolderTabs`) ; `Web/ViewModels/Access/NavigationViewModel.cs`.
-- **Tests :** `Web.Tests/Components/Layout/NavMenuTests` — `Render_NonAdmin_ShouldHideAdministration`.
+- **Fichiers :** `Web/Components/Layout/MainLayout.razor` (`CcTopNav`, `CcPillTabs`, `CcUserMenu`) ; `Web/Components/Layout/NavMenu.razor(.cs)` (section Organisation visible par ses administrateurs, section Instance visible par les administrateurs d'instance) ; `Web/Components/Repositories/RepositoryTabs.razor(.cs)` (`CcFolderTabs`) ; `Web/ViewModels/Access/NavigationViewModel.cs`.
+- **Tests :** `Web.Tests/Components/Layout/NavMenuTests` — `Render_NonAdmin_ShouldHideAdministration`, `Render_OrganizationAdmin_ShouldShowOrganizationSection`, `Render_InstanceAdmin_ShouldShowInstanceSection`.
 - **Acceptation :** conforme à la maquette M3.18.
-- **Dépend de :** M3.18, M3.04
+- **Dépend de :** M3.18, M3.04, M3.03a
 
 #### M3.20 — Page d'accueil `/`
 - **Objectif :** dépôts accessibles, couverture, sparkline de 30 jours, dernier commit et flags.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/Home.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySummaryViewModel.cs` ; `Web/Mapping/RepositoryMapper.cs` (`ListRepositoriesViewModelsAsync`) ; recherche (`CcSearchBar`) et filtre actifs/inactifs.
+- **Fichiers :** `Web/Components/Pages/Home.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySummaryViewModel.cs` ; `Web/Mapping/RepositoryMapper.cs` (`ListRepositoriesViewModelsAsync`) ; la page appelle `ListMyOrganizations`, puis envoie une requête par organisation ; recherche (`CcSearchBar`) et filtre actifs/inactifs.
 - **Tests :** `Web.Tests/Components/Pages/HomeTests` — `Render_Empty_ShouldShowEmptyState`, `Search_ShouldFilterList`.
 - **Acceptation :** aucun type du Domain dans la page (Architecture.Tests).
-- **Dépend de :** M3.19, M3.06, M3.16
+- **Dépend de :** M3.19, M3.06, M3.16, M3.03a
 
 #### M3.21 — Vue d'ensemble : cartes projet et flags
 - **Objectif :** `CcStatCard` pour le projet et par flag, avec Δ sur 30 jours.
@@ -1920,21 +2197,21 @@ graph TD
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Commits/UploadSessions.razor(.cs)`, `ProcessingLogView.razor(.cs)` ; `Web/ViewModels/Commits/SessionViewModel.cs`, `UploadViewModel.cs`.
 - **Tests :** `UploadSessionsTests` — `Render_CarriedForward_ShouldShowOrigin`, `Render_Unresolved_ShouldListPaths`.
-- **Acceptation :** chemins non résolus ou ambigus visibles.
+- **Acceptation :** chemins non résolus ou ambigus visibles, et uploads échoués listés (la relance est en M3.27).
 - **Dépend de :** M3.25, M1.33
 
 #### M3.27 — Détail d'un commit : arbre des fichiers et actions
-- **Objectif :** arbre triable issu de `FileIndex`, filtre de flag, boutons re-notifier et retraiter.
+- **Objectif :** arbre triable issu de `FileIndex`, filtre de flag, boutons re-notifier, retraiter et relancer un upload échoué (déplacé de M3.40).
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Commits/FileTree.razor(.cs)`, `CommitActions.razor(.cs)` ; `Web/ViewModels/Commits/FileNodeViewModel.cs`.
-- **Tests :** `CommitActionsTests` — `Render_NonRepoAdmin_ShouldHideActions`, `Click_Notify_ShouldShowToast`.
+- **Tests :** `CommitActionsTests` — `Render_NonRepoAdmin_ShouldHideActions`, `Click_Notify_ShouldShowToast`, `Click_RetryFailedUpload_ShouldEnqueue`.
 - **Acceptation :** chaque action passe par `UiRequestRunner`.
 - **Dépend de :** M3.25, M3.09
 
 #### M3.28 — Requête `GetAnnotatedSource`
 - **Objectif :** source lue en direct sur GitHub après contrôle d'accès, jamais persistée.
 - **Couches :** Domain, Application, Infrastructure.
-- **Fichiers :** `Domain/Source/AnnotatedSource.cs`, `AnnotatedLine.cs` ; `Domain/Ports/ISourceContentCache.cs` (ajout, §10) ; `Infrastructure/Caching/BoundedSourceContentCache.cs` (100 Mo, 10 minutes) ; UC `Features/Commits/Queries/GetAnnotatedSource` (`IRepositoryScoped(Read)`).
+- **Fichiers :** `Domain/Source/AnnotatedSource.cs`, `AnnotatedLine.cs` ; `Domain/Ports/ISourceContentCache.cs` (ajout, §10) ; `Infrastructure/Caching/BoundedSourceContentCache.cs` (100 Mo, 10 minutes, clé dépôt, SHA et chemin, après le contrôle d'accès) ; UC `Features/Commits/Queries/GetAnnotatedSource` (`IRepositoryScoped(Read)`).
 - **Tests :** `GetAnnotatedSourceQueryHandlerTests` — `Handle_NoAccess_ShouldThrowNotFoundWithoutCallingGitHub`, `Handle_ShouldMergeLinesWithCoverage`.
 - **Acceptation :** cache borné en taille, et aucune écriture en base.
 - **Dépend de :** M3.04, M1.26, M1.19
@@ -1984,19 +2261,19 @@ graph TD
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/RepositorySettings.razor(.cs)` ; `Web/Components/Repositories/RepositoryActivation.razor(.cs)`, `EffectiveConfigView.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySettingsViewModel.cs`.
 - **Tests :** `RepositorySettingsTests` — `Render_Reader_ShouldShowAccessDenied`.
-- **Acceptation :** réservé à l'admin du dépôt et à l'admin global.
+- **Acceptation :** réservé à l'admin du dépôt et aux administrateurs de cette organisation ; l'administrateur d'instance n'y a pas accès.
 - **Dépend de :** M3.19, M3.07, M3.12, M2.08
 
 #### M3.35 — Réglages du dépôt : jetons d'upload et de badge
 - **Objectif :** créer (valeur affichée une fois), importer un `CODECOV_TOKEN`, révoquer, renouveler et importer le jeton de badge.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Repositories/RepositoryUploadTokens.razor(.cs)`, `BadgeTokenPanel.razor(.cs)`, `Web/Components/Tokens/IssuedTokenDialog.razor(.cs)` ; `Web/ViewModels/Tokens/UploadTokenViewModel.cs`, `CreateUploadTokenFormViewModel.cs` ; `Web/Mapping/TokenMapper.cs` (`ToCommand`).
+- **Fichiers :** `Web/Components/Repositories/RepositoryUploadTokens.razor(.cs)`, `BadgeTokenPanel.razor(.cs)`, `Web/Components/Tokens/IssuedTokenDialog.razor(.cs)` ; `Web/ViewModels/Tokens/UploadTokenViewModel.cs`, `CreateUploadTokenFormViewModel.cs` ; `Web/Mapping/TokenMapper.cs` (`ToCommand`), avec les messages de jeton d'upload de dépôt de M1.22.
 - **Tests :** `IssuedTokenDialogTests` — `Close_ShouldForgetValue`.
 - **Acceptation :** la valeur n'est plus récupérable après fermeture.
 - **Dépend de :** M3.34, M3.11, M3.14
 
 #### M3.36 — Mon compte : jetons API
-- **Objectif :** créer et révoquer ses jetons API.
+- **Objectif :** créer et révoquer ses jetons API. La création exige de choisir une organisation ; le niveau instance n'est proposé qu'aux administrateurs d'instance.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/AccountTokens.razor(.cs)` ; `Web/ViewModels/Tokens/ApiTokenViewModel.cs`.
 - **Tests :** `AccountTokensTests` — `Create_ShouldShowValueOnce`.
@@ -2004,67 +2281,94 @@ graph TD
 - **Dépend de :** M3.19, M3.05, M3.35
 
 #### M3.37 — Administration : paramètres
-- **Objectif :** groupes du catalogue, source effective, badge `RequiresRestart`, remplacement des secrets, réinitialisation, clés d'environnement en lecture seule.
+- **Objectif :** `/admin/settings`, clés `Instance` seulement : groupes du catalogue, source effective, badge `RequiresRestart`, remplacement des secrets, réinitialisation, clés d'environnement en lecture seule.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/AdminSettings.razor(.cs)` ; `Web/Components/Settings/SettingEditor.razor(.cs)`, `SecretReplaceDialog.razor(.cs)` ; `Web/ViewModels/Settings/SettingViewModel.cs`, `SettingGroupViewModel.cs` ; `Web/Mapping/SettingsMapper.cs`.
 - **Tests :** `AdminSettingsTests` — `Render_EnvironmentKey_ShouldBeReadOnly`, `Render_Secret_ShouldNeverShowValue`.
 - **Acceptation :** une modification est visible dans l'Api en 5 s au plus.
 - **Dépend de :** M3.19, M0.21
 
-#### M3.38 — Administration : jetons d'organisation
-- **Objectif :** créer, importer et révoquer les jetons d'organisation.
+#### M3.37a — Page `/orgs/{org}/settings`
+- **Objectif :** les paramètres de l'organisation, sans secret.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/AdminUploadTokens.razor(.cs)` (réutilise `Tokens/*`).
-- **Tests :** `AdminUploadTokensTests`.
-- **Acceptation :** réservé à l'admin global.
+- **Fichiers :** `Web/Components/Pages/OrganizationSettings.razor(.cs)`, qui réutilise `Settings/SettingEditor` ; ViewModels et mapper, envoi par `UiRequestRunner`.
+- **Tests :** `OrganizationSettingsTests` — `Render_Participant_ShouldBeDenied`, `Save_ShouldCallUpdateForThatOrganization`.
+- **Acceptation :** conforme à la maquette validée, et réservée aux administrateurs de l'organisation.
+- **Dépend de :** M3.19, M3.12a, M3.37
+
+#### M3.38 — Organisation : jetons d'upload
+- **Objectif :** `/orgs/{org}/upload-tokens` : créer, importer et révoquer les jetons d'organisation, avec un bandeau quand `RotationAdvisedAt` est posé.
+- **Couches :** Web.
+- **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (`IOrganizationScoped(Admin)`, réutilise `Tokens/*`).
+- **Tests :** `OrganizationUploadTokensTests` — `Render_RotationAdvised_ShouldShowBanner`, `Render_Participant_ShouldBeDenied`.
+- **Acceptation :** réservé aux administrateurs de l'organisation.
 - **Dépend de :** M3.19, M1.22, M3.35
 
-#### M3.39 — Administration : dépôts
-- **Objectif :** tous les dépôts de l'installation, activation et synchronisation.
+#### M3.39 — Organisation : dépôts
+- **Objectif :** `/orgs/{org}/repositories` : tous les dépôts de l'installation de l'organisation, activation et synchronisation.
 - **Couches :** Web, Application.
-- **Fichiers :** `Web/Components/Pages/AdminRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncInstallations`, exposée à l'admin (`IAdminOnly` ou système) ; `Web/ViewModels/Repositories/AdminRepositoryViewModel.cs`.
-- **Tests :** `AdminRepositoriesTests` — `Click_Sync_ShouldEnqueue`.
+- **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`), à la place du job global ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs`.
+- **Tests :** `OrganizationRepositoriesTests` — `Click_Sync_ShouldEnqueue`.
 - **Acceptation :** affiche le dernier upload.
 - **Dépend de :** M3.19, M3.07, M2.03
 
 #### M3.40 — Administration : opérations
-- **Objectif :** file, jobs morts, webhooks, heartbeats, quota GitHub et uploads échoués, avec relance.
+- **Objectif :** `/admin/operations`, métadonnées seulement : file, jobs morts, webhooks, heartbeats, quota GitHub et relance. Les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27).
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/AdminOperations.razor(.cs)` ; `Web/Components/Operations/JobTable.razor(.cs)`, `WebhookDeliveries.razor(.cs)`, `SystemStatusCards.razor(.cs)` ; `Web/ViewModels/Operations/*` ; `Web/Mapping/OperationsMapper.cs`.
 - **Tests :** `AdminOperationsTests` — `Click_RetryDeadJob_ShouldEnqueue`.
 - **Acceptation :** les indicateurs sont les mêmes que les métriques de §12.6.
-- **Dépend de :** M3.19, M3.13, M1.39
+- **Dépend de :** M3.19, M3.13
 
 #### M3.41 — Administration : journal d'audit
-- **Objectif :** consulter et filtrer l'audit.
+- **Objectif :** `/admin/audit` : consulter et filtrer l'audit de l'instance (lignes à `OrganizationId` nul seulement).
 - **Couches :** Application, Web.
 - **Fichiers :** UC `Features/Operations/Queries/ListAuditEntries` (ajout, §10) ; `Web/Components/Pages/AdminAudit.razor(.cs)` ; `Web/ViewModels/Operations/AuditEntryViewModel.cs`.
 - **Tests :** `ListAuditEntriesQueryHandlerTests` ; `AdminAuditTests` — `Filter_ShouldReload`.
 - **Acceptation :** aucun secret n'apparaît.
 - **Dépend de :** M3.19, M0.17
 
+#### M3.41a — Page `/admin/organizations`
+- **Objectif :** l'écran de cycle de vie de l'administrateur d'instance.
+- **Couches :** Application, Web.
+- **Fichiers :** UC `Features/Organizations/Queries/ListOrganizations` (`IAdminOnly`, lignes `Organizations` et profondeur de file par organisation seulement) ; `Web/Components/Pages/AdminOrganizations.razor(.cs)` avec admission et suspension ; ViewModels et mapper.
+- **Tests :** `AdminOrganizationsTests` — `Click_Admit_ShouldActivate`, `Render_NonInstanceAdmin_ShouldBeDenied` ; `ListOrganizationsQueryHandlerTests` — `Handle_ShouldExposeNoBusinessData`.
+- **Acceptation :** la page n'affiche aucun dépôt, jeton, YAML ni donnée métier d'une organisation.
+- **Dépend de :** M3.19, M1.22a
+
 #### M3.42 — Assistant de premier démarrage : backend
-- **Objectif :** jeton de mise en place, flux App Manifest et finalisation.
+- **Objectif :** jeton de mise en place, flux App Manifest et finalisation, pour l'amorçage de l'instance seulement.
 - **Couches :** Application, Infrastructure, Web.
 - **Fichiers :**
   - UC `Features/Settings/Queries/GetSetupState` ;
-  - UC `Features/Settings/Commands/CompleteGitHubAppManifest` (`POST /app-manifests/{code}/conversions` ; stocke AppId, ClientId, secrets et PEM) ;
+  - UC `Features/Settings/Commands/CompleteGitHubAppManifest` (`POST /app-manifests/{code}/conversions` ; le manifest crée une App publique avec `Organization Members: read` et les événements `organization`, `member`, `membership` et `installation_target` ; stocke AppId, ClientId, secrets et PEM) ;
   - UC `Features/Settings/Commands/CompleteSetup` ;
-  - `Domain/Settings/SetupState.cs` ;
+  - `Domain/Settings/SetupState.cs` (sans `GitHub:Organization` ni `Uploads:AllowedOwners` ; l'administrateur d'amorçage est épinglé par identifiant numérique) ;
   - `Infrastructure/Settings/SetupTokenIssuer.cs` (jeton haché, journalisé en `Warning`) ;
   - `IGitHubAppGateway.ConvertManifestAsync` ;
   - `Web/Configuration/Setup/SetupRedirectMiddleware.cs`.
 - **Tests :** `CompleteGitHubAppManifestCommandHandlerTests` — `Handle_ShouldProtectSecrets`, `Handle_InvalidSetupToken_ShouldThrowUnauthorized` ; `SetupRedirectMiddlewareTests`.
 - **Acceptation :** le jeton est supprimé après la mise en place, et les variables `GitHub__*` rendent l'assistant facultatif.
-- **Dépend de :** M0.21, M1.25, M1.26
+- **Dépend de :** M0.21, M1.25, M1.26, M1.16f, M1.16h
 
 #### M3.43 — Page `/setup`
-- **Objectif :** état, création de l'App par manifest ou saisie manuelle, URL publiques, administrateurs et installation.
+- **Objectif :** état, création de l'App par manifest ou saisie manuelle, URL publiques et administrateurs. L'installation de l'App n'est plus une étape.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/Setup.razor(.cs)` ; `Web/ViewModels/Settings/SetupViewModel.cs`, `ManualAppFormViewModel.cs`.
-- **Tests :** `SetupTests` — `Render_AppCreated_ShouldShowInstallStep`.
-- **Acceptation :** parcours complet sur une organisation de test.
+- **Tests :** `SetupTests` — `Render_AppCreated_ShouldCompleteWithoutInstallation`.
+- **Acceptation :** parcours complet sur une instance sans aucune organisation.
 - **Dépend de :** M3.42, M3.18
+
+#### M3.43a — Suite d'isolation de bout en bout à deux organisations
+- **Objectif :** prouver l'exigence à la frontière externe.
+- **Couches :** Api.Tests, Web.Tests.
+- **Fichiers :** `Api.Tests/Isolation/CrossOrganizationRouteTests.cs` et `Web.Tests/Isolation/CrossOrganizationPageTests.cs`, avec deux organisations ensemencées sur les deux fournisseurs ; chaque action MVC et page routable, trouvée par réflexion, doit déclarer une sonde employant une ressource réelle de l'organisation B.
+- **Tests :** `CrossOrganizationRouteTests` — `EveryAction_ShouldDeclareProbe`, `Request_OtherOrganization_ShouldMatchUnknownOwner`, `Upload_JunkTokenActiveAndUnknownOwner_ShouldBeIdentical`, `GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`, `Request_OutsideCollaborator_ShouldReachOnlyThatRepository`, `Badge_PrivateRepositoryWrongToken_ShouldMatchUnknown` ; `ReservedLoginRouteTests` — `EveryRouteFirstSegment_ShouldBeReserved` ; `CrossOrganizationPageTests` — `Render_OtherOrganization_ShouldMatchNotFound`.
+- **Acceptation :**
+  - pour chacune, un credential ou une session de l'organisation A contre l'organisation B donne le même statut, le même `errorCode` et le même corps qu'un slug dont l'owner n'existe pas ;
+  - une nouvelle route sans sonde échoue ;
+  - un badge inconnu ou au jeton incorrect est identique à l'octet près, ETag compris.
+- **Dépend de :** M3.13, M3.15, M3.20, M3.37, M3.37a, M3.38, M3.39, M3.40, M3.41, M3.41a, M3.43
 
 ---
 
@@ -2088,6 +2392,14 @@ graph TD
 - **Acceptation :** RPO de 24 h au plus, et procédure de restauration exécutée une fois.
 - **Dépend de :** M0.27
 
+#### M4.02a — Vérification sur deux organisations réelles et guide d'accueil
+- **Objectif :** confirmer les comportements GitHub qui n'ont pas pu être vérifiés dans le dépôt (ADR-013).
+- **Couches :** docs, exploitation.
+- **Fichiers :** `docs/operations/organization-onboarding.md` ; une liste de contrôle consignée sur deux comptes réels : SAML et `GET /user/installations` ; présence d'un collaborateur externe dans cette liste ; contenu de l'événement `transferred` ; réception de `installation_repositories` retiré par le compte d'origine ; `organization` renommé et `installation_target` renommé sur les deux types de compte ; conservation des secrets Actions après un transfert ; lecture d'un dépôt public d'un autre compte par un jeton d'installation ; forme `/repositories/{id}` sur chaque endpoint de la passerelle.
+- **Tests :** exécution de la liste de contrôle sur deux comptes réels.
+- **Acceptation :** chaque point est consigné comme confirmé ou corrigé, et une correction ouvre une modification du plan avant M4.08.
+- **Dépend de :** M4.02, M2.03a2, M3.43a
+
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Objectif :** deux Container Apps, PostgreSQL Flexible ou Azure SQL, et Key Vault pour Data Protection.
 - **Couches :** déploiement, docs.
@@ -2107,7 +2419,7 @@ graph TD
 #### M4.05 — Guide de migration depuis Codecov
 - **Objectif :** documenter la bascule des pipelines.
 - **Couches :** docs.
-- **Fichiers :** `docs/migration-from-codecov.md` (GitHub Actions avec OIDC, Azure Pipelines, recette curl, monorepo sans `after_n_builds` global, `--finalize`, import des jetons et du graphing token, changement d'hôte des badges).
+- **Fichiers :** `docs/migration-from-codecov.md` (GitHub Actions avec OIDC, Azure Pipelines, recette curl, monorepo sans `after_n_builds` global, `--finalize`, import des jetons et du graphing token, changement d'hôte des badges, écarts avec Codecov nommés par ADR-013).
 - **Tests :** relecture par une équipe pilote.
 - **Acceptation :** un dépôt pilote est migré en suivant le guide seul.
 - **Dépend de :** M2.23, M1.46, M3.11, M3.15
@@ -2123,18 +2435,18 @@ graph TD
 #### M4.07 — Scripts de déploiement pilote (double upload)
 - **Objectif :** PR d'une ligne scriptées avec `gh`.
 - **Couches :** outillage.
-- **Fichiers :** `tools/rollout/Add-CoverageUpload.ps1`, `tools/rollout/Import-CodecovTokens.ps1`.
+- **Fichiers :** `tools/rollout/Add-CoverageUpload.ps1`, `tools/rollout/Import-CodecovTokens.ps1` (routes `upload-tokens` de M3.11, avec l'organisation).
 - **Tests :** essai sur un dépôt bac à sable.
 - **Acceptation :** tous les dépôts envoient leurs uploads aux deux services.
 - **Dépend de :** M4.05, M3.11
 
 #### M4.08 — Bascule et résiliation
-- **Objectif :** passer `Notifications:StatusContextPrefix` à `codecov`, retirer les étapes et l'App Codecov, résilier.
+- **Objectif :** par organisation, passer `Notifications:StatusContextPrefix` à `codecov` dans les paramètres de l'organisation, retirer les étapes et l'App Codecov, résilier.
 - **Couches :** exploitation.
 - **Fichiers :** `docs/cutover-runbook.md` (pré-requis de parité, import de l'historique Codecov, changement de préfixe, vérification des protections de branche, scripts de retrait, désinstallation, résiliation).
 - **Tests :** répétition sur un dépôt.
 - **Acceptation :** les protections de branche restent inchangées, Codecov est désinstallé et l'abonnement résilié.
-- **Dépend de :** M4.06, M4.07, M4.02, M4.04, M3.12, M5.06
+- **Dépend de :** M4.06, M4.07, M4.02, M4.04, M3.12, M5.06, M4.02a
 
 ---
 
@@ -2183,7 +2495,7 @@ graph TD
 #### M5.06 — Import de l'historique Codecov
 - **Objectif :** importer les totaux par commit via l'API Codecov v2. Cette lecture exige un accès à Codecov : malgré son jalon, M5.06 passe donc avant la résiliation (M4.08).
 - **Couches :** Application, Infrastructure.
-- **Fichiers :** UC `Features/Repositories/Commands/ImportCodecovHistory` (`IAdminOnly`) ; `Infrastructure/Codecov/CodecovApiClient.cs` ; `ConfigSource=codecov-import`.
+- **Fichiers :** UC `Features/Repositories/Commands/ImportCodecovHistory` (`IOrganizationScoped(Admin)`, exécutée en job) ; table d'organisation `CodecovImports`, qui porte le credential chiffré par Data Protection, référencé par identifiant depuis le payload et supprimé quand l'import se termine ou échoue définitivement ; Migration `AddCodecovImports` ; `Infrastructure/Codecov/CodecovApiClient.cs` ; `ConfigSource=codecov-import`.
 - **Tests :** `ImportCodecovHistoryCommandHandlerTests` — `Handle_ShouldCreateCompleteCommitsWithoutBlob`.
 - **Acceptation :** l'historique est visible dans le graphique.
 - **Dépend de :** M3.16, M3.22
@@ -2193,7 +2505,7 @@ graph TD
 - **Couches :** Api, Application.
 - **Fichiers :** `Api/Controllers/CodecovCompatibilityController.cs`, `Api/Compatibility/SignedUploadUrl.cs`.
 - **Tests :** rejeu de requêtes codecov-cli enregistrées (`tests/fixtures/codecov-cli/*`).
-- **Acceptation :** les étapes `codecov/codecov-action@v5` fonctionnent avec `url:`, et la version est épinglée.
+- **Acceptation :** les étapes `codecov/codecov-action@v5` fonctionnent avec `url:`, la version est épinglée, et l'URL d'upload signée lie l'organisation, le dépôt et l'upload.
 - **Dépend de :** M1.31, M1.32
 
 ---
@@ -2215,17 +2527,23 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 |---|---|---|
 | 1 | La configuration `codecov.yml` (Domain, parseur YAML, `ConfigResolver`) passe de M2 à **M1** (M1.07, M1.08, M1.28). | `ProcessUpload` et `FinalizeCommit` ont besoin de `ignore`, `fixes`, flags, `carryforward` et `partials_as_hits`. M2 n'ajoute que les règles de statut et de commentaire et `/validate`. |
 | 2 | Le Domain des diffs (`UnifiedDiffParser`, `LineShifter`) passe en **M1** (M1.06). | Le décalage des lignes du carryforward en dépend. |
-| 3 | Ports ajoutés : `IRepositoryAccessService`, `IRepositoryTreeRepository`, `IDiffCacheRepository`, `IWebhookSignatureValidator`, `IReportViewCache`, `ISourceContentCache`, `IRetentionRepository`, `ITokenGenerator`, `IJobWakeUp`. | Ils sont cités implicitement par l'architecture (services et tables) sans figurer dans la liste des ports. Les caches et l'HMAC restent ainsi derrière des ports, l'Application ne dépendant ni d'`IMemoryCache` ni des secrets. |
-| 4 | `ReceiveWebhookCommand` est authentifiée par signature dans son handler et n'est **pas** `ISystemOnly`. | Un hôte HTTP ne peut jamais produire le principal système (§3bis.2). Seule `HandleWebhookDeliveryCommand`, exécutée dans le worker, est `ISystemOnly`. |
-| 5 | Le verbe d'administration en ligne de commande (`admin create-upload-token`, M1.23) est ajouté. | Le pilote M1 a besoin de jetons pour Azure avant l'arrivée de l'UI et du schéma `ApiToken` en M3. |
+| 3 | Ports ajoutés : `IRepositoryAccessService`, `IRepositoryTreeRepository`, `IDiffCacheRepository`, `IWebhookSignatureValidator`, `IReportViewCache`, `ISourceContentCache`, `IRetentionRepository`, `ITokenGenerator`, `IJobWakeUp`, `IUploadCredentialCache`. | Ils sont cités implicitement par l'architecture (services et tables) sans figurer dans la liste des ports. Les caches et l'HMAC restent ainsi derrière des ports, l'Application ne dépendant ni d'`IMemoryCache` ni des secrets. |
+| 4 | `ReceiveWebhookCommand` (`IAnonymousEntry`, ADR-013) est authentifiée par signature dans son handler et n'est **pas** `ISystemOnly`. | Un hôte HTTP ne peut jamais produire le principal système (§3bis.2). Seule `HandleWebhookDeliveryCommand`, exécutée dans le worker, est `ISystemOnly`. |
+| 5 | Le verbe d'administration en ligne de commande (`admin create-upload-token` et `admin admit-organization`, M1.23) est ajouté. | Le pilote M1 a besoin d'une organisation et de jetons pour Azure avant l'arrivée de l'UI et du schéma `ApiToken` en M3. |
 | 6 | La parité M1 se mesure par lecture SQL en lecture seule (M1.47), et par l'API en M4.06. | L'API de gestion authentifiée n'existe qu'en M3. |
 | 7 | Patron « envoi-et-conversion » (§1.4). | Le test d'architecture inspecte l'IL : sans ce patron, un contrôleur ou une page nommerait un type du Domain via `Send<T>`. |
-| 8 | Les adaptateurs d'hôte qui implémentent ou alimentent des ports (`HttpCurrentUserMiddleware`, `CircuitCurrentUserInitializer`, `ApiTokenAuthenticationHandler`) sont rangés sous `{Host}/Configuration/…`. | Ce sont des éléments de composition ; ils restent dans les exceptions autorisées par la règle d'isolement. |
+| 8 | Les adaptateurs d'hôte qui implémentent ou alimentent des ports (`HttpCurrentUserMiddleware`, `CircuitUserScopeInitializer`, `ApiTokenAuthenticationHandler`) sont rangés sous `{Host}/Configuration/…`. | Ce sont des éléments de composition ; ils restent dans les exceptions autorisées par la règle d'isolement. |
 | 9 | `ListAuditEntries` (Operations) et le cas d'usage de diagnostic `Ping` sont ajoutés. | Ils servent la page `/admin/audit` et le smoke test du médiateur. |
 | 10 | `global.json` épinglé en `10.0.403` (architecture) ; CONVENTIONS §2.3 renvoie au fichier pour la version courante. | L'architecture fixe la version ; les conventions n'en dupliquent pas la valeur. |
 | 11 | `JobRecord`, `StoredSetting` et `SettingsRevisionRow` sont des entités techniques de l'Infrastructure, pas du Domain. | Ce sont des mécanismes techniques ; seuls leurs read models (`JobSummary`, `SettingValue`) sont dans le Domain. |
 | 12 | Les classes `Application/Configuration/{Coverage,Upload,Processing,Notification,Access,Badge,Retention}Options.cs` sont créées en une fois par EN.1 ([#58](https://github.com/gaetanthouvenin/code-coverage/issues/58)), hors plan, et non plus par M1.28, M1.29, M1.34, M2.18, M3.04, M3.14 et M3.17. | Elles liaient des chaînes indépendantes, M2.10 à M1.34 pour `ProcessingOptions` et M2.20 à M2.18 pour `NotificationOptions`. |
 | 13 | M5.06 (import de l'historique Codecov) passe avant M4.08, bien que l'architecture la classe en M5. | L'import lit l'API Codecov v2, inaccessible après la résiliation. |
+| 14 | Une instance partagée héberge plusieurs organisations isolées (ADR-013, M1.16a1 à M4.02a). L'architecture décrit encore une organisation unique jusqu'à M1.16a2 ; en cas de conflit, ADR-013 prime. | Décision du 2026-11-08, qui remplace ADR-003 ; aucune table métier n'existait encore. |
+| 15 | Ports ajoutés pour l'isolation : `ICurrentOrganization`, `IOrganizationScope`, `IOrganizationDirectory`, `IOrganizationSettingsProvider`, `IOrganizationSettingRepository`, `IOrganizationMembershipRepository`, `IOrganizationRoleResolver`. | L'organisation reste hors des signatures des autres ports : le contexte est ambiant, posé une fois par portée. |
+| 16 | Routes modifiées : `GET /api/v1/uploads/{id}` devient `/api/v1/repos/{owner}/{repo}/uploads/{id}`, `GET /api/v1/repos` devient `/api/v1/orgs/{org}/repos`, les jetons d'upload passent sous l'organisation ou le dépôt. | Aucune donnée d'organisation n'est adressée par un seul identifiant, et le filtre couvre ces routes sans contrôle dédié. `/api/v1` est l'API propre du produit : la règle 1 n'est pas touchée. |
+| 17 | Paramètres : `GitHub:Organization` et `Uploads:AllowedOwners` disparaissent, `Access:AdminLogins` devient `Access:AdminUserIds`, `Access:HardExpiryMinutes` est ajouté, et 4 clés passent au niveau de l'organisation (M1.16h, M1.16i). | Un login est modifiable et réattribuable, et seul le contenu propre à une organisation ou sa bascule exige une valeur par organisation. |
+| 18 | Un jeton d'upload n'est unique que dans son organisation, et trois cas d'usage deviennent six (M1.22). | Une valeur importée est choisie par l'appelant : un index global serait un oracle et bloquerait un import légitime. Chaque message sert une seule audience. |
+| 19 | Les écrans d'exploitation restent au niveau de l'instance et ne montrent que des métadonnées (M3.13, M3.40, M3.41) ; les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27). | L'isolation exige que la vue d'instance masque les données métier. Les écrans par organisation sont au backlog (§11). |
 
 ---
 
@@ -2235,19 +2553,25 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
    - Le README v3 recommande de l'installer dans le projet exécutable le plus externe et met en garde contre une installation dans chaque couche d'un même artefact.
    - L'architecture le place dans Application, seul projet qui le référence dans chaque artefact.
    - Le spike tranche. Repli : générateur dans Api et Web avec `InternalsVisibleTo`, et `Assemblies = [Application]`.
-2. **Mono-tenant ([ADR-003](adr/0003-single-tenant.md)).**
-   - Aucune raison forte de recourir à une brique multi-tenant : une organisation GitHub, un déploiement, une isolation par dépôt calquée sur les droits GitHub.
-   - Plusieurs organisations restent possibles grâce à `Installations` et `Owner`.
-   - Ajouter un `TenantId` plus tard serait une migration mécanique.
-   - À confirmer avant M0.14.
+2. **Mono-tenant ([ADR-003](adr/0003-single-tenant.md)) : tranché.** Une instance partagée héberge plusieurs organisations isolées ; [ADR-013](adr/0013-organization-isolation.md) remplace ADR-003 et consigne les sept arbitrages (App publique partagée, écarts d'isolation non configurables, aucun accès en lecture de l'administrateur d'instance, historique vide après un transfert, pas d'écrans de jobs ni d'audit par organisation au départ, suspension sans effacement avant le pilote, Web public avec connexion GitHub).
 3. **Patron « envoi-et-conversion » contre test d'architecture limité aux signatures.**
    - Le plan retient l'isolement strict au niveau de l'IL (exigence utilisateur 5).
    - L'alternative est un test limité aux signatures publiques, plus simple mais plus permissif.
-4. **Verbe d'administration en ligne de commande (M1.23)** : à conserver comme outil d'exploitation ou à retirer après M3.
+4. **Verbe d'administration en ligne de commande (M1.23)** : à conserver comme outil d'exploitation ou à retirer après M3. Il est indispensable avant M3 : c'est le seul moyen d'admettre la première organisation tant que `/admin/organizations` (M3.41a) n'existe pas.
 5. **Shim codecov-cli (M5.07)** : à décider selon l'effort de migration mesuré pendant le pilote.
-6. **Exposition du Web** : public avec connexion GitHub, ou réseau interne et VPN.
+6. **Exposition du Web : tranché**, public avec connexion GitHub ([ADR-013](adr/0013-organization-isolation.md)), puisque des utilisateurs de plusieurs organisations doivent y accéder.
 7. **Profil de défauts** : historique (retenu) ou centré sur le patch.
 8. **Rétention** : 30 jours de brut et 180 jours de rapports hors branche par défaut, à ajuster après mesure de la volumétrie du pilote.
 9. **Hébergement** : VM Docker (M4.02) ou Azure Container Apps (M4.03).
 10. **Nom définitif du produit et du dépôt** : tranché, produit `CodeCoverage` et dépôt `code-coverage`. Le projet est indépendant.
 11. **Flux de publication de l'outil `coverage-upload` (M5.03)** : nuget.org public ou flux privé. À trancher au démarrage de M5 ; les binaires autonomes servis par l'Api (ADR-012) ne dépendent pas de ce choix.
+
+### Backlog de l'isolation entre organisations
+
+Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.OrganizationId` et `AuditEntries.OrganizationId` (M1.16g1, M1.16g2) les préparent sans reprise de données.
+
+- **Réclamation équitable des jobs entre organisations** : à construire si le pilote mesure qu'un arriéré d'une organisation retarde les statuts d'une autre.
+- **Limite agrégée d'upload par organisation** : à construire si le pilote mesure une organisation qui sature l'instance.
+- **Résilience par installation** : à construire si les erreurs d'une installation dégradent les autres (M1.25 exclut déjà 403 et 429 du gestionnaire de résilience).
+- **Écrans d'exploitation en libre-service** (jobs, webhooks et audit par organisation) : quand une organisation le demande.
+- **Effacement des données d'une organisation** : lors d'un départ réel ou d'une obligation légale ; la suppression en cascade étant limitée sur SQL Server (M1.18), il lui faut son propre job reprenable.
