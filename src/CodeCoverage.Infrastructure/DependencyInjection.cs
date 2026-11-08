@@ -145,7 +145,7 @@ public static partial class DependencyInjection
   ///   <para>
   ///     The adapters of each area are registered in the file of that area
   ///     (<c>DependencyInjection.Reports.cs</c>, <c>.GitHub.cs</c>, <c>.Uploads.cs</c>, <c>.Repositories.cs</c>,
-  ///     <c>.Notifications.cs</c>, <c>.Access.cs</c>), each called once from here.
+  ///     <c>.Notifications.cs</c>, <c>.Access.cs</c>, <c>.Settings.cs</c>), each called once from here.
   ///   </para>
   ///   <para>
   ///     The readiness checks (<see cref="ReadyTag" />): the database answers, every migration is
@@ -196,6 +196,7 @@ public static partial class DependencyInjection
     services.AddRepositories();
     services.AddNotifications();
     services.AddAccess();
+    services.AddSettings();
 
     return services;
   }

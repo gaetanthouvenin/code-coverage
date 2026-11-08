@@ -861,6 +861,7 @@ directement dans `AddInfrastructure` :
 | `DependencyInjection.Repositories.cs` | `AddRepositories` | repositories de `Persistence/Repositories/` (§8.1) |
 | `DependencyInjection.Notifications.cs` | `AddNotifications` | statuts et commentaires des pull requests |
 | `DependencyInjection.Access.cs` | `AddAccess` | accès des utilisateurs aux dépôts |
+| `DependencyInjection.Settings.cs` | `AddSettings` | options des groupes de paramètres (§12.4) |
 
 ### 8.4 Journalisation (Serilog) et télémétrie
 
