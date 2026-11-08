@@ -645,7 +645,25 @@ Chaque couche expose `public static class DependencyInjection` avec une méthode
   `GenerateTypesAsInternal = true`, `Assemblies = [typeof(DependencyInjection)]` et
   `PipelineBehaviors` dans l'ordre du §5.6 (les options sont lues par le générateur : constantes
   de compilation) ;
-- `services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true)`.
+- `services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true)` ;
+- un appel, et un seul, à la méthode de chaque zone.
+
+Dans Application, la classe est `public static partial` : les services de `Application/Services`
+s'enregistrent dans le fichier de leur zone, à côté de `DependencyInjection.cs`, pour que deux
+micro-features de zones différentes ne modifient pas le même fichier.
+
+| Zone | Fichier | Méthode `private static` |
+|---|---|---|
+| Commits | `DependencyInjection.Commits.cs` | `AddCommitServices` |
+| Uploads | `DependencyInjection.Uploads.cs` | `AddUploadServices` |
+| Comparaisons | `DependencyInjection.Comparisons.cs` | `AddComparisonServices` |
+| Notifications | `DependencyInjection.Notifications.cs` | `AddNotificationServices` |
+| Accès | `DependencyInjection.Access.cs` | `AddAccessServices` |
+
+**Jamais d'enregistrement par balayage d'un namespace** : chaque service est enregistré une ligne à
+la fois, avec sa durée de vie explicite. La durée de vie fait partie du comportement : un
+`UploadProcessor` qui porte un `SemaphoreSlim` limite le processus entier, et une durée de vie
+scoped donnerait une limite par job. Les options de `AddMediator` restent dans `AddApplication`.
 
 ---
 
