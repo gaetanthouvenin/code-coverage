@@ -7,6 +7,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -47,7 +48,7 @@ public sealed class ModelSnapshotTests
     options.UseCodeCoverageDatabase(provider, UnusedConnection)
            .ReplaceService<IModelCustomizer, UnmigratedEntityModelCustomizer>();
 
-    using var context = new CodeCoverageDbContext(options.Options);
+    using var context = new CodeCoverageDbContext(options.Options, new OrganizationContext());
 
     context.Database.HasPendingModelChanges().ShouldBeTrue();
   }

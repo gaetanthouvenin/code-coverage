@@ -15,6 +15,8 @@ using Npgsql;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Tests.Support;
@@ -40,12 +42,16 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
   #region Methods
 
-  public static CodeCoverageDbContext CreateContext(DatabaseProvider provider, string connectionString)
+  // Without an organization, the context reads the global tables only: the query filter throws on the others.
+  public static CodeCoverageDbContext CreateContext(
+    DatabaseProvider provider,
+    string connectionString,
+    ICurrentOrganization? organization = null)
   {
     var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
     options.UseCodeCoverageDatabase(provider, connectionString);
 
-    return new CodeCoverageDbContext(options.Options);
+    return new CodeCoverageDbContext(options.Options, organization ?? new OrganizationContext());
   }
 
   // A connection string to a database that does not exist yet: the migration creates it.

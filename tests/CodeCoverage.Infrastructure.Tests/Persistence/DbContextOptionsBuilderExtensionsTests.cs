@@ -7,6 +7,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Tests.Persistence;
@@ -33,7 +34,7 @@ public sealed class DbContextOptionsBuilderExtensionsTests
 
     options.UseCodeCoverageDatabase(provider, Connection).ShouldBeSameAs(options);
 
-    using var context = new CodeCoverageDbContext(options.Options);
+    using var context = new CodeCoverageDbContext(options.Options, new OrganizationContext());
     context.Database.ProviderName.ShouldBe(providerName);
     RelationalOptionsExtension.Extract(options.Options).MigrationsAssembly.ShouldBe(migrationsAssembly);
   }

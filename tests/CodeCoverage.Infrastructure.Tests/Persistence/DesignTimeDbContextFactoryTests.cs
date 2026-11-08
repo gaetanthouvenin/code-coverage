@@ -36,6 +36,19 @@ public sealed class DesignTimeDbContextFactoryTests
     context.Database.GetMigrations().ShouldNotBeEmpty();
   }
 
+  // No server needed: the query fails on its filter, before it opens a connection.
+  [Theory]
+  [MemberData(nameof(Factories))]
+  public async Task CreateDbContext_QueryOnOrganizationTable_ShouldThrow(string project, string providerName)
+  {
+    await using var context = Factory(project).CreateDbContext([]);
+
+    context.Database.ProviderName.ShouldBe(providerName);
+    await Should.ThrowAsync<InvalidOperationException>(
+      () => context.OrganizationSettings.ToListAsync(TestContext.Current.CancellationToken)
+    );
+  }
+
   [Fact]
   public void ConnectionVariable_ShouldBeSharedByBothFactories()
   {
