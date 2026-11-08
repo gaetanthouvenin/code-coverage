@@ -1091,7 +1091,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M1.16a1
 
 #### M1.16a4 — GitLab.com dans ADR-014 et le plan
-- **Issue :** à créer
+- **Issue :** [#90](https://github.com/gaetanthouvenin/code-coverage/issues/90)
 - **Objectif :** ajouter GitLab.com aux forges préparées, avant que la porte d'entrée et le schéma des dépôts ne se figent.
 - **Couches :** docs.
 - **Fichiers :** `docs/adr/0014-multi-forge.md` ; `docs/PLAN.md` (§1.4, §2.1, §2.3, §9.1, §10, §11, M1.16b, M1.17).
