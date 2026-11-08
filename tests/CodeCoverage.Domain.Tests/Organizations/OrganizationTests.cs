@@ -246,6 +246,7 @@ public sealed class OrganizationTests
   [InlineData("octo", true)]
   [InlineData("Octo-Org-42", true)]
   [InlineData("octo_corp", true)]
+  [InlineData("octo.group", true)]
   [InlineData("a", true)]
   [InlineData("trailing-", true)]
   [InlineData(null, false)]
@@ -255,8 +256,10 @@ public sealed class OrganizationTests
   [InlineData("~stale-1", false)]
   [InlineData("with space", false)]
   [InlineData("octo/org", false)]
+  [InlineData("group:subgroup", false)]
+  [InlineData(".hidden", false)]
   [InlineData("octé", false)]
-  public void IsWellFormedLogin_ShouldFollowTheGitHubAlphabet(string? login, bool expected)
+  public void IsWellFormedLogin_ShouldFollowTheCommonAlphabet(string? login, bool expected)
   {
     Organization.IsWellFormedLogin(login).ShouldBe(expected);
   }

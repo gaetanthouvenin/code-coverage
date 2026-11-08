@@ -24,8 +24,8 @@ public sealed class Organization
 {
   #region Fields
 
-  /// <summary>The maximum length of <see cref="Login" />, whatever the forge.</summary>
-  public const int LoginMaxLength = 64;
+  /// <summary>The maximum length of <see cref="Login" />, whatever the forge; GitLab allows the longest path.</summary>
+  public const int LoginMaxLength = 255;
 
   /// <summary>The maximum length of <see cref="ExternalAccountId" />; a braced GUID takes 38 characters.</summary>
   public const int ExternalAccountIdMaxLength = 40;
@@ -160,20 +160,22 @@ public sealed class Organization
   /// <summary>Tells whether a text can be the login of an account, whatever its forge.</summary>
   /// <param name="login">The text, possibly <see langword="null" />.</param>
   /// <returns>
-  ///   <see langword="true" /> for at most <see cref="LoginMaxLength" /> ASCII letters, digits, hyphens or
-  ///   underscores that start with a letter or a digit; otherwise <see langword="false" />. A tombstone is
-  ///   never well formed.
+  ///   <see langword="true" /> for at most <see cref="LoginMaxLength" /> ASCII letters, digits, hyphens,
+  ///   underscores or dots that start with a letter or a digit; otherwise <see langword="false" />. A
+  ///   tombstone is never well formed, nor is a text holding a colon or a slash, which separate the levels
+  ///   of an address.
   /// </returns>
   /// <remarks>
   ///   One rule serves every forge, so it is wider than each of them: a login that no forge would issue
   ///   simply resolves to nothing. On GitHub, older accounts may hold hyphens that are no longer accepted,
-  ///   and Enterprise Managed Users hold an underscore.
+  ///   and Enterprise Managed Users hold an underscore; GitLab paths may hold dots. Older GitLab paths that
+  ///   start with an underscore or a dot are refused.
   /// </remarks>
   public static bool IsWellFormedLogin(string? login) =>
     !string.IsNullOrEmpty(login)
     && login.Length <= LoginMaxLength
     && char.IsAsciiLetterOrDigit(login[0])
-    && login.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+    && login.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.');
 
   /// <summary>Gives the form of a login that is compared and stored as unique.</summary>
   /// <param name="login">The login.</param>

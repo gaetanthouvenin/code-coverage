@@ -124,6 +124,47 @@ public sealed class OrganizationDirectoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task Upsert_SameLoginOnGitLabAndGitHub_ShouldKeepBoth(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var directory = Directory(context);
+    var onGitHub = await directory.UpsertFromForgeAsync(Forge.GitHub, FirstAccount, "octo", OrganizationAccountType.Organization, Ct);
+
+    var onGitLab = await directory.UpsertFromForgeAsync(Forge.GitLab, SecondAccount, "octo", OrganizationAccountType.Organization, Ct);
+
+    onGitLab.Id.ShouldNotBe(onGitHub.Id);
+    (await directory.FindByLoginAsync(Forge.GitHub, "octo", Ct)).ShouldNotBeNull().Id.ShouldBe(onGitHub.Id);
+    (await directory.FindByLoginAsync(Forge.GitLab, "octo", Ct)).ShouldNotBeNull().Id.ShouldBe(onGitLab.Id);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindByLogin_DottedGitLabPath_ShouldBeFound(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var directory = Directory(context);
+    var created = await directory.UpsertFromForgeAsync(Forge.GitLab, FirstAccount, "Octo.Group", OrganizationAccountType.Organization, Ct);
+
+    (await directory.FindByLoginAsync(Forge.GitLab, "octo.group", Ct)).ShouldNotBeNull().Id.ShouldBe(created.Id);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Upsert_LongestLogin_ShouldBeSaved(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var login = new string('a', Organization.LoginMaxLength);
+
+    var created = await Directory(context).UpsertFromForgeAsync(Forge.GitLab, FirstAccount, login, OrganizationAccountType.Organization, Ct);
+
+    created.Login.Length.ShouldBe(Organization.LoginMaxLength);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task Upsert_SameAccountIdOnOtherForge_ShouldCreateARow(DatabaseProvider provider)
   {
     var connection = await MigratedDatabaseAsync(provider);

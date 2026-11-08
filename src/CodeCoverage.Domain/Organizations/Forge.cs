@@ -21,4 +21,7 @@ public enum Forge
 
   /// <summary>Bitbucket.</summary>
   Bitbucket,
+
+  /// <summary>GitLab.com; self-managed instances are not supported.</summary>
+  GitLab,
 }

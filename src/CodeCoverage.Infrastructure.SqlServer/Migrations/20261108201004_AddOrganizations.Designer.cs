@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-// <copyright file="20261108182006_AddOrganizations.Designer.cs" company="Gaëtan Thouvenin">
+// <copyright file="20261108201004_AddOrganizations.Designer.cs" company="Gaëtan Thouvenin">
 //   Copyright (c) Gaëtan Thouvenin. All rights reserved.
 // </copyright>
 // ------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeCoverage.Infrastructure.SqlServer.Migrations
 {
     [DbContext(typeof(CodeCoverageDbContext))]
-    [Migration("20261108182006_AddOrganizations")]
+    [Migration("20261108201004_AddOrganizations")]
     partial class AddOrganizations
     {
         /// <inheritdoc />
@@ -98,13 +98,13 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
 
                     b.Property<string>("Login")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("NormalizedLogin")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("State")
                         .IsRequired()
