@@ -823,7 +823,7 @@ Règles par format, alignées sur le code Codecov (`services/report/languages/*`
 
 | Format | Règles |
 |---|---|
-| **Cobertura** | Collecte des `<source>` dans `SourceRoots`. Pour chaque `class@filename`, lecture **des seuls `<lines>` de niveau classe** (les sous-arbres `<methods>` sont ignorés). Agrégation de toutes les classes et de tous les packages d'un même fichier. `line@number` > 0. Si `branch="true"` **et** `condition-coverage` correspond à `\((\d+)/(\d+)\)` : ligne de branche `c/t`, avec les branches manquantes prises dans les `<condition>` à moins de 100 %. **Sinon : hits = `hits`**, même avec `branch="true"` sans condition (comportement Codecov). `timestamp` et `max_report_age` ne sont appliqués que si la clé est explicitement définie dans le YAML. |
+| **Cobertura** | Collecte des `<source>` dans `SourceRoots`. Pour chaque `class@filename`, lecture **des seuls `<lines>` de niveau classe** (les sous-arbres `<methods>` sont ignorés). Agrégation de toutes les classes et de tous les packages d'un même fichier. `line@number` > 0. Si `branch="true"` **et** `condition-coverage` correspond à `\((\d+)/(\d+)\)` : ligne de branche `c/t`, avec les branches manquantes prises dans les `<condition>` à moins de 100 %. Un `0/0`, que Codecov classe Hit, donne une ligne de hits avec `Hits = 1` (§6.5). **Sinon : hits = `hits`**, même avec `branch="true"` sans condition (comportement Codecov). `timestamp` et `max_report_age` ne sont appliqués que si la clé est explicitement définie dans le YAML. |
 | **OpenCover** | Par `Module` (ignoré si `skippedDueTo`) : table `File@uid → fullPath`, **propre au module**. Par `Method` (ignorée si `skippedDueTo` ou sans `fileid`), pour chaque `SequencePoint` : si `bec ≠ 0`, ligne de branche `bev/bec`, sinon hits = `vc`. La valeur s'applique à chaque ligne de `sl..el` (maximum). Les `BranchPoint` avec `vc=0` donnent des identifiants manquants `"{offset}:{path}"`, rattachés à `sl`. |
 | **LCOV** | `SF:` ouvre un fichier. `DA:ln,hits[,chk]` : ligne de hits ; les lignes `0`, `undefined` ou non numériques sont ignorées. `BRDA:ln,blk,br,taken` : `covered += taken ∉ {-,0}` et `total += 1`, avec identifiants manquants `"blk:br"`. **Une ligne `BRDA` remplace la valeur `DA` de la même ligne** : la ligne devient une branche `c/t`, donc `0/2` est un miss même si `DA > 0`. `BRDA` est ignoré sur la ligne 1 des fichiers `.ts`. **`FN` et `BRDA` sont ignorés pour les fichiers `.js`.** `FN` ne crée pas de ligne : il marque seulement la ligne de branche comme méthode. `TN`, `LF`, `LH`, `FNF`, `FNH`, `BRF`, `BRH` et `FNDA` sont ignorés. Les blocs `SF` répétés sont fusionnés. |
 | **JaCoCo** | Chemin = `package@name + "/" + sourcefile@name` : la correspondance par suffixe sur la liste réseau est indispensable. Pour chaque `line nr mi ci mb cb` : si `mb > 0`, branche `cb/(mb+cb)` ; sinon si `cb > 0`, branche `cb/cb` ; sinon hits = `ci`. Une ligne n'est émise que si `mi+ci+mb+cb > 0`. Les agrégats `counter`, `class` et `method` sont ignorés. |
@@ -883,7 +883,7 @@ Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking`
 **`LineCoverage`** est un `readonly record struct (int Line, long Hits, int Covered, int Total, bool IsMethod, string[]? MissingBranches)`. Une ligne est de branche quand `Total > 0`.
 
 **Classification (`LineState`, identique à `line_type`/`branch_type` de Codecov) :**
-- ligne de branche : `Covered == Total` donne Hit (y compris `0/0`), `Covered == 0` donne Miss, sinon Partial. **Les hits sont ignorés dès qu'il y a des données de branche** ;
+- ligne de branche : `Covered == Total` donne Hit, `Covered == 0` donne Miss, sinon Partial. **Les hits sont ignorés dès qu'il y a des données de branche**. Un `0/0`, que Codecov classe Hit, n'est pas une ligne de branche ici (`Total == 0`) : le parseur émet une ligne avec `Hits > 0`, ce qui donne le même Hit ;
 - autre ligne : `Hits > 0` donne Hit, sinon Miss ;
 - les lignes absentes ne sont pas couvrables.
 
@@ -943,17 +943,19 @@ lines    = hits + misses + partials                      (lignes non couvrables 
 coverage = lines == 0 ? null
          : hits == lines ? 100
          : hits == 0 ? 0
-         : Round((double)hits / lines * 100, 5, MidpointRounding.ToEven)   -- = round(float, 5) de Python
+         : decimal.Parse(((double)hits / lines * 100).ToString("F5"))      -- = round(float, 5) de Python
 ```
 
+- **`F5` et non `Math.Round(double, 5, ToEven)`.** Python arrondit la valeur binaire exacte du double. `Math.Round` multiplie d'abord, et ce produit peut tomber sur une égalité que le double n'est pas : pour 2 lignes sur 64000, Python donne `0.00313` et `Math.Round` `0.00312`. Comparé à Python sur 3,1 millions de ratios, `F5` ne présente aucun écart, `Math.Round` en présente 4 487.
 - **Les partials comptent au dénominateur, jamais au numérateur.** Une ligne avec une branche sur deux couverte compte pour 0 hit et 1 partial, pas 50 %.
-- `branches` (somme des totaux de branche) et `methods` sont purement informatifs.
+- `branches` (nombre de lignes de type branche) et `methods` (nombre de lignes de type méthode) sont purement informatifs. Une ligne est d'un seul type : `FN` et `BRDA` sur la même ligne LCOV donnent une méthode, comme chez Codecov.
 - La même formule s'applique au projet, au patch, aux flags, aux fichiers et aux sessions.
 - **Comparaisons des statuts :** recalculées en `decimal` depuis les entiers `hits/lines`, jamais depuis une valeur arrondie.
 - **Affichage :** `CoverageMath.Format(value, precision = coverage.precision ?? 2, round = coverage.round ?? down)`.
-  - `down` : troncature ; `up` : plafond ; `nearest` : `AwayFromZero`.
-  - Une valeur non nulle qui s'arrondit à 0 s'affiche `<0.01` (ou `+<0.01`).
+  - `down` : vers moins l'infini (`ROUND_FLOOR`) ; `up` : vers plus l'infini (`ROUND_CEILING`) ; `nearest` : au plus proche, une égalité allant au chiffre pair (`ROUND_HALF_EVEN`). Sur une valeur positive, `down` revient à une troncature ; sur un delta négatif, -0,015 donne -0,02.
+  - Une valeur non nulle qui s'arrondit à 0 s'affiche `<0.01` (ou `+<0.01`, `-<0.01` pour un delta). Le seuil suit la précision : `<0.001` à 3 décimales, `<1` à 0.
   - Une valeur null s'affiche `∅` ; un impact nul s'affiche `ø`.
+  - **Écart assumé :** la précision est limitée à 28 décimales (capacité de `decimal`, là où le schéma de Codecov accepte 99) et le texte reste toujours en notation positionnelle (Codecov passe à `0E-7` sur une valeur nulle au-delà de 6 décimales).
 
 ### 7.2 Couverture projet
 
