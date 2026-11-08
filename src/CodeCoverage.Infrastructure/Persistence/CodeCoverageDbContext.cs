@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Settings;
@@ -47,6 +48,9 @@ public sealed class CodeCoverageDbContext(DbContextOptions<CodeCoverageDbContext
 
   /// <summary>Gets the background jobs (<c>Jobs</c>).</summary>
   internal DbSet<JobRecord> Jobs => Set<JobRecord>();
+
+  /// <summary>Gets the organizations hosted by the instance (<c>Organizations</c>).</summary>
+  public DbSet<Organization> Organizations => Set<Organization>();
 
   /// <summary>Gets the values saved in the settings store (<c>Settings</c>).</summary>
   internal DbSet<StoredSetting> Settings => Set<StoredSetting>();
