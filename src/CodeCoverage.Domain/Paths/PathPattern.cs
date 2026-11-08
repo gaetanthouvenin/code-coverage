@@ -132,9 +132,60 @@ public sealed class PathPattern
     }
   }
 
+  /// <summary>Tests whether a pattern body is recognized as a prefix.</summary>
+  /// <param name="body">The pattern, without its <c>!</c> and <c>./</c> markers.</param>
+  /// <returns><see langword="true" /> if it has none of the reserved characters.</returns>
+  internal static bool IsPrefix(string body) => body.IndexOfAny(ReservedCharacters) < 0;
+
+  /// <summary>Tests whether a pattern body with reserved characters is recognized as a glob.</summary>
+  /// <param name="body">The pattern, without its <c>!</c> and <c>./</c> markers.</param>
+  /// <returns><see langword="true" /> if it is a glob; otherwise, it may be a regular expression.</returns>
+  internal static bool IsGlob(string body) =>
+    body.Contains("**", StringComparison.Ordinal)
+    || body.Contains("/*", StringComparison.Ordinal)
+    || (body.Contains('*')
+      && !body.Contains("]*", StringComparison.Ordinal)
+      && !body.Contains(".*", StringComparison.Ordinal));
+
+  /// <summary>Translates a glob, as <c>translate_glob_to_regex</c> of Codecov does.</summary>
+  /// <param name="glob">The glob.</param>
+  /// <returns>The regular expression, without any anchor.</returns>
+  internal static string TranslateGlobBody(string glob)
+  {
+    var expression = new StringBuilder("(?s:");
+    var index = 0;
+
+    while (index < glob.Length)
+    {
+      var current = glob[index++];
+
+      switch (current)
+      {
+        case '*' when index < glob.Length && glob[index] == '*':
+          expression.Append(".*");
+          index++;
+          break;
+        case '*':
+          expression.Append("[^/]*");
+          break;
+        case '?':
+          expression.Append('.');
+          break;
+        case '[':
+          index = AppendCharacterClass(expression, glob, index);
+          break;
+        default:
+          expression.Append(Regex.Escape(new string(current, 1)));
+          break;
+      }
+    }
+
+    return expression.Append(')').ToString();
+  }
+
   private static Regex? CompilePathBody(string body)
   {
-    if (body.IndexOfAny(ReservedCharacters) < 0)
+    if (IsPrefix(body))
     {
       return TryCompileStartAnchored(body, out var prefix)
         ? prefix
@@ -146,15 +197,8 @@ public sealed class PathPattern
       return regex;
     }
 
-    return CompileOrRefuse(TranslateGlob(body));
+    return CompileOrRefuse($@"\A{TranslateGlobBody(body)}\z");
   }
-
-  private static bool IsGlob(string body) =>
-    body.Contains("**", StringComparison.Ordinal)
-    || body.Contains("/*", StringComparison.Ordinal)
-    || (body.Contains('*')
-      && !body.Contains("]*", StringComparison.Ordinal)
-      && !body.Contains(".*", StringComparison.Ordinal));
 
   // Returns false on a syntax error. A refused construct returns true with a null regex: it is
   // valid, it only cannot run here. The body is compiled alone first, so that a stray parenthesis
@@ -194,39 +238,6 @@ public sealed class PathPattern
     {
       return null;
     }
-  }
-
-  private static string TranslateGlob(string glob)
-  {
-    var expression = new StringBuilder(@"\A(?s:");
-    var index = 0;
-
-    while (index < glob.Length)
-    {
-      var current = glob[index++];
-
-      switch (current)
-      {
-        case '*' when index < glob.Length && glob[index] == '*':
-          expression.Append(".*");
-          index++;
-          break;
-        case '*':
-          expression.Append("[^/]*");
-          break;
-        case '?':
-          expression.Append('.');
-          break;
-        case '[':
-          index = AppendCharacterClass(expression, glob, index);
-          break;
-        default:
-          expression.Append(Regex.Escape(new string(current, 1)));
-          break;
-      }
-    }
-
-    return expression.Append(@")\z").ToString();
   }
 
   // The index is just after the opening bracket; the result is where the translation resumes.
