@@ -22,6 +22,7 @@ using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.PostgreSql;
 using CodeCoverage.Infrastructure.PostgreSql.Jobs;
+using CodeCoverage.Infrastructure.Reports;
 using CodeCoverage.Infrastructure.Security;
 using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.SqlServer;
@@ -87,6 +88,14 @@ public sealed class DependencyInjectionTests
     await using var services = Build(new Dictionary<string, string?>());
 
     services.GetRequiredService<ICoverageConfigParser>().ShouldBeOfType<YamlCoverageConfigParser>();
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheReportParserCatalog()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+
+    services.GetRequiredService<IReportParserCatalog>().ShouldBeOfType<ReportParserCatalog>();
   }
 
   [Fact]

