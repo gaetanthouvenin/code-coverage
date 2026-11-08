@@ -116,8 +116,11 @@ graph LR
   M1 --> M3
   M3 --> M4["M4 Pilote et bascule"]
   M4 --> M5["M5 Confort et compatibilité"]
+  M5 -. "M5.06 avant M4.08" .-> M4
   M5 --> M6["M6 Plus tard"]
 ```
+
+Une seule exception à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible.
 
 Les graphes suivants ne montrent que les dépendances **internes** à chaque jalon. Les dépendances vers des jalons antérieurs sont indiquées sur chaque fiche.
 
@@ -168,6 +171,7 @@ graph TD
   M1_04 --> M1_05["M1.05 PathFixer résolution"]
   M1_06["M1.06 Diffs et LineShifter"]
   M1_03 --> M1_07["M1.07 Config Domain"]
+  M1_01 --> M1_07
   M1_07 --> M1_08["M1.08 Parseur YAML"]
   M1_02 --> M1_09["M1.09 Catalogue de parseurs"]
   M1_09 --> M1_10["M1.10 Cobertura"]
@@ -175,6 +179,7 @@ graph TD
   M1_09 --> M1_12["M1.12 LCOV"]
   M1_09 --> M1_13["M1.13 JaCoCo"]
   M1_09 --> M1_14["M1.14 Clover"]
+  M1_05 --> M1_13
   M1_10 --> M1_15["M1.15 Oracle et partials_as_hits"]
   M1_11 --> M1_15
   M1_12 --> M1_15
@@ -187,6 +192,9 @@ graph TD
   M1_18 --> M1_19["M1.19 Sessions et rapports"]
   M1_16 --> M1_19
   M1_19 --> M1_20["M1.20 ReportView"]
+  M1_02 --> M1_20
+  M1_03 --> M1_20
+  M1_07 --> M1_20
   M1_18 --> M1_21["M1.21 Stockage brut"]
   M1_17 --> M1_22["M1.22 Jetons d'upload"]
   M1_22 --> M1_23["M1.23 Verbe admin CLI"]
@@ -196,6 +204,7 @@ graph TD
   M1_18 --> M1_27
   M1_08 --> M1_28["M1.28 ConfigResolver"]
   M1_26 --> M1_28
+  M1_17 --> M1_28
   M1_25 --> M1_29["M1.29 Validation OIDC"]
   M1_22 --> M1_30["M1.30 UploadAuthenticator"]
   M1_29 --> M1_30
@@ -209,13 +218,16 @@ graph TD
   M1_05 --> M1_34
   M1_28 --> M1_34
   M1_27 --> M1_34
+  M1_19 --> M1_34
   M1_34 --> M1_35["M1.35 Correction du merge"]
   M1_34 --> M1_36["M1.36 FinalizeCommit"]
   M1_20 --> M1_36
   M1_06 --> M1_37["M1.37 CarryforwardBuilder"]
   M1_20 --> M1_37
+  M1_07 --> M1_37
   M1_36 --> M1_38["M1.38 Carryforward intégré"]
   M1_37 --> M1_38
+  M1_27 --> M1_38
   M1_38 --> M1_39["M1.39 Reprocess et RetryUpload"]
   M1_40["M1.40 Uploader : squelette"] --> M1_41["M1.41 Recherche de fichiers"]
   M1_40 --> M1_42["M1.42 Contexte CI"]
@@ -228,6 +240,7 @@ graph TD
   M1_45 --> M1_46["M1.46 Binaires servis par l'Api"]
   M1_38 --> M1_47["M1.47 Outil de parité pilote"]
   M1_46 --> M1_47
+  M1_23 --> M1_47
 ```
 
 ### 2.4 M2 – Notification GitHub
@@ -251,12 +264,15 @@ graph TD
   M2_14 --> M2_15["M2.15 removed_code_behavior"]
   M2_12 --> M2_15
   M2_14 --> M2_16["M2.16 Statuts patch et changes"]
+  M2_12 --> M2_16
   M2_16 --> M2_17["M2.17 Statuts de flag"]
   M2_07 --> M2_18["M2.18 NotificationGate"]
+  M2_14 --> M2_19a["M2.19a Persistance des statuts"]
   M2_13 --> M2_19["M2.19 Publication des statuts"]
   M2_15 --> M2_19
   M2_17 --> M2_19
   M2_18 --> M2_19
+  M2_19a --> M2_19
   M2_13 --> M2_20["M2.20 Commentaire : en-tête et diff"]
   M2_07 --> M2_20
   M2_20 --> M2_21["M2.21 Commentaire : flags, fichiers, pied"]
@@ -281,9 +297,12 @@ graph TD
   M3_05 --> M3_10["M3.10 API PR et compare"]
   M3_05 --> M3_11["M3.11 API jetons"]
   M3_05 --> M3_12["M3.12 API paramètres et config"]
+  M3_06 --> M3_12
   M3_05 --> M3_13["M3.13 API opérations"]
   M3_14["M3.14 Badge Domain et jetons"] --> M3_15["M3.15 Rendu SVG et routes"]
+  M3_06 --> M3_15
   M3_05 --> M3_16["M3.16 Historique"]
+  M3_06 --> M3_16
   M3_17["M3.17 Rétention"]
   M3_18["M3.18 Artefact de design UI (validé)"] --> M3_19["M3.19 Navigation"]
   M3_04 --> M3_19
@@ -291,6 +310,8 @@ graph TD
   M3_06 --> M3_20
   M3_16 --> M3_20
   M3_19 --> M3_21["M3.21 Vue d'ensemble : cartes"]
+  M3_06 --> M3_21
+  M3_16 --> M3_21
   M3_21 --> M3_22["M3.22 Vue d'ensemble : graphique"]
   M3_16 --> M3_22
   M3_21 --> M3_23["M3.23 Vue d'ensemble : listes et badge"]
@@ -299,6 +320,7 @@ graph TD
   M3_14 --> M3_23
   M3_19 --> M3_24["M3.24 Commits"]
   M3_08 --> M3_24
+  M3_06 --> M3_24
   M3_24 --> M3_25["M3.25 Commit : synthèse"]
   M3_25 --> M3_26["M3.26 Commit : uploads"]
   M3_25 --> M3_27["M3.27 Commit : fichiers et actions"]
@@ -306,6 +328,7 @@ graph TD
   M3_04 --> M3_28["M3.28 GetAnnotatedSource"]
   M3_28 --> M3_29["M3.29 Page source annotée"]
   M3_27 --> M3_29
+  M3_10 --> M3_29
   M3_19 --> M3_30["M3.30 Liste des PR"]
   M3_10 --> M3_30
   M3_30 --> M3_31["M3.31 PR : synthèse"]
@@ -320,8 +343,10 @@ graph TD
   M3_14 --> M3_35
   M3_19 --> M3_36["M3.36 Mon compte"]
   M3_05 --> M3_36
+  M3_35 --> M3_36
   M3_19 --> M3_37["M3.37 Admin paramètres"]
   M3_19 --> M3_38["M3.38 Admin jetons"]
+  M3_35 --> M3_38
   M3_19 --> M3_39["M3.39 Admin dépôts"]
   M3_07 --> M3_39
   M3_19 --> M3_40["M3.40 Admin opérations"]
@@ -349,7 +374,7 @@ graph TD
   M5_03["M5.03 Outil dotnet sur le flux"]
   M5_04["M5.04 behavior new/spammy"]
   M5_05["M5.05 Check Runs"]
-  M5_06["M5.06 Import historique Codecov"]
+  M5_06["M5.06 Import historique Codecov"] --> M4_08
   M5_07["M5.07 Shim codecov-cli (conditionnel)"]
 ```
 
@@ -872,7 +897,7 @@ graph TD
   - `Domain/Ports/ICoverageConfigParser.cs`.
 - **Tests :** `Domain.Tests/Config/ConfigMergerTests` — `Merge_ListShouldReplace`, `Merge_MapShouldMerge` ; `FlagRuleTests` — `Resolve_LegacyFlagsShouldWinOverIndividualFlags`, `Resolve_FlagWithoutPaths_ShouldCoverAll`.
 - **Acceptation :** défauts intégrés identiques à §9.2.
-- **Dépend de :** M1.03
+- **Dépend de :** M1.03, M1.01
 
 #### M1.08 — `YamlCoverageConfigParser`
 - **Issue :** [#9](https://github.com/gaetanthouvenin/code-coverage/issues/9)
@@ -940,7 +965,7 @@ graph TD
 - **Fichiers :** `Infrastructure/Reports/Parsers/JacocoParser.cs` ; fixture `tests/fixtures/reports/jacoco/with-doctype.xml`.
 - **Tests :** `JacocoParserTests` — `Parse_PartialBranches_ShouldEmitCoveredOverTotal`, `Parse_EmptyCounters_ShouldSkipLine`, `Parse_Doctype_ShouldNotFetch`.
 - **Acceptation :** les chemins `package/Source.java` sont résolus par suffixe, ce que montre un test croisé avec `PathFixer`.
-- **Dépend de :** M1.09
+- **Dépend de :** M1.09, M1.05
 
 #### M1.14 — Parseur Clover
 - **Issue :** [#15](https://github.com/gaetanthouvenin/code-coverage/issues/15)
@@ -982,7 +1007,7 @@ graph TD
   - `Domain/Repositories/RepositorySlug.cs` (VO, `owner/repo` et `owner::::repo`), `TrackedRepository.cs`, `Installation.cs`, `Branch.cs` ;
   - `Domain/Ports/IRepositoryRepository.cs`, `IInstallationRepository.cs`, `IBranchRepository.cs` ;
   - configurations et repositories EF ;
-  - Migration `AddRepositories` (`UX(GitHubId)`, `UX(Owner, Name)`, `Version`).
+  - Migration `AddRepositories` (`UX(GitHubId)`, `UX(Owner, Name)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
 - **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepGitHubId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`.
 - **Acceptation :** concurrence optimiste via `Version`.
 - **Dépend de :** M1.03, M0.15
@@ -992,10 +1017,10 @@ graph TD
 - **Objectif :** entités de commit et d'upload.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
-  - `Domain/Commits/Commit.cs`, `CommitState.cs`, `CarryforwardStatus.cs`, `Upload.cs`, `UploadState.cs`, `PrincipalKind.cs`, `ProcessingLog.cs` (plafond de 64 Ko, 200 premiers chemins et total), `GitCommit.cs` ;
+  - `Domain/Commits/Commit.cs` (`ConfigSource` est une simple chaîne : la `Source` de `CommitConfigs`, ou `codecov-import` en M5.06), `CommitState.cs`, `CarryforwardStatus.cs`, `Upload.cs`, `UploadState.cs`, `PrincipalKind.cs`, `ProcessingLog.cs` (plafond de 64 Ko, 200 premiers chemins et total), `GitCommit.cs` ;
   - `Domain/Ports/ICommitRepository.cs` (`GetOrCreateAsync` par insertion puis relecture, `NextUploadSequenceAsync` atomique), `IUploadRepository.cs`, `IGitCommitRepository.cs` ;
   - EF ;
-  - Migration `AddCommitsAndUploads`.
+  - Migration `AddCommitsAndUploads`, qui pose aussi la FK `Branches.CoveredCommitId` vers `Commits` (`NoAction` : SQL Server refuse les chemins de cascade multiples).
 - **Tests :** `Domain.Tests/Commits/CommitTests` — `MarkPending_FromKnown_ShouldSetPending` ; `ProcessingLogTests` — `Add_Over64Kb_ShouldTruncateKeepingTotal` ; `Infrastructure.Tests/Persistence/Repositories/CommitRepositoryTests` — `GetOrCreate_Concurrent_ShouldCreateOnce`, `NextUploadSequence_Concurrent_ShouldBeUnique`.
 - **Acceptation :** les courses entre uploads parallèles sont absorbées sur les deux fournisseurs.
 - **Dépend de :** M1.17
@@ -1003,10 +1028,11 @@ graph TD
 #### M1.19 — Sessions, rapports de commit et totaux par flag
 - **Issue :** [#20](https://github.com/gaetanthouvenin/code-coverage/issues/20)
 - **Objectif :** tables des résultats de traitement.
-- **Couches :** Domain, Infrastructure.
+- **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
   - `Domain/Commits/Session.cs`, `SessionKind.cs`, `CommitFlagTotals.cs` ;
   - `Domain/Ports/ICommitReportRepository.cs` (`GetUploadCoverageAsync`, `SaveProcessedUploadAsync(upload, blob, JobRequest)`, `SaveFinalizedAsync(...)`, `GetReportAsync`, `GetFileIndexAsync`) ;
+  - `Features/Commits/CommitErrors.cs` (`Commit.ConcurrentSave`, code du `ConflictException` de `SaveFinalizedAsync`) ;
   - EF `UploadCoverages`, `CommitSessions`, `CommitReports`, `CommitFlagTotals` ;
   - Migration `AddCommitReports`.
 - **Tests :** `Infrastructure.Tests/Persistence/Repositories/CommitReportRepositoryTests` — `SaveFinalized_WithStaleVersion_ShouldThrowConflict`, `SaveProcessedUpload_ShouldEnqueueInSameTransaction`.
@@ -1020,7 +1046,7 @@ graph TD
 - **Fichiers :** `Domain/Coverage/ReportView.cs` (`Build(sessions, flags, paths)`, `Totals`, `TotalsOf`), `Domain/Coverage/SessionReport.cs`.
 - **Tests :** `Domain.Tests/Coverage/ReportViewTests` — `Build_WithFlag_ShouldMergeOnlySessionsCarryingIt`, `Build_WithFlagPaths_ShouldFilterFiles`, `Build_JoinedFalse_ShouldExcludeFromProject`.
 - **Acceptation :** la vue sans flag est égale au rapport fusionné.
-- **Dépend de :** M1.19, M1.02, M1.03
+- **Dépend de :** M1.19, M1.02, M1.03, M1.07
 
 #### M1.21 — Stockage brut par morceaux
 - **Issue :** [#22](https://github.com/gaetanthouvenin/code-coverage/issues/22)
@@ -1119,15 +1145,14 @@ graph TD
 - **Objectif :** configuration effective au SHA (§9.1).
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
-  - `Domain/Config/CommitConfig.cs`, `ConfigSource.cs` ;
+  - `Domain/Config/CommitConfig.cs`, `ConfigSource.cs` (énumération de `CommitConfigs.Source`) ;
   - `Domain/Ports/ICommitConfigRepository.cs` ;
   - `Application/Services/ConfigResolver.cs` (arbre racine, puis `.github`, puis `dev`, puis `contents` ; repli sur `DefaultBranchYaml`, puis `Coverage:OrganizationYaml`, puis défauts) ;
-  - `Application/Configuration/CoverageOptions.cs` (section `Coverage`) ;
   - EF `CommitConfigs` ;
   - Migration `AddCommitConfigs`.
 - **Tests :** `Application.Tests/Services/ConfigResolverTests` — `Resolve_ShouldPreferRootThenGithubThenDev`, `Resolve_InvalidYaml_ShouldFallBackAndKeepError`, `Resolve_Twice_ShouldHitCache`, `Resolve_ShouldMergeOrganizationYaml`.
 - **Acceptation :** quatre appels GitHub au plus par SHA, puis zéro.
-- **Dépend de :** M1.08, M1.26
+- **Dépend de :** M1.08, M1.26, M1.17
 
 ### 4.6 Réception des uploads
 
@@ -1135,7 +1160,7 @@ graph TD
 - **Issue :** [#30](https://github.com/gaetanthouvenin/code-coverage/issues/30)
 - **Objectif :** valider l'issuer, le JWKS, l'audience et les conditions du dépôt.
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/Contracts/Identity/GitHubOidcIdentity.cs` ; `Domain/Ports/IOidcTokenValidator.cs` ; `Infrastructure/Identity/GitHubOidcTokenValidator.cs` (`ConfigurationManager<OpenIdConnectConfiguration>`, tolérance d'une minute) ; `Application/Configuration/UploadOptions.cs` (section `Uploads`).
+- **Fichiers :** `Domain/Contracts/Identity/GitHubOidcIdentity.cs` ; `Domain/Ports/IOidcTokenValidator.cs` ; `Infrastructure/Identity/GitHubOidcTokenValidator.cs` (`ConfigurationManager<OpenIdConnectConfiguration>`, tolérance d'une minute).
 - **Tests :** `Infrastructure.Tests/Identity/GitHubOidcTokenValidatorTests` (JWKS WireMock, clés de test) — `Validate_WrongAudience_ShouldFail`, `Validate_Expired_ShouldFail`, `Validate_Valid_ShouldReturnRepositoryId`.
 - **Acceptation :** aucun appel réseau par validation une fois le JWKS en cache.
 - **Dépend de :** M1.25
@@ -1165,6 +1190,7 @@ graph TD
   - `Domain/Contracts/Uploads/UploadMetadata.cs`, `CiContext.cs` ;
   - UC `Features/Uploads/Commands/ReceiveUpload` `+V` (`ReceiveUploadCommand(UploadCredential, UploadMetadata, IAsyncEnumerable<UploadPart>, string? IdempotencyKey)` qui renvoie `Upload`) ;
   - le handler suit les étapes 1 à 7 de §5.1 : ré-authentification, résolution ou création du dépôt via l'installation, commit par insertion puis relecture, séquence atomique, brut en flux, transaction `Upload(Received)` avec job `ProcessUpload`, rejeu idempotent et réveil ;
+  - `Features/Repositories/RepositoryErrors.cs` (`Repository.NotFound`, `Repository.Inactive`) ;
   - `Domain/Ports/IJobWakeUp.cs` (réveil en process) ;
   - `JobTypes.ProcessUpload`.
 - **Tests :** `Application.Tests/Features/Uploads/Commands/ReceiveUpload/ReceiveUploadCommandHandlerTests` :
@@ -1216,7 +1242,6 @@ graph TD
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
   - UC `Features/Uploads/Commands/ProcessUpload` (`ISystemOnly`) ;
-  - `Application/Configuration/ProcessingOptions.cs` ;
   - `Application/Services/UploadProcessor.cs` (`SemaphoreSlim` réglé par `MaxParallelParses`) ;
   - `Domain/Contracts/Jobs/JobTypes.FinalizeCommit` ;
   - cas `JobDispatcher` pour `ProcessUpload` ;
@@ -1229,7 +1254,7 @@ graph TD
 
   `Infrastructure.Tests/Uploads/ProcessUploadIntegrationTests` couvre de bout en bout une fixture coverlet.
 - **Acceptation :** le traitement d'un upload n'écrit que ses propres lignes, et deux uploads d'un même commit sont traités en parallèle.
-- **Dépend de :** M1.31, M1.15, M1.05, M1.28, M1.27, M0.24
+- **Dépend de :** M1.31, M1.15, M1.05, M1.28, M1.27, M0.24, M1.19
 
 #### M1.35 — Correction du commit de merge synthétique
 - **Issue :** [#36](https://github.com/gaetanthouvenin/code-coverage/issues/36)
@@ -1247,7 +1272,7 @@ graph TD
 - **Issue :** [#37](https://github.com/gaetanthouvenin/code-coverage/issues/37)
 - **Objectif :** reconstruction déterministe, totaux et `CommitFlagTotals` (§6.5, étapes 1 à 3 et 5 à 8).
 - **Couches :** Application, Infrastructure.
-- **Fichiers :** UC `Features/Commits/Commands/FinalizeCommit` (`ISystemOnly`) ; `Application/Services/CommitMerger.cs` ; `Features/Commits/CommitErrors.cs` (`Commit.NotFound`, `Commit.Compacted`) ; cas `JobDispatcher` pour `FinalizeCommit` (`LockKey commit:{id}`, `DedupKey finalize:{id}`).
+- **Fichiers :** UC `Features/Commits/Commands/FinalizeCommit` (`ISystemOnly`) ; `Application/Services/CommitMerger.cs` ; `Features/Commits/CommitErrors.cs` complété (`Commit.NotFound`, `Commit.Compacted`) ; cas `JobDispatcher` pour `FinalizeCommit` (`LockKey commit:{id}`, `DedupKey finalize:{id}`).
 - **Tests :** `Application.Tests/Features/Commits/Commands/FinalizeCommit/FinalizeCommitCommandHandlerTests` :
   - `Handle_WhenUploadStillProcessing_ShouldStop` ;
   - `Handle_ShouldNumberSessionsBySequence` ;
@@ -1270,7 +1295,7 @@ graph TD
   - `Build_NoDiffAndDifferentBlob_ShouldDropFile` ;
   - `Build_Unshifted_ShouldReferenceSourceBlob`.
 - **Acceptation :** des lignes mal alignées ne sont jamais conservées.
-- **Dépend de :** M1.06, M1.20
+- **Dépend de :** M1.06, M1.20, M1.07
 
 #### M1.38 — Carryforward intégré à `FinalizeCommit`
 - **Issue :** [#39](https://github.com/gaetanthouvenin/code-coverage/issues/39)
@@ -1376,7 +1401,7 @@ graph TD
   - rapport tabulaire par commit et par flag ;
   - écarts au-delà de 0,01 % listés ;
   - le script sera remplacé par la version API en M4.06.
-- **Dépend de :** M1.38, M1.46
+- **Dépend de :** M1.38, M1.46, M1.23
 
 ---
 
@@ -1420,7 +1445,7 @@ graph TD
   - `RecurringJobCatalog` : `SyncInstallations` quotidien.
 - **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_RepositoryRenamed_ShouldUpdateOwnerAndNameByGitHubId`, `Handle_InstallationRepositoriesRemoved_ShouldDeactivate` ; `SyncInstallationsCommandHandlerTests` — `Handle_ShouldUpsertAndDeactivateMissing`.
 - **Acceptation :** une redélivrance est absorbée.
-- **Dépend de :** M2.02
+- **Dépend de :** M2.02, M1.17, M1.26
 
 #### M2.04 — `push` et `BranchHeadTracker`
 - **Objectif :** suivre la tête de branche et la tête couverte (§11.1).
@@ -1442,7 +1467,7 @@ graph TD
   - `JobTypes.SyncPullRequest`.
 - **Tests :** `SyncPullRequestCommandHandlerTests` — `Handle_ShouldUseGitHubApiNotPayload`, `Handle_ClosedMerged_ShouldSetMerged`.
 - **Acceptation :** la PR est créée même si l'upload a précédé son ouverture.
-- **Dépend de :** M2.03, M2.01
+- **Dépend de :** M2.03, M2.01, M1.26
 
 #### M2.06 — Règles de statut dans la configuration
 - **Objectif :** modéliser `coverage.status.*` et les statuts de `flag_management` (§9.3).
@@ -1474,7 +1499,7 @@ graph TD
 - **Fichiers :** `IGitHubAppGateway.ListPullFilesAsync` (pagination `per_page=50`) ; `Domain/Ports/IDiffCacheRepository.cs` (ajout, §10) ; `Application/Services/DiffProvider.cs` ; EF `DiffCache` (gzip JSON) ; Migration `AddDiffCache`.
 - **Tests :** `Application.Tests/Services/DiffProviderTests` — `GetPullDiff_Over3000_ShouldMarkIncomplete`, `GetCompareDiff_Cached_ShouldNotCallGitHub`, `GetPullDiff_NullPatch_ShouldKeepFileMarkedUnavailable`.
 - **Acceptation :** le cache est immuable par couple base/tête.
-- **Dépend de :** M1.26, M1.06
+- **Dépend de :** M1.26, M1.06, M1.17
 
 #### M2.10 — `BaseResolver`
 - **Objectif :** point de fourche, `comparedTo`, `patchDiff` et `comparisonDiff` (§7.4).
@@ -1487,7 +1512,7 @@ graph TD
   - `Resolve_PendingBase_ShouldRetryLater` ;
   - `Resolve_PseudoCompareDisabled_ShouldReturnNullComparedTo`.
 - **Acceptation :** aucun historique git de l'agent n'est utilisé.
-- **Dépend de :** M2.09, M2.01, M1.27
+- **Dépend de :** M2.09, M2.01, M1.27, M1.07
 
 #### M2.11 — Comparaisons : Domain
 - **Objectif :** couverture du patch, fichiers impactés et comparaison par flag (§7.2, §7.3).
@@ -1542,7 +1567,7 @@ graph TD
 - **Fichiers :** `StatusEvaluator.cs` (parties patch et changes).
 - **Tests :** `StatusEvaluatorPatchTests` — `Evaluate_NoCoverableLines_ShouldSucceedNotAffected`, `Evaluate_WithinThreshold_ShouldUseThresholdText` ; `StatusEvaluatorChangesTests` — `Evaluate_MissesIncreaseOutsideDiff_ShouldFail` ; `Evaluate_Informational_ShouldSendSuccessKeepDescription`.
 - **Acceptation :** descriptions tronquées à 140 caractères.
-- **Dépend de :** M2.14
+- **Dépend de :** M2.14, M2.12
 
 #### M2.17 — Statuts de flag et filtres de règles
 - **Objectif :** `flags`, `paths`, `branches`, `only_pulls`/`base: pr`, `after_n_builds` par flag et `flag_coverage_not_uploaded_behavior`.
@@ -1557,7 +1582,6 @@ graph TD
 - **Couches :** Domain, Application, Api, Uploader.
 - **Fichiers :**
   - `Domain/Notifications/NotificationGate.cs`, `NotificationDecision.cs` ;
-  - `Application/Configuration/NotificationOptions.cs` ;
   - mise en file de `NotifyCommit` dans `SaveFinalizedAsync` (`DedupKey notify:{id}`, `DebounceSeconds`, `MaxDelaySeconds`) ;
   - `JobTypes.NotifyCommit` ;
   - UC `Features/Uploads/Commands/CompleteUploads` (credential d'upload, forcé) ;
@@ -1568,18 +1592,29 @@ graph TD
 - **Acceptation :** une notification au plus après une rafale d'uploads, dans la limite de `MaxDelaySeconds`.
 - **Dépend de :** M2.07, M1.38, M1.44
 
+#### M2.19a — Persistance des statuts publiés
+- **Objectif :** stocker les statuts publiés avant leur publication (M2.19) et leur lecture (M3.08), pour que l'API et les pages de commit n'attendent pas la fin de M2. Le suffixe `a` (comme M0.12a) évite de renuméroter les autres micro-features ; elle se livre avant M2.19.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Domain/Notifications/PostedStatus.cs` (`CommitId`, `CommitStatus`, `TargetUrl`, `PostedAt`) ;
+  - `Domain/Ports/IPostedStatusRepository.cs` (`ListByCommitAsync`, `UpsertAsync`) ;
+  - EF `PostedStatuses` ;
+  - Migration `AddPostedStatuses`.
+- **Tests :** `Infrastructure.Tests/Persistence/Repositories/PostedStatusRepositoryTests` — `Upsert_SameContext_ShouldReplace`, `ListByCommit_ShouldReturnEveryContext`.
+- **Acceptation :** clé primaire `(CommitId, Context)` et description de 140 caractères au plus, sur les deux fournisseurs.
+- **Dépend de :** M2.14, M1.18
+
 #### M2.19 — Publication des statuts : `NotifyCommit` (partie statuts)
 - **Objectif :** publier les statuts sans doublon, et `notify_error`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
   - `IGitHubAppGateway.CreateStatusAsync` ;
-  - `Domain/Ports/IPostedStatusRepository.cs` ; EF `PostedStatuses` ; Migration `AddPostedStatuses` ;
   - `Application/Services/NotificationService.cs` (statuts) ;
   - UC `Features/Notifications/Commands/NotifyCommit` (`ISystemOnly`, `LockKey commit:{id}`) ;
   - `Features/Notifications/NotificationErrors.cs`.
 - **Tests :** `NotificationServiceTests` — `Publish_SameStateAndDescription_ShouldSkip`, `Publish_AllUploadsFailed_ShouldPostErrorOnExpectedContexts`, `Publish_ShouldUseConfiguredPrefix`, `Publish_StatusesDisabled_ShouldPostNothing`.
 - **Acceptation :** `target_url` pointe vers la page PR du Web, sinon vers la page commit, et métrique `notify_latency_seconds`.
-- **Dépend de :** M2.13, M2.15, M2.17, M2.18
+- **Dépend de :** M2.13, M2.15, M2.17, M2.18, M2.19a
 
 #### M2.20 — `CommentComposer` : en-tête et tableau `diff`
 - **Objectif :** sections `header`, `condensed_header` et `diff` (§8.4).
@@ -1637,7 +1672,7 @@ graph TD
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :** `Domain/Users/AppUser.cs`, `RepositoryAccess.cs` ; `Domain/Ports/IUserRepository.cs`, `IUserRepositoryAccessRepository.cs` ; EF `Users` et `UserRepositoryAccess` ; Migration `AddUsers`.
 - **Tests :** `Domain.Tests/Users/AppUserTests` — `ReplaceTokens_ShouldStoreProtectedValuesOnly` ; tests de repository.
-- **Acceptation :** les colonnes de jetons ne contiennent que des valeurs protégées par Data Protection.
+- **Acceptation :** les colonnes de jetons ne contiennent que des valeurs protégées par Data Protection, et `UserRepositoryAccess.GitHubRepositoryId` porte l'identifiant GitHub du dépôt, sans FK vers `Repositories`.
 - **Dépend de :** M0.16
 
 #### M3.02 — Passerelle utilisateur GitHub et rafraîchissement des jetons
@@ -1662,7 +1697,7 @@ graph TD
   - `Web/ViewModels/Access/CurrentUserViewModel.cs`.
 - **Tests :** `Web.Tests/Authentication/ConfigureGitHubOAuthOptionsTests` — `ClientIdChange_ShouldInvalidateCache` ; `SignInUserCommandHandlerTests` — `Handle_NoAccessibleRepository_ShouldThrowForbidden`.
 - **Acceptation :** le cookie ne contient que l'identifiant utilisateur et un horodatage, et un rafraîchissement échoué redirige vers la connexion.
-- **Dépend de :** M3.02, M0.13, M0.20
+- **Dépend de :** M3.02, M0.13, M0.20, M1.17
 
 #### M3.04 — Accès par dépôt et `IRepositoryScoped`
 - **Objectif :** n'afficher que les dépôts lisibles sur GitHub (exigence 9).
@@ -1671,11 +1706,10 @@ graph TD
   - `Domain/Ports/IRepositoryAccessService.cs` (ajout, §10) ;
   - `Infrastructure/Identity/RepositoryAccessService.cs` (cache `UserRepositoryAccess` de `Access:CacheMinutes`, admin global via `Access:AdminLogins` ou `Bootstrap:AdminLogins`) ;
   - UC `Features/Access/Commands/RefreshUserAccess` (job `user:{id}`) ;
-  - `AuthorizationBehavior` étendu : lecture refusée donne `NotFoundException(Repository.NotFound)`, administration refusée donne `ForbiddenException` ;
-  - `Application/Configuration/AccessOptions.cs`.
+  - `AuthorizationBehavior` étendu : lecture refusée donne `NotFoundException(Repository.NotFound)`, administration refusée donne `ForbiddenException`.
 - **Tests :** `AuthorizationBehaviorTests` — `Handle_RepositoryScopedWithoutRead_ShouldThrowNotFound`, `Handle_RepositoryScopedWithoutAdmin_ShouldThrowForbidden` ; `RepositoryAccessServiceTests` — `Can_CacheExpired_ShouldEnqueueRefresh`.
 - **Acceptation :** un dépôt privé inaccessible est indiscernable d'un dépôt inexistant.
-- **Dépend de :** M3.03
+- **Dépend de :** M3.03, M1.17, M1.31
 
 #### M3.05 — Jetons API personnels et schéma `ApiToken`
 - **Objectif :** authentifier les endpoints de gestion.
@@ -1688,7 +1722,7 @@ graph TD
   - EF `ApiTokens` ; Migration `AddApiTokens`.
 - **Tests :** `Api.Tests/Authentication/ApiTokenAuthenticationHandlerTests` — `Authenticate_RevokedToken_ShouldReturn401`, `Authenticate_Valid_ShouldUseStoredGitHubUserToken`.
 - **Acceptation :** les contrôles d'accès utilisent le user-to-server token stocké de l'utilisateur, jamais un `gh auth token`.
-- **Dépend de :** M3.04, M0.10
+- **Dépend de :** M3.04, M0.10, M1.22
 
 ### 6.2 API de gestion
 
@@ -1699,13 +1733,12 @@ graph TD
   - UC `Features/Repositories/Queries/ListRepositories` (filtrée par accès) ;
   - UC `Features/Repositories/Queries/GetRepository` (`IRepositoryScoped(Read)`, renvoie `Domain/Repositories/RepositoryOverview.cs`) ;
   - UC `Features/Repositories/Queries/ListBranches` ;
-  - `Features/Repositories/RepositoryErrors.cs` ;
   - `Api/Controllers/RepositoriesController.cs` ;
   - `Api/Contracts/Repositories/RepositoryResponse.cs`, `RepositoryDetailResponse.cs`, `BranchResponse.cs` ;
   - `Api/Mapping/RepositoryMapper.cs`.
 - **Tests :** `ListRepositoriesQueryHandlerTests` — `Handle_ShouldReturnOnlyAccessibleRepositories` ; `Api.Tests/Repositories/RepositoriesControllerTests`.
 - **Acceptation :** documentation OpenAPI complète avec `Name` et `ProducesResponseType`.
-- **Dépend de :** M3.05
+- **Dépend de :** M3.05, M1.17, M1.19
 
 #### M3.07 — Activer ou désactiver un dépôt
 - **Objectif :** commandes réservées aux administrateurs.
@@ -1713,18 +1746,19 @@ graph TD
 - **Fichiers :** UC `Features/Repositories/Commands/ActivateRepository`, `DeactivateRepository` (`IAdminOnly`, audit) ; endpoints `POST …/activate` et `…/deactivate`.
 - **Tests :** `ActivateRepositoryCommandHandlerTests` ; `Api.Tests/Repositories/ActivationTests` — `Post_NonAdmin_ShouldReturn403`.
 - **Acceptation :** un upload vers un dépôt inactif renvoie 422.
-- **Dépend de :** M3.06
+- **Dépend de :** M3.06, M1.31
 
 #### M3.08 — API commits : lecture
 - **Objectif :** liste des commits, détail, fichiers et couverture d'un fichier.
 - **Couches :** Domain, Application, Api.
 - **Fichiers :**
   - UC `Features/Commits/Queries/ListCommits`, `GetCommit` (renvoie `Domain/Commits/CommitDetail.cs`), `GetCommitFiles`, `GetFileCoverage` (renvoie `Domain/Coverage/FileCoverageView.cs`) ;
+  - actions de lecture ajoutées à `Api/Controllers/CommitsController.cs`, créé par M2.18 ;
   - `Api/Contracts/Commits/CommitResponse.cs`, `CommitPageResponse.cs`, `FileTotalsResponse.cs`, `FileCoverageResponse.cs`, `SessionModel.cs`, `PostedStatusModel.cs` ;
   - `Api/Mapping/CommitMapper.cs`.
 - **Tests :** `GetCommitFilesQueryHandlerTests` — `Handle_ShouldReadFileIndexWithoutDecodingLines` ; `Api.Tests/Commits/CommitsControllerTests`.
 - **Acceptation :** pagination et filtre `?flag=`.
-- **Dépend de :** M3.05, M1.38
+- **Dépend de :** M3.05, M1.38, M2.18, M2.19a
 
 #### M3.09 — Notify et reprocess via l'API, `GetUpload` par jeton API
 - **Objectif :** exposer les actions d'administration du dépôt.
@@ -1732,7 +1766,7 @@ graph TD
 - **Fichiers :** endpoints `POST …/commits/{sha}/notify` et `…/reprocess` (202) ; `IRepositoryScoped(Admin)` sur `TriggerNotify` et `ReprocessCommit` ; `UploadsController` accepte aussi `ApiToken`.
 - **Tests :** `Api.Tests/Commits/CommitActionsTests` — `Post_Notify_AsRepoAdmin_ShouldReturn202`, `Post_Reprocess_AsReader_ShouldReturn403`.
 - **Acceptation :** chaque action est auditée.
-- **Dépend de :** M3.08, M2.23, M1.39
+- **Dépend de :** M3.08, M2.23, M1.39, M1.33
 
 #### M3.10 — API PR et comparaisons
 - **Objectif :** `GET /pulls`, `GET /pulls/{n}` et `GET /compare`.
@@ -1756,7 +1790,7 @@ graph TD
 - **Fichiers :** `Api/Controllers/SettingsController.cs` ; `Api/Contracts/Settings/SettingResponse.cs`, `UpdateSettingRequest.cs`, `ReplaceSecretRequest.cs` ; UC `Features/Repositories/Queries/GetEffectiveConfig` ; `Api/Contracts/Repositories/EffectiveConfigResponse.cs` ; mappers.
 - **Tests :** `Api.Tests/Settings/SettingsControllerTests` — `Get_ShouldMaskSecrets`, `Put_EnvironmentKey_ShouldReturn422`.
 - **Acceptation :** aucun secret ne sort.
-- **Dépend de :** M3.05, M0.21, M1.28
+- **Dépend de :** M3.05, M0.21, M1.28, M1.17, M3.06
 
 #### M3.13 — API opérations
 - **Objectif :** jobs, webhooks et état du système.
@@ -1779,22 +1813,23 @@ graph TD
 - **Fichiers :**
   - `Domain/Badges/Badge.cs`, `BadgeColorScale.cs` (101 pas ; plage YAML explicite, sinon `[70, 100]`) ;
   - UC `Features/Repositories/Queries/GetBadge` (anonyme ; comparaison en temps constant ; inconnu donne « unknown ») ;
-  - UC `Features/Repositories/Commands/RotateBadgeToken`, `ImportBadgeToken` `+V` (`IRepositoryScoped(Admin)`) ;
-  - `Application/Configuration/BadgeOptions.cs`.
+  - UC `Features/Repositories/Commands/RotateBadgeToken`, `ImportBadgeToken` `+V` (`IRepositoryScoped(Admin)`).
 - **Tests :** `Domain.Tests/Badges/BadgeColorScaleTests` — `Color_AtLow_ShouldBeRed`, `Color_RawYamlRangeAbsent_ShouldUse70To100` ; `GetBadgeQueryHandlerTests` — `Handle_WrongToken_ShouldReturnUnknownNotThrow`.
 - **Acceptation :** jamais de 404 ni de 403.
 - **Dépend de :** M2.04, M1.17
 
 #### M3.15 — Rendu SVG et routes compatibles Codecov
-- **Objectif :** badges SVG et TXT avec ETag.
+- **Objectif :** badges SVG et TXT avec ETag, et endpoints de gestion du jeton de badge (§10.2).
 - **Couches :** Api.
 - **Fichiers :**
   - `Api/Rendering/BadgeSvgRenderer.cs` (gabarit « flat »), `Api/Rendering/VerdanaWidthTable.cs` ;
   - `Api/Controllers/BadgesController.cs` : routes `/api/v1/badges/{owner}/{repo}.{ext}`, `/{service}/{owner}/{repo}/{graph}/badge.{ext}` et `/{service}/{owner}/{repo}/branch/{**branchAndSuffix}` ;
+  - `Api/Controllers/RepositoriesController.cs` : `POST` et `PUT /api/v1/repos/{owner}/{repo}/badge-token` (jeton API de l'admin du dépôt, `RotateBadgeToken` et `ImportBadgeToken`) ;
+  - `Api/Contracts/Repositories/BadgeTokenResponse.cs`, `ImportBadgeTokenRequest.cs` ;
   - `Api/Contracts/Badges/BadgeResponse.cs` ; `Api/Mapping/BadgeMapper.cs`.
-- **Tests :** `Api.Tests/Badges/BadgesControllerTests` — `Get_CodecovStyleBranchUrl_ShouldServeSvg`, `Get_IfNoneMatch_ShouldReturn304`, `Get_Unknown_ShouldReturn200Grey` ; `BadgeSvgRendererTests` (Verify).
+- **Tests :** `Api.Tests/Badges/BadgesControllerTests` — `Get_CodecovStyleBranchUrl_ShouldServeSvg`, `Get_IfNoneMatch_ShouldReturn304`, `Get_Unknown_ShouldReturn200Grey` ; `BadgeSvgRendererTests` (Verify) ; `Api.Tests/Repositories/BadgeTokenEndpointsTests` — `Post_NonRepoAdmin_ShouldReturn403`, `Put_Import_ShouldReturn204`.
 - **Acceptation :** une URL Codecov dont seul l'hôte est remplacé fonctionne.
-- **Dépend de :** M3.14
+- **Dépend de :** M3.14, M3.06
 
 #### M3.16 — Historique de couverture
 - **Objectif :** séries par branche et par flag (§11.3).
@@ -1802,15 +1837,15 @@ graph TD
 - **Fichiers :** `Domain/History/CoveragePoint.cs`, `CoverageSeries.cs`, `HistoryInterval.cs` ; UC `Features/Repositories/Queries/GetCoverageHistory` `+V` (agrégation en C#, 10 000 lignes au plus) ; endpoint `GET …/history` ; `Api/Contracts/Repositories/CoverageSeriesResponse.cs`.
 - **Tests :** `GetCoverageHistoryQueryHandlerTests` — `Handle_WeekInterval_ShouldKeepLastValuePerWeek`, `Handle_ShouldUseCommitterDateThenCompletedAt`.
 - **Acceptation :** résultats identiques sur les deux fournisseurs.
-- **Dépend de :** M3.05, M1.36
+- **Dépend de :** M3.05, M1.36, M3.06
 
 #### M3.17 — Rétention : `PurgeExpiredData`
 - **Objectif :** purges quotidiennes par lots de 5 000 (§4.4).
 - **Couches :** Application, Infrastructure.
-- **Fichiers :** UC `Features/Operations/Commands/PurgeExpiredData` (`ISystemOnly`) ; `Application/Configuration/RetentionOptions.cs` ; `Domain/Ports/IRetentionRepository.cs` (ajout, §10) ; passage à l'état `Compacted` ; récurrent quotidien.
+- **Fichiers :** UC `Features/Operations/Commands/PurgeExpiredData` (`ISystemOnly`) ; `Domain/Ports/IRetentionRepository.cs` (ajout, §10) ; passage à l'état `Compacted` ; récurrent quotidien.
 - **Tests :** `Infrastructure.Tests/Operations/RetentionRepositoryTests` — `Purge_ShouldKeepDefaultBranchAndOpenPrReports`, `Purge_ShouldKeepCarryforwardSources`, `Purge_ShouldDeleteInBatches`.
 - **Acceptation :** `FinalizeCommit` sur un commit compacté renvoie 422 `Commit.Compacted`.
-- **Dépend de :** M0.25, M1.38, M2.13
+- **Dépend de :** M0.25, M1.38, M2.13, M2.02
 
 ### 6.4 Interface Web (après validation de l'artefact de design)
 
@@ -1846,7 +1881,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/RepositoryOverview.razor(.cs)` ; `Web/Components/Repositories/CoverageCards.razor(.cs)` ; `Web/ViewModels/Repositories/RepositoryOverviewViewModel.cs`, `FlagCardViewModel.cs`.
 - **Tests :** `RepositoryOverviewTests` — `Render_NotFound_ShouldShowInaccessibleState`.
 - **Acceptation :** valeurs formatées selon `precision` et `round`.
-- **Dépend de :** M3.19, M3.06
+- **Dépend de :** M3.19, M3.06, M3.16
 
 #### M3.22 — Vue d'ensemble : graphique d'historique
 - **Objectif :** `CcLineChart` avec sélecteur de branche, multi-sélection de flags et plage de 30, 90 ou 365 jours.
@@ -1870,7 +1905,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/CommitList.razor(.cs)` ; `Web/ViewModels/Commits/CommitRowViewModel.cs`, `CommitPageViewModel.cs` ; `Web/Mapping/CommitMapper.cs`.
 - **Tests :** `CommitListTests` — `ChangeBranch_ShouldReload`.
 - **Acceptation :** affiche état, Δ et nombre de sessions.
-- **Dépend de :** M3.19, M3.08
+- **Dépend de :** M3.19, M3.08, M3.06
 
 #### M3.25 — Détail d'un commit : synthèse
 - **Objectif :** totaux, tableau des flags (avec marqueur de report), statuts publiés, source et avertissements de configuration.
@@ -1886,7 +1921,7 @@ graph TD
 - **Fichiers :** `Web/Components/Commits/UploadSessions.razor(.cs)`, `ProcessingLogView.razor(.cs)` ; `Web/ViewModels/Commits/SessionViewModel.cs`, `UploadViewModel.cs`.
 - **Tests :** `UploadSessionsTests` — `Render_CarriedForward_ShouldShowOrigin`, `Render_Unresolved_ShouldListPaths`.
 - **Acceptation :** chemins non résolus ou ambigus visibles.
-- **Dépend de :** M3.25
+- **Dépend de :** M3.25, M1.33
 
 #### M3.27 — Détail d'un commit : arbre des fichiers et actions
 - **Objectif :** arbre triable issu de `FileIndex`, filtre de flag, boutons re-notifier et retraiter.
@@ -1902,7 +1937,7 @@ graph TD
 - **Fichiers :** `Domain/Source/AnnotatedSource.cs`, `AnnotatedLine.cs` ; `Domain/Ports/ISourceContentCache.cs` (ajout, §10) ; `Infrastructure/Caching/BoundedSourceContentCache.cs` (100 Mo, 10 minutes) ; UC `Features/Commits/Queries/GetAnnotatedSource` (`IRepositoryScoped(Read)`).
 - **Tests :** `GetAnnotatedSourceQueryHandlerTests` — `Handle_NoAccess_ShouldThrowNotFoundWithoutCallingGitHub`, `Handle_ShouldMergeLinesWithCoverage`.
 - **Acceptation :** cache borné en taille, et aucune écriture en base.
-- **Dépend de :** M3.04, M1.26
+- **Dépend de :** M3.04, M1.26, M1.19
 
 #### M3.29 — Page source annotée
 - **Objectif :** marge Hit, Miss et Partial, survol avec hits et `c/t`, lignes de patch surlignées (`?pull=`), ligne non couverte suivante.
@@ -1910,7 +1945,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/AnnotatedSource.razor(.cs)` ; `Web/wwwroot/lib/highlightjs/*` (servi localement) ; `Web/wwwroot/js/annotated-source.js` ; `Web/ViewModels/Source/AnnotatedSourceViewModel.cs`, `AnnotatedLineViewModel.cs` ; `Web/Mapping/SourceMapper.cs`.
 - **Tests :** `AnnotatedSourceTests` — `Render_PatchLines_ShouldHighlight`, `NextUncovered_ShouldScroll`.
 - **Acceptation :** fonctionne sur un fichier de 5 000 lignes sans blocage du circuit.
-- **Dépend de :** M3.28, M3.27
+- **Dépend de :** M3.28, M3.27, M3.10
 
 #### M3.30 — Liste des PR
 - **Objectif :** numéro, titre, auteur, état, couverture du patch et Δ projet.
@@ -1966,7 +2001,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/AccountTokens.razor(.cs)` ; `Web/ViewModels/Tokens/ApiTokenViewModel.cs`.
 - **Tests :** `AccountTokensTests` — `Create_ShouldShowValueOnce`.
 - **Acceptation :** conforme à la maquette.
-- **Dépend de :** M3.19, M3.05
+- **Dépend de :** M3.19, M3.05, M3.35
 
 #### M3.37 — Administration : paramètres
 - **Objectif :** groupes du catalogue, source effective, badge `RequiresRestart`, remplacement des secrets, réinitialisation, clés d'environnement en lecture seule.
@@ -1982,7 +2017,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/AdminUploadTokens.razor(.cs)` (réutilise `Tokens/*`).
 - **Tests :** `AdminUploadTokensTests`.
 - **Acceptation :** réservé à l'admin global.
-- **Dépend de :** M3.19, M1.22
+- **Dépend de :** M3.19, M1.22, M3.35
 
 #### M3.39 — Administration : dépôts
 - **Objectif :** tous les dépôts de l'installation, activation et synchronisation.
@@ -1998,7 +2033,7 @@ graph TD
 - **Fichiers :** `Web/Components/Pages/AdminOperations.razor(.cs)` ; `Web/Components/Operations/JobTable.razor(.cs)`, `WebhookDeliveries.razor(.cs)`, `SystemStatusCards.razor(.cs)` ; `Web/ViewModels/Operations/*` ; `Web/Mapping/OperationsMapper.cs`.
 - **Tests :** `AdminOperationsTests` — `Click_RetryDeadJob_ShouldEnqueue`.
 - **Acceptation :** les indicateurs sont les mêmes que les métriques de §12.6.
-- **Dépend de :** M3.19, M3.13
+- **Dépend de :** M3.19, M3.13, M1.39
 
 #### M3.41 — Administration : journal d'audit
 - **Objectif :** consulter et filtrer l'audit.
@@ -2021,7 +2056,7 @@ graph TD
   - `Web/Configuration/Setup/SetupRedirectMiddleware.cs`.
 - **Tests :** `CompleteGitHubAppManifestCommandHandlerTests` — `Handle_ShouldProtectSecrets`, `Handle_InvalidSetupToken_ShouldThrowUnauthorized` ; `SetupRedirectMiddlewareTests`.
 - **Acceptation :** le jeton est supprimé après la mise en place, et les variables `GitHub__*` rendent l'assistant facultatif.
-- **Dépend de :** M0.21, M1.25
+- **Dépend de :** M0.21, M1.25, M1.26
 
 #### M3.43 — Page `/setup`
 - **Objectif :** état, création de l'App par manifest ou saisie manuelle, URL publiques, administrateurs et installation.
@@ -2067,7 +2102,7 @@ graph TD
 - **Fichiers :** `deploy/observability/alerts.yml`, `docs/operations.md` (section alertes).
 - **Tests :** déclenchement provoqué (job mort, worker arrêté).
 - **Acceptation :** chaque alerte est déclenchée une fois en recette.
-- **Dépend de :** M0.26
+- **Dépend de :** M0.26, M1.25, M2.02
 
 #### M4.05 — Guide de migration depuis Codecov
 - **Objectif :** documenter la bascule des pipelines.
@@ -2075,7 +2110,7 @@ graph TD
 - **Fichiers :** `docs/migration-from-codecov.md` (GitHub Actions avec OIDC, Azure Pipelines, recette curl, monorepo sans `after_n_builds` global, `--finalize`, import des jetons et du graphing token, changement d'hôte des badges).
 - **Tests :** relecture par une équipe pilote.
 - **Acceptation :** un dépôt pilote est migré en suivant le guide seul.
-- **Dépend de :** M2.23
+- **Dépend de :** M2.23, M1.46, M3.11, M3.15
 
 #### M4.06 — Script de parité quotidien (API)
 - **Objectif :** comparer chaque jour totaux et lignes de patch avec Codecov.
@@ -2083,7 +2118,7 @@ graph TD
 - **Fichiers :** `tools/parity/Compare-WithCodecov.ps1` (API v1 avec jeton API, Codecov API v2, totaux à ±0,01 %, lignes de patch identiques), `.github/workflows/parity.yml` (planifié, rapport en artefact).
 - **Tests :** jeux figés dans `tools/parity/samples/`.
 - **Acceptation :** chaque écart est expliqué un par un dans `docs/parity-log.md`.
-- **Dépend de :** M3.08, M3.05
+- **Dépend de :** M3.08, M3.05, M1.47, M3.10
 
 #### M4.07 — Scripts de déploiement pilote (double upload)
 - **Objectif :** PR d'une ligne scriptées avec `gh`.
@@ -2096,10 +2131,10 @@ graph TD
 #### M4.08 — Bascule et résiliation
 - **Objectif :** passer `Notifications:StatusContextPrefix` à `codecov`, retirer les étapes et l'App Codecov, résilier.
 - **Couches :** exploitation.
-- **Fichiers :** `docs/cutover-runbook.md` (pré-requis de parité, changement de préfixe, vérification des protections de branche, scripts de retrait, désinstallation, résiliation).
+- **Fichiers :** `docs/cutover-runbook.md` (pré-requis de parité, import de l'historique Codecov, changement de préfixe, vérification des protections de branche, scripts de retrait, désinstallation, résiliation).
 - **Tests :** répétition sur un dépôt.
 - **Acceptation :** les protections de branche restent inchangées, Codecov est désinstallé et l'abonnement résilié.
-- **Dépend de :** M4.06, M4.07, M4.02, M4.04
+- **Dépend de :** M4.06, M4.07, M4.02, M4.04, M3.12, M5.06
 
 ---
 
@@ -2143,15 +2178,15 @@ graph TD
 - **Fichiers :** `IGitHubAppGateway.CreateCheckRunAsync` ; `Domain/Notifications/CheckRunAnnotationBuilder.cs` ; prise en charge de `github_checks` dans la configuration ; permission Checks ajoutée au manifest.
 - **Tests :** `CheckRunAnnotationBuilderTests` — `Build_ShouldGroupConsecutiveUncoveredLines`.
 - **Acceptation :** 50 annotations par appel au plus.
-- **Dépend de :** M2.19
+- **Dépend de :** M2.19, M3.43
 
 #### M5.06 — Import de l'historique Codecov
-- **Objectif :** importer les totaux par commit via l'API Codecov v2.
+- **Objectif :** importer les totaux par commit via l'API Codecov v2. Cette lecture exige un accès à Codecov : malgré son jalon, M5.06 passe donc avant la résiliation (M4.08).
 - **Couches :** Application, Infrastructure.
 - **Fichiers :** UC `Features/Repositories/Commands/ImportCodecovHistory` (`IAdminOnly`) ; `Infrastructure/Codecov/CodecovApiClient.cs` ; `ConfigSource=codecov-import`.
 - **Tests :** `ImportCodecovHistoryCommandHandlerTests` — `Handle_ShouldCreateCompleteCommitsWithoutBlob`.
 - **Acceptation :** l'historique est visible dans le graphique.
-- **Dépend de :** M3.16
+- **Dépend de :** M3.16, M3.22
 
 #### M5.07 — Shim codecov-cli (conditionnel à la décision 13.2-1)
 - **Objectif :** `POST /upload/github/{owner::::repo}/upload-coverage` suivi d'un `PUT` signé.
@@ -2159,7 +2194,7 @@ graph TD
 - **Fichiers :** `Api/Controllers/CodecovCompatibilityController.cs`, `Api/Compatibility/SignedUploadUrl.cs`.
 - **Tests :** rejeu de requêtes codecov-cli enregistrées (`tests/fixtures/codecov-cli/*`).
 - **Acceptation :** les étapes `codecov/codecov-action@v5` fonctionnent avec `url:`, et la version est épinglée.
-- **Dépend de :** M1.31
+- **Dépend de :** M1.31, M1.32
 
 ---
 
@@ -2189,6 +2224,8 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 | 9 | `ListAuditEntries` (Operations) et le cas d'usage de diagnostic `Ping` sont ajoutés. | Ils servent la page `/admin/audit` et le smoke test du médiateur. |
 | 10 | `global.json` épinglé en `10.0.403` (architecture) ; CONVENTIONS §2.3 renvoie au fichier pour la version courante. | L'architecture fixe la version ; les conventions n'en dupliquent pas la valeur. |
 | 11 | `JobRecord`, `StoredSetting` et `SettingsRevisionRow` sont des entités techniques de l'Infrastructure, pas du Domain. | Ce sont des mécanismes techniques ; seuls leurs read models (`JobSummary`, `SettingValue`) sont dans le Domain. |
+| 12 | Les classes `Application/Configuration/{Coverage,Upload,Processing,Notification,Access,Badge,Retention}Options.cs` sont créées en une fois par EN.1 ([#58](https://github.com/gaetanthouvenin/code-coverage/issues/58)), hors plan, et non plus par M1.28, M1.29, M1.34, M2.18, M3.04, M3.14 et M3.17. | Elles liaient des chaînes indépendantes, M2.10 à M1.34 pour `ProcessingOptions` et M2.20 à M2.18 pour `NotificationOptions`. |
+| 13 | M5.06 (import de l'historique Codecov) passe avant M4.08, bien que l'architecture la classe en M5. | L'import lit l'API Codecov v2, inaccessible après la résiliation. |
 
 ---
 
