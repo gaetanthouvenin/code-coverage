@@ -6,6 +6,9 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Persistence.Repositories;
+
 namespace CodeCoverage.Infrastructure;
 
 public static partial class DependencyInjection
@@ -17,6 +20,8 @@ public static partial class DependencyInjection
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddRepositories(this IServiceCollection services)
   {
+    services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
+
     return services;
   }
 

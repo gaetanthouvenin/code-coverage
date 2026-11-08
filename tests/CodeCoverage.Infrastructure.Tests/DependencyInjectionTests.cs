@@ -17,6 +17,7 @@ using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Operations;
 using CodeCoverage.Infrastructure.Persistence;
+using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.PostgreSql;
 using CodeCoverage.Infrastructure.PostgreSql.Jobs;
 using CodeCoverage.Infrastructure.Security;
@@ -92,6 +93,22 @@ public sealed class DependencyInjectionTests
     log.ShouldBeOfType<AuditLog>();
     first.ServiceProvider.GetRequiredService<IAuditLog>().ShouldBeSameAs(log);
     second.ServiceProvider.GetRequiredService<IAuditLog>().ShouldNotBeSameAs(log);
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheOrganizationDirectoryPerScope()
+  {
+    await using var services = Build(new Dictionary<string, string?>
+    {
+      ["ConnectionStrings:CodeCoverage"] = "Server=localhost;Database=unused",
+    });
+    await using var first = services.CreateAsyncScope();
+    await using var second = services.CreateAsyncScope();
+
+    var directory = first.ServiceProvider.GetRequiredService<IOrganizationDirectory>();
+
+    directory.ShouldBeOfType<OrganizationDirectory>();
+    second.ServiceProvider.GetRequiredService<IOrganizationDirectory>().ShouldNotBeSameAs(directory);
   }
 
   [Fact]
