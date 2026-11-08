@@ -32,7 +32,8 @@ public sealed class CoverageConfigTests
     config.Ignore.ShouldBeEmpty();
     config.Fixes.ShouldBeEmpty();
     config.MaxReportAge.ShouldBeNull();
-    config.NotifyAfterNBuilds.ShouldBe(0);
+    config.Notify.ShouldBe(new NotifyRule(AfterNBuilds: 0, WaitForCi: false, ManualTrigger: false, NotifyError: false));
+    config.Comment.Enabled.ShouldBeTrue();
     config.Cobertura.ShouldBe(new ParserRule(PartialsAsHits: false, HandleMissingConditions: false));
   }
 
@@ -84,10 +85,15 @@ public sealed class CoverageConfigTests
     config.DisableDefaultPathFixes.ShouldBeTrue();
     config.AllowPseudoCompare.ShouldBeTrue();
     config.RequireCiToPass.ShouldBeTrue();
-    config.WaitForCi.ShouldBeTrue();
-    config.NotifyAfterNBuilds.ShouldBe(3);
-    config.ManualTrigger.ShouldBeTrue();
-    config.NotifyError.ShouldBeTrue();
+    config.Notify.ShouldBe(new NotifyRule(AfterNBuilds: 3, WaitForCi: true, ManualTrigger: true, NotifyError: true));
+  }
+
+  [Fact]
+  public void Create_InvalidCommentOption_ShouldReportTheWarning()
+  {
+    var config = CoverageConfig.Create(Map(("comment", Map(("behavior", Text("sometimes"))))));
+
+    config.Warnings.ShouldBe([new ConfigWarning(ConfigWarning.InvalidValue, "comment.behavior", "sometimes")]);
   }
 
   [Theory]
