@@ -53,6 +53,7 @@ public sealed class CoverageConfig
     Jacoco = new ParserRule(ReadBoolean("parsers", "jacoco", "partials_as_hits"), HandleMissingConditions: false);
 
     FlagRule.CollectWarnings(root, _warnings);
+    _warnings.AddRange(StatusRuleSet.Build(root, []).Warnings);
   }
 
   #endregion
@@ -163,6 +164,12 @@ public sealed class CoverageConfig
 
     return new PathPatternSet(patterns);
   }
+
+  /// <summary>Builds the statuses asked for by this configuration.</summary>
+  /// <param name="flags">The flags known to the repository.</param>
+  /// <returns>The statuses of <c>coverage.status</c>, then those of each flag.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="flags" /> is null.</exception>
+  public StatusRuleSet BuildStatusRules(IEnumerable<string> flags) => StatusRuleSet.Build(Root, flags);
 
   private static string Key(string[] path) => string.Join('.', path);
 
