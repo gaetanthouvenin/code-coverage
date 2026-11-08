@@ -822,6 +822,13 @@ fournisseur : `Infrastructure.PostgreSql` et `Infrastructure.SqlServer`.
 - Un changement de modèle s'accompagne de **deux migrations dans le même commit** ; un test par
   fournisseur échoue si le modèle a des changements sans migration
   (`Infrastructure.Tests/Persistence/ModelSnapshotTests.cs`).
+- Les deux migrations se génèrent ensemble avec `pwsh scripts/new-migration.ps1 -Name AddThing` :
+  même identifiant des deux côtés, en-têtes de fichier (§3.1), et rien de modifié si un côté échoue.
+- **Train des migrations** : deux migrations ouvertes en même temps entrent en conflit sur les deux
+  `CodeCoverageDbContextModelSnapshot.cs`. **Au plus une pull request contenant une migration est
+  ouverte à la fois**, dans l'ordre de `docs/PLAN.md` ; la suivante s'ouvre une fois la précédente
+  fusionnée dans `develop`. Après un rebase qui apporte une autre migration, régénérer la sienne :
+  `pwsh scripts/new-migration.ps1 -Name AddThing -Regenerate`.
 - Aucun SQL propre à un fournisseur hors des dialectes de la file de jobs
   (`PostgreSqlJobClaimDialect`, `SqlServerJobClaimDialect`, §9).
 - Choix du moteur : `src/CodeCoverage.Infrastructure/Persistence/DbContextOptionsBuilderExtensions.cs`
