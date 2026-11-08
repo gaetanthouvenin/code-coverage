@@ -7,10 +7,12 @@ Porte de validation **M3.18** de `docs/PLAN.md`. Chaque page de M3.19 à M3.43 s
 | | |
 |---|---|
 | **Statut** | **Validé** par le propriétaire le 2026-11-08 |
-| **Maquette** | [Coverage console mockups](https://claude.ai/artifact/Kt43DrVwwtS4F85CDD9PNA) (version 2, artefact privé) |
+| **Maquette** | [Coverage console mockups](https://claude.ai/artifact/Kt43DrVwwtS4F85CDD9PNA) (version 3, artefact privé) |
 | **Copie versionnée** | [`docs/design/ui-mockup.html`](design/ui-mockup.html), lisible sans compte |
 
 La maquette remplace la référence visuelle précédente, qui décrivait une organisation unique ; l'ancienne version reste dans l'historique git.
+
+La version 3 aligne la maquette validée sur [ADR-014](adr/0014-multi-forge.md), après la validation. Seuls changent les routes, le libellé du sélecteur d'organisation et les tables d'adresses de ce document.
 
 Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son état, le rôle, la langue, le thème et la largeur ; l'ancre `#{écran}--{état}` désigne un état précis, par exemple `#admin-organizations--dlg-suspend`.
 
@@ -22,7 +24,7 @@ Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son �
 | 2 | Organisation `Pending` ou `Suspended` | Visible seulement dans `/admin/organizations`. Un membre reçoit le même « introuvable ou inaccessible » que pour un compte inconnu, sans bandeau (ADR-0013, refus uniformes ; M3.43a). |
 | 3 | Organisation suspendue | Aucune action de réadmission dans la console : M1.22a n'active que les lignes `Pending`. Seule une réinstallation réactive une suspension venue de la désinstallation. |
 | 4 | Contenu sans base dans le plan | Retirés : cloche de notifications, graphiques d'uploads et de patchs, page côté GitHub, cartes KPI des listes, documentation d'API et extraits de pipeline. Les écrans d'instance n'affichent aucun dépôt. |
-| 5 | Page racine `/orgs/{org}` | Aucune : le plan n'en nomme pas, l'entrée Organisation ouvre `/orgs/{org}/repositories`. |
+| 5 | Page racine `/orgs/{forge}/{org}` | Aucune : le plan n'en nomme pas, l'entrée Organisation ouvre `/orgs/{forge}/{org}/repositories`. |
 | 6 | Détail par fichier | L'arbre du commit affiche lignes, couvertes, partielles et manquées, et la source annotée les totaux du fichier. Pas d'onglet Fichiers par branche. |
 
 ### Sélecteur d'organisation
@@ -32,13 +34,33 @@ L'organisation vient toujours de l'adresse ; aucun choix n'est mémorisé.
 | Page | Comportement |
 |---|---|
 | `/` | « Toutes les organisations », ou filtre la liste sur une seule |
-| `/{owner}/{repo}` et ses sous-pages | Affiche le propriétaire du dépôt ; en choisir un autre mène à la liste de cette organisation |
-| `/orgs/{org}/*` | Même section de l'autre organisation si l'utilisateur l'administre, sinon sa liste |
+| `/{forge}/{owner}/{repo}` et ses sous-pages | Affiche le propriétaire du dépôt ; en choisir un autre mène à la liste de cette organisation |
+| `/orgs/{forge}/{org}/*` | Même section de l'autre organisation si l'utilisateur l'administre, sinon sa liste |
 | Options | Seulement les organisations `Active` de l'utilisateur ; masqué sans organisation |
+| Même nom sur deux forges | Les deux options ajoutent la forge, par exemple `acme-labs (GitHub)` et `acme-labs (GitLab)` ; sinon le login suffit |
+| Sous-groupe GitLab, projet Azure DevOps | L'adresse porte `group:sub:sub2` ou `org:project` ; le sélecteur n'affiche que l'organisation, avant le premier `:` |
+
+## Adresses
+
+Les adresses suivent [ADR-014](adr/0014-multi-forge.md). Les forges sont GitHub, Azure DevOps, Bitbucket et GitLab ; seul GitHub est implémenté au départ, et les exemples de la maquette portent donc `github`.
+
+| Usage | Forme |
+|---|---|
+| Dépôt | `/{forge}/{owner}/{repo}/…` |
+| Organisation | `/orgs/{forge}/{org}/…` |
+| Sans organisation, inchangées | `/`, `/account/tokens`, `/admin/*`, `/setup`, `/error`, `/not-found`, `/access-denied` |
+| Badges compatibles Codecov, inchangés | `/github/{owner}/{repo}/graph/badge.svg` et les autres formes d'ADR-014 |
+
+| Forge | `{forge}` | Alias | `{owner}` |
+|---|---|---|---|
+| GitHub | `github` | `gh` | `owner` |
+| Azure DevOps | `azure-devops` | | `org:project` |
+| Bitbucket | `bitbucket` | `bb` | `workspace` |
+| GitLab | `gitlab` | `gl` | `group:sub:sub2` |
 
 ## Inventaire des écrans
 
-Les routes de `/orgs/{org}` et `/admin/organizations` suivent `docs/PLAN.md` et ADR-0013. `docs/ARCHITECTURE.md` §10bis.3 décrit encore `/admin/upload-tokens` et `/admin/repositories` jusqu'à M1.16a2.
+Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN.md`, ADR-0013 et ADR-014. `docs/ARCHITECTURE.md` §10bis.3 décrit encore `/admin/upload-tokens` et `/admin/repositories` jusqu'à M1.16a2.
 
 ### Navigation
 
@@ -66,14 +88,14 @@ Les routes de `/orgs/{org}` et `/admin/organizations` suivent `docs/PLAN.md` et 
 
 | Écran | Route | Micro-feature | Accès | États dans la maquette |
 |---|---|---|---|---|
-| Vue d’ensemble | `/{owner}/{repo}` | M3.21, M3.22, M3.23 | lecture du dépôt | Nominal, Sans rapport, Chargement, Introuvable ou inaccessible |
-| Commits | `/{owner}/{repo}/commits` | M3.24 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
-| Détail d’un commit | `/{owner}/{repo}/commit/{sha}` | M3.25, M3.26, M3.27 | lecture du dépôt | Nominal, Erreur de configuration, Chargement, Introuvable ou inaccessible |
-| Source annotée | `/{owner}/{repo}/commit/{sha}/blob/{**path}` | M3.29 | lecture du dépôt | Nominal, Depuis une PR, Source indisponible, Chargement, Introuvable ou inaccessible |
-| Pull requests | `/{owner}/{repo}/pulls` | M3.30 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
-| Comparaison de pull request | `/{owner}/{repo}/pull/{n}` | M3.31, M3.32 | lecture du dépôt | Nominal, Diff incomplet, Base manquante, Chargement, Introuvable ou inaccessible |
-| Comparaison libre | `/{owner}/{repo}/compare/{base}...{head}` | M3.33 | lecture du dépôt | Nominal, Plage invalide, Chargement, Introuvable ou inaccessible |
-| Réglages du dépôt | `/{owner}/{repo}/settings` | M3.34, M3.35 | admin du dépôt ou de l’organisation | Nominal, Inactif, YAML invalide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
+| Vue d’ensemble | `/{forge}/{owner}/{repo}` | M3.21, M3.22, M3.23 | lecture du dépôt | Nominal, Sans rapport, Chargement, Introuvable ou inaccessible |
+| Commits | `/{forge}/{owner}/{repo}/commits` | M3.24 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
+| Détail d’un commit | `/{forge}/{owner}/{repo}/commit/{sha}` | M3.25, M3.26, M3.27 | lecture du dépôt | Nominal, Erreur de configuration, Chargement, Introuvable ou inaccessible |
+| Source annotée | `/{forge}/{owner}/{repo}/commit/{sha}/blob/{**path}` | M3.29 | lecture du dépôt | Nominal, Depuis une PR, Source indisponible, Chargement, Introuvable ou inaccessible |
+| Pull requests | `/{forge}/{owner}/{repo}/pulls` | M3.30 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
+| Comparaison de pull request | `/{forge}/{owner}/{repo}/pull/{n}` | M3.31, M3.32 | lecture du dépôt | Nominal, Diff incomplet, Base manquante, Chargement, Introuvable ou inaccessible |
+| Comparaison libre | `/{forge}/{owner}/{repo}/compare/{base}...{head}` | M3.33 | lecture du dépôt | Nominal, Plage invalide, Chargement, Introuvable ou inaccessible |
+| Réglages du dépôt | `/{forge}/{owner}/{repo}/settings` | M3.34, M3.35 | admin du dépôt ou de l’organisation | Nominal, Inactif, YAML invalide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
 
 ### Mon compte
 
@@ -85,9 +107,9 @@ Les routes de `/orgs/{org}` et `/admin/organizations` suivent `docs/PLAN.md` et 
 
 | Écran | Route | Micro-feature | Accès | États dans la maquette |
 |---|---|---|---|---|
-| Dépôts de l’organisation | `/orgs/{org}/repositories` | M3.39 | admin de l’organisation | Nominal, Vide, Chargement, Erreur, Accès refusé, Introuvable ou inaccessible |
-| Jetons d’upload de l’organisation | `/orgs/{org}/upload-tokens` | M3.38 | admin de l’organisation | Nominal, Rotation conseillée, Vide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
-| Paramètres de l’organisation | `/orgs/{org}/settings` | M3.37a | admin de l’organisation | Nominal, Valeur invalide, Chargement, Accès refusé, Introuvable ou inaccessible |
+| Dépôts de l’organisation | `/orgs/{forge}/{org}/repositories` | M3.39 | admin de l’organisation | Nominal, Vide, Chargement, Erreur, Accès refusé, Introuvable ou inaccessible |
+| Jetons d’upload de l’organisation | `/orgs/{forge}/{org}/upload-tokens` | M3.38 | admin de l’organisation | Nominal, Rotation conseillée, Vide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
+| Paramètres de l’organisation | `/orgs/{forge}/{org}/settings` | M3.37a | admin de l’organisation | Nominal, Valeur invalide, Chargement, Accès refusé, Introuvable ou inaccessible |
 
 ### Instance
 
@@ -161,6 +183,10 @@ Les clés suivent `Common.resx` (anglais) et `Common.fr.resx` (français). Le no
 | `Nav_Main` | Main navigation | Navigation principale |
 | `Org_Switcher` | Organization | Organisation |
 | `Org_All` | All organizations | Toutes les organisations |
+| `Forge_GitHub` | GitHub | GitHub |
+| `Forge_AzureDevOps` | Azure DevOps | Azure DevOps |
+| `Forge_Bitbucket` | Bitbucket | Bitbucket |
+| `Forge_GitLab` | GitLab | GitLab |
 | `Tab_Overview` | Overview | Vue d’ensemble |
 | `Tab_Commits` | Commits | Commits |
 | `Tab_Pulls` | Pull requests | Pull requests |
