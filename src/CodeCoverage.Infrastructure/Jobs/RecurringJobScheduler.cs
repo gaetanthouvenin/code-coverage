@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Infrastructure.Jobs;
@@ -78,10 +79,7 @@ internal sealed partial class RecurringJobScheduler : BackgroundService
 
     var list = definitions.ToList();
 
-    if (list.Contains(null!))
-    {
-      throw new ArgumentException("A recurring job definition is null.", nameof(definitions));
-    }
+    ArgumentException.ThrowIf(list.Contains(null!), "A recurring job definition is null.", nameof(definitions));
 
     var duplicate = list.GroupBy(static d => d.DedupKey, StringComparer.Ordinal).FirstOrDefault(static g => g.Count() > 1);
 

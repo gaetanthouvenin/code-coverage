@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Infrastructure.Identity;
@@ -59,10 +60,7 @@ public sealed class CurrentUserContext : ICurrentUser
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(userId);
     ArgumentException.ThrowIfNullOrWhiteSpace(login);
 
-    if (IsSystem)
-    {
-      throw new InvalidOperationException("The scope already runs for the system: it cannot run for a user.");
-    }
+    InvalidOperationException.ThrowIf(IsSystem, "The scope already runs for the system: it cannot run for a user.");
 
     UserId = userId;
     Login = login;
@@ -74,10 +72,10 @@ public sealed class CurrentUserContext : ICurrentUser
   /// <remarks>Called by the job worker only, in the scope it creates for each job.</remarks>
   internal void SetSystem()
   {
-    if (IsAuthenticated)
-    {
-      throw new InvalidOperationException("The scope already runs for a user: it cannot run for the system.");
-    }
+    InvalidOperationException.ThrowIf(
+      IsAuthenticated,
+      "The scope already runs for a user: it cannot run for the system."
+    );
 
     IsSystem = true;
   }

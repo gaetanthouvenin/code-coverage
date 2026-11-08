@@ -6,6 +6,7 @@
 
 using System.Runtime.CompilerServices;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 
 namespace CodeCoverage.Domain.Organizations;
@@ -133,13 +134,11 @@ public sealed class Organization
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(externalAccountId);
 
-    if (externalAccountId.Length > ExternalAccountIdMaxLength)
-    {
-      throw new ArgumentException(
-        $"The value cannot be longer than {ExternalAccountIdMaxLength} characters.",
-        nameof(externalAccountId)
-      );
-    }
+    ArgumentException.ThrowIf(
+      externalAccountId.Length > ExternalAccountIdMaxLength,
+      $"The value cannot be longer than {ExternalAccountIdMaxLength} characters.",
+      nameof(externalAccountId)
+    );
 
     ThrowIfMalformed(login);
 
@@ -215,23 +214,21 @@ public sealed class Organization
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(admittedBy);
 
-    if (admittedBy.Length > AuditEntry.ActorMaxLength)
-    {
-      throw new ArgumentException(
-        $"The value cannot be longer than {AuditEntry.ActorMaxLength} characters.",
-        nameof(admittedBy)
-      );
-    }
+    ArgumentException.ThrowIf(
+      admittedBy.Length > AuditEntry.ActorMaxLength,
+      $"The value cannot be longer than {AuditEntry.ActorMaxLength} characters.",
+      nameof(admittedBy)
+    );
 
-    if (State is not OrganizationState.Pending)
-    {
-      throw new InvalidOperationException($"Only a pending organization can be admitted; this one is {State}.");
-    }
+    InvalidOperationException.ThrowIf(
+      State is not OrganizationState.Pending,
+      $"Only a pending organization can be admitted; this one is {State}."
+    );
 
-    if (ReservedLogins.IsReserved(Login))
-    {
-      throw new InvalidOperationException($"The login '{Login}' is reserved and cannot be admitted.");
-    }
+    InvalidOperationException.ThrowIf(
+      ReservedLogins.IsReserved(Login),
+      $"The login '{Login}' is reserved and cannot be admitted."
+    );
 
     State = OrganizationState.Active;
     AdmittedBy = admittedBy;
@@ -323,10 +320,7 @@ public sealed class Organization
   {
     ArgumentNullException.ThrowIfNull(login, name);
 
-    if (!IsWellFormedLogin(login))
-    {
-      throw new ArgumentException($"The login '{login}' is not well formed.", name);
-    }
+    ArgumentException.ThrowIf(!IsWellFormedLogin(login), $"The login '{login}' is not well formed.", name);
   }
 
   /// <summary>Records a change of the row.</summary>

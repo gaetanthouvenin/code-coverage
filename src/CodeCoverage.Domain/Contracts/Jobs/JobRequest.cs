@@ -6,6 +6,8 @@
 
 using System.Runtime.CompilerServices;
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Contracts.Jobs;
 
 /// <summary>A request to run a job in the background: what to run, when, and how to merge it.</summary>
@@ -151,19 +153,21 @@ public sealed class JobRequest
     ThrowIfInvalidKey(lockKey);
     ThrowIfInvalidKey(dedupKey);
 
-    if (dedupKey is null && (coalesce || maxDelay is not null))
-    {
-      throw new ArgumentException("Coalescing and debouncing need a deduplication key.", nameof(dedupKey));
-    }
+    ArgumentException.ThrowIf(
+      dedupKey is null && (coalesce || maxDelay is not null),
+      "Coalescing and debouncing need a deduplication key.",
+      nameof(dedupKey)
+    );
 
     if (maxDelay is { } delay)
     {
       ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(delay, TimeSpan.Zero, nameof(maxDelay));
 
-      if (coalesce)
-      {
-        throw new ArgumentException("A coalesced job is never debounced: it takes no maximum delay.", nameof(maxDelay));
-      }
+      ArgumentException.ThrowIf(
+        coalesce,
+        "A coalesced job is never debounced: it takes no maximum delay.",
+        nameof(maxDelay)
+      );
     }
 
     return new JobRequest(type, payloadJson, lockKey, dedupKey, runAfter?.ToUniversalTime(), coalesce, maxDelay);
@@ -197,10 +201,11 @@ public sealed class JobRequest
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(value, name);
 
-    if (value.Length > maxLength)
-    {
-      throw new ArgumentException($"The value cannot be longer than {maxLength} characters.", name);
-    }
+    ArgumentException.ThrowIf(
+      value.Length > maxLength,
+      $"The value cannot be longer than {maxLength} characters.",
+      name
+    );
   }
 
   #endregion
