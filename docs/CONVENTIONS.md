@@ -794,7 +794,7 @@ Côté Web, même forme dans `CodeCoverage.Web.Mapping`, avec `ToViewModel` et
   texte, convertisseurs JSON).
 - `Persistence/Repositories/{Entity}Repository.cs` : `internal sealed`, implémente le port, Domain
   en entrée et en sortie, enregistre immédiatement ; enregistré dans
-  `Infrastructure/DependencyInjection.cs`.
+  `Infrastructure/DependencyInjection.Repositories.cs` (`AddRepositories`, §8.3).
 
 ### 8.2 Deux fournisseurs, toujours
 
@@ -822,6 +822,20 @@ fournisseur : `Infrastructure.PostgreSql` et `Infrastructure.SqlServer`.
 `ITokenHasher` → `Sha256TokenHasher`…), `TimeProvider.System`, health checks de disponibilité
 marqués `ReadyTag`. Chaque fournisseur ajoute son dialecte par `AddPostgreSqlProvider()` /
 `AddSqlServerProvider()` ; le dialecte configuré est choisi à l'exécution.
+
+`DependencyInjection` est une `public static partial class` : le fichier ci-dessus garde le socle
+commun et `AddInfrastructure` appelle une fois la méthode d'extension privée de chaque domaine,
+dans un fichier voisin. Un nouvel adaptateur s'enregistre dans le fichier de son domaine, jamais
+directement dans `AddInfrastructure` :
+
+| Fichier (`src/CodeCoverage.Infrastructure/`) | Méthode | Enregistre |
+|---|---|---|
+| `DependencyInjection.Reports.cs` | `AddReports` | analyseurs de rapports et leurs caches |
+| `DependencyInjection.GitHub.cs` | `AddGitHub` | passerelles de l'API GitHub, validation des webhooks |
+| `DependencyInjection.Uploads.cs` | `AddUploads` | stockage des rapports envoyés, jetons d'envoi |
+| `DependencyInjection.Repositories.cs` | `AddRepositories` | repositories de `Persistence/Repositories/` (§8.1) |
+| `DependencyInjection.Notifications.cs` | `AddNotifications` | statuts et commentaires des pull requests |
+| `DependencyInjection.Access.cs` | `AddAccess` | accès des utilisateurs aux dépôts |
 
 ### 8.4 Journalisation (Serilog) et télémétrie
 
