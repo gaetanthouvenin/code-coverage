@@ -222,6 +222,45 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Settings.StoredOrganizationSetting", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<long>("OrganizationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OrganizationSettings_OrganizationId_Key");
+
+                    b.ToTable("OrganizationSettings", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Settings.StoredSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -264,6 +303,15 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DataProtectionKeys");
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Settings.StoredOrganizationSetting", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

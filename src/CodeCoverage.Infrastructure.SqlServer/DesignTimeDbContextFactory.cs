@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
 using CodeCoverage.Infrastructure.Persistence;
+using CodeCoverage.Infrastructure.Persistence.Organizations;
 
 namespace CodeCoverage.Infrastructure.SqlServer;
 
@@ -45,7 +46,7 @@ internal sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<C
     var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
     options.UseCodeCoverageDatabase(DatabaseProvider.SqlServer, connectionString);
 
-    return new CodeCoverageDbContext(options.Options);
+    return new CodeCoverageDbContext(options.Options, new DesignTimeOrganizationContext());
   }
 
   #endregion

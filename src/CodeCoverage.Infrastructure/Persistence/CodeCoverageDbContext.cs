@@ -4,19 +4,24 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Linq.Expressions;
+
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
+using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Settings;
 
 namespace CodeCoverage.Infrastructure.Persistence;
 
 /// <summary>The CodeCoverage database, on PostgreSQL or SQL Server.</summary>
 /// <param name="options">The context options (engine and migrations assembly).</param>
+/// <param name="currentOrganization">The organization of the scope, read by the query filter.</param>
 /// <remarks>
 ///   <para>
 ///     One model serves both engines: the entity configurations
@@ -34,9 +39,16 @@ namespace CodeCoverage.Infrastructure.Persistence;
 ///     The context also holds the Data Protection key ring (<see cref="IDataProtectionKeyContext" />),
 ///     shared by the Api and the Web.
 ///   </para>
+///   <para>
+///     Every entity declared by <see cref="OrganizationOwnedExtensions.IsOrganizationOwned{TEntity}" /> gets the
+///     same named query filter, which covers the queries, <c>ExecuteUpdate</c> and <c>ExecuteDelete</c>. It reads
+///     the organization of this context each time a query runs, although the model is built once and shared, and
+///     has no clause for the system principal: without an organization, the query throws (ADR-013).
+///   </para>
 /// </remarks>
-public sealed class CodeCoverageDbContext(DbContextOptions<CodeCoverageDbContext> options)
-  : DbContext(options), IDataProtectionKeyContext
+public sealed class CodeCoverageDbContext(
+  DbContextOptions<CodeCoverageDbContext> options,
+  ICurrentOrganization currentOrganization) : DbContext(options), IDataProtectionKeyContext
 {
   #region Properties
 
@@ -52,11 +64,18 @@ public sealed class CodeCoverageDbContext(DbContextOptions<CodeCoverageDbContext
   /// <summary>Gets the organizations hosted by the instance (<c>Organizations</c>).</summary>
   public DbSet<Organization> Organizations => Set<Organization>();
 
+  /// <summary>Gets the values saved by the organizations (<c>OrganizationSettings</c>).</summary>
+  internal DbSet<StoredOrganizationSetting> OrganizationSettings => Set<StoredOrganizationSetting>();
+
   /// <summary>Gets the values saved in the settings store (<c>Settings</c>).</summary>
   internal DbSet<StoredSetting> Settings => Set<StoredSetting>();
 
   /// <summary>Gets the single row of the settings revision (<c>SettingsRevision</c>).</summary>
   internal DbSet<SettingsRevisionRow> SettingsRevisions => Set<SettingsRevisionRow>();
+
+  /// <summary>Gets the identifier of the organization of the scope, read by the query filter.</summary>
+  /// <exception cref="InvalidOperationException">The scope has not entered an organization.</exception>
+  private long CurrentOrganizationId => currentOrganization.Id;
 
   #endregion
 
@@ -76,6 +95,33 @@ public sealed class CodeCoverageDbContext(DbContextOptions<CodeCoverageDbContext
     ArgumentNullException.ThrowIfNull(modelBuilder);
 
     modelBuilder.ApplyConfigurationsFromAssembly(typeof(CodeCoverageDbContext).Assembly);
+
+    foreach (var entityType in modelBuilder.Model.GetEntityTypes().Where(static e => e.IsMarkedOrganizationOwned()))
+    {
+      modelBuilder.Entity(entityType.ClrType)
+                  .HasQueryFilter(OrganizationOwnedExtensions.FilterName, OrganizationFilter(entityType.ClrType));
+    }
+  }
+
+  /// <summary>Builds the filter that keeps the rows of the organization of the scope.</summary>
+  /// <param name="entity">The entity to filter.</param>
+  /// <returns>
+  ///   The predicate <c>e =&gt; EF.Property&lt;long&gt;(e, "OrganizationId") == this.CurrentOrganizationId</c>: EF
+  ///   Core replaces <c>this</c> with the context that runs the query.
+  /// </returns>
+  private LambdaExpression OrganizationFilter(Type entity)
+  {
+    var row = Expression.Parameter(entity, "e");
+    var owner = Expression.Call(
+      typeof(EF),
+      nameof(EF.Property),
+      [typeof(long)],
+      row,
+      Expression.Constant(OrganizationOwnedExtensions.ColumnName)
+    );
+    var current = Expression.Property(Expression.Constant(this), nameof(CurrentOrganizationId));
+
+    return Expression.Lambda(Expression.Equal(owner, current), row);
   }
 
   #endregion

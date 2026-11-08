@@ -120,7 +120,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
     options.UseCodeCoverageDatabase(DatabaseProvider.PostgreSql, UnusedConnection)
            .AddInterceptors(new FailingSaveChangesInterceptor());
-    await using var context = new CodeCoverageDbContext(options.Options);
+    await using var context = new CodeCoverageDbContext(options.Options, new OrganizationContext());
     var log = new AuditLog(context, new CurrentUserContext(), Clock());
 
     await Should.ThrowAsync<DbUpdateException>(() => log.RecordAsync("Settings.Update", "Key", null, Ct));
@@ -172,7 +172,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
     options.UseCodeCoverageDatabase(DatabaseProvider.PostgreSql, UnusedConnection).AddInterceptors(interceptor);
 
-    return new CodeCoverageDbContext(options.Options);
+    return new CodeCoverageDbContext(options.Options, new OrganizationContext());
   }
 
   #endregion

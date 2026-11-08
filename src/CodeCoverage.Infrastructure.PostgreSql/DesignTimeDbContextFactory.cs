@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
 using CodeCoverage.Infrastructure.Persistence;
+using CodeCoverage.Infrastructure.Persistence.Organizations;
 
 namespace CodeCoverage.Infrastructure.PostgreSql;
 
@@ -44,7 +45,7 @@ internal sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<C
     var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
     options.UseCodeCoverageDatabase(DatabaseProvider.PostgreSql, connectionString);
 
-    return new CodeCoverageDbContext(options.Options);
+    return new CodeCoverageDbContext(options.Options, new DesignTimeOrganizationContext());
   }
 
   #endregion
