@@ -787,12 +787,14 @@ graph TD
 - **Fichiers :**
   - `Domain/Coverage/LineCoverage.cs` (`readonly record struct`), `LineState.cs` (`Hit`, `Miss`, `Partial`), `LineKind.cs` ;
   - `CoverageTotals.cs` (`Lines`, `Hits`, `Misses`, `Partials`, `Branches`, `Methods`, `Coverage`) ;
-  - `CoverageMath.cs` (`Ratio`, `Classify`, `Format(value, precision, RoundingMode)`, `<0.01`, `∅`, `ø`) ;
+  - `CoverageMath.cs` (`Ratio`, `Classify`, `Format(value, precision, RoundingMode)`, `FormatDelta`, `<0.01`, `∅`, `ø`) ;
   - `Domain/Config/RoundingMode.cs` (`Down`, `Up`, `Nearest`).
 - **Tests :** `Domain.Tests/Coverage/CoverageMathTests` :
   - `Ratio_WithPartials_ShouldCountThemInDenominatorOnly` ;
-  - `Ratio_ShouldRoundHalfToEvenAt5Decimals` ;
+  - `Ratio_ShouldMatchPythonRoundAt5Decimals` ;
   - `Format_Down_ShouldTruncate` ;
+  - `Format_DownOnNegative_ShouldRoundTowardNegativeInfinity` ;
+  - `Format_Nearest_ShouldRoundHalfToEven` ;
   - `Format_TinyNonZero_ShouldShowLessThan001` ;
   - `Classify_BranchLine_ShouldIgnoreHits`.
 - **Acceptation :** les vecteurs de test reprennent des valeurs calculées par `totals.py` et `ratio()` de Codecov.
