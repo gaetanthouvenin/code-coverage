@@ -24,7 +24,7 @@ using CodeCoverage.Infrastructure.Time;
 namespace CodeCoverage.Infrastructure;
 
 /// <summary>Registers the adapters of the Domain ports.</summary>
-public static class DependencyInjection
+public static partial class DependencyInjection
 {
   #region Fields
 
@@ -143,6 +143,11 @@ public static class DependencyInjection
   ///     (5 s by default) in both hosts, so that a setting saved on one host reaches the other one.
   ///   </para>
   ///   <para>
+  ///     The adapters of each area are registered in the file of that area
+  ///     (<c>DependencyInjection.Reports.cs</c>, <c>.GitHub.cs</c>, <c>.Uploads.cs</c>, <c>.Repositories.cs</c>,
+  ///     <c>.Notifications.cs</c>, <c>.Access.cs</c>), each called once from here.
+  ///   </para>
+  ///   <para>
   ///     The readiness checks (<see cref="ReadyTag" />): the database answers, every migration is
   ///     applied, and <c>READ_COMMITTED_SNAPSHOT</c> is on under SQL Server.
   ///   </para>
@@ -184,6 +189,13 @@ public static class DependencyInjection
             .AddDbContextCheck<CodeCoverageDbContext>(DatabaseHealthCheckName, tags: [ReadyTag])
             .AddCheck<MigrationsAppliedHealthCheck>(MigrationsAppliedHealthCheck.Name, tags: [ReadyTag])
             .AddCheck<ReadCommittedSnapshotHealthCheck>(ReadCommittedSnapshotHealthCheck.Name, tags: [ReadyTag]);
+
+    services.AddReports();
+    services.AddGitHub();
+    services.AddUploads();
+    services.AddRepositories();
+    services.AddNotifications();
+    services.AddAccess();
 
     return services;
   }
