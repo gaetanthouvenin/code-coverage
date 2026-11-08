@@ -55,7 +55,7 @@ public sealed class PortConventionTests
   [Fact]
   public void Ports_WithSharedPorts_ShouldBeDiscovered()
   {
-    string[] shared = ["IClock", "ICurrentUser"];
+    string[] shared = ["IClock", "ICurrentUser", "IForgeGateway", "IForgeGatewayProvider"];
 
     shared.Except(Ports.Select(t => t.Name), StringComparer.Ordinal)
           .ShouldBeEmpty("the port rules must check the shared ports of the Domain");
@@ -80,6 +80,19 @@ public sealed class PortConventionTests
   {
     Ports.SelectMany(UnitOfWorkViolations)
          .ShouldBeEmpty("a repository saves at once: a port never exposes a unit of work");
+  }
+
+  // ADR-014: only the search of a repository that is not tracked yet goes by name.
+  [Fact]
+  public void ForgeGateway_RepositoryMethods_ShouldTakeARepositoryRefFirst()
+  {
+    var gateway = Ports.Single(t => t.Name == "IForgeGateway");
+
+    gateway.GetMethods()
+           .Where(m => m.Name != "GetRepositoryConnectionAsync")
+           .Where(m => m.GetParameters()[0].ParameterType.Name != "ForgeRepositoryRef")
+           .Select(m => m.Name)
+           .ShouldBeEmpty("a tracked repository is addressed by its reference, never by its name");
   }
 
   [Fact]
