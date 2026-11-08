@@ -17,3 +17,4 @@ Chaque ADR suit le format **Contexte / Décision / Conséquences** et porte un s
 | [ADR-011](0011-two-public-hostnames.md) | Deux noms d'hôte publics, aucun routage par chemin | accepté |
 | [ADR-012](0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api | accepté |
 | [ADR-013](0013-organization-isolation.md) | Isolation entre organisations sur une instance partagée | proposé, jusqu'à M1.16d2 |
+| [ADR-014](0014-multi-forge.md) | Préparation à plusieurs forges | proposé, jusqu'à M1.16a2 |
