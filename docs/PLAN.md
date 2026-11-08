@@ -759,7 +759,7 @@ graph TD
   - `gitversion` ;
   - `build-and-test` (Testcontainers pour les deux fournisseurs) ;
   - `compose-smoke` ;
-  - `docker` (deux images GHCR, sans push en PR).
+  - `docker` (deux images GHCR, poussées seulement depuis `main` et les tags `v*`, jamais depuis `develop` ni une PR).
 - **Tests :** la CI elle-même.
 - **Acceptation :** CI verte sur `main` et sur les PR, et aucune image poussée depuis une PR.
 - **Dépend de :** M0.27

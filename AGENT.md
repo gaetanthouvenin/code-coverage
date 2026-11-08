@@ -121,6 +121,8 @@ messages.
 
 ## 5. Checklist before a commit
 
+- [ ] On a `feature/*` branch started from `develop` (GitFlow, `docs/CONVENTIONS.md` §15.1): never a
+      commit on `main`, which only receives releases and hotfixes and publishes the images
 - [ ] One micro-feature of `docs/PLAN.md`, nothing from a later one
 - [ ] `dotnet build -c Release` without warning, `dotnet test` green
 - [ ] Headers, XML docs, regions (`Ctors`), one type per file

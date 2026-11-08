@@ -1126,12 +1126,13 @@ une violation. **Les garder vertes, ne jamais les assouplir pour faire passer un
 
 ### 14.1 Workflow
 
-`.github/workflows/ci-cd.yml` : déclencheurs `push` sur `main` et tags `v*.*.*`, `pull_request` ;
+`.github/workflows/ci-cd.yml` : déclencheurs `push` sur `main`, `develop` et tags `v*.*.*`, `pull_request` ;
 jobs `gitversion` (GitVersion 6.x, `gittools/actions/gitversion/setup@v4` + `execute@v4`) →
 `build-and-test` (`actions/checkout@v6` `fetch-depth: 0`, `actions/setup-dotnet@v5` avec
 `global.json`, `dotnet build -c Release -p:NuGetVersion=… -p:AssemblySemVer=…
 -p:MajorMinorPatch=… -p:InformationalVersion=…`, `dotnet test --no-build`, Testcontainers PostgreSQL
-et SQL Server) → test de fumée compose → images Docker Api et Web (GHCR, pas de push en PR).
+et SQL Server) → test de fumée compose → images Docker Api et Web, construites à chaque exécution et
+poussées sur GHCR seulement depuis `main` (`latest`) et les tags `v*` : jamais depuis `develop` ni une PR (§15).
 Aucune étape de flux NuGet privé. Images `${IMAGE_PREFIX}-api` et `${IMAGE_PREFIX}-web`, avec
 `IMAGE_PREFIX` = `ghcr.io/<owner>/code-coverage` en CI et `code-coverage` par défaut en local.
 
@@ -1157,7 +1158,26 @@ d'amorçage par variables `Section__Key`.
 
 ---
 
-## 15. Commits et checklist
+## 15. Branches, commits et checklist
+
+### 15.1 Branches (GitFlow)
+
+Le dépôt suit GitFlow, aligné sur `GitVersion.yml` (`workflow: GitFlow/v1`) :
+
+| Branche | Rôle | Version GitVersion | Images publiées |
+|---|---|---|---|
+| `develop` | intégration : tout le travail y arrive par pull request | `x.y.z-beta.n` | non |
+| `feature/{jalon}-{sujet}` | un jalon ou un sujet, partie de `develop`, fusionnée dans `develop` | `-alpha` | non |
+| `release/x.y.z` | stabilisation d'une version, partie de `develop`, fusionnée dans `main` et `develop` | `-rc` | non |
+| `hotfix/x.y.z` | correctif urgent, partie de `main`, fusionnée dans `main` et `develop` | `-hotfix` | non |
+| `main` | versions livrées uniquement, taguées `vX.Y.Z` | `x.y.z` | oui (`latest` et la version) |
+
+- On ne commite jamais directement sur `main` : elle ne reçoit que des fusions de `release/*` et
+  `hotfix/*`, suivies du tag `vX.Y.Z`.
+- La CI tourne sur `develop`, `main`, les tags et toutes les pull requests ; les images Docker
+  sont construites partout mais poussées sur GHCR seulement depuis `main` et les tags `v*` (§14.1).
+
+### 15.2 Commits et checklist
 
 - **Une micro-fonctionnalité de `docs/PLAN.md` = un commit = une PR de quelques fichiers**, rien
   d'une micro-fonctionnalité suivante.

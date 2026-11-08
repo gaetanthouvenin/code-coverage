@@ -1607,7 +1607,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 `.github/workflows/ci-cd.yml` (§14.1 des conventions) :
 1. `gitversion` ;
 2. `build-and-test` (Testcontainers PostgreSQL et MsSql) ;
-3. deux images vers GHCR (pas de push en PR) ;
+3. deux images construites à chaque exécution, poussées vers GHCR seulement depuis `main` et les tags `v*` (GitFlow : ni `develop` ni les PR ne publient) ;
 4. publication NuGet de l'outil ;
 5. release GitHub avec les binaires de l'uploader et leurs `.sha256`.
 
