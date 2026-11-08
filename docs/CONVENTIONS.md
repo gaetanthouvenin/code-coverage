@@ -1174,6 +1174,10 @@ Le dépôt suit GitFlow, aligné sur `GitVersion.yml` (`workflow: GitFlow/v1`) :
 
 - On ne commite jamais directement sur `main` : elle ne reçoit que des fusions de `release/*` et
   `hotfix/*`, suivies du tag `vX.Y.Z`.
+- **Une issue GitHub par micro-feature** du plan (créées au démarrage de chaque jalon, jalon GitHub
+  et labels `layer: …`, lien `Issue` sous le titre de la micro-feature dans `docs/PLAN.md`). Sa
+  branche s'appelle `feature/{id}-{sujet}` (`feature/m1.01-coverage-math`) et sa pull request vers
+  `develop` contient `Closes #{issue}`. Un travail hors plan (outillage, docs) ouvre sa propre issue.
 - La CI tourne sur `develop`, `main`, les tags et toutes les pull requests ; les images Docker
   sont construites partout mais poussées sur GHCR seulement depuis `main` et les tags `v*` (§14.1).
 

@@ -39,7 +39,11 @@ Chaque micro-feature porte les rubriques suivantes :
 - les **Fichiers / types** à créer ;
 - les **Tests** à écrire, nommés `{Method}_{Scenario}_Should{Behavior}` (CONVENTIONS §13.2) ;
 - les critères d'**Acceptation** ;
-- les **Dépendances** (`Dépend de`).
+- les **Dépendances** (`Dépend de`) ;
+- l'**Issue** GitHub qui la suit. Les issues d'un jalon sont créées au démarrage du jalon, une par
+  micro-feature, avec le texte du plan, le jalon GitHub (`M1 – Ingestion`…) et les labels de couche
+  (`layer: domain`…). Un jalon livré garde une issue récapitulative fermée (M0 : #1). Si le plan
+  change, l'issue est mise à jour dans la même pull request.
 
 ### 1.2 Chemins et namespaces abrégés
 
@@ -70,6 +74,8 @@ Chaque micro-feature porte les rubriques suivantes :
 7. Tout changement de modèle EF s'accompagne de la migration pour les deux fournisseurs. Le test « aucun changement de modèle sans migration » reste vert.
 8. `dotnet build -c Release` passe sans avertissement, et `dotnet test` est vert, Architecture.Tests compris. Les règles d'architecture ne sont jamais assouplies.
 9. Message de commit : conventional commit et gitmoji, sans clé de ticket (CONVENTIONS §15).
+10. Branche `feature/{id}-{sujet}` partie de `develop` (par exemple `feature/m1.01-coverage-math`),
+    pull request vers `develop` dont la description contient `Closes #{issue}` (CONVENTIONS §15.1).
 
 ### 1.4 Patrons transverses (appliqués partout où ils s'appliquent)
 
@@ -350,6 +356,8 @@ graph TD
 ---
 
 ## 3. Jalon M0 – Socle
+
+> Livré par le commit initial du dépôt public ; issue récapitulative fermée : [#1](https://github.com/gaetanthouvenin/code-coverage/issues/1).
 
 **Critère de sortie :** `docker compose up` donne une Api et un Web sains, sur PostgreSQL comme sur SQL Server. Swagger est visible, et les tests d'architecture sont au vert.
 
@@ -773,6 +781,7 @@ graph TD
 ### 4.1 Domaine de la couverture
 
 #### M1.01 — Modèle de ligne et `CoverageMath`
+- **Issue :** [#2](https://github.com/gaetanthouvenin/code-coverage/issues/2)
 - **Objectif :** formule Codecov exacte et affichage (§6.5, §7.1).
 - **Couches :** Domain.
 - **Fichiers :**
@@ -790,6 +799,7 @@ graph TD
 - **Dépend de :** M0.05
 
 #### M1.02 — `FileCoverage`, `CoverageReport` et `ReportMerger`
+- **Issue :** [#3](https://github.com/gaetanthouvenin/code-coverage/issues/3)
 - **Objectif :** fusion ligne à ligne selon `merge_coverage`.
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Coverage/FileCoverage.cs`, `CoverageReport.cs` (fichiers, `FileTotals`, `TotalsOf(path, lines)`), `FileTotals.cs`, `ReportMerger.cs` (`MergeLine`, `Merge(IEnumerable<CoverageReport>)`).
@@ -803,6 +813,7 @@ graph TD
 - **Dépend de :** M1.01
 
 #### M1.03 — `PathPattern` et `PathPatternSet`
+- **Issue :** [#4](https://github.com/gaetanthouvenin/code-coverage/issues/4)
 - **Objectif :** motifs `ignore`, `paths` et `branches` (§6.4).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Paths/PathPattern.cs` (négation, expression régulière, glob, préfixe ; `NonBacktracking`, timeout de 100 ms), `Domain/Paths/PathPatternSet.cs`.
@@ -811,6 +822,7 @@ graph TD
 - **Dépend de :** M0.05
 
 #### M1.04 — `PathFixer` : normalisation, `fixes` et candidats
+- **Issue :** [#5](https://github.com/gaetanthouvenin/code-coverage/issues/5)
 - **Objectif :** étapes 1 à 4 de §6.4.
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Paths/PathFixer.cs` (partie normalisation), `PathFixContext.cs`, `FixRule.cs` (alternation unique et ancrée), `NetworkIndex.cs`, `CiPathPrefixes.cs`.
@@ -823,6 +835,7 @@ graph TD
 - **Dépend de :** M1.03
 
 #### M1.05 — `PathFixer` : résolution sur la liste réseau
+- **Issue :** [#6](https://github.com/gaetanthouvenin/code-coverage/issues/6)
 - **Objectif :** étapes 5 à 7 (exact, insensible à la casse, suffixe avec score ≥ 2, départage, ambiguïté).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Paths/PathFixer.cs` (partie résolution), `PathFixResult.cs` (`Resolved`, `Unresolved`, `Ambiguous`, `Unverified`).
@@ -836,6 +849,7 @@ graph TD
 - **Dépend de :** M1.04
 
 #### M1.06 — Diffs : `UnifiedDiffParser` et `LineShifter`
+- **Issue :** [#7](https://github.com/gaetanthouvenin/code-coverage/issues/7)
 - **Objectif :** lignes ajoutées et supprimées, et décalage des lignes (patch, carryforward).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Diffs/FileDiff.cs`, `FileDiffStatus.cs`, `Hunk.cs`, `UnifiedDiffParser.cs`, `LineShifter.cs`, `DiffSet.cs` (`Complete`, `Truncated`, `Source`), `DiffSource.cs`.
@@ -846,6 +860,7 @@ graph TD
 ### 4.2 Configuration `codecov.yml` (anticipée depuis M2 : requise par le traitement)
 
 #### M1.07 — Configuration : Domain de base
+- **Issue :** [#8](https://github.com/gaetanthouvenin/code-coverage/issues/8)
 - **Objectif :** modèle de configuration fusionnable (§9.1 à §9.3), hors statuts et commentaire.
 - **Couches :** Domain.
 - **Fichiers :**
@@ -858,6 +873,7 @@ graph TD
 - **Dépend de :** M1.03
 
 #### M1.08 — `YamlCoverageConfigParser`
+- **Issue :** [#9](https://github.com/gaetanthouvenin/code-coverage/issues/9)
 - **Objectif :** lire le YAML et produire des `ConfigWarning` pour les clés inconnues, sans effet ou ignorées.
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Yaml/YamlCoverageConfigParser.cs` (YamlDotNet 16.\*, vers `ConfigNode`), `Infrastructure/Yaml/SupportedKeys.cs`.
@@ -868,6 +884,7 @@ graph TD
 ### 4.3 Parseurs de rapports
 
 #### M1.09 — Contrats de parsing, catalogue et sécurité XML
+- **Issue :** [#10](https://github.com/gaetanthouvenin/code-coverage/issues/10)
 - **Objectif :** détection du format et lecture XML sûre.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -880,6 +897,7 @@ graph TD
 - **Dépend de :** M1.02
 
 #### M1.10 — Parseur Cobertura
+- **Issue :** [#11](https://github.com/gaetanthouvenin/code-coverage/issues/11)
 - **Objectif :** règles Cobertura de §6.3.
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Reports/Parsers/CoberturaParser.cs` (`internal sealed`) ; fixtures `tests/fixtures/reports/cobertura/{coverlet-multitarget,coverlet-async,reportgenerator-merged,windows-paths}.xml`.
@@ -892,6 +910,7 @@ graph TD
 - **Dépend de :** M1.09
 
 #### M1.11 — Parseur OpenCover
+- **Issue :** [#12](https://github.com/gaetanthouvenin/code-coverage/issues/12)
 - **Objectif :** règles OpenCover (table de fichiers par module, `SequencePoint`, `BranchPoint`).
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Reports/Parsers/OpenCoverParser.cs` ; fixtures `tests/fixtures/reports/opencover/*.xml`.
@@ -900,6 +919,7 @@ graph TD
 - **Dépend de :** M1.09
 
 #### M1.12 — Parseur LCOV
+- **Issue :** [#13](https://github.com/gaetanthouvenin/code-coverage/issues/13)
 - **Objectif :** règles LCOV (`BRDA` prime sur `DA`, cas `.js` et `.ts`, blocs `SF` répétés).
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Reports/Parsers/LcovParser.cs` ; fixtures `tests/fixtures/reports/lcov/{jest-absolute,vitest-relative,coverlet}.info`.
@@ -912,6 +932,7 @@ graph TD
 - **Dépend de :** M1.09
 
 #### M1.13 — Parseur JaCoCo
+- **Issue :** [#14](https://github.com/gaetanthouvenin/code-coverage/issues/14)
 - **Objectif :** règles JaCoCo (chemin par package, `mi`, `ci`, `mb`, `cb`).
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Reports/Parsers/JacocoParser.cs` ; fixture `tests/fixtures/reports/jacoco/with-doctype.xml`.
@@ -920,6 +941,7 @@ graph TD
 - **Dépend de :** M1.09
 
 #### M1.14 — Parseur Clover
+- **Issue :** [#15](https://github.com/gaetanthouvenin/code-coverage/issues/15)
 - **Objectif :** règles Clover (`cond`, `method` comptée comme ligne, `stmt`).
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Reports/Parsers/CloverParser.cs` ; fixture `tests/fixtures/reports/clover/istanbul.xml`.
@@ -928,6 +950,7 @@ graph TD
 - **Dépend de :** M1.09
 
 #### M1.15 — Oracle ReportGenerator et `partials_as_hits`
+- **Issue :** [#16](https://github.com/gaetanthouvenin/code-coverage/issues/16)
 - **Objectif :** vérifier les cinq parseurs contre un oracle indépendant, et appliquer `parsers.*.partials_as_hits`.
 - **Couches :** Infrastructure, Infrastructure.Tests.
 - **Fichiers :**
@@ -939,6 +962,7 @@ graph TD
 - **Dépend de :** M1.10, M1.11, M1.12, M1.13, M1.14, M1.07
 
 #### M1.16 — Codec de blob `CCR1`
+- **Issue :** [#17](https://github.com/gaetanthouvenin/code-coverage/issues/17)
 - **Objectif :** sérialisation compacte et versionnée (§4.3).
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :** `Domain/Ports/ICoverageReportCodec.cs` ; `Infrastructure/Reports/Codecs/CcrCodec.cs` (Brotli qualité 5, varints), `Codecs/FileIndexCodec.cs`, `Codecs/VarIntWriter.cs`, `Codecs/VarIntReader.cs`.
@@ -949,6 +973,7 @@ graph TD
 ### 4.4 Persistance de l'ingestion
 
 #### M1.17 — Dépôts, installations et branches
+- **Issue :** [#18](https://github.com/gaetanthouvenin/code-coverage/issues/18)
 - **Objectif :** entités `Repositories` du Domain et leurs tables.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -961,6 +986,7 @@ graph TD
 - **Dépend de :** M1.03, M0.15
 
 #### M1.18 — Commits, uploads et métadonnées git
+- **Issue :** [#19](https://github.com/gaetanthouvenin/code-coverage/issues/19)
 - **Objectif :** entités de commit et d'upload.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -973,6 +999,7 @@ graph TD
 - **Dépend de :** M1.17
 
 #### M1.19 — Sessions, rapports de commit et totaux par flag
+- **Issue :** [#20](https://github.com/gaetanthouvenin/code-coverage/issues/20)
 - **Objectif :** tables des résultats de traitement.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -985,6 +1012,7 @@ graph TD
 - **Dépend de :** M1.18, M1.16
 
 #### M1.20 — `ReportView` (filtrage par flags et par chemins)
+- **Issue :** [#21](https://github.com/gaetanthouvenin/code-coverage/issues/21)
 - **Objectif :** vue par flag calculée à partir des sessions (ADR-008).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Coverage/ReportView.cs` (`Build(sessions, flags, paths)`, `Totals`, `TotalsOf`), `Domain/Coverage/SessionReport.cs`.
@@ -993,6 +1021,7 @@ graph TD
 - **Dépend de :** M1.19, M1.02, M1.03
 
 #### M1.21 — Stockage brut par morceaux
+- **Issue :** [#22](https://github.com/gaetanthouvenin/code-coverage/issues/22)
 - **Objectif :** écrire en flux, morceau par morceau, avec décompression bornée.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -1006,6 +1035,7 @@ graph TD
 - **Dépend de :** M1.18
 
 #### M1.22 — Jetons d'upload
+- **Issue :** [#23](https://github.com/gaetanthouvenin/code-coverage/issues/23)
 - **Objectif :** jetons d'organisation et de dépôt, import des `CODECOV_TOKEN`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -1023,6 +1053,7 @@ graph TD
 - **Dépend de :** M1.17, M0.16, M0.17
 
 #### M1.23 — Verbe d'administration en ligne de commande (amorçage du pilote)
+- **Issue :** [#24](https://github.com/gaetanthouvenin/code-coverage/issues/24)
 - **Objectif :** créer et importer des jetons d'upload avant l'arrivée de l'UI et de l'API de gestion en M3 (voir §10).
 - **Couches :** Api (composition).
 - **Fichiers :** `Api/Configuration/Administration/AdminCommandLine.cs`. Il gère `dotnet CodeCoverage.Api.dll admin create-upload-token --scope … --owner … [--repository …] --label … [--import-value-stdin]` et `admin revoke-upload-token --id …`. Il exécute la commande Application avec le principal système, puis quitte sans démarrer Kestrel.
@@ -1033,6 +1064,7 @@ graph TD
 ### 4.5 Passerelle GitHub minimale
 
 #### M1.24 — Contrats et port GitHub (lecture)
+- **Issue :** [#25](https://github.com/gaetanthouvenin/code-coverage/issues/25)
 - **Objectif :** décrire GitHub côté Domain, sans dépendance HTTP.
 - **Couches :** Domain.
 - **Fichiers :**
@@ -1043,6 +1075,7 @@ graph TD
 - **Dépend de :** M0.05
 
 #### M1.25 — Client GitHub App : JWT, jeton d'installation et pipeline HTTP
+- **Issue :** [#26](https://github.com/gaetanthouvenin/code-coverage/issues/26)
 - **Objectif :** authentification serveur et gestion du rate limit (§8.2).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -1057,6 +1090,7 @@ graph TD
 - **Dépend de :** M1.24, M0.19, M0.26
 
 #### M1.26 — `GitHubAppGateway` : endpoints de lecture
+- **Issue :** [#27](https://github.com/gaetanthouvenin/code-coverage/issues/27)
 - **Objectif :** implémenter le port en lecture.
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/GitHub/GitHubAppGateway.cs` (partie lecture) ; `GitHub/Models/*.cs` (records JSON internes) ; fixtures `tests/fixtures/github/{repo,commits,compare,pull,tree,contents}.json`.
@@ -1065,6 +1099,7 @@ graph TD
 - **Dépend de :** M1.25
 
 #### M1.27 — Caches immuables : ascendance et arbres
+- **Issue :** [#28](https://github.com/gaetanthouvenin/code-coverage/issues/28)
 - **Objectif :** remplir `GitCommits` par lots de 50 et mettre en cache `RepositoryTrees`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -1078,6 +1113,7 @@ graph TD
 - **Dépend de :** M1.26, M1.18
 
 #### M1.28 — `ConfigResolver` et cache `CommitConfigs`
+- **Issue :** [#29](https://github.com/gaetanthouvenin/code-coverage/issues/29)
 - **Objectif :** configuration effective au SHA (§9.1).
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -1094,6 +1130,7 @@ graph TD
 ### 4.6 Réception des uploads
 
 #### M1.29 — Validation des JWT OIDC GitHub Actions
+- **Issue :** [#30](https://github.com/gaetanthouvenin/code-coverage/issues/30)
 - **Objectif :** valider l'issuer, le JWKS, l'audience et les conditions du dépôt.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :** `Domain/Contracts/Identity/GitHubOidcIdentity.cs` ; `Domain/Ports/IOidcTokenValidator.cs` ; `Infrastructure/Identity/GitHubOidcTokenValidator.cs` (`ConfigurationManager<OpenIdConnectConfiguration>`, tolérance d'une minute) ; `Application/Configuration/UploadOptions.cs` (section `Uploads`).
@@ -1102,6 +1139,7 @@ graph TD
 - **Dépend de :** M1.25
 
 #### M1.30 — `UploadAuthenticator` et `AuthorizeUploadQuery`
+- **Issue :** [#31](https://github.com/gaetanthouvenin/code-coverage/issues/31)
 - **Objectif :** authentifier un credential pour un dépôt (§5.1).
 - **Couches :** Application.
 - **Fichiers :**
@@ -1118,6 +1156,7 @@ graph TD
 - **Dépend de :** M1.22, M1.29
 
 #### M1.31 — `ReceiveUploadCommand`
+- **Issue :** [#32](https://github.com/gaetanthouvenin/code-coverage/issues/32)
 - **Objectif :** enregistrer un upload sans parsing, puis le mettre en file.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -1137,6 +1176,7 @@ graph TD
 - **Dépend de :** M1.30, M1.21, M1.26, M0.22
 
 #### M1.32 — `POST /api/v1/uploads` en flux
+- **Issue :** [#33](https://github.com/gaetanthouvenin/code-coverage/issues/33)
 - **Objectif :** lire le multipart sans model binding, avec authentification avant le corps.
 - **Couches :** Api.
 - **Fichiers :**
@@ -1158,6 +1198,7 @@ graph TD
 - **Dépend de :** M1.31, M0.11
 
 #### M1.33 — `GET /api/v1/uploads/{id}`
+- **Issue :** [#34](https://github.com/gaetanthouvenin/code-coverage/issues/34)
 - **Objectif :** donner l'état et le journal d'un upload, avec authentification par credential d'upload. Le jeton API est ajouté en M3.09.
 - **Couches :** Application, Api.
 - **Fichiers :** UC `Features/Uploads/Queries/GetUpload` ; UC `Features/Uploads/Queries/ListCommitUploads` ; `Api/Contracts/Uploads/UploadResponse.cs`, `UploadTotalsModel.cs` ; `UploadMapper.GetUploadResponseAsync`.
@@ -1168,6 +1209,7 @@ graph TD
 ### 4.7 Traitement
 
 #### M1.34 — `ProcessUpload`
+- **Issue :** [#35](https://github.com/gaetanthouvenin/code-coverage/issues/35)
 - **Objectif :** parser, corriger les chemins, fusionner, appliquer `ignore`, écrire le blob et mettre en file la finalisation (§6.2).
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
@@ -1188,6 +1230,7 @@ graph TD
 - **Dépend de :** M1.31, M1.15, M1.05, M1.28, M1.27, M0.24
 
 #### M1.35 — Correction du commit de merge synthétique
+- **Issue :** [#36](https://github.com/gaetanthouvenin/code-coverage/issues/36)
 - **Objectif :** filet de sécurité côté serveur (principe §1.4-2).
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
@@ -1199,6 +1242,7 @@ graph TD
 - **Dépend de :** M1.34
 
 #### M1.36 — `FinalizeCommit` sans carryforward
+- **Issue :** [#37](https://github.com/gaetanthouvenin/code-coverage/issues/37)
 - **Objectif :** reconstruction déterministe, totaux et `CommitFlagTotals` (§6.5, étapes 1 à 3 et 5 à 8).
 - **Couches :** Application, Infrastructure.
 - **Fichiers :** UC `Features/Commits/Commands/FinalizeCommit` (`ISystemOnly`) ; `Application/Services/CommitMerger.cs` ; `Features/Commits/CommitErrors.cs` (`Commit.NotFound`, `Commit.Compacted`) ; cas `JobDispatcher` pour `FinalizeCommit` (`LockKey commit:{id}`, `DedupKey finalize:{id}`).
@@ -1212,6 +1256,7 @@ graph TD
 - **Dépend de :** M1.34, M1.20
 
 #### M1.37 — `CarryforwardBuilder` (Domain pur)
+- **Issue :** [#38](https://github.com/gaetanthouvenin/code-coverage/issues/38)
 - **Objectif :** planifier et construire les sessions reportées (§6.5, étape 4).
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Commits/CarryforwardBuilder.cs`, `CarryforwardPlan.cs`, `CarryforwardSource.cs`.
@@ -1226,6 +1271,7 @@ graph TD
 - **Dépend de :** M1.06, M1.20
 
 #### M1.38 — Carryforward intégré à `FinalizeCommit`
+- **Issue :** [#39](https://github.com/gaetanthouvenin/code-coverage/issues/39)
 - **Objectif :** ancêtres, attente d'un ancêtre `Pending`, état `AncestorPending` et réveil des descendants.
 - **Couches :** Application.
 - **Fichiers :** `FinalizeCommitCommandHandler` étendu ; `Application/Services/CarryforwardResolver.cs` (`CommitAncestry`, diff `A...commit` par `CompareAsync`, arbres) ; `ICommitRepository.ListAncestorPendingDescendantsAsync`.
@@ -1238,6 +1284,7 @@ graph TD
 - **Dépend de :** M1.36, M1.37, M1.27
 
 #### M1.39 — `ReprocessCommit` et `RetryUpload`
+- **Issue :** [#40](https://github.com/gaetanthouvenin/code-coverage/issues/40)
 - **Objectif :** retraitement depuis le brut et relance d'un upload échoué.
 - **Couches :** Application.
 - **Fichiers :** UC `Features/Commits/Commands/ReprocessCommit` (`LockKey commit:{id}`, `DedupKey reprocess:{id}`) ; UC `Features/Uploads/Commands/RetryUpload` ; `JobTypes.ReprocessCommit` ; audit.
@@ -1248,6 +1295,7 @@ graph TD
 ### 4.8 Uploader `coverage-upload`
 
 #### M1.40 — Squelette de l'uploader
+- **Issue :** [#41](https://github.com/gaetanthouvenin/code-coverage/issues/41)
 - **Objectif :** CLI autonome qui ne casse jamais un build.
 - **Couches :** Uploader.
 - **Fichiers :**
@@ -1260,6 +1308,7 @@ graph TD
 - **Dépend de :** M0.02
 
 #### M1.41 — Recherche des rapports
+- **Issue :** [#42](https://github.com/gaetanthouvenin/code-coverage/issues/42)
 - **Objectif :** motifs par défaut, exclusions et `-f`.
 - **Couches :** Uploader.
 - **Fichiers :** `Uploader/Discovery/ReportFinder.cs`, `Discovery/DefaultPatterns.cs`, `Discovery/GlobMatcher.cs`.
@@ -1268,6 +1317,7 @@ graph TD
 - **Dépend de :** M1.40
 
 #### M1.42 — Détection du contexte CI
+- **Issue :** [#43](https://github.com/gaetanthouvenin/code-coverage/issues/43)
 - **Objectif :** GitHub Actions, Azure Pipelines et local (§5.3-2).
 - **Couches :** Uploader.
 - **Fichiers :** `Uploader/Ci/CiContextDetector.cs`, `Ci/GitHubActionsContext.cs`, `Ci/AzurePipelinesContext.cs`, `Ci/LocalContext.cs`, `Ci/DetectedContext.cs` ; fixtures `tests/fixtures/ci-env/{gha-pull_request,gha-push,gha-merge_group,azure-pr,azure-ci}.json`.
@@ -1276,6 +1326,7 @@ graph TD
 - **Dépend de :** M1.40
 
 #### M1.43 — Git : réseau, SHA parent et contrôles de cohérence
+- **Issue :** [#44](https://github.com/gaetanthouvenin/code-coverage/issues/44)
 - **Objectif :** `git ls-files -z`, détection des clones superficiels et des merges.
 - **Couches :** Uploader.
 - **Fichiers :** `Uploader/Git/GitRunner.cs`, `Git/NetworkCollector.cs`, `Git/ParentShaResolver.cs`, `Git/ConsistencyChecker.cs`.
@@ -1284,6 +1335,7 @@ graph TD
 - **Dépend de :** M1.42
 
 #### M1.44 — Envoi HTTP
+- **Issue :** [#45](https://github.com/gaetanthouvenin/code-coverage/issues/45)
 - **Objectif :** multipart gzip (champs texte d'abord), `Idempotency-Key`, nouvelles tentatives et OIDC.
 - **Couches :** Uploader.
 - **Fichiers :** `Uploader/Http/UploadClient.cs`, `Http/MultipartBuilder.cs`, `Http/RetryPolicy.cs` (5 tentatives, `Retry-After`), `Http/OidcTokenFetcher.cs`, `Http/IdempotencyKeyFactory.cs`.
@@ -1292,6 +1344,7 @@ graph TD
 - **Dépend de :** M1.41, M1.43, M1.32
 
 #### M1.45 — `--wait`, `--dry-run` et `--verbose`
+- **Issue :** [#46](https://github.com/gaetanthouvenin/code-coverage/issues/46)
 - **Objectif :** attendre le traitement et afficher le journal.
 - **Couches :** Uploader.
 - **Fichiers :** `Uploader/Http/UploadStatusPoller.cs` (timeout de 120 s), `Uploader/Output/ProcessingLogPrinter.cs`, `Uploader/Commands/DryRunPrinter.cs`.
@@ -1300,6 +1353,7 @@ graph TD
 - **Dépend de :** M1.44, M1.33
 
 #### M1.46 — Binaires autonomes servis par l'Api
+- **Issue :** [#47](https://github.com/gaetanthouvenin/code-coverage/issues/47)
 - **Objectif :** distribution sans .NET (ADR-012).
 - **Couches :** Api, déploiement.
 - **Fichiers :**
@@ -1311,6 +1365,7 @@ graph TD
 - **Dépend de :** M1.45, M0.27
 
 #### M1.47 — Outillage de parité pour le pilote M1
+- **Issue :** [#48](https://github.com/gaetanthouvenin/code-coverage/issues/48)
 - **Objectif :** mesurer le critère de sortie M1 (±0,01 % sur 20 commits).
 - **Couches :** outillage.
 - **Fichiers :** `tools/parity/Compare-TotalsWithCodecov.ps1` (API Codecov v2, contre une lecture SQL en lecture seule de `CommitFlagTotals`) ; `tools/parity/README.md`.
