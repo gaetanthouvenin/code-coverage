@@ -23,6 +23,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
     <!-- Microsoft.Data.SqlClient (via EF Core SqlServer) pulls a vulnerable System.Security.Cryptography.Pkcs 9.0.x (GHSA-846f-f764-76mx). -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.*" />
+    <PackageReference Include="YamlDotNet" Version="16.*" />
   </ItemGroup>
 
   <ItemGroup>

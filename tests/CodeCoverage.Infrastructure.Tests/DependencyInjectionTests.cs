@@ -26,6 +26,7 @@ using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.SqlServer;
 using CodeCoverage.Infrastructure.SqlServer.Jobs;
 using CodeCoverage.Infrastructure.Time;
+using CodeCoverage.Infrastructure.Yaml;
 
 namespace CodeCoverage.Infrastructure.Tests;
 
@@ -77,6 +78,14 @@ public sealed class DependencyInjectionTests
     await using var services = Build(new Dictionary<string, string?>());
 
     services.GetRequiredService<ITokenHasher>().ShouldBeOfType<Sha256TokenHasher>();
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheCoverageConfigParser()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+
+    services.GetRequiredService<ICoverageConfigParser>().ShouldBeOfType<YamlCoverageConfigParser>();
   }
 
   [Fact]
