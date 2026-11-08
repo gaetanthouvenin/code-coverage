@@ -11,7 +11,7 @@ public sealed class GitHubTestOptions
 {
   #region Properties
 
-  public string? Organization { get; set; }
+  public string? AppSlug { get; set; }
 
   #endregion
 }

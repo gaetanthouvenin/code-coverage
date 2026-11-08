@@ -15,8 +15,8 @@ namespace CodeCoverage.Application.Features.Settings.Commands.UpdateSetting;
 
 /// <summary>Validator for <see cref="UpdateSettingCommand" />.</summary>
 /// <remarks>
-///   The value is checked against the type and the bounds of its setting. An unknown key or a secret
-///   is left to the handler, which refuses it with its own error code.
+///   The value is checked against the type and the bounds of its setting. An unknown key, a key set
+///   per organization or a secret is left to the handler, which refuses it with its own error code.
 /// </remarks>
 internal sealed class UpdateSettingCommandValidator : AbstractValidator<UpdateSettingCommand>
 {
@@ -50,7 +50,7 @@ internal sealed class UpdateSettingCommandValidator : AbstractValidator<UpdateSe
 
     var definition = SettingDefinitions.Find(key);
 
-    if (definition is null || definition.IsSecret)
+    if (definition is null || definition.Scope != SettingScope.Instance || definition.IsSecret)
     {
       return;
     }

@@ -27,7 +27,10 @@ internal sealed class ResetSettingCommandHandler(ISettingsStore store, IAuditLog
   #region Implementation of ICommandHandler<ResetSettingCommand,Unit>
 
   /// <inheritdoc />
-  /// <exception cref="NotFoundException">The key is not in the catalog (<see cref="SettingErrors.Unknown" />).</exception>
+  /// <exception cref="NotFoundException">
+  ///   The key is not in the catalog, or its value is set per organization
+  ///   (<see cref="SettingErrors.Unknown" />).
+  /// </exception>
   /// <exception cref="UnprocessableEntityException">
   ///   A stronger source provides the value (<see cref="SettingErrors.ProvidedByEnvironment" />).
   /// </exception>
@@ -35,7 +38,7 @@ internal sealed class ResetSettingCommandHandler(ISettingsStore store, IAuditLog
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var definition = SettingRules.FindOrThrow(command.Key);
+    var definition = SettingRules.FindInstanceOrThrow(command.Key);
     var previous = await SettingRules.GetEditableAsync(store, definition, cancellationToken)
                                      .ConfigureAwait(false);
 

@@ -19,7 +19,10 @@ internal sealed class GetSettingsQueryHandler(ISettingsStore store)
   #region Implementation of IQueryHandler<GetSettingsQuery,IReadOnlyList<SettingValue>>
 
   /// <inheritdoc />
-  /// <remarks>Every value passes through <see cref="SettingValue.Redact" />: no secret leaves, even protected.</remarks>
+  /// <remarks>
+  ///   Only the settings of the instance are returned, and every value passes through
+  ///   <see cref="SettingValue.Redact" />: no secret leaves, even protected.
+  /// </remarks>
   public async ValueTask<IReadOnlyList<SettingValue>> Handle(
     GetSettingsQuery query,
     CancellationToken cancellationToken)
@@ -28,7 +31,7 @@ internal sealed class GetSettingsQueryHandler(ISettingsStore store)
 
     var values = await store.ListAsync(cancellationToken).ConfigureAwait(false);
 
-    return [.. values.Select(v => v.Redact())];
+    return [.. values.Where(v => v.Definition.Scope == SettingScope.Instance).Select(v => v.Redact())];
   }
 
   #endregion

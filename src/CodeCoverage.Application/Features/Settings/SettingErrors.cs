@@ -20,7 +20,10 @@ public static class SettingErrors
   /// </summary>
   public const string ProvidedByEnvironment = "Setting.ProvidedByEnvironment";
 
-  /// <summary>The number is below the minimum or above the maximum of the setting.</summary>
+  /// <summary>
+  ///   The number is below the minimum or above the maximum of the setting, or the text is longer than
+  ///   its limit.
+  /// </summary>
   public const string OutOfRange = "Setting.OutOfRange";
 
   /// <summary>The setting is not a secret: its value is changed, not replaced.</summary>

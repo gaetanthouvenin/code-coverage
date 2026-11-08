@@ -11,8 +11,8 @@ namespace CodeCoverage.Domain.Settings;
 /// <summary>The catalog of the settings kept in the settings store, in display order.</summary>
 /// <remarks>
 ///   <para>
-///     The catalog lists every setting an administrator can see and change from the screen or the
-///     API. The bootstrap values (connection string, database provider, data path, Data Protection)
+///     The catalog lists every setting that can be seen and changed from the screen or the API, at
+///     the level given by its <see cref="SettingScope" />. The bootstrap values (connection string, database provider, data path, Data Protection)
 ///     come from the environment only and are not listed.
 ///   </para>
 ///   <para>
@@ -74,9 +74,6 @@ public static class SettingDefinitions
   /// </summary>
   public const string GitHubWebhookSecretPrevious = "GitHub:WebhookSecretPrevious";
 
-  /// <summary>The key of the GitHub organization served by the instance; no default, set in the console.</summary>
-  public const string GitHubOrganization = "GitHub:Organization";
-
   /// <summary>The key of the base URL of the GitHub REST API.</summary>
   public const string GitHubApiBaseUrl = "GitHub:ApiBaseUrl";
 
@@ -103,9 +100,6 @@ public static class SettingDefinitions
   ///   when not set.
   /// </summary>
   public const string UploadsOidcAudience = "Uploads:OidcAudience";
-
-  /// <summary>The key of the repository owners allowed to upload, separated by commas; no default.</summary>
-  public const string UploadsAllowedOwners = "Uploads:AllowedOwners";
 
   /// <summary>The key of the number of jobs run at the same time by a worker.</summary>
   public const string ProcessingWorkerConcurrency = "Processing:WorkerConcurrency";
@@ -166,11 +160,20 @@ public static class SettingDefinitions
   /// <summary>The key of the label shown on the left of the badges.</summary>
   public const string BadgesLabel = "Badges:Label";
 
-  /// <summary>The key of the GitHub logins of the administrators, separated by commas.</summary>
-  public const string AccessAdminLogins = "Access:AdminLogins";
+  /// <summary>
+  ///   The key of the numeric GitHub user identifiers of the instance administrators, separated by
+  ///   commas.
+  /// </summary>
+  public const string AccessAdminUserIds = "Access:AdminUserIds";
 
   /// <summary>The key of the time the GitHub permissions of a user are cached, in minutes.</summary>
   public const string AccessCacheMinutes = "Access:CacheMinutes";
+
+  /// <summary>
+  ///   The key of the age, in minutes, beyond which a permission or a membership read from GitHub
+  ///   grants nothing, even when it could not be refreshed.
+  /// </summary>
+  public const string AccessHardExpiryMinutes = "Access:HardExpiryMinutes";
 
   /// <summary>The key of the number of days the raw uploaded reports are kept.</summary>
   public const string RetentionRawDays = "Retention:RawDays";
@@ -187,6 +190,9 @@ public static class SettingDefinitions
   /// <summary>The key of the number of days the cached diffs are kept.</summary>
   public const string RetentionDiffCacheDays = "Retention:DiffCacheDays";
 
+  /// <summary>The largest accepted length of the YAML configuration of an organization, in characters.</summary>
+  public const int CoverageOrganizationYamlMaxLength = 65_536;
+
   /// <summary>
   ///   The definitions, by key, whatever its case; built on first use, once <see cref="All" /> is
   ///   initialized.
@@ -200,64 +206,70 @@ public static class SettingDefinitions
   /// <summary>Gets every setting of the store, in display order.</summary>
   public static IReadOnlyList<SettingDefinition> All { get; } =
   [
-    Text(GitHubAppId, GitHubGroup),
-    Text(GitHubClientId, GitHubGroup),
-    Text(GitHubAppSlug, GitHubGroup),
+    Text(GitHubAppId, GitHubGroup, SettingScope.Instance),
+    Text(GitHubClientId, GitHubGroup, SettingScope.Instance),
+    Text(GitHubAppSlug, GitHubGroup, SettingScope.Instance),
     Secret(GitHubClientSecret, GitHubGroup),
     Secret(GitHubPrivateKeyPem, GitHubGroup),
     Secret(GitHubWebhookSecret, GitHubGroup),
     Secret(GitHubWebhookSecretPrevious, GitHubGroup),
-    Text(GitHubOrganization, GitHubGroup),
-    SettingDefinition.Create(GitHubApiBaseUrl, GitHubGroup, SettingType.Url, "https://api.github.com"),
+    SettingDefinition.Create(GitHubApiBaseUrl, GitHubGroup, SettingType.Url, SettingScope.Instance, "https://api.github.com"),
 
-    SettingDefinition.Create(UrlsApiPublicUrl, UrlsGroup, SettingType.Url),
-    SettingDefinition.Create(UrlsWebPublicUrl, UrlsGroup, SettingType.Url),
+    SettingDefinition.Create(UrlsApiPublicUrl, UrlsGroup, SettingType.Url, SettingScope.Instance),
+    SettingDefinition.Create(UrlsWebPublicUrl, UrlsGroup, SettingType.Url, SettingScope.Instance),
 
-    Number(UploadsMaxRequestMegabytes, UploadsGroup, 200, 1, 1000),
-    Number(UploadsMaxDecompressedMegabytes, UploadsGroup, 2048),
-    Number(UploadsMaxFilesPerUpload, UploadsGroup, 50),
-    Number(UploadsRateLimitPerMinute, UploadsGroup, 120),
-    Text(UploadsOidcAudience, UploadsGroup),
-    SettingDefinition.Create(UploadsAllowedOwners, UploadsGroup, SettingType.Csv),
+    Number(UploadsMaxRequestMegabytes, UploadsGroup, SettingScope.Instance, 200, 1, 1000),
+    Number(UploadsMaxDecompressedMegabytes, UploadsGroup, SettingScope.Instance, 2048),
+    Number(UploadsMaxFilesPerUpload, UploadsGroup, SettingScope.Instance, 50),
+    Number(UploadsRateLimitPerMinute, UploadsGroup, SettingScope.Instance, 120),
+    Text(UploadsOidcAudience, UploadsGroup, SettingScope.Instance),
 
     SettingDefinition.Create(
       ProcessingWorkerConcurrency,
       ProcessingGroup,
       SettingType.Number,
+      SettingScope.Instance,
       "4",
       requiresRestart: true,
       min: 1,
       max: 16
     ),
-    Number(ProcessingMaxParallelParses, ProcessingGroup, 2),
-    Number(ProcessingJobMaxAttempts, ProcessingGroup, 8),
-    Number(ProcessingCarryforwardMaxDepth, ProcessingGroup, 10),
-    Number(ProcessingCarryforwardWaitMinutes, ProcessingGroup, 10),
-    Number(ProcessingBaseMaxAncestorWalk, ProcessingGroup, 30),
-    Number(ProcessingBaseWaitMinutes, ProcessingGroup, 15),
-    Number(ProcessingPendingTimeoutMinutes, ProcessingGroup, 60),
+    Number(ProcessingMaxParallelParses, ProcessingGroup, SettingScope.Instance, 2),
+    Number(ProcessingJobMaxAttempts, ProcessingGroup, SettingScope.Instance, 8),
+    Number(ProcessingCarryforwardMaxDepth, ProcessingGroup, SettingScope.Instance, 10),
+    Number(ProcessingCarryforwardWaitMinutes, ProcessingGroup, SettingScope.Instance, 10),
+    Number(ProcessingBaseMaxAncestorWalk, ProcessingGroup, SettingScope.Instance, 30),
+    Number(ProcessingBaseWaitMinutes, ProcessingGroup, SettingScope.Instance, 15),
+    Number(ProcessingPendingTimeoutMinutes, ProcessingGroup, SettingScope.Instance, 60),
 
-    Text(NotificationsStatusContextPrefix, NotificationsGroup, "coverage"),
-    Flag(NotificationsStatusesEnabled, NotificationsGroup, true),
-    Flag(NotificationsCommentsEnabled, NotificationsGroup, true),
-    Number(NotificationsDebounceSeconds, NotificationsGroup, 20, 0, 600),
-    Number(NotificationsMaxDelaySeconds, NotificationsGroup, 300),
-    Flag(NotificationsAfterNBuildsCountsCarryforward, NotificationsGroup, true),
-    Text(NotificationsCommentTitle, NotificationsGroup, "Coverage"),
+    Text(NotificationsStatusContextPrefix, NotificationsGroup, SettingScope.Organization, "coverage"),
+    Flag(NotificationsStatusesEnabled, NotificationsGroup, SettingScope.Organization, true),
+    Flag(NotificationsCommentsEnabled, NotificationsGroup, SettingScope.Organization, true),
+    Number(NotificationsDebounceSeconds, NotificationsGroup, SettingScope.Instance, 20, 0, 600),
+    Number(NotificationsMaxDelaySeconds, NotificationsGroup, SettingScope.Instance, 300),
+    Flag(NotificationsAfterNBuildsCountsCarryforward, NotificationsGroup, SettingScope.Instance, true),
+    Text(NotificationsCommentTitle, NotificationsGroup, SettingScope.Instance, "Coverage"),
 
-    SettingDefinition.Create(CoverageOrganizationYaml, CoverageGroup, SettingType.Yaml),
-    Flag(CoverageAllowFilenameOnlyMatch, CoverageGroup, false),
+    SettingDefinition.Create(
+      CoverageOrganizationYaml,
+      CoverageGroup,
+      SettingType.Yaml,
+      SettingScope.Organization,
+      maxLength: CoverageOrganizationYamlMaxLength
+    ),
+    Flag(CoverageAllowFilenameOnlyMatch, CoverageGroup, SettingScope.Instance, false),
 
-    Text(BadgesLabel, BadgesGroup, "coverage"),
+    Text(BadgesLabel, BadgesGroup, SettingScope.Instance, "coverage"),
 
-    SettingDefinition.Create(AccessAdminLogins, AccessGroup, SettingType.Csv),
-    Number(AccessCacheMinutes, AccessGroup, 10),
+    SettingDefinition.Create(AccessAdminUserIds, AccessGroup, SettingType.Csv, SettingScope.Instance),
+    Number(AccessCacheMinutes, AccessGroup, SettingScope.Instance, 10, 1, 60),
+    Number(AccessHardExpiryMinutes, AccessGroup, SettingScope.Instance, 60, 60, 1440),
 
-    Number(RetentionRawDays, RetentionGroup, 30),
-    Number(RetentionBranchReportDays, RetentionGroup, 180),
-    Number(RetentionJobDays, RetentionGroup, 14),
-    Number(RetentionWebhookDays, RetentionGroup, 14),
-    Number(RetentionDiffCacheDays, RetentionGroup, 30),
+    Number(RetentionRawDays, RetentionGroup, SettingScope.Instance, 30),
+    Number(RetentionBranchReportDays, RetentionGroup, SettingScope.Instance, 180),
+    Number(RetentionJobDays, RetentionGroup, SettingScope.Instance, 14),
+    Number(RetentionWebhookDays, RetentionGroup, SettingScope.Instance, 14),
+    Number(RetentionDiffCacheDays, RetentionGroup, SettingScope.Instance, 30),
   ];
 
   #endregion
@@ -278,11 +290,12 @@ public static class SettingDefinitions
   /// <summary>Declares a <see cref="SettingType.Boolean" /> setting.</summary>
   /// <param name="key">The configuration key.</param>
   /// <param name="group">The group.</param>
+  /// <param name="scope">The level at which the value applies.</param>
   /// <param name="defaultValue">The default.</param>
   /// <returns>The definition.</returns>
-  private static SettingDefinition Flag(string key, string group, bool defaultValue)
+  private static SettingDefinition Flag(string key, string group, SettingScope scope, bool defaultValue)
   {
-    return SettingDefinition.Create(key, group, SettingType.Boolean, defaultValue ? "true" : "false");
+    return SettingDefinition.Create(key, group, SettingType.Boolean, scope, defaultValue ? "true" : "false");
   }
 
   /// <summary>Indexes the catalog by key, refusing a key declared twice.</summary>
@@ -306,6 +319,7 @@ public static class SettingDefinitions
   /// <summary>Declares a <see cref="SettingType.Number" /> setting.</summary>
   /// <param name="key">The configuration key.</param>
   /// <param name="group">The group.</param>
+  /// <param name="scope">The level at which the value applies.</param>
   /// <param name="defaultValue">The default.</param>
   /// <param name="min">The smallest accepted value, or <see langword="null" />.</param>
   /// <param name="max">The largest accepted value, or <see langword="null" />.</param>
@@ -313,6 +327,7 @@ public static class SettingDefinitions
   private static SettingDefinition Number(
     string key,
     string group,
+    SettingScope scope,
     int defaultValue,
     int? min = null,
     int? max = null)
@@ -321,29 +336,31 @@ public static class SettingDefinitions
       key,
       group,
       SettingType.Number,
+      scope,
       defaultValue.ToString(CultureInfo.InvariantCulture),
       min: min,
       max: max
     );
   }
 
-  /// <summary>Declares a secret, which has no default.</summary>
+  /// <summary>Declares a secret, which has no default and belongs to the instance.</summary>
   /// <param name="key">The configuration key.</param>
   /// <param name="group">The group.</param>
   /// <returns>The definition.</returns>
   private static SettingDefinition Secret(string key, string group)
   {
-    return SettingDefinition.Create(key, group, SettingType.Text, isSecret: true);
+    return SettingDefinition.Create(key, group, SettingType.Text, SettingScope.Instance, isSecret: true);
   }
 
   /// <summary>Declares a <see cref="SettingType.Text" /> setting.</summary>
   /// <param name="key">The configuration key.</param>
   /// <param name="group">The group.</param>
+  /// <param name="scope">The level at which the value applies.</param>
   /// <param name="defaultValue">The default, or <see langword="null" /> for none.</param>
   /// <returns>The definition.</returns>
-  private static SettingDefinition Text(string key, string group, string? defaultValue = null)
+  private static SettingDefinition Text(string key, string group, SettingScope scope, string? defaultValue = null)
   {
-    return SettingDefinition.Create(key, group, SettingType.Text, defaultValue);
+    return SettingDefinition.Create(key, group, SettingType.Text, scope, defaultValue);
   }
 
   #endregion

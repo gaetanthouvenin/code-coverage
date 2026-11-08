@@ -35,29 +35,35 @@ public sealed class SettingDefinition
   /// <param name="key">The configuration key.</param>
   /// <param name="group">The group under which the setting is shown.</param>
   /// <param name="type">The kind of value.</param>
+  /// <param name="scope">The level at which the value applies.</param>
   /// <param name="defaultValue">The value that applies when no source provides one.</param>
   /// <param name="requiresRestart">Whether a change only applies after the hosts restart.</param>
   /// <param name="min">The smallest accepted value of a number.</param>
   /// <param name="max">The largest accepted value of a number.</param>
   /// <param name="isSecret">Whether the setting is a secret.</param>
+  /// <param name="maxLength">The largest accepted length of a text value.</param>
   private SettingDefinition(
     string key,
     string group,
     SettingType type,
+    SettingScope scope,
     string? defaultValue,
     bool requiresRestart,
     int? min,
     int? max,
-    bool isSecret)
+    bool isSecret,
+    int? maxLength)
   {
     Key = key;
     Group = group;
     Type = type;
+    Scope = scope;
     Default = defaultValue;
     RequiresRestart = requiresRestart;
     Min = min;
     Max = max;
     IsSecret = isSecret;
+    MaxLength = maxLength;
   }
 
   #endregion
@@ -74,6 +80,9 @@ public sealed class SettingDefinition
 
   /// <summary>Gets the kind of value.</summary>
   public SettingType Type { get; }
+
+  /// <summary>Gets the level at which the value applies.</summary>
+  public SettingScope Scope { get; }
 
   /// <summary>
   ///   Gets the value that applies when no source provides one, written with the invariant culture,
@@ -105,6 +114,13 @@ public sealed class SettingDefinition
   /// </summary>
   public bool IsSecret { get; }
 
+  /// <summary>
+  ///   Gets the largest accepted length, in characters, of a <see cref="SettingType.Text" />,
+  ///   <see cref="SettingType.Csv" /> or <see cref="SettingType.Yaml" /> value, or
+  ///   <see langword="null" /> when there is no limit.
+  /// </summary>
+  public int? MaxLength { get; }
+
   #endregion
 
   #region Methods
@@ -113,6 +129,7 @@ public sealed class SettingDefinition
   /// <param name="key">The configuration key, as <c>Section:Name</c>.</param>
   /// <param name="group">The group under which the setting is shown.</param>
   /// <param name="type">The kind of value.</param>
+  /// <param name="scope">The level at which the value applies.</param>
   /// <param name="defaultValue">
   ///   The value that applies when no source provides one, or <see langword="null" /> for none.
   /// </param>
@@ -120,6 +137,7 @@ public sealed class SettingDefinition
   /// <param name="min">The smallest accepted value of a number, or <see langword="null" />.</param>
   /// <param name="max">The largest accepted value of a number, or <see langword="null" />.</param>
   /// <param name="isSecret">Whether the setting is a secret.</param>
+  /// <param name="maxLength">The largest accepted length of a text value, or <see langword="null" />.</param>
   /// <returns>The definition.</returns>
   /// <exception cref="ArgumentNullException">
   ///   <paramref name="key" /> or <paramref name="group" /> is <see langword="null" />.
@@ -127,18 +145,23 @@ public sealed class SettingDefinition
   /// <exception cref="ArgumentException">
   ///   <paramref name="key" /> or <paramref name="group" /> is empty or white space,
   ///   <paramref name="key" /> has no section, bounds are given to a setting that is not a number or
-  ///   are reversed, or a secret has a default or is not text.
+  ///   are reversed, a length limit is given to a setting that does not hold text or is not positive,
+  ///   or a secret has a default or is not text.
   /// </exception>
-  /// <exception cref="ArgumentOutOfRangeException"><paramref name="type" /> is not defined.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">
+  ///   <paramref name="type" /> or <paramref name="scope" /> is not defined.
+  /// </exception>
   public static SettingDefinition Create(
     string key,
     string group,
     SettingType type,
+    SettingScope scope,
     string? defaultValue = null,
     bool requiresRestart = false,
     int? min = null,
     int? max = null,
-    bool isSecret = false)
+    bool isSecret = false,
+    int? maxLength = null)
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(key);
     ArgumentException.ThrowIfNullOrWhiteSpace(group);
@@ -149,6 +172,15 @@ public sealed class SettingDefinition
         nameof(type),
         type,
         "The type of the setting is not defined."
+      );
+    }
+
+    if (!Enum.IsDefined(scope))
+    {
+      throw new ArgumentOutOfRangeException(
+        nameof(scope),
+        scope,
+        "The scope of the setting is not defined."
       );
     }
 
@@ -169,6 +201,16 @@ public sealed class SettingDefinition
       throw new ArgumentException($"The bounds of '{key}' are reversed.", nameof(min));
     }
 
+    if (maxLength is not null && type is not (SettingType.Text or SettingType.Csv or SettingType.Yaml))
+    {
+      throw new ArgumentException($"Only a text can have a length limit: '{key}' is {type}.", nameof(type));
+    }
+
+    if (maxLength <= 0)
+    {
+      throw new ArgumentException($"The length limit of '{key}' must be positive.", nameof(maxLength));
+    }
+
     if (isSecret && type != SettingType.Text)
     {
       throw new ArgumentException($"The secret '{key}' must be text.", nameof(type));
@@ -179,7 +221,7 @@ public sealed class SettingDefinition
       throw new ArgumentException($"The secret '{key}' cannot have a default.", nameof(defaultValue));
     }
 
-    return new SettingDefinition(key, group, type, defaultValue, requiresRestart, min, max, isSecret);
+    return new SettingDefinition(key, group, type, scope, defaultValue, requiresRestart, min, max, isSecret, maxLength);
   }
 
   /// <inheritdoc />

@@ -72,8 +72,8 @@ public sealed class ResetSettingCommandHandlerTests
   [Fact]
   public async Task Handle_WhenProvidedByEnvironment_ShouldThrowUnprocessableEntity()
   {
-    var definition = Definition(SettingDefinitions.GitHubOrganization);
-    var store = Returning(definition, "other-org", SettingSource.Environment);
+    var definition = Definition(SettingDefinitions.GitHubAppSlug);
+    var store = Returning(definition, "other-app", SettingSource.Environment);
     var handler = new ResetSettingCommandHandler(store, _auditLog);
 
     var exception = await Should.ThrowAsync<UnprocessableEntityException>(
@@ -93,6 +93,24 @@ public sealed class ResetSettingCommandHandlerTests
                       async () => await handler.Handle(new ResetSettingCommand("Nope:Missing"), Ct));
 
     exception.ErrorCode.ShouldBe(SettingErrors.Unknown);
+  }
+
+  [Theory]
+  [InlineData(SettingDefinitions.CoverageOrganizationYaml)]
+  [InlineData(SettingDefinitions.NotificationsStatusContextPrefix)]
+  [InlineData(SettingDefinitions.NotificationsStatusesEnabled)]
+  [InlineData(SettingDefinitions.NotificationsCommentsEnabled)]
+  public async Task Handle_OrganizationKey_ShouldThrow(string key)
+  {
+    var store = A.Fake<ISettingsStore>();
+    var handler = new ResetSettingCommandHandler(store, _auditLog);
+
+    var exception = await Should.ThrowAsync<NotFoundException>(
+                      async () => await handler.Handle(new ResetSettingCommand(key), Ct));
+
+    exception.ErrorCode.ShouldBe(SettingErrors.Unknown);
+    A.CallTo(store).MustNotHaveHappened();
+    A.CallTo(_auditLog).MustNotHaveHappened();
   }
 
   [Fact]
