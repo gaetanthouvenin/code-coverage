@@ -5,6 +5,10 @@
 // ------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Yaml;
 
 namespace CodeCoverage.Infrastructure;
 
@@ -12,11 +16,16 @@ public static partial class DependencyInjection
 {
   #region Methods
 
-  /// <summary>Registers the adapters of the reports area: the parsers of the coverage reports and their caches.</summary>
+  /// <summary>
+  ///   Registers the adapters of the reports area: the parsers of the coverage reports and of their
+  ///   configuration file, and their caches.
+  /// </summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddReports(this IServiceCollection services)
   {
+    services.TryAddSingleton<ICoverageConfigParser, YamlCoverageConfigParser>();
+
     return services;
   }
 
