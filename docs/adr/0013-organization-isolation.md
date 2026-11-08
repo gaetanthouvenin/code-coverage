@@ -2,7 +2,7 @@
 
 - **Statut :** proposé, jusqu'à ce que M1.16d2 soit vert sur PostgreSQL et SQL Server ; passe alors à « accepté » (M1.16a2). Remplace [ADR-003](0003-single-tenant.md).
 - **Date :** 2026-11-08
-- **Références :** `docs/PLAN.md` §1.4, §4.4 (M1.16a1 à M1.16i), §10 et §11 ; `docs/ARCHITECTURE.md` §1.3, §3bis, §4.2, §5.1, §6.1, §8, §10.2 et §10bis, réécrits par M1.16a2
+- **Références :** `docs/PLAN.md` §1.4, §4.4 (M1.16a1 à M1.16i), §10 et §11 ; `docs/ARCHITECTURE.md` §1.3, §3bis, §4.2, §5.1, §6.1, §8, §10.2 et §10bis, réécrits par M1.16a2 ; [ADR-014](0014-multi-forge.md) complète l'identité et les adresses
 
 ## Contexte
 

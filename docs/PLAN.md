@@ -100,6 +100,10 @@ Chaque micro-feature porte les rubriques suivantes :
   - Une portée DI n'entre dans une organisation que par `AuthorizationBehavior`, `JobWorker` ou `SystemCommandRunner`. `IgnoreQueryFilters` est interdit dans `src`, et les ports ne reçoivent aucun paramètre d'organisation.
   - Chaque message déclare exactement un marqueur d'accès (`IRepositoryScoped`, `IOrganizationScoped`, `IPublicOwnerAddressed`, `IAnonymousEntry`, `IUserScoped`, `IAdminOnly` ou `ISystemOnly`) et sert une seule audience.
   - Toute route adressant une donnée d'organisation contient l'owner ou l'organisation, et chaque nouvelle route ou page déclare sa sonde à deux organisations (M3.43a).
+- **Patron « forge » (ADR-014).**
+  - Un login, un identifiant de compte ou de dépôt n'a de sens que sur sa forge : toute recherche les accompagne de `Forge`, et les identifiants externes sont du texte.
+  - Toute adresse d'organisation porte la forge (`/{forge}/{owner}/{repo}`, `/api/v1/repos/{forge}/{owner}/{repo}`, `/orgs/{forge}/{org}`) ; seules les URL compatibles Codecov gardent leur forme.
+  - L'Application appelle une forge par `IForgeGateway` et ses contrats `Domain/Contracts/Forges/` ; ce qui est propre à une forge (authentification, réception des webhooks) reste dans son adaptateur.
 - **Patron « page Web ».**
   - `Web/Components/Pages/{Name}.razor` et `{Name}.razor.cs`, sans bloc `@code` ;
   - ViewModels dans `Web/ViewModels/{Feature}/` ;
@@ -125,6 +129,8 @@ graph LR
   M5 -. "M5.06 avant M4.08" .-> M4
   M3 -. "M3.03a avant M2.03a2" .-> M2
   M5 --> M6["M6 Plus tard"]
+  M4 --> M7["M7 Azure DevOps"]
+  M7 --> M8["M8 Bitbucket"]
 ```
 
 Deux exceptions à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible ; M3.03a (appartenances) passe avant M2.03a2, dont les événements de membres alimentent cette table.
@@ -195,7 +201,9 @@ graph TD
   M1_07 --> M1_15
   M1_02 --> M1_16["M1.16 CcrCodec"]
   M1_16a1["M1.16a1 ADR-013 et plan"] --> M1_16b["M1.16b Organizations"]
+  M1_16a1 --> M1_16a3["M1.16a3 ADR-014 multi-forge"]
   M1_16b --> M1_16c["M1.16c Contexte d'organisation"]
+  M1_16a3 --> M1_16c
   M1_16c --> M1_16d1["M1.16d1 Filtre et classement"]
   M1_16d1 --> M1_16d2["M1.16d2 Estampille et garde"]
   M1_16d2 --> M1_16a2["M1.16a2 Documents d'architecture"]
@@ -223,7 +231,7 @@ graph TD
   M1_16g1 --> M1_22a
   M1_22 --> M1_23["M1.23 Verbe admin CLI"]
   M1_22a --> M1_23
-  M1_24["M1.24 Port GitHub"] --> M1_25["M1.25 Client GitHub App"]
+  M1_24["M1.24 Port de forge"] --> M1_25["M1.25 Client GitHub App"]
   M1_25 --> M1_26["M1.26 Passerelle lecture"]
   M1_26 --> M1_27["M1.27 Caches commits et arbres"]
   M1_18 --> M1_27
@@ -1067,16 +1075,28 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** chaque micro-feature modifiée par cette décision est à jour dans le plan et dans son issue.
 - **Dépend de :** —
 
+#### M1.16a3 — ADR-014 et plan pour le multi-forge
+- **Issue :** [#87](https://github.com/gaetanthouvenin/code-coverage/issues/87)
+- **Objectif :** consigner la préparation du multi-forge avant que la porte d'entrée, les adresses et le schéma des dépôts ne se figent.
+- **Couches :** docs.
+- **Fichiers :**
+  - `docs/adr/0014-multi-forge.md` (statut « proposé ») ;
+  - `docs/adr/README.md` et la référence d'ADR-013 ;
+  - `docs/PLAN.md` (§1.4, §2.1, §2.3, §9, §10, §11 et les fiches qui figent la forge).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** aucune fiche ne fige une identité, une adresse ou un port propre à GitHub en dehors de ce qu'ADR-014 laisse à l'adaptateur GitHub.
+- **Dépend de :** M1.16a1
+
 #### M1.16b — Entité `Organization`, port d'annuaire et table
 - **Issue :** [#68](https://github.com/gaetanthouvenin/code-coverage/issues/68)
-- **Objectif :** la racine d'organisation, identifiée par l'identifiant numérique du compte GitHub.
+- **Objectif :** la racine d'organisation, identifiée par sa forge et l'identifiant que celle-ci donne au compte (ADR-014).
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
-  - `Domain/Organizations/Organization.cs`, `OrganizationState.cs`, `OrganizationAccountType.cs`, `SuspensionReason.cs`, `ReservedLogins.cs` ;
-  - `Domain/Ports/IOrganizationDirectory.cs` (`FindByLoginAsync`, `FindByAccountIdAsync`, `FindCurrentAsync`, `ListActiveAsync`, `UpsertFromGitHubAsync` avec pierre tombale du login) ;
+  - `Domain/Organizations/Organization.cs`, `OrganizationState.cs`, `OrganizationAccountType.cs`, `SuspensionReason.cs`, `ReservedLogins.cs`, `Forge.cs` ;
+  - `Domain/Ports/IOrganizationDirectory.cs` (`FindByLoginAsync(forge, login)`, `FindByAccountIdAsync(forge, externalAccountId)`, `ListActiveAsync`, `UpsertFromForgeAsync` avec pierre tombale du login limitée à la même forge ; aucune réconciliation n'est mise en file, la synchronisation de M2.03a1 rétablit le login) ;
   - configuration et repository EF ;
-  - Migration `AddOrganizations` (`UX(GitHubAccountId)`, `UX(NormalizedLogin)`, `Version`).
-- **Tests :** `Domain.Tests/Organizations/OrganizationTests` — `Admit_FromPending_ShouldBecomeActive`, `Admit_ReservedLogin_ShouldThrow`, `Rename_ReservedLogin_ShouldSuspend`, `Rename_ShouldKeepGitHubAccountId` ; `Infrastructure.Tests/Persistence/Repositories/OrganizationDirectoryTests` — `FindByLogin_ShouldBeCaseInsensitive`, `Upsert_LoginHeldByOtherAccount_ShouldTombstoneOldRow`, `Upsert_SameAccountNewLogin_ShouldKeepId`.
+  - Migration `AddOrganizations` (`UX(Forge, ExternalAccountId)`, `UX(Forge, NormalizedLogin)`, `Version`).
+- **Tests :** `Domain.Tests/Organizations/OrganizationTests` — `Admit_FromPending_ShouldBecomeActive`, `Admit_ReservedLogin_ShouldThrow`, `Rename_ReservedLogin_ShouldSuspend`, `Rename_ShouldKeepExternalAccountId` ; `Infrastructure.Tests/Persistence/Repositories/OrganizationDirectoryTests` — `FindByLogin_ShouldBeCaseInsensitive`, `Upsert_LoginHeldByOtherAccount_ShouldTombstoneOldRow`, `Upsert_SameAccountNewLogin_ShouldKeepId`, `FindByLogin_TombstonedLogin_ShouldReturnNull`, `FindByLogin_SameLoginOnTwoForges_ShouldReturnTheRowOfThatForge`, `Upsert_SameLoginOnOtherForge_ShouldNotTombstone`.
 - **Acceptation :** aucune méthode ne renvoie la ligne d'un autre compte pour un login passé en pierre tombale, et la table ne contient aucune donnée métier.
 - **Dépend de :** M1.16a1, M0.15
 
@@ -1086,11 +1106,12 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
   - `Domain/Ports/ICurrentOrganization.cs` (`Id` lève si le contexte n'est pas posé, `IsKnown`) ;
-  - `Domain/Ports/IOrganizationScope.cs` (`TryEnterAsync(login, CancellationToken)`, organisations `Active` seulement, `false` pour une entrée nulle, vide ou mal formée) ;
+  - `IOrganizationDirectory.FindCurrentAsync`, ajouté ici puisqu'il lit `ICurrentOrganization` ;
+  - `Domain/Ports/IOrganizationScope.cs` (`TryEnterAsync(forge, login, CancellationToken)`, organisations `Active` seulement, `false` pour une entrée nulle, vide ou mal formée) ;
   - `Infrastructure/Identity/OrganizationContext.cs` (`internal Enter(long)` : même valeur sans effet, autre valeur lève), enregistré en portée.
 - **Tests :** `Infrastructure.Tests/Identity/OrganizationContextTests` — `Id_WhenUnset_ShouldThrow`, `Enter_SameValueTwice_ShouldKeepIt`, `Enter_OtherValue_ShouldThrow` ; `OrganizationScopeTests` — `TryEnter_SuspendedOrganization_ShouldReturnFalseAndStayUnset`, `TryEnter_UnknownLogin_ShouldReturnFalse`, `TryEnter_MalformedLogin_ShouldReturnFalse`.
 - **Acceptation :** l'Application ne peut pas faire entrer la portée courante par identifiant (le compilateur le refuse).
-- **Dépend de :** M1.16b
+- **Dépend de :** M1.16b, M1.16a3
 
 #### M1.16d1 — Filtre de requête, classement et première table d'organisation
 - **Issue :** [#70](https://github.com/gaetanthouvenin/code-coverage/issues/70)
@@ -1126,8 +1147,9 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `docs/ARCHITECTURE.md` §3bis et §4.2 (nouvelles tables, classement des 32 tables, index uniques modifiés) ; §4bis.1 (clés `Instance` par `IOptionsMonitor`, clés `Organization` par le provider) ; §4bis.3 (portées des paramètres, administrateurs par identifiant numérique) ; §5.1 (ordre d'authentification et table des réponses) ; §6.1 (organisation des jobs, préfixe des clés, coordinateurs) ; §9.1 (YAML d'organisation) ;
   - `docs/ARCHITECTURE.md` §8.1 (App publique, Members en lecture, nouveaux événements), §8.2 (forme `/repositories/{id}`), §8.3 (filtre à la réception, transfert avec révocation des jetons, libellé de `ReceiveWebhookCommand`) ; §10.2 et §10bis.2-3 (routes, règle d'entrée, rôles, pages) ; §12.5 et §12.6 (sauvegardes et journaux, exposition opérateur de toutes les organisations) ; §13.1 (table des ADR) ;
   - `docs/CONVENTIONS.md` : mentions du multi-tenant renvoyant à ADR-013 ; §4.2 (les ports restent sans paramètre d'organisation) ; §5.6 (marqueurs de message, règle d'une audience) ; §8 (`IsOrganizationOwned`, patron de migration) ; §12.4 ;
+  - multi-forge (ADR-014) : `AGENT.md` règles 1 et 2 ; `docs/ARCHITECTURE.md` §1.3 (GitLab et Bitbucket), §4.2 (`Forge`, `ExternalAccountId`, `Namespace`, `ExternalId`), §5.1 (champ `forge`), §8 (`IForgeGateway`), §10.2 et §10bis.3 (routes avec la forge) ;
   - `docs/adr/0006-settings-revision-polling.md` (les paramètres d'organisation n'emploient pas le compteur de révision), `0007-commit-statuses.md` (bascule par organisation), `0011-two-public-hostnames.md` (Web public, §11-6) ;
-  - ADR-013 passe à « accepté ».
+  - ADR-013 et ADR-014 passent à « accepté ».
 - **Tests :** — (documentation seule).
 - **Acceptation :** hors maquette UI et `docs/ui-design.md`, qui relèvent de M3.18, aucun document n'affirme une organisation unique servie, et le classement des 32 tables figure dans ARCHITECTURE §4.2.
 - **Dépend de :** M1.16d2
@@ -1148,7 +1170,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** une seule entrée dans une organisation, et aucun message sans marqueur.
 - **Couches :** Application, Web, Architecture.Tests.
 - **Fichiers :**
-  - `Application/Security/IOrganizationScoped.cs` (`Login` et `RequiredRole` obligatoire), `IPublicOwnerAddressed.cs` (`Owner` ; entrée si `Active`, sinon portée laissée non posée), `IAnonymousEntry.cs`, `IUserScoped.cs` ;
+  - `Application/Security/IOrganizationScoped.cs` (`Forge`, `Login` et `RequiredRole` obligatoire), `IPublicOwnerAddressed.cs` (`Forge` et `Owner` ; entrée si `Active`, sinon portée laissée non posée), `IAnonymousEntry.cs`, `IUserScoped.cs` ;
+  - `IRepositoryScoped` reçoit aussi `Forge` (ADR-014) ;
   - `AuthorizationBehavior` devient asynchrone, entre par `IOrganizationScope`, refuse `IRepositoryScoped` avec `Repository.NotFound` et `IOrganizationScoped` avec `Organization.NotFound`, et refuse tout expéditeur non système de ces deux marqueurs jusqu'au contrôle réel de M3.04 ;
   - `PingQuery` devient `IAnonymousEntry` ;
   - `Features/Repositories/RepositoryErrors.cs` (`Repository.NotFound`) et `Features/Organizations/OrganizationErrors.cs` (`Organization.NotFound`), complétés par M1.31 et M1.22a ; `SecurityErrors` ; `Common.resx` et `Common.fr.resx` ;
@@ -1217,9 +1240,10 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Domain/Ports/IRepositoryRepository.cs`, `IInstallationRepository.cs`, `IBranchRepository.cs` ;
   - configurations et repositories EF ;
   - `Repositories` et `Branches` sont des tables d'organisation (ADR-013) ; `Installations` est globale, avec une clé étrangère `OrganizationId`, et `AccountLogin` passe dans `Organizations` ;
+  - `Repositories` porte `Namespace` (chaîne vide hors Azure DevOps) et `ExternalId` en texte à la place de `GitHubId` (ADR-014) ; `Installations` reste propre à GitHub ;
   - la recherche par slug se fait par nom dans l'organisation courante ; `Repositories.Owner` reste une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler GitHub ;
-  - Migration `AddRepositories` (`UX(OrganizationId, NormalizedName)`, `UX(OrganizationId, GitHubId)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
-- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepGitHubId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`, `FindBySlug_SameNameInOtherOrganization_ShouldReturnOwnRow`, `Add_SameGitHubIdInTwoOrganizations_ShouldKeepBoth`.
+  - Migration `AddRepositories` (`UX(OrganizationId, NormalizedNamespace, NormalizedName)`, `UX(OrganizationId, ExternalId)`, `Version`). `Branches.CoveredCommitId` y est créée sans contrainte, car la table `Commits` n'existe pas encore.
+- **Tests :** `Domain.Tests/Repositories/RepositorySlugTests` — `Parse_CodecovSeparator_ShouldSplit`, `Parse_Invalid_ShouldThrow` ; `TrackedRepositoryTests` — `Rename_ShouldKeepExternalId` ; `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `FindBySlug_ShouldBeCaseInsensitive`, `FindBySlug_SameNameInOtherOrganization_ShouldReturnOwnRow`, `Add_SameExternalIdInTwoOrganizations_ShouldKeepBoth`, `FindBySlug_SameNameInOtherNamespace_ShouldReturnOwnRow`.
 - **Acceptation :** concurrence optimiste via `Version`.
 - **Dépend de :** M1.03, M0.15, M1.16d2, M1.16f
 
@@ -1298,8 +1322,9 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** créer des organisations avant M2 et M3, et rendre M1.23 réalisable.
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
-  - UC `Features/Organizations/Commands/AdmitOrganization` (`IAdminOnly`, audit ; création depuis `Login` et `GitHubAccountId`, ou activation d'une ligne `Pending`) et `SuspendOrganization` ;
+  - UC `Features/Organizations/Commands/AdmitOrganization` (`IAdminOnly`, audit ; création depuis `Forge`, `Login` et `ExternalAccountId`, ou activation d'une ligne `Pending`) et `SuspendOrganization` ;
   - `Features/Organizations/OrganizationErrors.cs` complété, dans les deux `.resx` ;
+  - `IOrganizationDirectory` complété d'une méthode d'écriture pour `Admit` et `Suspend`, le port de M1.16b n'ayant que l'upsert ;
   - `Infrastructure/Administration/SystemCommandRunner.cs`, public, non enregistré en DI, qui exécute une liste nommée de commandes comme système dans une nouvelle portée avec une organisation facultative, de sorte que `SetSystem` reste `internal`.
 - **Tests :** `AdmitOrganizationCommandHandlerTests` — `Handle_Pending_ShouldActivateAndAudit`, `Handle_UnknownAccount_ShouldCreateActive`, `Handle_ReservedLogin_ShouldThrow` ; `SuspendOrganizationCommandHandlerTests` — `Handle_ShouldBlockTheNextEntry` ; `Infrastructure.Tests/Administration/SystemCommandRunnerTests` — `Run_CommandOutsideList_ShouldThrow`, `Run_WithOrganization_ShouldEnterIt` ; `JobWorkerTests` — `Dispatch_SuspendedOrganization_ShouldEndTheJob`.
 - **Acceptation :** M1.23 n'emploie plus `SetSystem` directement, `SetSystem_ShouldNeverBeVisibleFromTheHosts` est inchangé, et une organisation `Active` peut être créée à partir de rien.
@@ -1309,20 +1334,21 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Issue :** [#24](https://github.com/gaetanthouvenin/code-coverage/issues/24)
 - **Objectif :** admettre une organisation, créer et importer des jetons d'upload avant l'arrivée de l'UI et de l'API de gestion en M3 (voir §10).
 - **Couches :** Api (composition).
-- **Fichiers :** `Api/Configuration/Administration/AdminCommandLine.cs`. Il gère `dotnet CodeCoverage.Api.dll admin create-upload-token --owner … --scope organization|repository [--repository …] --label … [--import-value-stdin]`, `admin revoke-upload-token --owner … --id …` et `admin admit-organization --login … --account-id …`. `--owner` est obligatoire et doit désigner une organisation `Active`, et `--scope` choisit le message d'organisation ou de dépôt. Il exécute la commande Application par `SystemCommandRunner` (M1.22a), auditée avec un acteur distinct, puis quitte sans démarrer Kestrel.
+- **Fichiers :** `Api/Configuration/Administration/AdminCommandLine.cs`. Il gère `dotnet CodeCoverage.Api.dll admin create-upload-token --owner … --scope organization|repository [--repository …] --label … [--import-value-stdin]`, `admin revoke-upload-token --owner … --id …` et `admin admit-organization [--forge …] --login … --account-id …` (`--forge` vaut `github` par défaut). `--owner` est obligatoire et doit désigner une organisation `Active`, et `--scope` choisit le message d'organisation ou de dépôt. Il exécute la commande Application par `SystemCommandRunner` (M1.22a), auditée avec un acteur distinct, puis quitte sans démarrer Kestrel.
 - **Tests :** `Api.Tests/Administration/AdminCommandLineTests` — `Run_CreateUploadToken_ShouldPrintValueOnce`, `Run_ImportFromStdin_ShouldNotEchoValue`, `Run_AdmitOrganization_ShouldCreateActiveOrganization`, `Run_OwnerNotActive_ShouldFail`.
 - **Acceptation :** la valeur importée n'apparaît jamais dans les arguments de processus, et la commande est utilisable via `docker compose exec api`.
 - **Dépend de :** M1.22, M0.24, M1.22a
 
 ### 4.5 Passerelle GitHub minimale
 
-#### M1.24 — Contrats et port GitHub (lecture)
+#### M1.24 — Contrats et port de forge (lecture)
 - **Issue :** [#25](https://github.com/gaetanthouvenin/code-coverage/issues/25)
-- **Objectif :** décrire GitHub côté Domain, sans dépendance HTTP.
+- **Objectif :** décrire une forge côté Domain, sans dépendance HTTP (ADR-014).
 - **Couches :** Domain.
 - **Fichiers :**
-  - `Domain/Contracts/GitHub/GitHubRepositoryInfo.cs`, `GitHubCommitInfo.cs`, `GitHubCompareResult.cs`, `GitHubChangedFile.cs`, `GitHubPullInfo.cs`, `GitHubTreeEntry.cs`, `GitHubTree.cs`, `GitHubInstallationInfo.cs` ;
-  - `Domain/Ports/IGitHubAppGateway.cs`, partie lecture : `GetRepositoryInstallationAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`. Chaque méthode au niveau d'un dépôt prend l'identifiant d'installation et l'identifiant GitHub du dépôt suivi, sans installation par défaut ; `GetRepositoryInstallationAsync` renvoie aussi l'identifiant du compte.
+  - `Domain/Contracts/Forges/ForgeRepositoryRef.cs`, `ForgeRepositoryInfo.cs`, `ForgeCommitInfo.cs`, `ForgeCompareResult.cs`, `ForgeChangedFile.cs`, `ForgePullInfo.cs`, `ForgeTreeEntry.cs`, `ForgeTree.cs`, `ForgeConnectionInfo.cs` ;
+  - `Domain/Ports/IForgeGateway.cs`, partie lecture : `GetRepositoryConnectionAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`. Chaque méthode au niveau d'un dépôt prend une `ForgeRepositoryRef` (forge, connexion, soit l'identifiant d'installation sur GitHub, et identifiant externe du dépôt suivi), sans connexion par défaut ; `GetRepositoryConnectionAsync` renvoie aussi l'identifiant du compte ;
+  - `Domain/Ports/IForgeGatewayProvider.cs`, qui résout le port de la forge d'une organisation ; `IGitHubAppGateway` reste pour ce qui est propre à GitHub (installations, manifest, Check Runs).
 - **Tests :** Architecture.Tests (règles des ports).
 - **Acceptation :** chaque méthode du port prend un `CancellationToken` obligatoire.
 - **Dépend de :** M0.05
@@ -1346,7 +1372,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Issue :** [#27](https://github.com/gaetanthouvenin/code-coverage/issues/27)
 - **Objectif :** implémenter le port en lecture.
 - **Couches :** Infrastructure.
-- **Fichiers :** `Infrastructure/GitHub/GitHubAppGateway.cs` (partie lecture) ; `GitHub/Models/*.cs` (records JSON internes) ; fixtures `tests/fixtures/github/{repo,commits,compare,pull,tree,contents}.json`, sur la forme par identifiant. Les lectures d'un dépôt suivi emploient `/repositories/{GitHubId}/…` ; seule la recherche d'installation d'un dépôt inconnu emploie owner et nom.
+- **Fichiers :** `Infrastructure/GitHub/GitHubAppGateway.cs` (partie lecture, implémente `IForgeGateway`) ; `Infrastructure/Forges/ForgeGatewayProvider.cs` ; `GitHub/Models/*.cs` (records JSON internes) ; fixtures `tests/fixtures/github/{repo,commits,compare,pull,tree,contents}.json`, sur la forme par identifiant. Les lectures d'un dépôt suivi emploient `/repositories/{ExternalId}/…` ; seule la recherche d'installation d'un dépôt inconnu emploie owner et nom.
 - **Tests :** `Infrastructure.Tests/GitHub/GitHubAppGatewayReadTests` (WireMock) — `ListCommits_ShouldMapParents`, `Compare_Truncated_ShouldFlag`, `GetTree_Truncated_ShouldFlag`, `GetContent_ShouldUseRawMediaType`, `GetRepositoryInstallation_NotInstalled_ShouldReturnNull`, `ListCommits_TrackedRepository_ShouldUseRepositoryIdRoute`.
 - **Acceptation :** chaque appel porte `X-GitHub-Api-Version: 2022-11-28`.
 - **Dépend de :** M1.25
@@ -1395,7 +1421,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** authentifier un credential pour un dépôt (§5.1).
 - **Couches :** Application.
 - **Fichiers :**
-  - `Application/Services/UploadAuthenticator.cs` (ordre uniforme d'ADR-013, sans mode anonyme ; OIDC : `repository_owner_id` égal au compte de l'organisation et `repository_id` égal à `GitHubId`, ou à l'identifiant renvoyé par GitHub pour un dépôt inconnu ; `LastUsedAt` au plus une fois par minute) ;
+  - `Application/Services/UploadAuthenticator.cs` (ordre uniforme d'ADR-013, sans mode anonyme ; OIDC : `repository_owner_id` égal au compte de l'organisation et `repository_id` égal à `ExternalId`, ou à l'identifiant renvoyé par GitHub pour un dépôt inconnu ; `LastUsedAt` au plus une fois par minute) ;
   - `Domain/Ports/IUploadCredentialCache.cs` et son implémentation Infrastructure (`IMemoryCache`, 60 s, clé préfixée par l'organisation), qui ne met en cache que l'identité du credential, jamais la décision ;
   - `Domain/Uploads/UploadAuthorization.cs` ;
   - UC `Features/Uploads/Queries/AuthorizeUpload` `+V` (`IPublicOwnerAddressed`) ;
@@ -1414,7 +1440,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** enregistrer un upload sans parsing, puis le mettre en file.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
-  - `Domain/Contracts/Uploads/UploadMetadata.cs`, `CiContext.cs` ;
+  - `Domain/Contracts/Uploads/UploadMetadata.cs` (dont `Forge`, GitHub par défaut, ADR-014), `CiContext.cs` ;
   - UC `Features/Uploads/Commands/ReceiveUpload` `+V` (`IPublicOwnerAddressed` ; `ReceiveUploadCommand(UploadCredential, UploadMetadata, IAsyncEnumerable<UploadPart>, string? IdempotencyKey)` qui renvoie `Upload`) ;
   - le handler suit les étapes 1 à 7 de §5.1 : ré-authentification, résolution ou création du dépôt via l'installation (le compte de l'installation doit être celui de l'organisation courante, sinon `Repository.NotFound` ; la ligne `Installations` est écrite avec l'organisation), commit par insertion puis relecture, séquence atomique, brut en flux, transaction `Upload(Received)` avec job `ProcessUpload`, rejeu idempotent et réveil ;
   - `Features/Repositories/RepositoryErrors.cs` complété (`Repository.Inactive`) ;
@@ -1437,7 +1463,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Api.
 - **Fichiers :**
   - `Api/Controllers/UploadsController.cs` (`CreateAsync`, Name `CreateUpload`) ;
-  - `Api/Uploads/UploadMultipartReader.cs` (`MultipartReader` ; champs texte accumulés ; `MultipartFilePart` défini côté Api) ;
+  - `Api/Uploads/UploadMultipartReader.cs` (`MultipartReader` ; champs texte accumulés, dont `forge` facultatif ; `MultipartFilePart` défini côté Api) ;
   - `Api/Uploads/UploadCredentialReader.cs` (`Bearer`, `token`, `X-Upload-Token`) ;
   - `Api/Contracts/Uploads/UploadAcceptedResponse.cs` (`StatusUrl` sur la route du dépôt) ;
   - `Api/Mapping/UploadMapper.cs` (`ToMetadataQuery`, `ToCommand`, conversion des parties en `UploadPart`, `ReceiveUploadResponseAsync`) ;
@@ -1453,11 +1479,11 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** réponse en moins de 300 ms hors transfert sur un rapport de 5 Mo, et aucun type du Domain dans le contrôleur (Architecture.Tests).
 - **Dépend de :** M1.31, M0.11
 
-#### M1.33 — `GET /api/v1/repos/{owner}/{repo}/uploads/{id}`
+#### M1.33 — `GET /api/v1/repos/{forge}/{owner}/{repo}/uploads/{id}`
 - **Issue :** [#34](https://github.com/gaetanthouvenin/code-coverage/issues/34)
 - **Objectif :** donner l'état et le journal d'un upload, avec authentification par credential d'upload. Le jeton API est ajouté en M3.09.
 - **Couches :** Application, Api.
-- **Fichiers :** route `GET /api/v1/repos/{owner}/{repo}/uploads/{id:guid}` ; UC `Features/Uploads/Queries/GetUploadByCredential` (`IPublicOwnerAddressed`, credential d'upload seulement) ; UC `Features/Uploads/Queries/ListCommitUploads` (`IRepositoryScoped(Read)`) ; `Api/Contracts/Uploads/UploadResponse.cs`, `UploadTotalsModel.cs` ; `UploadMapper.GetUploadResponseAsync`.
+- **Fichiers :** route `GET /api/v1/repos/{forge}/{owner}/{repo}/uploads/{id:guid}` ; UC `Features/Uploads/Queries/GetUploadByCredential` (`IPublicOwnerAddressed`, credential d'upload seulement) ; UC `Features/Uploads/Queries/ListCommitUploads` (`IRepositoryScoped(Read)`) ; `Api/Contracts/Uploads/UploadResponse.cs`, `UploadTotalsModel.cs` ; `UploadMapper.GetUploadResponseAsync`.
 - **Tests :** `Application.Tests/Features/Uploads/Queries/GetUploadByCredential/GetUploadByCredentialQueryHandlerTests` — `Handle_CredentialForOtherRepo_ShouldThrowNotFound` ; `Api.Tests/Uploads/GetUploadTests`.
 - **Acceptation :** le journal présente les chemins non résolus ou ambigus et les formats inconnus.
 - **Dépend de :** M1.32
@@ -1681,7 +1707,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
   - traitement de `installation.created` (`Pending`, liée par identifiant de compte, rien n'est suivi), `installation.deleted` et `suspend` (`Suspended`), et de la réinstallation (rattachement, réactivation si la suspension venait de la désinstallation) ;
-  - le coordinateur `SyncInstallations` appelle `UpsertFromGitHubAsync` par identifiant de compte pour chaque installation, ce qui crée les lignes `Pending` et met à jour les logins ;
+  - le coordinateur `SyncInstallations` appelle `UpsertFromForgeAsync` par identifiant de compte pour chaque installation, ce qui crée les lignes `Pending`, met à jour les logins et rétablit celui d'une ligne en pierre tombale ;
   - l'admission met en file la synchronisation de son installation.
 - **Tests :** `HandleWebhookDeliveryCommandHandlerTests` — `Handle_InstallationCreated_ShouldCreatePendingOrganization`, `Handle_ReinstallSameAccount_ShouldReattachAndReactivate`, `Handle_AdminSuspended_ShouldStaySuspendedOnReinstall` ; `SyncInstallationsCommandHandlerTests` — `Handle_UnknownInstallation_ShouldCreatePendingOrganization`.
 - **Acceptation :** aucun événement n'admet automatiquement une organisation, et un `installation.created` perdu pendant une indisponibilité produit une ligne `Pending` à la synchronisation suivante.
@@ -1744,7 +1770,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M2.09 — `DiffProvider` et `DiffCache`
 - **Objectif :** diffs de PR (3000 fichiers) et de comparaison (300 fichiers), mis en cache.
 - **Couches :** Domain, Application, Infrastructure.
-- **Fichiers :** `IGitHubAppGateway.ListPullFilesAsync` (pagination `per_page=50`) ; `Domain/Ports/IDiffCacheRepository.cs` (ajout, §10) ; `Application/Services/DiffProvider.cs` ; EF `DiffCache` (gzip JSON), table d'organisation ; Migration `AddDiffCache`.
+- **Fichiers :** `IForgeGateway.ListPullFilesAsync` (pagination `per_page=50`) ; `Domain/Ports/IDiffCacheRepository.cs` (ajout, §10) ; `Application/Services/DiffProvider.cs` ; EF `DiffCache` (gzip JSON), table d'organisation ; Migration `AddDiffCache`.
 - **Tests :** `Application.Tests/Services/DiffProviderTests` — `GetPullDiff_Over3000_ShouldMarkIncomplete`, `GetCompareDiff_Cached_ShouldNotCallGitHub`, `GetPullDiff_NullPatch_ShouldKeepFileMarkedUnavailable`.
 - **Acceptation :** le cache est immuable par couple base/tête.
 - **Dépend de :** M1.26, M1.06, M1.17
@@ -1856,7 +1882,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** publier les statuts sans doublon, et `notify_error`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
-  - `IGitHubAppGateway.CreateStatusAsync` ;
+  - `IForgeGateway.CreateStatusAsync` ;
   - `Application/Services/NotificationService.cs` (statuts ; `StatusContextPrefix` et `StatusesEnabled` viennent d'`IOrganizationSettingsProvider`) ;
   - UC `Features/Notifications/Commands/NotifyCommit` (`ISystemOnly`, `LockKey commit:{id}`) ;
   - `Features/Notifications/NotificationErrors.cs`.
@@ -1884,7 +1910,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** un commentaire unique, retrouvé par son marqueur et mis à jour sur place.
 - **Couches :** Application, Infrastructure.
 - **Fichiers :**
-  - `IGitHubAppGateway.ListIssueCommentsAsync`, `CreateIssueCommentAsync`, `UpdateIssueCommentAsync` ;
+  - `IForgeGateway.ListIssueCommentsAsync`, `CreateIssueCommentAsync`, `UpdateIssueCommentAsync` ;
   - `NotificationService` (commentaire ; `CommentsEnabled` vient d'`IOrganizationSettingsProvider`, l'installation de la ligne du dépôt) : conditions de §8.4, `require_changes` à la première publication seulement, 404 avec `default` ou `once`, `CommentBodyHash`, `PullRequest.Version`.
 - **Tests :** `NotificationServiceCommentTests` :
   - `Comment_StaleHead_ShouldNotComment` ;
@@ -1918,9 +1944,9 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.01 — Utilisateurs (Domain et persistance)
 - **Objectif :** utilisateurs GitHub, avec jetons stockés côté serveur seulement.
 - **Couches :** Domain, Infrastructure.
-- **Fichiers :** `Domain/Users/AppUser.cs`, `RepositoryAccess.cs` ; `Domain/Ports/IUserRepository.cs`, `IUserRepositoryAccessRepository.cs` ; EF `Users`, table globale dont `IsAdmin` désigne l'administrateur d'instance, et `UserRepositoryAccess`, table d'organisation avec `Id` de substitution et `UX(OrganizationId, UserId, GitHubRepositoryId)` ; Migration `AddUsers`.
+- **Fichiers :** `Domain/Users/AppUser.cs`, `RepositoryAccess.cs` ; `Domain/Ports/IUserRepository.cs`, `IUserRepositoryAccessRepository.cs` ; EF `Users`, table globale `UX(Forge, ExternalId)` dont `IsAdmin` désigne l'administrateur d'instance, et `UserRepositoryAccess`, table d'organisation avec `Id` de substitution et `UX(OrganizationId, UserId, RepositoryExternalId)` ; Migration `AddUsers`.
 - **Tests :** `Domain.Tests/Users/AppUserTests` — `ReplaceTokens_ShouldStoreProtectedValuesOnly` ; tests de repository.
-- **Acceptation :** les colonnes de jetons ne contiennent que des valeurs protégées par Data Protection, et `UserRepositoryAccess.GitHubRepositoryId` porte l'identifiant GitHub du dépôt, sans FK vers `Repositories`.
+- **Acceptation :** les colonnes de jetons ne contiennent que des valeurs protégées par Data Protection, et `UserRepositoryAccess.RepositoryExternalId` porte l'identifiant externe du dépôt, sans FK vers `Repositories`.
 - **Dépend de :** M0.16, M1.16d2
 
 #### M3.02 — Passerelle utilisateur GitHub et rafraîchissement des jetons
@@ -1992,7 +2018,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 ### 6.2 API de gestion
 
 #### M3.06 — API dépôts : lecture
-- **Objectif :** `GET /orgs/{org}/repos` (à la place de `GET /repos`), `GET /repos/{owner}/{repo}` et `GET /repos/{owner}/{repo}/branches`.
+- **Objectif :** `GET /orgs/{forge}/{org}/repos` (à la place de `GET /repos`), `GET /repos/{forge}/{owner}/{repo}` et `GET /repos/{forge}/{owner}/{repo}/branches`.
 - **Couches :** Application, Api.
 - **Fichiers :**
   - UC `Features/Repositories/Queries/ListRepositories` (`IOrganizationScoped(Participant)`, filtrée par accès) ;
@@ -2044,7 +2070,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.11 — API jetons d'upload et jetons API
 - **Objectif :** endpoints `upload-tokens` et `api-tokens`.
 - **Couches :** Api.
-- **Fichiers :** `Api/Controllers/UploadTokensController.cs`, `ApiTokensController.cs` ; `Api/Contracts/Tokens/CreateUploadTokenRequest.cs`, `IssuedUploadTokenResponse.cs`, `UploadTokenResponse.cs`, `CreateApiTokenRequest.cs`, `IssuedApiTokenResponse.cs`, `ApiTokenResponse.cs` ; `Api/Mapping/TokenMapper.cs`. Les jetons d'upload sont adressés sous `/api/v1/orgs/{org}/upload-tokens` et `/api/v1/repos/{owner}/{repo}/upload-tokens`, associés aux six messages de M1.22 ; la suppression par identifiant seul disparaît. Les jetons API restent filtrés par utilisateur.
+- **Fichiers :** `Api/Controllers/UploadTokensController.cs`, `ApiTokensController.cs` ; `Api/Contracts/Tokens/CreateUploadTokenRequest.cs`, `IssuedUploadTokenResponse.cs`, `UploadTokenResponse.cs`, `CreateApiTokenRequest.cs`, `IssuedApiTokenResponse.cs`, `ApiTokenResponse.cs` ; `Api/Mapping/TokenMapper.cs`. Les jetons d'upload sont adressés sous `/api/v1/orgs/{forge}/{org}/upload-tokens` et `/api/v1/repos/{forge}/{owner}/{repo}/upload-tokens`, associés aux six messages de M1.22 ; la suppression par identifiant seul disparaît. Les jetons API restent filtrés par utilisateur.
 - **Tests :** `Api.Tests/Tokens/UploadTokensControllerTests` — `Post_ShouldReturnValueOnce`, `Get_ShouldNeverReturnValue`.
 - **Acceptation :** valeur en clair renvoyée une seule fois.
 - **Dépend de :** M3.05, M1.22
@@ -2063,7 +2089,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Fichiers :**
   - `Domain/Ports/IOrganizationSettingRepository.cs` et son implémentation ;
   - UC `Features/Organizations/Queries/GetOrganizationSettings`, `Commands/UpdateOrganizationSetting` et `Commands/ResetOrganizationSetting` (`IOrganizationScoped(Admin)`, audit, `SettingRules.Check` réutilisé) ;
-  - `Api/Controllers/OrganizationsController.cs` : `GET /api/v1/orgs`, `GET` et `PUT /api/v1/orgs/{org}/settings`, sans route de secret ;
+  - `Api/Controllers/OrganizationsController.cs` : `GET /api/v1/orgs`, `GET` et `PUT /api/v1/orgs/{forge}/{org}/settings`, sans route de secret ;
   - contrats et `Api/Mapping/OrganizationMapper.cs`.
 - **Tests :** `UpdateOrganizationSettingCommandHandlerTests` — `Handle_InstanceKey_ShouldThrow`, `Handle_ShouldWriteOnlyCurrentOrganization` ; `OrganizationSettingRepositoryTests` — `Update_OtherOrganization_ShouldChangeNothing` ; `Api.Tests/Organizations/OrganizationsControllerTests` — `Get_Participant_ShouldReturn403`, `Put_Participant_ShouldReturn403`, `Put_OtherOrganization_ShouldReturn404`.
 - **Acceptation :** une clé `Instance` est refusée, et l'Api ne manipule aucun type du Domain.
@@ -2100,8 +2126,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Api.
 - **Fichiers :**
   - `Api/Rendering/BadgeSvgRenderer.cs` (gabarit « flat »), `Api/Rendering/VerdanaWidthTable.cs` ;
-  - `Api/Controllers/BadgesController.cs` : routes `/api/v1/badges/{owner}/{repo}.{ext}`, `/{service}/{owner}/{repo}/{graph}/badge.{ext}` et `/{service}/{owner}/{repo}/branch/{**branchAndSuffix}` ;
-  - `Api/Controllers/RepositoriesController.cs` : `POST` et `PUT /api/v1/repos/{owner}/{repo}/badge-token` (jeton API de l'admin du dépôt, `RotateBadgeToken` et `ImportBadgeToken`) ;
+  - `Api/Controllers/BadgesController.cs` : routes `/api/v1/badges/{forge}/{owner}/{repo}.{ext}`, `/{service}/{owner}/{repo}/{graph}/badge.{ext}` et `/{service}/{owner}/{repo}/branch/{**branchAndSuffix}` ;
+  - `Api/Controllers/RepositoriesController.cs` : `POST` et `PUT /api/v1/repos/{forge}/{owner}/{repo}/badge-token` (jeton API de l'admin du dépôt, `RotateBadgeToken` et `ImportBadgeToken`) ;
   - `Api/Contracts/Repositories/BadgeTokenResponse.cs`, `ImportBadgeTokenRequest.cs` ;
   - `Api/Contracts/Badges/BadgeResponse.cs` ; `Api/Mapping/BadgeMapper.cs`.
 - **Tests :** `Api.Tests/Badges/BadgesControllerTests` — `Get_CodecovStyleBranchUrl_ShouldServeSvg`, `Get_IfNoneMatch_ShouldReturn304`, `Get_Unknown_ShouldReturn200Grey` ; `BadgeSvgRendererTests` (Verify) ; `Api.Tests/Repositories/BadgeTokenEndpointsTests` — `Post_NonRepoAdmin_ShouldReturn403`, `Put_Import_ShouldReturn204`.
@@ -2127,7 +2153,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 ### 6.4 Interface Web (après validation de l'artefact de design)
 
 #### M3.18 — Artefact de design UI (porte de validation)
-- **Objectif :** produire les maquettes de toutes les pages de §10bis.3 et les faire **valider par l'utilisateur** avant toute page Web. Elles couvrent la navigation, les états vides, de chargement et d'erreur, le mode sombre et la largeur mobile, avec les composants maison `Cc*` de `Web/Components/Ui` (préfixe CSS `cc-`). Elles ajoutent le sélecteur d'organisation, la section Organisation, `/orgs/{org}/*` et `/admin/organizations`, et retirent l'organisation unique.
+- **Objectif :** produire les maquettes de toutes les pages de §10bis.3 et les faire **valider par l'utilisateur** avant toute page Web. Elles couvrent la navigation, les états vides, de chargement et d'erreur, le mode sombre et la largeur mobile, avec les composants maison `Cc*` de `Web/Components/Ui` (préfixe CSS `cc-`). Elles ajoutent le sélecteur d'organisation, la section Organisation, `/orgs/{forge}/{org}/*` et `/admin/organizations`, et retirent l'organisation unique.
 - **Couches :** design, sans code de production.
 - **Fichiers :** artefact de design publié, dont le lien est consigné dans `docs/ui-design.md` (inventaire des écrans, des composants et des libellés clés en anglais et en français).
 - **Tests :** —
@@ -2288,7 +2314,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** une modification est visible dans l'Api en 5 s au plus.
 - **Dépend de :** M3.19, M0.21
 
-#### M3.37a — Page `/orgs/{org}/settings`
+#### M3.37a — Page `/orgs/{forge}/{org}/settings`
 - **Objectif :** les paramètres de l'organisation, sans secret.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/OrganizationSettings.razor(.cs)`, qui réutilise `Settings/SettingEditor` ; ViewModels et mapper, envoi par `UiRequestRunner`.
@@ -2297,7 +2323,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.19, M3.12a, M3.37
 
 #### M3.38 — Organisation : jetons d'upload
-- **Objectif :** `/orgs/{org}/upload-tokens` : créer, importer et révoquer les jetons d'organisation, avec un bandeau quand `RotationAdvisedAt` est posé.
+- **Objectif :** `/orgs/{forge}/{org}/upload-tokens` : créer, importer et révoquer les jetons d'organisation, avec un bandeau quand `RotationAdvisedAt` est posé.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (`IOrganizationScoped(Admin)`, réutilise `Tokens/*`).
 - **Tests :** `OrganizationUploadTokensTests` — `Render_RotationAdvised_ShouldShowBanner`, `Render_Participant_ShouldBeDenied`.
@@ -2305,7 +2331,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.19, M1.22, M3.35
 
 #### M3.39 — Organisation : dépôts
-- **Objectif :** `/orgs/{org}/repositories` : tous les dépôts de l'installation de l'organisation, activation et synchronisation.
+- **Objectif :** `/orgs/{forge}/{org}/repositories` : tous les dépôts de l'installation de l'organisation, activation et synchronisation.
 - **Couches :** Web, Application.
 - **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`), à la place du job global ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs`.
 - **Tests :** `OrganizationRepositoriesTests` — `Click_Sync_ShouldEnqueue`.
@@ -2362,8 +2388,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.43a — Suite d'isolation de bout en bout à deux organisations
 - **Objectif :** prouver l'exigence à la frontière externe.
 - **Couches :** Api.Tests, Web.Tests.
-- **Fichiers :** `Api.Tests/Isolation/CrossOrganizationRouteTests.cs` et `Web.Tests/Isolation/CrossOrganizationPageTests.cs`, avec deux organisations ensemencées sur les deux fournisseurs ; chaque action MVC et page routable, trouvée par réflexion, doit déclarer une sonde employant une ressource réelle de l'organisation B.
-- **Tests :** `CrossOrganizationRouteTests` — `EveryAction_ShouldDeclareProbe`, `Request_OtherOrganization_ShouldMatchUnknownOwner`, `Upload_JunkTokenActiveAndUnknownOwner_ShouldBeIdentical`, `GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`, `Request_OutsideCollaborator_ShouldReachOnlyThatRepository`, `Badge_PrivateRepositoryWrongToken_ShouldMatchUnknown` ; `ReservedLoginRouteTests` — `EveryRouteFirstSegment_ShouldBeReserved` ; `CrossOrganizationPageTests` — `Render_OtherOrganization_ShouldMatchNotFound`.
+- **Fichiers :** `Api.Tests/Isolation/CrossOrganizationRouteTests.cs` et `Web.Tests/Isolation/CrossOrganizationPageTests.cs`, avec deux organisations ensemencées sur les deux fournisseurs ; chaque action MVC et page routable, trouvée par réflexion, doit déclarer une sonde employant une ressource réelle de l'organisation B. Retire `ReservedLogins` et son emploi dans `Organization.Admit` et `Organization.Rename`, avec les tests associés ; la valeur `SuspensionReason.ReservedLogin` reste pour les lignes existantes (ADR-014).
+- **Tests :** `CrossOrganizationRouteTests` — `EveryAction_ShouldDeclareProbe`, `Request_OtherOrganization_ShouldMatchUnknownOwner`, `Upload_JunkTokenActiveAndUnknownOwner_ShouldBeIdentical`, `GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`, `Request_OutsideCollaborator_ShouldReachOnlyThatRepository`, `Badge_PrivateRepositoryWrongToken_ShouldMatchUnknown` ; `ForgeRouteTests` — `EveryOrganizationRoute_ShouldCarryTheForge` ; `CrossOrganizationPageTests` — `Render_OtherOrganization_ShouldMatchNotFound`.
 - **Acceptation :**
   - pour chacune, un credential ou une session de l'organisation A contre l'organisation B donne le même statut, le même `errorCode` et le même corps qu'un slug dont l'owner n'existe pas ;
   - une nouvelle route sans sonde échoue ;
@@ -2519,6 +2545,21 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - graphes `tree` et `sunburst` ;
 - GitHub Enterprise.
 
+### 9.1 Jalons M7 et M8 – Autres forges (ADR-014)
+
+Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub reste la seule forge implémentée jusque-là. Les durées sont des ordres de grandeur non mesurés.
+
+- **M7 – Azure DevOps Services (environ 28 sessions) :**
+  - spike du diff, l'API documentant des changements par fichier sans les lignes modifiées (risque principal d'ADR-014) ;
+  - table de connexions par organisation et authentification Microsoft Entra ID ;
+  - adaptateur `IForgeGateway`, service hooks, statuts et commentaires de pull request ;
+  - owner adressé en `org:project`, colonne `Repositories.Namespace` ;
+  - détection dans l'uploader, connexion Web et accès aux dépôts, pilote.
+- **M8 – Bitbucket Cloud (environ 20 sessions) :**
+  - vérification du diff unifié et des UUID de workspace ;
+  - connexions, adaptateur `IForgeGateway`, webhooks signés, statuts de build et commentaires ;
+  - OIDC de Bitbucket Pipelines, badges `/bb/…` et `/bitbucket/…`, connexion Web et accès aux dépôts, pilote.
+
 ---
 
 ## 10. Écarts et compléments par rapport à l'architecture
@@ -2540,10 +2581,11 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 | 13 | M5.06 (import de l'historique Codecov) passe avant M4.08, bien que l'architecture la classe en M5. | L'import lit l'API Codecov v2, inaccessible après la résiliation. |
 | 14 | Une instance partagée héberge plusieurs organisations isolées (ADR-013, M1.16a1 à M4.02a). L'architecture décrit encore une organisation unique jusqu'à M1.16a2 ; en cas de conflit, ADR-013 prime. | Décision du 2026-11-08, qui remplace ADR-003 ; aucune table métier n'existait encore. |
 | 15 | Ports ajoutés pour l'isolation : `ICurrentOrganization`, `IOrganizationScope`, `IOrganizationDirectory`, `IOrganizationSettingsProvider`, `IOrganizationSettingRepository`, `IOrganizationMembershipRepository`, `IOrganizationRoleResolver`. | L'organisation reste hors des signatures des autres ports : le contexte est ambiant, posé une fois par portée. |
-| 16 | Routes modifiées : `GET /api/v1/uploads/{id}` devient `/api/v1/repos/{owner}/{repo}/uploads/{id}`, `GET /api/v1/repos` devient `/api/v1/orgs/{org}/repos`, les jetons d'upload passent sous l'organisation ou le dépôt. | Aucune donnée d'organisation n'est adressée par un seul identifiant, et le filtre couvre ces routes sans contrôle dédié. `/api/v1` est l'API propre du produit : la règle 1 n'est pas touchée. |
+| 16 | Routes modifiées : `GET /api/v1/uploads/{id}` devient `/api/v1/repos/{forge}/{owner}/{repo}/uploads/{id}`, `GET /api/v1/repos` devient `/api/v1/orgs/{forge}/{org}/repos`, les jetons d'upload passent sous l'organisation ou le dépôt. | Aucune donnée d'organisation n'est adressée par un seul identifiant, et le filtre couvre ces routes sans contrôle dédié. `/api/v1` est l'API propre du produit : la règle 1 n'est pas touchée. |
 | 17 | Paramètres : `GitHub:Organization` et `Uploads:AllowedOwners` disparaissent, `Access:AdminLogins` devient `Access:AdminUserIds`, `Access:HardExpiryMinutes` est ajouté, et 4 clés passent au niveau de l'organisation (M1.16h, M1.16i). | Un login est modifiable et réattribuable, et seul le contenu propre à une organisation ou sa bascule exige une valeur par organisation. |
 | 18 | Un jeton d'upload n'est unique que dans son organisation, et trois cas d'usage deviennent six (M1.22). | Une valeur importée est choisie par l'appelant : un index global serait un oracle et bloquerait un import légitime. Chaque message sert une seule audience. |
 | 19 | Les écrans d'exploitation restent au niveau de l'instance et ne montrent que des métadonnées (M3.13, M3.40, M3.41) ; les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27). | L'isolation exige que la vue d'instance masque les données métier. Les écrans par organisation sont au backlog (§11). |
+| 20 | Préparation à plusieurs forges (ADR-014, M1.16a3) : `Forge` et identifiants externes en texte, forge dans les adresses, `IForgeGateway`, `Repositories.Namespace`. L'architecture décrit encore GitHub seul jusqu'à M1.16a2 ; en cas de conflit, ADR-014 prime. | Rien de ce qui fige l'hypothèse n'était construit ; les jalons M7 et M8 ajoutent les adaptateurs. |
 
 ---
 
@@ -2565,6 +2607,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 9. **Hébergement** : VM Docker (M4.02) ou Azure Container Apps (M4.03).
 10. **Nom définitif du produit et du dépôt** : tranché, produit `CodeCoverage` et dépôt `code-coverage`. Le projet est indépendant.
 11. **Flux de publication de l'outil `coverage-upload` (M5.03)** : nuget.org public ou flux privé. À trancher au démarrage de M5 ; les binaires autonomes servis par l'Api (ADR-012) ne dépendent pas de ce choix.
+12. **Multi-forge : tranché**, préparé maintenant avec GitHub seul implémenté ([ADR-014](adr/0014-multi-forge.md)). Restent à établir le calcul du diff sur Azure DevOps (spike en tête de M7) et les endpoints de Bitbucket (début de M8).
 
 ### Backlog de l'isolation entre organisations
 
