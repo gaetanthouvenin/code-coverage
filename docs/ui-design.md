@@ -7,12 +7,14 @@ Porte de validation **M3.18** de `docs/PLAN.md`. Chaque page de M3.19 à M3.43 s
 | | |
 |---|---|
 | **Statut** | **Validé** par le propriétaire le 2026-11-08 |
-| **Maquette** | [Coverage console mockups](https://claude.ai/artifact/Kt43DrVwwtS4F85CDD9PNA) (version 3, artefact privé) |
+| **Maquette** | [Coverage console mockups](https://claude.ai/artifact/Kt43DrVwwtS4F85CDD9PNA) (version 4, artefact privé) |
 | **Copie versionnée** | [`docs/design/ui-mockup.html`](design/ui-mockup.html), lisible sans compte |
 
 La maquette remplace la référence visuelle précédente, qui décrivait une organisation unique ; l'ancienne version reste dans l'historique git.
 
 La version 3 aligne la maquette validée sur [ADR-014](adr/0014-multi-forge.md), après la validation. Seuls changent les routes, le libellé du sélecteur d'organisation et les tables d'adresses de ce document.
+
+La version 4 ajoute la forge à `/admin/organizations` et retire les logins réservés de cet écran, validés par le propriétaire le 2026-11-08.
 
 Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son état, le rôle, la langue, le thème et la largeur ; l'ancre `#{écran}--{état}` désigne un état précis, par exemple `#admin-organizations--dlg-suspend`.
 
@@ -26,6 +28,8 @@ Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son �
 | 4 | Contenu sans base dans le plan | Retirés : cloche de notifications, graphiques d'uploads et de patchs, page côté GitHub, cartes KPI des listes, documentation d'API et extraits de pipeline. Les écrans d'instance n'affichent aucun dépôt. |
 | 5 | Page racine `/orgs/{forge}/{org}` | Aucune : le plan n'en nomme pas, l'entrée Organisation ouvre `/orgs/{forge}/{org}/repositories`. |
 | 6 | Détail par fichier | L'arbre du commit affiche lignes, couvertes, partielles et manquées, et la source annotée les totaux du fichier. Pas d'onglet Fichiers par branche. |
+| 7 | Forge dans `/admin/organizations` | Toujours visible, par une colonne et un champ du dialogue d'admission, avec seulement GitHub au départ. |
+| 8 | Logins réservés | Absents de la console : ni motif de suspension, ni dialogue d'erreur. ADR-014 les supprime en M3.43a. |
 
 ### Sélecteur d'organisation
 
@@ -115,7 +119,7 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 
 | Écran | Route | Micro-feature | Accès | États dans la maquette |
 |---|---|---|---|---|
-| Organisations | `/admin/organizations` | M3.41a | admin d’instance | Nominal, Vide, Dialogue : admettre, Dialogue : login réservé, Dialogue : suspendre, Chargement, Erreur, Accès refusé |
+| Organisations | `/admin/organizations` | M3.41a | admin d’instance | Nominal, Vide, Dialogue : admettre, Dialogue : suspendre, Chargement, Erreur, Accès refusé |
 | Paramètres de l’instance | `/admin/settings` | M3.37 | admin d’instance | Nominal, Dialogue : remplacer un secret, Chargement, Erreur, Accès refusé |
 | Opérations | `/admin/operations` | M3.40 | admin d’instance | Nominal, Vide, Chargement, Erreur, Accès refusé |
 | Journal d’audit | `/admin/audit` | M3.41 | admin d’instance | Nominal, Vide, Chargement, Erreur, Accès refusé |
@@ -165,6 +169,7 @@ Le CSS de la maquette reprend `tokens.css`, `components.css` et `app.css`, avec 
 ### À reprendre lors de la construction des pages
 
 - **M3.19 :** dans `components.css`, `.cc-round-button` vient après `.cc-topnav__menu-button` et annule son `display: none`, si bien que le bouton de menu mobile reste visible sur bureau. La maquette le masque par une règle propre.
+- **M3.41a :** aucun libellé n'est prévu pour `SuspensionReason.ReservedLogin`, que M3.43a supprime ; aucune organisation réelle n'existe avant le pilote.
 - **M3.22 :** `--cc-chart-1` et `--cc-chart-2` sont presque identiques pour un lecteur daltonien (`ΔE` 1,0 en protanopie). Les séries gardent donc un pointillé et une étiquette directe, en plus de la couleur.
 
 ## Libellés clés
@@ -206,7 +211,6 @@ Les clés suivent `Common.resx` (anglais) et `Common.fr.resx` (français). Le no
 | `OrganizationState_Suspended` | Suspended | Suspendue |
 | `SuspensionReason_Administrator` | By an instance admin | Par un administrateur d’instance |
 | `SuspensionReason_AppUninstalled` | GitHub App uninstalled | GitHub App désinstallée |
-| `SuspensionReason_ReservedLogin` | Renamed to a reserved login | Renommée vers un login réservé |
 | `AccountType_Organization` | Organization | Organisation |
 | `AccountType_User` | Personal account | Compte personnel |
 | `Repository_Active` | Active | Actif |
@@ -277,6 +281,7 @@ Les clés suivent `Common.resx` (anglais) et `Common.fr.resx` (français). Le no
 | `Column_Created` | Created | Créé |
 | `Column_LastUsed` | Last used | Dernière utilisation |
 | `Column_Organization` | Organization | Organisation |
+| `Column_Forge` | Forge | Forge |
 | `Column_Type` | Type | Type |
 | `Column_Reason` | Reason | Motif |
 | `Column_AdmittedBy` | Admitted by | Admise par |
