@@ -1131,8 +1131,9 @@ jobs `gitversion` (GitVersion 6.x, `gittools/actions/gitversion/setup@v4` + `exe
 `build-and-test` (`actions/checkout@v6` `fetch-depth: 0`, `actions/setup-dotnet@v5` avec
 `global.json`, `dotnet build -c Release -p:NuGetVersion=… -p:AssemblySemVer=…
 -p:MajorMinorPatch=… -p:InformationalVersion=…`, `dotnet test --no-build`, Testcontainers PostgreSQL
-et SQL Server) → test de fumée compose → images Docker Api et Web, construites à chaque exécution et
-poussées sur GHCR seulement depuis `main` (`latest`) et les tags `v*` : jamais depuis `develop` ni une PR (§15).
+et SQL Server) → test de fumée compose → images Docker Api et Web poussées sur GHCR. Ce dernier job
+ne tourne que sur `main` (`latest`) et les tags `v*` ; sur `develop` et les PR, le test de fumée
+compose construit déjà les deux images (§15).
 Aucune étape de flux NuGet privé. Images `${IMAGE_PREFIX}-api` et `${IMAGE_PREFIX}-web`, avec
 `IMAGE_PREFIX` = `ghcr.io/<owner>/code-coverage` en CI et `code-coverage` par défaut en local.
 
@@ -1179,7 +1180,8 @@ Le dépôt suit GitFlow, aligné sur `GitVersion.yml` (`workflow: GitFlow/v1`) :
   branche s'appelle `feature/{id}-{sujet}` (`feature/m1.01-coverage-math`) et sa pull request vers
   `develop` contient `Closes #{issue}`. Un travail hors plan (outillage, docs) ouvre sa propre issue.
 - La CI tourne sur `develop`, `main`, les tags et toutes les pull requests ; les images Docker
-  sont construites partout mais poussées sur GHCR seulement depuis `main` et les tags `v*` (§14.1).
+  sont construites par le test de fumée compose partout, et poussées sur GHCR par le job `docker`,
+  qui ne tourne que sur `main` et les tags `v*` (§14.1).
 
 ### 15.2 Commits et checklist
 
