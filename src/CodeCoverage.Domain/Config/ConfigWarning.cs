@@ -23,5 +23,8 @@ public sealed record ConfigWarning(string Code, string Key, string? Detail = nul
   /// <summary>The value is valid but exceeds what is supported: the closest supported value applies.</summary>
   public const string ClampedValue = "Config.ClampedValue";
 
+  /// <summary>The key is read, but changes nothing yet.</summary>
+  public const string WithoutEffectKey = "Config.WithoutEffectKey";
+
   #endregion
 }
