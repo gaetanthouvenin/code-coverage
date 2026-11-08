@@ -259,7 +259,7 @@ Commits/       Commit, CommitState, GitCommit, Session, SessionKind, Upload, Upl
                CarryforwardBuilder, CarryforwardPlan
 Comparisons/   BaseResolution, Comparison, PatchCoverage, ImpactedFile, IndirectChange, ChangeDetector, FlagComparison,
                ComparisonCalculator
-Config/        CoverageConfig, ConfigNode, ConfigMerger, CoverageConfigDefaults, StatusRule, StatusType, Target,
+Config/        CoverageConfig, ConfigNode, ConfigNodeKind, ConfigPatterns, ConfigMerger, CoverageConfigDefaults, StatusRule, StatusType, Target,
                FlagRule, CommentRule, CommentSection, RequireChangesExpression, NotifyRule, ParserRule, CoverageRange,
                RoundingMode, RemovedCodeBehavior, NotUploadedBehavior, ConfigWarning
 Notifications/ StatusEvaluator, CommitStatus (Context, State, Description), StatusState, PostedStatus, NotificationDecision,
@@ -1309,19 +1309,27 @@ Pour une notification de PR typique (cas chaud, caches remplis), environ 5 appel
 codecov:
   require_ci_to_pass: false        # non implémenté en v1 ; défaut honnête (pas d'avertissement fantôme)
   notify: { wait_for_ci: false, after_n_builds: 0, manual_trigger: false }
-  max_report_age: off
+  max_report_age: off              # Codecov : "12h ago" ; ici, aucune limite sans valeur explicite (§6.3)
 coverage:
   precision: 2
   round: down
   range: [60, 80]                  # couleurs du commentaire et de l'UI ; le badge a sa propre règle (§11)
   status:
-    project: { default: { target: auto, threshold: 0, removed_code_behavior: adjust_base } }
-    patch:   { default: { target: auto } }
+    project: true                  # jamais une map : elle se fusionnerait avec les entrées du dépôt
+    patch: true
     changes: false
     default_rules: { flag_coverage_not_uploaded_behavior: include }
 comment: { layout: "header, diff, flags, files, footer", behavior: default, require_changes: false, show_carryforward_flags: false }
 parsers: { cobertura: { partials_as_hits: false }, lcov: { partials_as_hits: false }, jacoco: { partials_as_hits: false } }
 ```
+
+`project` et `patch` valent `true`, comme chez Codecov (`LEGACY_DEFAULT_SITE_CONFIG`) : un dépôt qui écrit `project: { backend: {…} }` remplace ce `true` et n'obtient que `backend`. Une map dans les défauts serait fusionnée avec ses entrées et ajouterait un statut `default` qu'il n'a pas demandé. `target: auto`, `threshold: 0` et, pour `project`, `removed_code_behavior: adjust_base` s'appliquent donc à la lecture d'une règle, et ne figurent pas dans les défauts.
+
+Écarts avec Codecov :
+- seuls les défauts historiques sont repris ; Codecov applique aux organisations créées après le 30 avril 2024 `PATCH_CENTRIC_DEFAULT_CONFIG` (`status.project: false`, disposition condensée, `hide_project_coverage: true`) ;
+- `require_ci_to_pass` et `wait_for_ci` valent `false` au lieu de `true`, faute d'implémentation en v1 ;
+- `comment.layout` remplace `reach,diff,flags,tree,reach` : la section `reach` n'existe pas ici ;
+- `max_report_age` vaut `off` au lieu de `"12h ago"`.
 
 ### 9.3 Sous-ensemble supporté
 
@@ -1332,7 +1340,7 @@ parsers: { cobertura: { partials_as_hits: false }, lcov: { partials_as_hits: fal
 | `coverage.status.default_rules` | complet |
 | `if_ci_failed`, `if_no_uploads`, `measurement` | lus, sans effet (avertissement) |
 | `flags.<name>.{paths, ignore, carryforward, after_n_builds, joined}` | complet (`joined: false` exclut le flag de la fusion) |
-| `flag_management.default_rules` et `individual_flags[].{name, paths, ignore, carryforward, after_n_builds, statuses[]}` (avec `name_prefix`) | complet. Résolution d'un flag : `default_rules`, puis l'entrée `individual_flags` (mise à jour de dictionnaire), puis `flags.<F>` historique qui l'emporte. Si un flag listé n'a pas de `paths`, le filtre couvre tous les chemins. |
+| `flag_management.default_rules` et `individual_flags[].{name, paths, ignore, carryforward, after_n_builds, statuses[]}` (avec `name_prefix`) | complet. Résolution d'un flag (`FlagRule`, d'après `get_flag_configuration`) : une entrée `flags.<F>`, même vide, est utilisée seule, sans aucune fusion ; sinon `default_rules`, dont les clés sont remplacées par celles de la première entrée `individual_flags` de ce nom (mise à jour superficielle) ; un flag non listé reçoit `default_rules`. Seul `carryforward` (d'après `flag_has_carryfoward`) traverse une entrée `flags.<F>` vide, et `joined` n'est lu que dans `flags.<F>`. Si ni l'entrée résolue ni `default_rules` ne définissent `paths`, le filtre couvre tous les chemins. |
 | `ignore`, `fixes`, `codecov.disable_default_path_fixes`, `codecov.branch`, `codecov.max_report_age`, `codecov.allow_pseudo_compare` | complet |
 | `codecov.notify.after_n_builds`, `manual_trigger`, `notify_error` | complet |
 | `comment` (`false` ou objet) : `layout`, `behavior` (`default`, `once`), `require_changes`, `after_n_builds`, `hide_project_coverage`, `show_carryforward_flags`, `branches`, `files` | complet ; `new` et `spammy` en M5 (repli sur `default` avec avertissement) |
@@ -1342,6 +1350,8 @@ parsers: { cobertura: { partials_as_hits: false }, lcov: { partials_as_hits: fal
 | `github_checks` | sans effet en v1 ; M5 |
 | `component_management` | sans effet avec avertissement ; M6 |
 | `slack_app`, `codecov.token`, `codecov.url`, `bundle_analysis`, `test_analytics`, `ai_pr_review`, `beta_groups` | ignorés silencieusement |
+
+Une valeur dont la forme est invalide (`range: 90..60`, une entrée de `fixes` sans `::`, `precision: abc`) produit un `ConfigWarning` et la valeur par défaut de cette seule clé, ou l'entrée est écartée. C'est un écart assumé : Codecov refuse le fichier entier, alors qu'une clé erronée ne doit pas priver un dépôt de toute sa configuration. Autre écart : `precision` accepte 0 à 99 comme Codecov, mais une valeur supérieure à 28 (la limite de `decimal`) est ramenée à 28 avec un avertissement.
 
 ### 9.4 Exemple de monorepo recommandé
 
