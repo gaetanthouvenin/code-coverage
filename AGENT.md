@@ -123,7 +123,9 @@ messages.
 
 - [ ] On a `feature/*` branch started from `develop` (GitFlow, `docs/CONVENTIONS.md` §15.1): never a
       commit on `main`, which only receives releases and hotfixes and publishes the images
-- [ ] One micro-feature of `docs/PLAN.md`, nothing from a later one
+- [ ] One micro-feature of `docs/PLAN.md`, nothing from a later one, with its GitHub issue (the
+      `Issue` line under its title): branch `feature/{id}-{topic}`, pull request into `develop`
+      with `Closes #{issue}`
 - [ ] `dotnet build -c Release` without warning, `dotnet test` green
 - [ ] Headers, XML docs, regions (`Ctors`), one type per file
 - [ ] New error code: `{Feature}Errors.cs`, `Common.resx` and `Common.fr.resx`
