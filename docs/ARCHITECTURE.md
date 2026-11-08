@@ -892,7 +892,21 @@ Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking`
 | a \ b | Hits | Branche |
 |---|---|---|
 | **Hits** | `max(a, b)` | si hits > 0 : `t/t` (Hit) ; sinon la branche est conservée |
-| **Branche** | symétrique | si les deux côtés ont `MissingBranches` : manquantes = **intersection**, `covered = total − |manquantes|`. Sinon, le ratio `c/t` le plus grand l'emporte ; à égalité, le `t` le plus grand. |
+| **Branche** | symétrique | règle ci-dessous |
+
+**Deux lignes de branche** (d'après `merge_line_session` et `merge_branch`), avec `t = max(ta, tb)` :
+
+- **au moins un côté a `MissingBranches` :** avec les deux côtés, manquantes = **intersection**. Avec un seul côté, un autre côté Hit donne manquantes = ∅ ; un autre côté qui n'est pas Hit est ignoré, et les manquantes restent celles du côté qui les nomme (`0/3 [x,y,z]` et `1/3` donnent `0/3`). Puis `covered = max(t − |manquantes|, 0)` ;
+- **aucun côté n'a d'identifiants :** si un côté est entièrement couvert, le résultat est `t/t`. Sinon, `covered = max(ca, cb)` : chaque composante est prise séparément, sans comparer les ratios (`1/2` et `1/6` donnent `1/6`).
+
+Dans tous les cas, les hits du résultat sont le maximum des deux côtés et le drapeau de méthode est conservé dès qu'un côté le porte. Les fichiers sans aucune ligne sont retirés du rapport.
+
+**Écarts assumés avec Codecov** (la fusion doit être commutative et associative pour que la reconstruction soit déterministe) :
+
+- **Total d'une ligne de branche fusionnée :** toujours le plus grand. Codecov garde celui de la première session, ou celui du côté entièrement couvert, ce qui dépend de l'ordre quand les sessions ne comptent pas le même nombre de branches (`1/1` et `0/4` donnent `4/4` ici, `1/1` chez Codecov).
+- **Type de ligne :** le drapeau de méthode l'emporte. Codecov garde le premier type non nul.
+- **Règle des fichiers `.rb` non reprise :** Codecov écarte ou remplace un fichier Ruby entièrement à 0 %, contournement propre à ce langage et non commutatif quand les deux côtés sont à 0 %.
+- **Formes non modélisées :** les lignes `-1`, booléennes et à partials de colonnes de Codecov n'existent pas ici, aucun parseur ne les émet.
 
 **Sessions et carryforward** (`FinalizeCommit`, sérialisé par la clé `commit:{id}`, reconstruction **déterministe** complète à chaque passage) :
 
