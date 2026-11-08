@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using CodeCoverage.Application;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Operations;
 using CodeCoverage.Infrastructure.Persistence;
@@ -109,6 +110,31 @@ public sealed class DependencyInjectionTests
 
     directory.ShouldBeOfType<OrganizationDirectory>();
     second.ServiceProvider.GetRequiredService<IOrganizationDirectory>().ShouldNotBeSameAs(directory);
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterOneOrganizationContextPerScope()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var first = services.CreateAsyncScope();
+    await using var second = services.CreateAsyncScope();
+
+    var context = first.ServiceProvider.GetRequiredService<OrganizationContext>();
+
+    first.ServiceProvider.GetRequiredService<ICurrentOrganization>().ShouldBeSameAs(context);
+    second.ServiceProvider.GetRequiredService<ICurrentOrganization>().ShouldNotBeSameAs(context);
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheOrganizationScope()
+  {
+    await using var services = Build(new Dictionary<string, string?>
+    {
+      ["ConnectionStrings:CodeCoverage"] = "Server=localhost;Database=unused",
+    });
+    await using var scope = services.CreateAsyncScope();
+
+    scope.ServiceProvider.GetRequiredService<IOrganizationScope>().ShouldBeOfType<OrganizationScope>();
   }
 
   [Fact]

@@ -36,6 +36,12 @@ public interface IOrganizationDirectory
   /// <exception cref="ArgumentNullException"><paramref name="externalAccountId" /> is <see langword="null" />.</exception>
   Task<Organization?> FindByAccountIdAsync(Forge forge, string externalAccountId, CancellationToken cancellationToken);
 
+  /// <summary>Finds the organization the current scope has entered, whatever its state.</summary>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The organization, or <see langword="null" /> when its row no longer exists.</returns>
+  /// <exception cref="InvalidOperationException">The scope has not entered an organization.</exception>
+  Task<Organization?> FindCurrentAsync(CancellationToken cancellationToken);
+
   /// <summary>Lists the active organizations of every forge.</summary>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
   /// <returns>The active organizations, by identifier.</returns>

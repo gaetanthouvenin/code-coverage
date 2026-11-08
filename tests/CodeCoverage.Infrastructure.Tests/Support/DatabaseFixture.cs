@@ -65,7 +65,8 @@ public sealed class DatabaseFixture : IAsyncLifetime
   private static DockerContainer Build(DatabaseProvider provider) =>
     provider switch
     {
-      DatabaseProvider.PostgreSql => new PostgreSqlBuilder(PostgreSqlImage).Build(),
+      // Each test has its own database, hence its own connection pool: their idle connections add up.
+      DatabaseProvider.PostgreSql => new PostgreSqlBuilder(PostgreSqlImage).WithCommand("-c", "max_connections=500").Build(),
       DatabaseProvider.SqlServer => new MsSqlBuilder(SqlServerImage).Build(),
       var _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown database provider."),
     };

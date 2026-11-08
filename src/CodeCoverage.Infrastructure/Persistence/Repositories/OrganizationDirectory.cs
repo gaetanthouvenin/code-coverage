@@ -16,11 +16,15 @@ namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 /// <summary>Reads and updates the <c>Organizations</c> table.</summary>
 /// <param name="context">The database context of the scope.</param>
 /// <param name="clock">The clock that dates the changes.</param>
+/// <param name="currentOrganization">The organization of the scope, read by <see cref="FindCurrentAsync" /> only.</param>
 /// <remarks>
 ///   The logins are compared on <c>NormalizedLogin</c>, in lower case, so that the result does not depend
 ///   on the collation of the engine.
 /// </remarks>
-internal sealed class OrganizationDirectory(CodeCoverageDbContext context, IClock clock) : IOrganizationDirectory
+internal sealed class OrganizationDirectory(
+  CodeCoverageDbContext context,
+  IClock clock,
+  ICurrentOrganization currentOrganization) : IOrganizationDirectory
 {
   #region Fields
 
@@ -145,6 +149,17 @@ internal sealed class OrganizationDirectory(CodeCoverageDbContext context, ICloc
     return await context.Organizations
                         .AsNoTracking()
                         .SingleOrDefaultAsync(o => o.Forge == forge && o.ExternalAccountId == normalizedId, cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  public async Task<Organization?> FindCurrentAsync(CancellationToken cancellationToken)
+  {
+    var id = currentOrganization.Id;
+
+    return await context.Organizations
+                        .AsNoTracking()
+                        .SingleOrDefaultAsync(o => o.Id == id, cancellationToken)
                         .ConfigureAwait(false);
   }
 

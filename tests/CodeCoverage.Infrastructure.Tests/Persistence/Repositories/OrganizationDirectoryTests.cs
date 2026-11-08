@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -193,6 +194,31 @@ public sealed class OrganizationDirectoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindCurrent_WhenEntered_ShouldReturnTheOrganization(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var current = new OrganizationContext();
+    var directory = Directory(context, current);
+    await directory.UpsertFromForgeAsync(Forge.GitHub, SecondAccount, "other", OrganizationAccountType.Organization, Ct);
+    var created = await directory.UpsertFromForgeAsync(Forge.GitHub, FirstAccount, "octo", OrganizationAccountType.Organization, Ct);
+    current.Enter(created.Id);
+
+    var found = await directory.FindCurrentAsync(Ct);
+
+    found.ShouldNotBeNull().Id.ShouldBe(created.Id);
+  }
+
+  [Fact]
+  public async Task FindCurrent_WhenUnset_ShouldThrow()
+  {
+    await using var context = DatabaseFixture.CreateContext(DatabaseProvider.PostgreSql, UnusedConnection);
+
+    await Should.ThrowAsync<InvalidOperationException>(() => Directory(context).FindCurrentAsync(Ct));
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task ListActive_ShouldReturnOnlyActive(DatabaseProvider provider)
   {
     var connection = await MigratedDatabaseAsync(provider);
@@ -370,12 +396,12 @@ public sealed class OrganizationDirectoryTests(DatabaseFixture database)
     );
   }
 
-  private static OrganizationDirectory Directory(CodeCoverageDbContext context)
+  private static OrganizationDirectory Directory(CodeCoverageDbContext context, ICurrentOrganization? current = null)
   {
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now);
 
-    return new OrganizationDirectory(context, clock);
+    return new OrganizationDirectory(context, clock, current ?? new OrganizationContext());
   }
 
   private async Task<string> MigratedDatabaseAsync(DatabaseProvider provider)
