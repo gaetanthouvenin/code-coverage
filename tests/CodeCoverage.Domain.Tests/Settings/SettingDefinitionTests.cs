@@ -19,6 +19,7 @@ public sealed class SettingDefinitionTests
       "Processing:WorkerConcurrency",
       "Processing",
       SettingType.Number,
+      SettingScope.Organization,
       "4",
       requiresRestart: true,
       min: 1,
@@ -28,6 +29,7 @@ public sealed class SettingDefinitionTests
     definition.Key.ShouldBe("Processing:WorkerConcurrency");
     definition.Group.ShouldBe("Processing");
     definition.Type.ShouldBe(SettingType.Number);
+    definition.Scope.ShouldBe(SettingScope.Organization);
     definition.Default.ShouldBe("4");
     definition.RequiresRestart.ShouldBeTrue();
     definition.Min.ShouldBe(1);
@@ -39,12 +41,13 @@ public sealed class SettingDefinitionTests
   [Fact]
   public void Create_WithDefaults_ShouldNeitherRestartNorBeSecret()
   {
-    var definition = SettingDefinition.Create("Badges:Label", "Badges", SettingType.Text);
+    var definition = SettingDefinition.Create("Badges:Label", "Badges", SettingType.Text, SettingScope.Instance);
 
     definition.Default.ShouldBeNull();
     definition.RequiresRestart.ShouldBeFalse();
     definition.Min.ShouldBeNull();
     definition.Max.ShouldBeNull();
+    definition.MaxLength.ShouldBeNull();
     definition.IsSecret.ShouldBeFalse();
   }
 
@@ -54,7 +57,7 @@ public sealed class SettingDefinitionTests
   [InlineData("Section:")]
   public void Create_WithKeyWithoutSection_ShouldThrowArgumentException(string key)
   {
-    Should.Throw<ArgumentException>(() => SettingDefinition.Create(key, "Group", SettingType.Text))
+    Should.Throw<ArgumentException>(() => SettingDefinition.Create(key, "Group", SettingType.Text, SettingScope.Instance))
           .ParamName.ShouldBe("key");
   }
 
@@ -66,7 +69,7 @@ public sealed class SettingDefinitionTests
     string? group,
     string parameter)
   {
-    Should.Throw<ArgumentNullException>(() => SettingDefinition.Create(key!, group!, SettingType.Text))
+    Should.Throw<ArgumentNullException>(() => SettingDefinition.Create(key!, group!, SettingType.Text, SettingScope.Instance))
           .ParamName.ShouldBe(parameter);
   }
 
@@ -75,21 +78,58 @@ public sealed class SettingDefinitionTests
   [InlineData("Section:Name", "", "group")]
   public void Create_WithBlankText_ShouldThrowArgumentException(string key, string group, string parameter)
   {
-    Should.Throw<ArgumentException>(() => SettingDefinition.Create(key, group, SettingType.Text))
+    Should.Throw<ArgumentException>(() => SettingDefinition.Create(key, group, SettingType.Text, SettingScope.Instance))
           .ParamName.ShouldBe(parameter);
   }
 
   [Fact]
   public void Create_WithUndefinedType_ShouldThrowArgumentOutOfRangeException()
   {
-    Should.Throw<ArgumentOutOfRangeException>(() => SettingDefinition.Create("A:B", "A", (SettingType)42))
+    Should.Throw<ArgumentOutOfRangeException>(() => SettingDefinition.Create("A:B", "A", (SettingType)42, SettingScope.Instance))
           .ParamName.ShouldBe("type");
+  }
+
+  [Fact]
+  public void Create_WithUndefinedScope_ShouldThrowArgumentOutOfRangeException()
+  {
+    Should.Throw<ArgumentOutOfRangeException>(() => SettingDefinition.Create("A:B", "A", SettingType.Text, (SettingScope)42))
+          .ParamName.ShouldBe("scope");
+  }
+
+  [Theory]
+  [InlineData(SettingType.Text)]
+  [InlineData(SettingType.Csv)]
+  [InlineData(SettingType.Yaml)]
+  public void Create_WithLengthLimitOnText_ShouldKeepIt(SettingType type)
+  {
+    SettingDefinition.Create("A:B", "A", type, SettingScope.Instance, maxLength: 10).MaxLength.ShouldBe(10);
+  }
+
+  [Theory]
+  [InlineData(SettingType.Number)]
+  [InlineData(SettingType.Boolean)]
+  [InlineData(SettingType.Url)]
+  public void Create_WithLengthLimitOnAnotherType_ShouldThrowArgumentException(SettingType type)
+  {
+    Should.Throw<ArgumentException>(() => SettingDefinition.Create("A:B", "A", type, SettingScope.Instance, maxLength: 10))
+          .ParamName.ShouldBe("type");
+  }
+
+  [Theory]
+  [InlineData(0)]
+  [InlineData(-1)]
+  public void Create_WithLengthLimitNotPositive_ShouldThrowArgumentException(int maxLength)
+  {
+    Should.Throw<ArgumentException>(
+            () => SettingDefinition.Create("A:B", "A", SettingType.Text, SettingScope.Instance, maxLength: maxLength)
+          )
+          .ParamName.ShouldBe("maxLength");
   }
 
   [Fact]
   public void Create_WithBoundsOnText_ShouldThrowArgumentException()
   {
-    Should.Throw<ArgumentException>(() => SettingDefinition.Create("A:B", "A", SettingType.Text, min: 1))
+    Should.Throw<ArgumentException>(() => SettingDefinition.Create("A:B", "A", SettingType.Text, SettingScope.Instance, min: 1))
           .ParamName.ShouldBe("type");
   }
 
@@ -97,7 +137,7 @@ public sealed class SettingDefinitionTests
   public void Create_WithReversedBounds_ShouldThrowArgumentException()
   {
     Should.Throw<ArgumentException>(
-            () => SettingDefinition.Create("A:B", "A", SettingType.Number, min: 10, max: 1)
+            () => SettingDefinition.Create("A:B", "A", SettingType.Number, SettingScope.Instance, min: 10, max: 1)
           )
           .ParamName.ShouldBe("min");
   }
@@ -106,7 +146,7 @@ public sealed class SettingDefinitionTests
   public void Create_SecretWithDefault_ShouldThrowArgumentException()
   {
     Should.Throw<ArgumentException>(
-            () => SettingDefinition.Create("A:B", "A", SettingType.Text, "value", isSecret: true)
+            () => SettingDefinition.Create("A:B", "A", SettingType.Text, SettingScope.Instance, "value", isSecret: true)
           )
           .ParamName.ShouldBe("defaultValue");
   }
@@ -114,7 +154,7 @@ public sealed class SettingDefinitionTests
   [Fact]
   public void Create_SecretNotText_ShouldThrowArgumentException()
   {
-    Should.Throw<ArgumentException>(() => SettingDefinition.Create("A:B", "A", SettingType.Url, isSecret: true))
+    Should.Throw<ArgumentException>(() => SettingDefinition.Create("A:B", "A", SettingType.Url, SettingScope.Instance, isSecret: true))
           .ParamName.ShouldBe("type");
   }
 

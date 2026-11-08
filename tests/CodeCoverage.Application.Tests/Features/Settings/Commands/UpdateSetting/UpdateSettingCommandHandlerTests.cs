@@ -70,7 +70,7 @@ public sealed class UpdateSettingCommandHandlerTests
 
   [Theory]
   [InlineData(SettingDefinitions.UploadsMaxFilesPerUpload, " 0042 ", "42")]
-  [InlineData(SettingDefinitions.NotificationsStatusesEnabled, "True", "true")]
+  [InlineData(SettingDefinitions.CoverageAllowFilenameOnlyMatch, "True", "true")]
   [InlineData(SettingDefinitions.UrlsApiPublicUrl, " https://cov.example.com ", "https://cov.example.com")]
   [InlineData(SettingDefinitions.NotificationsCommentTitle, " Coverage ", " Coverage ")]
   public async Task Handle_ShouldSaveTheCanonicalValue(string key, string value, string expected)
@@ -95,6 +95,24 @@ public sealed class UpdateSettingCommandHandlerTests
 
     exception.ErrorCode.ShouldBe(SettingErrors.Unknown);
     A.CallTo(store).MustNotHaveHappened();
+  }
+
+  [Theory]
+  [InlineData(SettingDefinitions.CoverageOrganizationYaml, "ignore: []")]
+  [InlineData(SettingDefinitions.NotificationsStatusContextPrefix, "codecov")]
+  [InlineData(SettingDefinitions.NotificationsStatusesEnabled, "false")]
+  [InlineData(SettingDefinitions.NotificationsCommentsEnabled, "false")]
+  public async Task Handle_OrganizationKey_ShouldThrow(string key, string value)
+  {
+    var store = A.Fake<ISettingsStore>();
+    var handler = new UpdateSettingCommandHandler(store, _auditLog);
+
+    var exception = await Should.ThrowAsync<NotFoundException>(
+                      async () => await handler.Handle(new UpdateSettingCommand(key, value), Ct));
+
+    exception.ErrorCode.ShouldBe(SettingErrors.Unknown);
+    A.CallTo(store).MustNotHaveHappened();
+    A.CallTo(_auditLog).MustNotHaveHappened();
   }
 
   [Fact]

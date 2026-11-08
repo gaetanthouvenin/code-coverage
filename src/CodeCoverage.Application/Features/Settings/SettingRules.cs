@@ -36,6 +36,25 @@ internal static class SettingRules
            ?? throw new NotFoundException(SettingErrors.Unknown, $"The setting '{key}' does not exist.");
   }
 
+  /// <summary>Finds the definition of a setting of the instance.</summary>
+  /// <param name="key">The configuration key, whatever its case.</param>
+  /// <returns>The definition.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="key" /> is <see langword="null" />.</exception>
+  /// <exception cref="NotFoundException">
+  ///   The key is not in the catalog, or its value is set per organization
+  ///   (<see cref="SettingErrors.Unknown" />).
+  /// </exception>
+  public static SettingDefinition FindInstanceOrThrow(string key)
+  {
+    ArgumentNullException.ThrowIfNull(key);
+
+    var definition = FindOrThrow(key);
+
+    return definition.Scope == SettingScope.Instance
+             ? definition
+             : throw new NotFoundException(SettingErrors.Unknown, $"The setting '{key}' does not exist on the instance.");
+  }
+
   /// <summary>Reads the effective value of a setting and refuses it when a stronger source provides it.</summary>
   /// <param name="store">The settings store.</param>
   /// <param name="definition">The setting.</param>
@@ -68,7 +87,7 @@ internal static class SettingRules
     return current;
   }
 
-  /// <summary>Checks a value against the type and the bounds of its setting.</summary>
+  /// <summary>Checks a value against the type, the bounds and the length limit of its setting.</summary>
   /// <param name="definition">The setting.</param>
   /// <param name="value">The value, as typed.</param>
   /// <returns>
@@ -100,7 +119,7 @@ internal static class SettingRules
         return IsHttpUrl(value.Trim()) ? null : SettingErrors.InvalidValue;
 
       default:
-        return null;
+        return value.Length > definition.MaxLength ? SettingErrors.OutOfRange : null;
     }
   }
 

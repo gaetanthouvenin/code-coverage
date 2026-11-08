@@ -22,7 +22,6 @@ public sealed class SettingDefinitionsTests
     { "GitHub:PrivateKeyPem", SettingType.Text, null },
     { "GitHub:WebhookSecret", SettingType.Text, null },
     { "GitHub:WebhookSecretPrevious", SettingType.Text, null },
-    { "GitHub:Organization", SettingType.Text, null },
     { "GitHub:ApiBaseUrl", SettingType.Url, "https://api.github.com" },
     { "Urls:ApiPublicUrl", SettingType.Url, null },
     { "Urls:WebPublicUrl", SettingType.Url, null },
@@ -31,7 +30,6 @@ public sealed class SettingDefinitionsTests
     { "Uploads:MaxFilesPerUpload", SettingType.Number, "50" },
     { "Uploads:RateLimitPerMinute", SettingType.Number, "120" },
     { "Uploads:OidcAudience", SettingType.Text, null },
-    { "Uploads:AllowedOwners", SettingType.Csv, null },
     { "Processing:WorkerConcurrency", SettingType.Number, "4" },
     { "Processing:MaxParallelParses", SettingType.Number, "2" },
     { "Processing:JobMaxAttempts", SettingType.Number, "8" },
@@ -50,8 +48,9 @@ public sealed class SettingDefinitionsTests
     { "Coverage:OrganizationYaml", SettingType.Yaml, null },
     { "Coverage:AllowFilenameOnlyMatch", SettingType.Boolean, "false" },
     { "Badges:Label", SettingType.Text, "coverage" },
-    { "Access:AdminLogins", SettingType.Csv, null },
+    { "Access:AdminUserIds", SettingType.Csv, null },
     { "Access:CacheMinutes", SettingType.Number, "10" },
+    { "Access:HardExpiryMinutes", SettingType.Number, "60" },
     { "Retention:RawDays", SettingType.Number, "30" },
     { "Retention:BranchReportDays", SettingType.Number, "180" },
     { "Retention:JobDays", SettingType.Number, "14" },
@@ -65,6 +64,14 @@ public sealed class SettingDefinitionsTests
     "GitHub:PrivateKeyPem",
     "GitHub:WebhookSecret",
     "GitHub:WebhookSecretPrevious",
+  ];
+
+  private static readonly string[] OrganizationKeys =
+  [
+    "Notifications:StatusContextPrefix",
+    "Notifications:StatusesEnabled",
+    "Notifications:CommentsEnabled",
+    "Coverage:OrganizationYaml",
   ];
 
   #endregion
@@ -93,6 +100,15 @@ public sealed class SettingDefinitionsTests
     SettingDefinitions.Find("GitHub:Unknown").ShouldBeNull();
   }
 
+  [Theory]
+  [InlineData("GitHub:Organization")]
+  [InlineData("Uploads:AllowedOwners")]
+  [InlineData("Access:AdminLogins")]
+  public void Find_RemovedKey_ShouldReturnNull(string key)
+  {
+    SettingDefinitions.Find(key).ShouldBeNull();
+  }
+
   [Fact]
   public void Find_WithOtherCase_ShouldReturnTheDefinition()
   {
@@ -104,6 +120,22 @@ public sealed class SettingDefinitionsTests
   public void Find_WithNull_ShouldThrowArgumentNullException()
   {
     Should.Throw<ArgumentNullException>(() => SettingDefinitions.Find(null!));
+  }
+
+  [Fact]
+  public void All_ShouldDeclareExpectedScope()
+  {
+    SettingDefinitions.All.Count.ShouldBe(41);
+    SettingDefinitions.All.Where(d => d.Scope == SettingScope.Organization)
+                      .Select(d => d.Key)
+                      .ShouldBe(OrganizationKeys);
+    SettingDefinitions.All.Count(d => d.Scope == SettingScope.Instance).ShouldBe(37);
+  }
+
+  [Fact]
+  public void All_Secret_ShouldBeInstanceScope()
+  {
+    SettingDefinitions.All.Where(d => d.IsSecret).ShouldAllBe(d => d.Scope == SettingScope.Instance);
   }
 
   [Fact]
@@ -146,6 +178,8 @@ public sealed class SettingDefinitionsTests
   [InlineData("Uploads:MaxRequestMegabytes", 1, 1000)]
   [InlineData("Processing:WorkerConcurrency", 1, 16)]
   [InlineData("Notifications:DebounceSeconds", 0, 600)]
+  [InlineData("Access:CacheMinutes", 1, 60)]
+  [InlineData("Access:HardExpiryMinutes", 60, 1440)]
   public void Catalog_ShouldBoundTheNumbersOfTheArchitecture(string key, int min, int max)
   {
     var definition = SettingDefinitions.Find(key);
@@ -153,6 +187,26 @@ public sealed class SettingDefinitionsTests
     definition.ShouldNotBeNull();
     definition.Min.ShouldBe(min);
     definition.Max.ShouldBe(max);
+  }
+
+  [Fact]
+  public void Catalog_HardExpiry_ShouldNeverBeShorterThanTheCache()
+  {
+    var cache = SettingDefinitions.Find(SettingDefinitions.AccessCacheMinutes);
+    var hardExpiry = SettingDefinitions.Find(SettingDefinitions.AccessHardExpiryMinutes);
+
+    cache.ShouldNotBeNull();
+    hardExpiry.ShouldNotBeNull();
+    hardExpiry.Min!.Value.ShouldBeGreaterThanOrEqualTo(cache.Max!.Value);
+  }
+
+  [Fact]
+  public void Catalog_ShouldOnlyLimitTheLengthOfTheOrganizationYaml()
+  {
+    var limited = SettingDefinitions.All.Where(d => d.MaxLength is not null).ToList();
+
+    limited.ShouldHaveSingleItem().Key.ShouldBe(SettingDefinitions.CoverageOrganizationYaml);
+    limited[0].MaxLength.ShouldBe(65_536);
   }
 
   [Fact]

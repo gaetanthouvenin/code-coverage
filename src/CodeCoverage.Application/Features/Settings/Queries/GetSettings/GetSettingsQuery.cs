@@ -12,7 +12,7 @@ using CodeCoverage.Domain.Settings;
 namespace CodeCoverage.Application.Features.Settings.Queries.GetSettings;
 
 /// <summary>
-///   Gets the effective value of every setting of the catalog, with its source; a secret only tells
+///   Gets the effective value of every setting of the instance, with its source; a secret only tells
 ///   whether it is defined, never its value.
 /// </summary>
 public sealed record GetSettingsQuery : IQuery<IReadOnlyList<SettingValue>>, IAdminOnly;

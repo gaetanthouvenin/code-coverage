@@ -50,6 +50,27 @@ public sealed class GetSettingsQueryHandlerTests
   }
 
   [Fact]
+  public async Task Handle_ShouldReturnOnlyInstanceSettings()
+  {
+    var appId = Definition(SettingDefinitions.GitHubAppId);
+    var prefix = Definition(SettingDefinitions.NotificationsStatusContextPrefix);
+    var yaml = Definition(SettingDefinitions.CoverageOrganizationYaml);
+    var store = A.Fake<ISettingsStore>();
+    A.CallTo(() => store.ListAsync(Ct))
+     .Returns(
+       new[]
+       {
+         SettingValue.Create(appId, "12345", SettingSource.Store, DateTimeOffset.UtcNow, "octocat"),
+         SettingValue.Create(prefix, "coverage", SettingSource.Default, null, null),
+         SettingValue.Create(yaml, "ignore: []", SettingSource.Store, DateTimeOffset.UtcNow, "octocat"),
+       });
+
+    var values = await new GetSettingsQueryHandler(store).Handle(new GetSettingsQuery(), Ct);
+
+    values.ShouldHaveSingleItem().Key.ShouldBe(appId.Key);
+  }
+
+  [Fact]
   public void Query_ShouldBeAdminOnly()
   {
     new GetSettingsQuery().ShouldBeAssignableTo<IAdminOnly>();

@@ -30,7 +30,7 @@ public sealed class ConfigurationSettingsStoreTests(DatabaseFixture database)
 
   private static readonly SettingDefinition AppId = SettingDefinitions.Find(SettingDefinitions.GitHubAppId)!;
 
-  private static readonly SettingDefinition Organization = SettingDefinitions.Find(SettingDefinitions.GitHubOrganization)!;
+  private static readonly SettingDefinition AppSlug = SettingDefinitions.Find(SettingDefinitions.GitHubAppSlug)!;
 
   private static readonly SettingDefinition WorkerConcurrency =
     SettingDefinitions.Find(SettingDefinitions.ProcessingWorkerConcurrency)!;
@@ -87,7 +87,7 @@ public sealed class ConfigurationSettingsStoreTests(DatabaseFixture database)
     var store = CreateStore(context, configuration);
 
     store.GetSource(AppId).ShouldBe(SettingSource.Store);
-    store.GetSource(Organization).ShouldBe(SettingSource.Default);
+    store.GetSource(AppSlug).ShouldBe(SettingSource.Default);
   }
 
   [Theory]
@@ -194,9 +194,9 @@ public sealed class ConfigurationSettingsStoreTests(DatabaseFixture database)
     stored.Value.ShouldBe("8");
     stored.UpdatedAt.ShouldBe(Now);
 
-    var byDefault = await store.GetAsync(Organization, Ct);
+    var byDefault = await store.GetAsync(AppSlug, Ct);
     byDefault.Source.ShouldBe(SettingSource.Default);
-    byDefault.Value.ShouldBe(Organization.Default);
+    byDefault.Value.ShouldBe(AppSlug.Default);
     byDefault.UpdatedAt.ShouldBeNull();
 
     var all = await store.ListAsync(Ct);

@@ -30,7 +30,7 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
   // Refuses every connection at once: the failure path without Docker.
   private const string UnreachableDatabase = "Host=127.0.0.1;Port=1;Database=codecoverage;Timeout=1";
 
-  private static readonly SettingDefinition Organization = SettingDefinitions.Find(SettingDefinitions.GitHubOrganization)!;
+  private static readonly SettingDefinition AppSlug = SettingDefinitions.Find(SettingDefinitions.GitHubAppSlug)!;
 
   #endregion
 
@@ -52,20 +52,20 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
     await using var services = WatchingHost(watching);
     var watcher = services.GetRequiredService<SettingsChangeWatcher>();
     var monitor = services.GetRequiredService<IOptionsMonitor<GitHubTestOptions>>();
-    monitor.CurrentValue.Organization.ShouldBeNull();
+    monitor.CurrentValue.AppSlug.ShouldBeNull();
     string? notified = null;
-    using var subscription = monitor.OnChange(o => notified = o.Organization);
+    using var subscription = monitor.OnChange(o => notified = o.AppSlug);
 
-    await SaveAsync(provider, connectionString, saving, "my-org");
+    await SaveAsync(provider, connectionString, saving, "my-app");
 
     // The saving host sees its change at once; the watching host only after its poll.
-    saving[SettingDefinitions.GitHubOrganization].ShouldBe("my-org");
-    watching[SettingDefinitions.GitHubOrganization].ShouldBeNull();
+    saving[SettingDefinitions.GitHubAppSlug].ShouldBe("my-app");
+    watching[SettingDefinitions.GitHubAppSlug].ShouldBeNull();
 
     (await watcher.PollAsync(Ct)).ShouldBeTrue();
 
-    notified.ShouldBe("my-org");
-    monitor.CurrentValue.Organization.ShouldBe("my-org");
+    notified.ShouldBe("my-app");
+    monitor.CurrentValue.AppSlug.ShouldBe("my-app");
   }
 
   [Theory]
@@ -95,7 +95,7 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
     await using var services = WatchingHost(saving);
     var watcher = services.GetRequiredService<SettingsChangeWatcher>();
 
-    await SaveAsync(provider, connectionString, saving, "my-org");
+    await SaveAsync(provider, connectionString, saving, "my-app");
 
     (await watcher.PollAsync(Ct)).ShouldBeFalse();
   }
@@ -112,15 +112,15 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
     var watcher = services.GetRequiredService<SettingsChangeWatcher>();
     var notified = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
     using var subscription = services.GetRequiredService<IOptionsMonitor<GitHubTestOptions>>()
-                                     .OnChange(o => notified.TrySetResult(o.Organization));
+                                     .OnChange(o => notified.TrySetResult(o.AppSlug));
 
     await watcher.StartAsync(Ct);
 
     try
     {
-      await SaveAsync(provider, connectionString, saving, "my-org");
+      await SaveAsync(provider, connectionString, saving, "my-app");
 
-      (await notified.Task.WaitAsync(TimeSpan.FromSeconds(SettingsWatcherOptions.DefaultPollSeconds), Ct)).ShouldBe("my-org");
+      (await notified.Task.WaitAsync(TimeSpan.FromSeconds(SettingsWatcherOptions.DefaultPollSeconds), Ct)).ShouldBe("my-app");
     }
     finally
     {
@@ -253,7 +253,7 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(new DateTimeOffset(2026, 11, 8, 10, 30, 0, TimeSpan.Zero));
 
-    await new ConfigurationSettingsStore(context, configuration, user, clock).SaveAsync(Organization, value, Ct);
+    await new ConfigurationSettingsStore(context, configuration, user, clock).SaveAsync(AppSlug, value, Ct);
   }
 
   // The watching host: its configuration, an options class read through IOptionsMonitor, and the watcher.

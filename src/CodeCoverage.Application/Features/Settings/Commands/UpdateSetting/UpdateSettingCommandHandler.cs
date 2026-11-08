@@ -27,7 +27,10 @@ internal sealed class UpdateSettingCommandHandler(ISettingsStore store, IAuditLo
   #region Implementation of ICommandHandler<UpdateSettingCommand,Unit>
 
   /// <inheritdoc />
-  /// <exception cref="NotFoundException">The key is not in the catalog (<see cref="SettingErrors.Unknown" />).</exception>
+  /// <exception cref="NotFoundException">
+  ///   The key is not in the catalog, or its value is set per organization
+  ///   (<see cref="SettingErrors.Unknown" />).
+  /// </exception>
   /// <exception cref="UnprocessableEntityException">
   ///   The setting is a secret (<see cref="SettingErrors.IsSecret" />), or a stronger source provides
   ///   its value (<see cref="SettingErrors.ProvidedByEnvironment" />).
@@ -36,7 +39,7 @@ internal sealed class UpdateSettingCommandHandler(ISettingsStore store, IAuditLo
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var definition = SettingRules.FindOrThrow(command.Key);
+    var definition = SettingRules.FindInstanceOrThrow(command.Key);
 
     if (definition.IsSecret)
     {

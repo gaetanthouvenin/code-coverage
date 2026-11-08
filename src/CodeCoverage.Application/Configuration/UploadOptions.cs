@@ -41,9 +41,5 @@ public sealed class UploadOptions
   /// <value><see langword="null" /> by default: the public URL of the Api is expected.</value>
   public string? OidcAudience { get; set; }
 
-  /// <summary>Gets or sets the repository owners allowed to upload, separated by commas.</summary>
-  /// <value><see langword="null" /> by default: the owners are set in the web console.</value>
-  public string? AllowedOwners { get; set; }
-
   #endregion
 }

@@ -35,7 +35,7 @@ public sealed class UpdateSettingCommandValidatorTests
   [Theory]
   [InlineData(SettingDefinitions.ProcessingWorkerConcurrency, "four")]
   [InlineData(SettingDefinitions.ProcessingWorkerConcurrency, "4.5")]
-  [InlineData(SettingDefinitions.NotificationsStatusesEnabled, "yes")]
+  [InlineData(SettingDefinitions.CoverageAllowFilenameOnlyMatch, "yes")]
   [InlineData(SettingDefinitions.GitHubApiBaseUrl, "api.github.com")]
   [InlineData(SettingDefinitions.GitHubApiBaseUrl, "ftp://api.github.com")]
   public void Validate_WithValueOfAnotherType_ShouldFailWithInvalidValue(string key, string value)
@@ -50,13 +50,20 @@ public sealed class UpdateSettingCommandValidatorTests
   [InlineData(SettingDefinitions.ProcessingWorkerConcurrency, "1")]
   [InlineData(SettingDefinitions.ProcessingWorkerConcurrency, "16")]
   [InlineData(SettingDefinitions.UploadsMaxFilesPerUpload, "100000")]
-  [InlineData(SettingDefinitions.NotificationsCommentsEnabled, "false")]
+  [InlineData(SettingDefinitions.CoverageAllowFilenameOnlyMatch, "false")]
   [InlineData(SettingDefinitions.UrlsWebPublicUrl, "https://coverage.example.com")]
-  [InlineData(SettingDefinitions.UploadsAllowedOwners, "my-org, other-org")]
-  [InlineData(SettingDefinitions.CoverageOrganizationYaml, "")]
+  [InlineData(SettingDefinitions.AccessAdminUserIds, "1234, 5678")]
   public void Validate_WithValueOfTheType_ShouldPass(string key, string value)
   {
     _validator.Validate(new UpdateSettingCommand(key, value)).IsValid.ShouldBeTrue();
+  }
+
+  [Fact]
+  public void Validate_OrganizationKey_ShouldLeaveItToTheHandler()
+  {
+    _validator.Validate(new UpdateSettingCommand(SettingDefinitions.NotificationsStatusesEnabled, "yes"))
+              .IsValid
+              .ShouldBeTrue();
   }
 
   [Fact]
