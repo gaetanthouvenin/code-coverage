@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence;
 
@@ -100,12 +101,10 @@ public static class DataProtectionConfiguration
     var hasCertificate = !string.IsNullOrWhiteSpace(options.CertificatePath);
     var hasKeyVault = !string.IsNullOrWhiteSpace(options.KeyVaultKeyId);
 
-    if (hasCertificate && hasKeyVault)
-    {
-      throw new InvalidOperationException(
-        "Both DataProtection:CertificatePath and DataProtection:KeyVaultKeyId are set: configure only one key protection."
-      );
-    }
+    InvalidOperationException.ThrowIf(
+      hasCertificate && hasKeyVault,
+      "Both DataProtection:CertificatePath and DataProtection:KeyVaultKeyId are set: configure only one key protection."
+    );
 
     if (hasCertificate)
     {
@@ -119,26 +118,22 @@ public static class DataProtectionConfiguration
 
     if (hasKeyVault)
     {
-      if (!Uri.TryCreate(options.KeyVaultKeyId, UriKind.Absolute, out var keyIdentifier))
-      {
-        throw new InvalidOperationException(
-          $"DataProtection:KeyVaultKeyId '{options.KeyVaultKeyId}' is not an absolute key URI."
-        );
-      }
+      InvalidOperationException.ThrowIf(
+        !Uri.TryCreate(options.KeyVaultKeyId, UriKind.Absolute, out var keyIdentifier),
+        $"DataProtection:KeyVaultKeyId '{options.KeyVaultKeyId}' is not an absolute key URI."
+      );
 
       builder.ProtectKeysWithAzureKeyVault(keyIdentifier, new DefaultAzureCredential());
 
       return;
     }
 
-    if (environment.IsProduction() && !options.AllowUnprotectedKeys)
-    {
-      throw new InvalidOperationException(
-        "The Data Protection keys would be stored unencrypted in Production. Set DataProtection__CertificatePath "
-        + "(and DataProtection__CertificatePassword) or DataProtection__KeyVaultKeyId, or accept the risk explicitly "
-        + "with DataProtection__AllowUnprotectedKeys=true."
-      );
-    }
+    InvalidOperationException.ThrowIf(
+      environment.IsProduction() && !options.AllowUnprotectedKeys,
+      "The Data Protection keys would be stored unencrypted in Production. Set DataProtection__CertificatePath "
+      + "(and DataProtection__CertificatePassword) or DataProtection__KeyVaultKeyId, or accept the risk explicitly "
+      + "with DataProtection__AllowUnprotectedKeys=true."
+    );
   }
 
   #endregion

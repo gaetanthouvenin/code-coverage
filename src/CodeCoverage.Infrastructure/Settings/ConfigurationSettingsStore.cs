@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Identity;
@@ -81,12 +82,10 @@ internal sealed class ConfigurationSettingsStore(
                                .ExecuteUpdateAsync(static s => s.SetProperty(r => r.Revision, r => r.Revision + 1), cancellationToken)
                                .ConfigureAwait(false);
 
-    if (updated != 1)
-    {
-      throw new InvalidOperationException(
-        "The SettingsRevision row is missing: the AddSettings migration seeds it, the database is not migrated."
-      );
-    }
+    InvalidOperationException.ThrowIf(
+      updated != 1,
+      "The SettingsRevision row is missing: the AddSettings migration seeds it, the database is not migrated."
+    );
   }
 
   /// <summary>Applies the saved change to the running configuration of this host.</summary>

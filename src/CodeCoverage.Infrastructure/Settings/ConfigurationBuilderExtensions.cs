@@ -6,6 +6,7 @@
 
 using Microsoft.Extensions.Configuration;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Settings;
@@ -37,10 +38,7 @@ public static class ConfigurationBuilderExtensions
     ArgumentNullException.ThrowIfNull(builder);
     ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
-    if (!Enum.IsDefined(provider))
-    {
-      throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown database provider.");
-    }
+    ArgumentOutOfRangeException.ThrowIfUndefined(provider);
 
     builder.Sources.Insert(0, new DatabaseSettingsConfigurationSource(connectionString, provider));
 

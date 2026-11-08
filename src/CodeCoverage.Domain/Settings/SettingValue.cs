@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Settings;
 
 /// <summary>The effective value of a setting and where it comes from.</summary>
@@ -120,22 +122,13 @@ public sealed class SettingValue
   {
     ArgumentNullException.ThrowIfNull(definition);
 
-    if (!Enum.IsDefined(source))
-    {
-      throw new ArgumentOutOfRangeException(
-        nameof(source),
-        source,
-        "The source of the setting is not defined."
-      );
-    }
+    ArgumentOutOfRangeException.ThrowIfUndefined(source);
 
-    if (value is null && source != SettingSource.Default)
-    {
-      throw new ArgumentException(
-        $"The source {source} provides a value: the value of '{definition.Key}' cannot be null.",
-        nameof(value)
-      );
-    }
+    ArgumentException.ThrowIf(
+      value is null && source != SettingSource.Default,
+      $"The source {source} provides a value: the value of '{definition.Key}' cannot be null.",
+      nameof(value)
+    );
 
     return new SettingValue(
       definition,

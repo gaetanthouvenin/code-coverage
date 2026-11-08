@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Settings;
 
 /// <summary>
@@ -166,60 +168,41 @@ public sealed class SettingDefinition
     ArgumentException.ThrowIfNullOrWhiteSpace(key);
     ArgumentException.ThrowIfNullOrWhiteSpace(group);
 
-    if (!Enum.IsDefined(type))
-    {
-      throw new ArgumentOutOfRangeException(
-        nameof(type),
-        type,
-        "The type of the setting is not defined."
-      );
-    }
+    ArgumentOutOfRangeException.ThrowIfUndefined(type);
 
-    if (!Enum.IsDefined(scope))
-    {
-      throw new ArgumentOutOfRangeException(
-        nameof(scope),
-        scope,
-        "The scope of the setting is not defined."
-      );
-    }
+    ArgumentOutOfRangeException.ThrowIfUndefined(scope);
 
     var separator = key.IndexOf(SectionSeparator, StringComparison.Ordinal);
 
-    if (separator <= 0 || separator == key.Length - 1)
-    {
-      throw new ArgumentException($"The key '{key}' must be written as 'Section:Name'.", nameof(key));
-    }
+    ArgumentException.ThrowIf(
+      separator <= 0 || separator == key.Length - 1,
+      $"The key '{key}' must be written as 'Section:Name'.",
+      nameof(key)
+    );
 
-    if ((min is not null || max is not null) && type != SettingType.Number)
-    {
-      throw new ArgumentException($"Only a number can be bounded: '{key}' is {type}.", nameof(type));
-    }
+    ArgumentException.ThrowIf(
+      (min is not null || max is not null) && type != SettingType.Number,
+      $"Only a number can be bounded: '{key}' is {type}.",
+      nameof(type)
+    );
 
-    if (min > max)
-    {
-      throw new ArgumentException($"The bounds of '{key}' are reversed.", nameof(min));
-    }
+    ArgumentException.ThrowIf(min > max, $"The bounds of '{key}' are reversed.", nameof(min));
 
-    if (maxLength is not null && type is not (SettingType.Text or SettingType.Csv or SettingType.Yaml))
-    {
-      throw new ArgumentException($"Only a text can have a length limit: '{key}' is {type}.", nameof(type));
-    }
+    ArgumentException.ThrowIf(
+      maxLength is not null && type is not (SettingType.Text or SettingType.Csv or SettingType.Yaml),
+      $"Only a text can have a length limit: '{key}' is {type}.",
+      nameof(type)
+    );
 
-    if (maxLength <= 0)
-    {
-      throw new ArgumentException($"The length limit of '{key}' must be positive.", nameof(maxLength));
-    }
+    ArgumentException.ThrowIf(maxLength <= 0, $"The length limit of '{key}' must be positive.", nameof(maxLength));
 
-    if (isSecret && type != SettingType.Text)
-    {
-      throw new ArgumentException($"The secret '{key}' must be text.", nameof(type));
-    }
+    ArgumentException.ThrowIf(isSecret && type != SettingType.Text, $"The secret '{key}' must be text.", nameof(type));
 
-    if (isSecret && defaultValue is not null)
-    {
-      throw new ArgumentException($"The secret '{key}' cannot have a default.", nameof(defaultValue));
-    }
+    ArgumentException.ThrowIf(
+      isSecret && defaultValue is not null,
+      $"The secret '{key}' cannot have a default.",
+      nameof(defaultValue)
+    );
 
     return new SettingDefinition(key, group, type, scope, defaultValue, requiresRestart, min, max, isSecret, maxLength);
   }

@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Coverage;
 
 /// <summary>Merges coverage like Codecov, whatever the order of the sessions.</summary>
@@ -23,10 +25,7 @@ public static class ReportMerger
   /// <exception cref="ArgumentException">The two values are not of the same line.</exception>
   public static LineCoverage MergeLine(LineCoverage a, LineCoverage b)
   {
-    if (a.Line != b.Line)
-    {
-      throw new ArgumentException("Only two values of the same line can be merged.", nameof(b));
-    }
+    ArgumentException.ThrowIf(a.Line != b.Line, "Only two values of the same line can be merged.", nameof(b));
 
     var merged = (a.IsBranch, b.IsBranch) switch
     {

@@ -6,6 +6,8 @@
 
 using System.Runtime.CompilerServices;
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Operations;
 
 /// <summary>One line of the audit trail: who did what, on what, and when.</summary>
@@ -143,13 +145,11 @@ public sealed class AuditEntry
     {
       ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(details));
 
-      if (key.Contains(SecretMarker, StringComparison.OrdinalIgnoreCase))
-      {
-        throw new ArgumentException(
-          $"The audit details cannot hold a secret: the key '{key}' is refused.",
-          nameof(details)
-        );
-      }
+      ArgumentException.ThrowIf(
+        key.Contains(SecretMarker, StringComparison.OrdinalIgnoreCase),
+        $"The audit details cannot hold a secret: the key '{key}' is refused.",
+        nameof(details)
+      );
 
       ArgumentNullException.ThrowIfNull(value, nameof(details));
       copy.Add(key, value);
@@ -171,10 +171,11 @@ public sealed class AuditEntry
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(value, name);
 
-    if (value.Length > maxLength)
-    {
-      throw new ArgumentException($"The value cannot be longer than {maxLength} characters.", name);
-    }
+    ArgumentException.ThrowIf(
+      value.Length > maxLength,
+      $"The value cannot be longer than {maxLength} characters.",
+      name
+    );
   }
 
   #endregion

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.HealthChecks;
@@ -211,12 +212,10 @@ public static partial class DependencyInjection
     var connectionString = services.GetRequiredService<IConfiguration>()
                                    .GetConnectionString(DatabaseOptions.ConnectionStringName);
 
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-      throw new InvalidOperationException(
-        $"The connection string 'ConnectionStrings:{DatabaseOptions.ConnectionStringName}' is missing."
-      );
-    }
+    InvalidOperationException.ThrowIf(
+      string.IsNullOrWhiteSpace(connectionString),
+      $"The connection string 'ConnectionStrings:{DatabaseOptions.ConnectionStringName}' is missing."
+    );
 
     options.UseCodeCoverageDatabase(database.Provider, connectionString);
   }

@@ -6,6 +6,7 @@
 
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -167,10 +168,11 @@ internal sealed class OrganizationDirectory(CodeCoverageDbContext context, ICloc
     ArgumentException.ThrowIfNullOrWhiteSpace(externalAccountId);
     ArgumentNullException.ThrowIfNull(login);
 
-    if (!Organization.IsWellFormedLogin(login))
-    {
-      throw new ArgumentException($"The login '{login}' is not well formed.", nameof(login));
-    }
+    ArgumentException.ThrowIf(
+      !Organization.IsWellFormedLogin(login),
+      $"The login '{login}' is not well formed.",
+      nameof(login)
+    );
 
     for (var attempt = 1; ; attempt++)
     {
