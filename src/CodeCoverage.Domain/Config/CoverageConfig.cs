@@ -42,10 +42,12 @@ public sealed class CoverageConfig
     DisableDefaultPathFixes = ReadBoolean("codecov", "disable_default_path_fixes");
     AllowPseudoCompare = ReadBoolean("codecov", "allow_pseudo_compare");
     RequireCiToPass = ReadBoolean("codecov", "require_ci_to_pass");
-    WaitForCi = ReadBoolean("codecov", "notify", "wait_for_ci");
-    NotifyAfterNBuilds = ReadCount("codecov", "notify", "after_n_builds");
-    ManualTrigger = ReadBoolean("codecov", "notify", "manual_trigger");
-    NotifyError = ReadBoolean("codecov", "notify", "notify_error");
+    Notify = new NotifyRule(
+      ReadCount("codecov", "notify", "after_n_builds"),
+      ReadBoolean("codecov", "notify", "wait_for_ci"),
+      ReadBoolean("codecov", "notify", "manual_trigger"),
+      ReadBoolean("codecov", "notify", "notify_error"));
+    Comment = CommentRule.Parse(root, _warnings);
     Cobertura = new ParserRule(
       ReadBoolean("parsers", "cobertura", "partials_as_hits"),
       ReadBoolean("parsers", "cobertura", "handle_missing_conditions"));
@@ -98,17 +100,11 @@ public sealed class CoverageConfig
   /// <summary>Gets a value indicating whether the CI must pass (read, without effect).</summary>
   public bool RequireCiToPass { get; }
 
-  /// <summary>Gets a value indicating whether notifications wait for the CI (read, without effect).</summary>
-  public bool WaitForCi { get; }
+  /// <summary>Gets when the notifications of a commit are sent (<c>codecov.notify</c>).</summary>
+  public NotifyRule Notify { get; }
 
-  /// <summary>Gets the number of uploads notifications wait for.</summary>
-  public int NotifyAfterNBuilds { get; }
-
-  /// <summary>Gets a value indicating whether notifications wait for an explicit trigger.</summary>
-  public bool ManualTrigger { get; }
-
-  /// <summary>Gets a value indicating whether a processing error replaces the comment.</summary>
-  public bool NotifyError { get; }
+  /// <summary>Gets what the configuration says about the pull request comment (<c>comment</c>).</summary>
+  public CommentRule Comment { get; }
 
   /// <summary>Gets the options of the Cobertura format.</summary>
   public ParserRule Cobertura { get; }
