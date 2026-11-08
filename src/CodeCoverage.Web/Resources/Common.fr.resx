@@ -12,70 +12,26 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Access.Forbidden" xml:space="preserve">
-    <value>Vous n’avez pas la permission de faire cela.</value>
-  </data>
-  <data name="Access.Unauthenticated" xml:space="preserve">
-    <value>Votre session a expiré. Reconnectez-vous pour continuer.</value>
-  </data>
-  <data name="AccessDenied_Description" xml:space="preserve">
-    <value>Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin.</value>
-  </data>
-  <data name="AccessDenied_Title" xml:space="preserve">
-    <value>Accès refusé</value>
-  </data>
-  <data name="BackHome" xml:space="preserve">
-    <value>Retour aux dépôts</value>
-  </data>
-  <data name="Error_Description" xml:space="preserve">
-    <value>La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur.</value>
-  </data>
-  <data name="Error_RequestId" xml:space="preserve">
-    <value>Identifiant de requête</value>
-  </data>
-  <data name="Error_Title" xml:space="preserve">
-    <value>Une erreur est survenue</value>
-  </data>
-  <data name="General.Unexpected" xml:space="preserve">
-    <value>Une erreur inattendue s’est produite. Réessayez dans un instant ; si le problème persiste, contactez un administrateur.</value>
-  </data>
-  <data name="General.ValidationFailed" xml:space="preserve">
-    <value>Certaines valeurs ne sont pas valides. Corrigez-les, puis réessayez.</value>
-  </data>
-  <data name="Home_Title" xml:space="preserve">
-    <value>Dépôts</value>
-  </data>
-  <data name="Nav_Repositories" xml:space="preserve">
-    <value>Dépôts</value>
-  </data>
-  <data name="NotFound_Description" xml:space="preserve">
-    <value>Cette adresse ne correspond à aucune page. Vérifiez le lien, ou repartez de la liste des dépôts.</value>
-  </data>
-  <data name="NotFound_Title" xml:space="preserve">
-    <value>Page introuvable</value>
-  </data>
-  <data name="PageTitle_Format" xml:space="preserve">
-    <value>{0} · Coverage</value>
-  </data>
-  <data name="Setting.InvalidValue" xml:space="preserve">
-    <value>La valeur ne correspond pas au type du paramètre.</value>
-  </data>
-  <data name="Setting.IsSecret" xml:space="preserve">
-    <value>Ce paramètre est un secret : remplacez-le au lieu de le modifier.</value>
-  </data>
-  <data name="Setting.NotSecret" xml:space="preserve">
-    <value>Ce paramètre n’est pas un secret : modifiez plutôt sa valeur.</value>
-  </data>
-  <data name="Setting.OutOfRange" xml:space="preserve">
-    <value>La valeur est en dehors des limites autorisées pour ce paramètre.</value>
-  </data>
-  <data name="Setting.ProvidedByEnvironment" xml:space="preserve">
-    <value>Ce paramètre est fourni par l’environnement et ne peut pas être modifié ici.</value>
-  </data>
-  <data name="Setting.Unknown" xml:space="preserve">
-    <value>Ce paramètre n’existe pas.</value>
-  </data>
-  <data name="Toast_RequestFailed" xml:space="preserve">
-    <value>L’action n’a pas pu aboutir</value>
-  </data>
+  <data name="Access.Forbidden" xml:space="preserve"><value>Vous n’avez pas la permission de faire cela.</value></data>
+  <data name="Access.Unauthenticated" xml:space="preserve"><value>Votre session a expiré. Reconnectez-vous pour continuer.</value></data>
+  <data name="AccessDenied_Description" xml:space="preserve"><value>Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin.</value></data>
+  <data name="AccessDenied_Title" xml:space="preserve"><value>Accès refusé</value></data>
+  <data name="BackHome" xml:space="preserve"><value>Retour aux dépôts</value></data>
+  <data name="Error_Description" xml:space="preserve"><value>La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur.</value></data>
+  <data name="Error_RequestId" xml:space="preserve"><value>Identifiant de requête</value></data>
+  <data name="Error_Title" xml:space="preserve"><value>Une erreur est survenue</value></data>
+  <data name="General.Unexpected" xml:space="preserve"><value>Une erreur inattendue s’est produite. Réessayez dans un instant ; si le problème persiste, contactez un administrateur.</value></data>
+  <data name="General.ValidationFailed" xml:space="preserve"><value>Certaines valeurs ne sont pas valides. Corrigez-les, puis réessayez.</value></data>
+  <data name="Home_Title" xml:space="preserve"><value>Dépôts</value></data>
+  <data name="Nav_Repositories" xml:space="preserve"><value>Dépôts</value></data>
+  <data name="NotFound_Description" xml:space="preserve"><value>Cette adresse ne correspond à aucune page. Vérifiez le lien, ou repartez de la liste des dépôts.</value></data>
+  <data name="NotFound_Title" xml:space="preserve"><value>Page introuvable</value></data>
+  <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
+  <data name="Setting.InvalidValue" xml:space="preserve"><value>La valeur ne correspond pas au type du paramètre.</value></data>
+  <data name="Setting.IsSecret" xml:space="preserve"><value>Ce paramètre est un secret : remplacez-le au lieu de le modifier.</value></data>
+  <data name="Setting.NotSecret" xml:space="preserve"><value>Ce paramètre n’est pas un secret : modifiez plutôt sa valeur.</value></data>
+  <data name="Setting.OutOfRange" xml:space="preserve"><value>La valeur est en dehors des limites autorisées pour ce paramètre.</value></data>
+  <data name="Setting.ProvidedByEnvironment" xml:space="preserve"><value>Ce paramètre est fourni par l’environnement et ne peut pas être modifié ici.</value></data>
+  <data name="Setting.Unknown" xml:space="preserve"><value>Ce paramètre n’existe pas.</value></data>
+  <data name="Toast_RequestFailed" xml:space="preserve"><value>L’action n’a pas pu aboutir</value></data>
 </root>
