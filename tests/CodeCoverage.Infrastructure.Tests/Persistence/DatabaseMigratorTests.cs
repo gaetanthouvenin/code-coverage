@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -89,6 +90,7 @@ public sealed class DatabaseMigratorTests(DatabaseFixture database)
 
     return new ServiceCollection()
            .AddSingleton<IConfiguration>(configuration)
+           .AddSingleton(A.Fake<ISecretProtector>())
            .AddLogging()
            .AddInfrastructure()
            .AddDatabaseMigration()

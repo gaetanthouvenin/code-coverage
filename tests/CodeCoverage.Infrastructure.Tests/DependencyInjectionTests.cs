@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using CodeCoverage.Application;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Operations;
@@ -326,11 +327,24 @@ public sealed class DependencyInjectionTests
     services.GetRequiredService<IOptions<SettingsWatcherOptions>>().Value.PollSeconds.ShouldBe(5);
   }
 
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterOneGitHubAppTokenProviderForTheProcess()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+
+    var provider = services.GetRequiredService<GitHubAppTokenProvider>();
+
+    services.GetRequiredService<GitHubAppTokenProvider>().ShouldBeSameAs(provider);
+    services.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubHttpClientConfiguration.ClientName)
+            .BaseAddress.ShouldBe(new Uri("https://api.github.com/"));
+  }
+
   private static ServiceProvider Build(Dictionary<string, string?> settings, bool withProviders = false)
   {
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
     var services = new ServiceCollection()
                    .AddSingleton<IConfiguration>(configuration)
+                   .AddSingleton(A.Fake<ISecretProtector>())
                    .AddLogging()
                    .AddInfrastructure();
 

@@ -19,7 +19,9 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.*" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.*" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
     <!-- Microsoft.Data.SqlClient (via EF Core SqlServer) pulls a vulnerable System.Security.Cryptography.Pkcs 9.0.x (GHSA-846f-f764-76mx). -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.*" />

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Infrastructure.Tests.Settings;
 
@@ -34,6 +35,7 @@ public sealed class SettingsOptionsBindingTests
     ShouldFollow<AccessOptions>(services, configuration, SettingDefinitions.AccessCacheMinutes, "25", static o => o.CacheMinutes, 25);
     ShouldFollow<BadgeOptions>(services, configuration, SettingDefinitions.BadgesLabel, "tests", static o => o.Label, "tests");
     ShouldFollow<RetentionOptions>(services, configuration, SettingDefinitions.RetentionRawDays, "45", static o => o.RawDays, 45);
+    ShouldFollow<GitHubOptions>(services, configuration, SettingDefinitions.GitHubClientId, "Iv1.new", static o => o.ClientId, "Iv1.new");
   }
 
   private static void ShouldFollow<TOptions>(

@@ -6,6 +6,8 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Infrastructure.GitHub;
+
 namespace CodeCoverage.Infrastructure;
 
 public static partial class DependencyInjection
@@ -15,8 +17,18 @@ public static partial class DependencyInjection
   /// <summary>Registers the adapters of the GitHub area: the gateways of the GitHub API and the webhook validation.</summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
+  /// <remarks>
+  ///   <see cref="GitHubAppTokenProvider" /> is a singleton: it holds one lock per installation for the whole process.
+  ///   It needs the secret protector, registered by
+  ///   <see cref="Security.DataProtectionConfiguration.AddCodeCoverageDataProtection" />.
+  /// </remarks>
   private static IServiceCollection AddGitHub(this IServiceCollection services)
   {
+    services.AddOptions<GitHubOptions>().BindConfiguration(GitHubOptions.SectionName).ValidateOnStart();
+    services.AddMemoryCache();
+    services.AddGitHubHttpClient();
+    services.AddSingleton<GitHubAppTokenProvider>();
+
     return services;
   }
 

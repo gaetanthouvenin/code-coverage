@@ -127,6 +127,7 @@ public sealed class CurrentUserContextTests
     // The hosts always register their configuration: the settings store reads it.
     await using var provider = new ServiceCollection()
                                .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build())
+                               .AddSingleton(A.Fake<ISecretProtector>())
                                .AddLogging()
                                .AddInfrastructure()
                                .BuildServiceProvider(options);
