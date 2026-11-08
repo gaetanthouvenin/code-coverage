@@ -870,13 +870,35 @@ Entrées :
 6. **Sans liste réseau ni arbre :** le premier candidat sans préfixe CI est retenu, avec l'avertissement « no file list: paths not verified ».
 7. Le résultat est un chemin relatif au dépôt, ou `null`.
 
-`PathPattern` (utilisé par `ignore`, `paths` et `branches`) :
-- un `!` initial inverse le motif ;
-- `^…` ou `…$` désigne une expression régulière ;
-- `*`, `**` ou `?` désigne un glob ancré ;
-- sinon, c'est un préfixe.
+`PathPattern.Parse` (`ignore` et `paths`, d'après `PathPatternSchemaField` de Codecov) retire les `!` initiaux, qui rendent le motif négatif, puis un `./` initial, et reconnaît le motif dans cet ordre :
+1. aucun des caractères `*`, `$`, `[`, `]` : **préfixe** ;
+2. contient `**` ou `/*` : **glob** ;
+3. contient `*`, sans `]*` ni `.*` : **glob** ;
+4. sinon, **expression régulière** si elle compile, **glob** dans le cas contraire.
 
-Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking` et un timeout de 100 ms. Un ensemble inclut un chemin si un motif positif correspond (ou s'il n'y a aucun motif positif) et qu'aucun motif négatif ne correspond.
+Ni `?` ni un `^` initial ne décident du type ; `src/*.cs$` est un glob dont le `$` est littéral.
+
+| Type | Ancrage | Particularités |
+|---|---|---|
+| Préfixe | au début | Non échappé, donc interprété comme une expression régulière (`a.b` correspond à `axb`). Aucune limite de segment (`src/foo` correspond à `src/foobar`). |
+| Expression régulière | au début seulement (`re.match`) | `src/.*\.cs` correspond à `src/a.cshtml`. |
+| Glob | aux deux bouts | `**` donne `.*`, `*` donne `[^/]*`, `?` donne `.` (franchit `/`), `[!a]` donne `[^a]`. `**/x` exige un `/` : il ne correspond pas à un `x` à la racine, et `a/**/b` pas à `a/b`. |
+
+Une entrée de `ignore` est inversée (`Invert`), puis jointe aux `paths` du flag dans un seul ensemble : `!src` dans `ignore` devient donc un motif positif.
+
+`PathPattern.ParseBranch` (`branches`, d'après `UserGivenBranchRegex`) ne produit ni préfixe ni glob : `*`, `.*` ou une chaîne vide acceptent tout ; ailleurs, un `*` non précédé de `.` devient `.*` (il franchit `/`), puis `^` et `$` sont ajoutés sauf si le motif commence ou finit déjà par `.*`, ou par l'ancre correspondante. `main` ne correspond donc qu'à `main`, et `apple*` à `apple/x`. Un motif de branche est négatif s'il commence par `!` ou `^!`.
+
+Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking` et un timeout de 100 ms. Un ensemble inclut une valeur si un motif positif correspond (ou s'il n'y a aucun motif positif) et qu'aucun motif négatif ne correspond.
+
+`NonBacktracking` refuse les références arrière, les assertions avant et arrière, les groupes atomiques, les conditionnelles, les groupes d'équilibrage, `\G` et les automates de plus de 10 000 nœuds. Un motif refusé, ou un glob impossible à compiler (`[z-a]`), n'est jamais une erreur : il reste dans son ensemble, ne correspond à rien et porte `IsSupported = false` pour que la lecture de la configuration émette un avertissement. Un `paths` réduit à un motif refusé n'inclut donc rien, au lieu de tout inclure. Un timeout pendant la correspondance compte comme une non-correspondance.
+
+Écarts avec Codecov :
+- les expressions sont interprétées par le moteur .NET et non par celui de Python ; une syntaxe propre à Python comme `(?P<x>…)` ne compile pas et fait du motif un glob, comme toute erreur de syntaxe ;
+- un préfixe qui ne compile pas (`a(b`) est pris littéralement, là où Codecov échoue au traitement ;
+- un motif de branche invalide est refusé, là où Codecov rejette le YAML ;
+- seuls les `!` initiaux sont retirés d'un motif négatif, là où `Matcher` retire tous ses `!` ;
+- la comparaison littérale de la valeur avec le texte compilé des motifs (`s in self._patterns`) n'est pas reproduite ;
+- `!.*` exclut tout. Dans `UserPathIncludes`, sa présence annule au contraire **toutes** les exclusions, de sorte que `ignore: ['.*', 'x']` n'ignore rien chez Codecov. Ce comportement n'existe pas pour les branches et n'est pas reproduit par `PathPatternSet`.
 
 ### 6.5 Modèle de ligne et fusion (Domain)
 
