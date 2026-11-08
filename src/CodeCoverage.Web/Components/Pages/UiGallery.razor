@@ -1,0 +1,58 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="UiGallery.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/_ui"
+@layout EmptyLayout
+
+@* Development-only showcase of the UI components: sample texts, not product strings. *@
+@if (_available)
+{
+  <PageTitle>UI components</PageTitle>
+
+  <CcAppShell>
+    <TopNav>
+      <CcTopNav Items="NavItems">
+        <Actions>
+          <button type="button" class="cc-round-button" aria-label="Notifications" title="Notifications">
+            <CcIcon Name="CcIconName.Bell" />
+          </button>
+        </Actions>
+        <UserMenu>
+          <CcUserMenu UserName="gthouvenin" RoleLabel="Administrator">
+            <a href="_ui">Account</a>
+            <a href="_ui">Sign out</a>
+          </CcUserMenu>
+        </UserMenu>
+      </CcTopNav>
+    </TopNav>
+    <ChildContent>
+      <CcPageContainer>
+        <CcHeader Title="UI components"
+                  Icon="CcIconName.Layers"
+                  Subtitle="Every component of Web/Components/Ui, in the light and the dark theme."
+                  Breadcrumb="Breadcrumb">
+          <Actions>
+            <CcSearchBar @bind-Value="_search" Placeholder="Search a component" />
+            <CcButton Variant="CcButtonVariant.Pill" Icon="CcIconName.Refresh">Re-notify</CcButton>
+            <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Plus">New token</CcButton>
+          </Actions>
+          <Tabs>
+            <CcPillTabs Items="SectionItems" AriaLabel="Gallery sections" />
+          </Tabs>
+        </CcHeader>
+
+        <div class="cc-theme-scope" data-theme="light">
+          <UiGallerySamples Theme="Light" />
+        </div>
+        <div class="cc-theme-scope" data-theme="dark">
+          <UiGallerySamples Theme="Dark" />
+        </div>
+      </CcPageContainer>
+    </ChildContent>
+  </CcAppShell>
+
+  <CcToast />
+}

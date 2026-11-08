@@ -1,0 +1,29 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcErrorBoundary.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@inherits ErrorBoundaryBase
+
+@if (CurrentException is null)
+{
+  @ChildContent
+}
+else if (ErrorContent is not null)
+{
+  @ErrorContent(CurrentException)
+}
+else
+{
+  <div class="cc-panel cc-error-boundary" role="alert">
+    <CcEmptyState Title="@L["ErrorTitle"]" Icon="CcIconName.Alert">
+      <ChildContent>@L["ErrorDescription"]</ChildContent>
+      <Actions>
+        <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Refresh" OnClick="Recover">
+          @L["Retry"]
+        </CcButton>
+      </Actions>
+    </CcEmptyState>
+  </div>
+}

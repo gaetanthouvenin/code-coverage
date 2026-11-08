@@ -1,0 +1,26 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcToast.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-toasts" aria-live="polite" aria-label="@L["Notifications"]">
+  @foreach (var toast in Toasts.Toasts)
+  {
+    <div @key="toast.Id" class="cc-toast cc-toast--@CcCss.Tone(toast.Tone)" role="@Role(toast)">
+      <span class="cc-toast__icon">
+        <CcIcon Name="CcBanner.DefaultIcon(toast.Tone)" />
+      </span>
+      <div class="cc-toast__body">
+        <strong class="cc-toast__title">@toast.Title</strong>
+        @if (toast.Message is { } message)
+        {
+          <span class="cc-toast__message">@message</span>
+        }
+      </div>
+      <button type="button" class="cc-toast__close" aria-label="@L["Dismiss"]" title="@L["Dismiss"]" @onclick="() => Toasts.Dismiss(toast)">
+        <CcIcon Name="CcIconName.Close" />
+      </button>
+    </div>
+  }
+</section>

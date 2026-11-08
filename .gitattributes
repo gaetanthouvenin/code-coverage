@@ -1,0 +1,5 @@
+# Verify compares the snapshots byte for byte: they stay LF on every checkout.
+*.verified.txt text eol=lf working-tree-encoding=UTF-8
+
+# Fonts are binary: never normalise their line endings.
+*.woff2 binary

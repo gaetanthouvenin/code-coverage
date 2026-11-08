@@ -1,0 +1,58 @@
+<Project>
+
+  <PropertyGroup>
+    <Copyright>(©) $([System.DateTime]::Now.Year) Gaëtan Thouvenin</Copyright>
+    <Company>Gaëtan Thouvenin</Company>
+    <Authors>Gaëtan Thouvenin</Authors>
+    <GeneratePackageOnBuild Condition=" '$(GeneratePackageOnBuild)' == 'true' ">true</GeneratePackageOnBuild>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <IncludeSymbols>false</IncludeSymbols>
+    <DebugSymbols>true</DebugSymbols>
+    <Features>IOperation;flow-analysis</Features>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <LangVersion>preview</LangVersion>
+    <IsTestProject>false</IsTestProject>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NuGetVersion Condition=" '$(NuGetVersion)' == '' ">1.0.0</NuGetVersion>
+    <AssemblySemVer Condition=" '$(AssemblySemVer)' == '' ">1.0.0.0</AssemblySemVer>
+    <MajorMinorPatch Condition=" '$(MajorMinorPatch)' == '' ">1.0.0</MajorMinorPatch>
+    <InformationalVersion Condition=" '$(InformationalVersion)' == '' ">1.0.0</InformationalVersion>
+    <PackageVersion>$(NuGetVersion)</PackageVersion>
+    <AssemblyVersion>$(AssemblySemVer)</AssemblyVersion>
+    <FileVersion>$(MajorMinorPatch).0</FileVersion>
+    <Version>$(InformationalVersion)</Version>
+    <!-- GitVersion's InformationalVersion already carries the commit: do not let the SDK append it again. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)default.ruleset</CodeAnalysisRuleSet>
+    <NuGetAuditLevel>moderate</NuGetAuditLevel>
+    <NoWarn>$(NoWarn);NU1107;CS1591;1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime;build;native;contentfiles;analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Roslynator.Analyzers" Version="4.15.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

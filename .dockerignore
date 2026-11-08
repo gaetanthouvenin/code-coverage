@@ -1,0 +1,51 @@
+# .dockerignore of CodeCoverage. Dockerfile.api and Dockerfile.web copy the root build files and src/ only:
+# keep this list in line with what they COPY.
+
+# Build outputs
+**/bin/
+**/obj/
+**/TestResults/
+**/coverage/
+publish/
+installer-output/
+
+# Runtime data written by a local run
+**/logs/
+**/data/
+**/keys/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Source control, IDE and agent settings
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+.claude/
+*.user
+*.suo
+
+# Local secrets (docker compose reads .env from the host, not from the build context)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+connection.config
+**/connection.config
+
+# Not used by the image build (remove the lines your Dockerfile needs)
+docs/
+installer/
+tests/
+*.md
+
+# Deployment files and local secrets (the Data Protection certificate never enters an image)
+secrets/
+**/*.pfx
+scripts/
+Caddyfile*
+docker-compose*.yml
+Dockerfile.*

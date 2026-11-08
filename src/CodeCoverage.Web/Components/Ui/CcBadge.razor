@@ -1,0 +1,13 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcBadge.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<span class="@CssClass">
+  @if (Icon is { } icon)
+  {
+    <CcIcon Name="icon" />
+  }
+  @ChildContent
+</span>

@@ -1,0 +1,27 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="Error.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/error"
+
+<PageTitle>@L["PageTitle_Format", L["Error_Title"]]</PageTitle>
+
+<CcPageContainer>
+  <div class="cc-panel cc-status-page" role="alert">
+    <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+      <ChildContent>@L["Error_Description"]</ChildContent>
+      <Actions>
+        <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+      </Actions>
+    </CcEmptyState>
+    @if (!string.IsNullOrEmpty(RequestId))
+    {
+      <p class="cc-status-page__request">
+        <span>@L["Error_RequestId"]</span>
+        <code class="cc-status-page__request-id">@RequestId</code>
+      </p>
+    }
+  </div>
+</CcPageContainer>

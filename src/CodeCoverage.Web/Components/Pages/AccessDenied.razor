@@ -1,0 +1,20 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AccessDenied.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/access-denied"
+
+<PageTitle>@L["PageTitle_Format", L["AccessDenied_Title"]]</PageTitle>
+
+<CcPageContainer>
+  <div class="cc-panel cc-status-page">
+    <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">
+      <ChildContent>@L["AccessDenied_Description"]</ChildContent>
+      <Actions>
+        <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+      </Actions>
+    </CcEmptyState>
+  </div>
+</CcPageContainer>

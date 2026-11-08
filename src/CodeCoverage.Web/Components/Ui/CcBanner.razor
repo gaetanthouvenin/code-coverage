@@ -1,0 +1,23 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcBanner.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass" role="@Role">
+  @if (EffectiveIcon is { } icon)
+  {
+    <CcIcon Name="icon" Class="cc-banner__icon" />
+  }
+  <div class="cc-banner__body">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+      <strong class="cc-banner__title">@Title</strong>
+    }
+    @ChildContent
+  </div>
+  @if (Actions is not null)
+  {
+    <div class="cc-banner__actions">@Actions</div>
+  }
+</div>

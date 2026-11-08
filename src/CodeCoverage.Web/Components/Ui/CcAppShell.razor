@@ -1,0 +1,18 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcAppShell.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<a class="cc-skip-link" href="@SkipHref">@L["SkipToContent"]</a>
+<div class="@CssClass">
+  <div class="cc-shell__frame">
+    @if (TopNav is not null)
+    {
+      <div class="cc-shell__top">@TopNav</div>
+    }
+    <main id="@MainId" class="cc-shell__main" tabindex="-1">
+      @ChildContent
+    </main>
+  </div>
+</div>

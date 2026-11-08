@@ -1,0 +1,260 @@
+/* ------------------------------------------------------------------------------------------------
+   Coverage design tokens, taken from the validated mockup (docs/design/ui-mockup.html).
+   Light theme by default; dark theme from the operating system preference unless the page forces
+   a theme with data-theme="light" or data-theme="dark" on <html> (the top bar toggle) or on any
+   element (a scope, as in the /_ui gallery). Every token is prefixed with --cc-.
+   ------------------------------------------------------------------------------------------------ */
+
+/* Self-hosted fonts (SIL Open Font License, OFL.txt next to each family in wwwroot/fonts): the
+   variable latin and latin-ext subsets served by Google Fonts (Plus Jakarta Sans v12, JetBrains Mono
+   v24). The browser downloads a subset only when the page uses a character of its unicode-range;
+   any other script falls back to the system stacks of --cc-font and --cc-mono. */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: local("Plus Jakarta Sans"), url("../fonts/plus-jakarta-sans/PlusJakartaSans-Variable-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: local("Plus Jakarta Sans"), url("../fonts/plus-jakarta-sans/PlusJakartaSans-Variable-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: local("JetBrains Mono"), url("../fonts/jetbrains-mono/JetBrainsMono-Variable-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: local("JetBrains Mono"), url("../fonts/jetbrains-mono/JetBrainsMono-Variable-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Light theme: neutrals, brand accent, semantic tones, coverage hit / partial / miss, charts. */
+:root,
+[data-theme="light"] {
+  --cc-ground:#f1f2f6;
+  --cc-card:#ffffff;
+  --cc-card-2:#f4f5f8;
+  --cc-card-3:#e9ebf0;
+  --cc-line:#ebedf2;
+  --cc-line-2:#dfe2e9;
+  --cc-fg:#111318;
+  --cc-fg-2:#5d6372;
+  --cc-fg-3:#676d7c;
+  --cc-fg-4:#a2a7b3;
+  --cc-ink:#111318;
+  --cc-ink-hover:#2b2e36;
+  --cc-on-ink:#ffffff;
+  --cc-accent:#1f6bff;
+  --cc-accent-2:#7aaeff;
+  --cc-accent-soft:#e9f0ff;
+  --cc-accent-fg:#1a5ae0;
+  --cc-on-accent:#ffffff;
+  --cc-grad-a:#1747c9;
+  --cc-grad-b:#2f6df0;
+  --cc-on-accent-chip-bg:rgb(10 30 90 / .28);
+  --cc-orange:#f79009;
+  --cc-on-orange:#1a1204;
+  --cc-bar:#e3e5eb;
+  --cc-bar-track:#f5f6f9;
+  --cc-gauge-off:#eceef2;
+  --cc-thumb:#ffffff;
+  --cc-swatch-ring:#b6bbc6;
+  --cc-ok-bg:#e6f6ec;
+  --cc-ok-fg:#127a3e;
+  --cc-ok-solid:#1f9254;
+  --cc-warn-bg:#fdf2dc;
+  --cc-warn-fg:#935f07;
+  --cc-warn-solid:#d08a12;
+  --cc-err-bg:#fdebe9;
+  --cc-err-fg:#c0261c;
+  --cc-err-solid:#e0443a;
+  --cc-danger-solid:#c4281c;
+  --cc-info-bg:#e9f0ff;
+  --cc-info-fg:#1a5ae0;
+  --cc-neutral-bg:#f0f1f5;
+  --cc-neutral-fg:#4b5160;
+  --cc-hit:#e7f6ed;
+  --cc-hit-edge:#1f9254;
+  --cc-miss:#fdecea;
+  --cc-miss-edge:#e0443a;
+  --cc-part:#fdf4e1;
+  --cc-part-edge:#d08a12;
+  --cc-patch:#e3ecff;
+  --cc-chart-1:#1f6bff;
+  --cc-chart-2:#8b5cf6;
+  --cc-chart-3:#14a38f;
+  --cc-chart-grid:#e3e6ec;
+  --cc-chart-text:#676d7c;
+  --cc-tk-k:#7c3aed;
+  --cc-tk-t:#0e7490;
+  --cc-tk-s:#b45309;
+  --cc-code-bg:#f6f7fa;
+  --cc-scrim:rgb(17 19 24 / .45);
+  --cc-pop-shadow:0 24px 60px -20px rgb(17 19 24 / .30);
+  --cc-tip-shadow:0 10px 30px -8px rgb(17 19 24 / .14);
+  --cc-soft-shadow:0 1px 2px rgb(17 19 24 / .03);
+  --cc-font:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cc-mono:"JetBrains Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  --cc-r-xl:22px;
+  --cc-r-lg:18px;
+  --cc-r-md:14px;
+  --cc-r-sm:10px;
+  color-scheme: light;
+}
+
+/* Dark theme from the operating system, unless the page forces the light theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cc-ground:#0c0e12;
+    --cc-card:#16191f;
+    --cc-card-2:#1f232b;
+    --cc-card-3:#2a2f39;
+    --cc-line:#242831;
+    --cc-line-2:#323843;
+    --cc-fg:#eef0f4;
+    --cc-fg-2:#9ba2ae;
+    --cc-fg-3:#8a919e;
+    --cc-fg-4:#656c79;
+    --cc-ink:#f2f3f6;
+    --cc-ink-hover:#ffffff;
+    --cc-on-ink:#111318;
+    --cc-accent:#3d7fff;
+    --cc-accent-2:#8fb9ff;
+    --cc-accent-soft:#18244a;
+    --cc-accent-fg:#8fb5ff;
+    --cc-on-accent:#ffffff;
+    --cc-grad-a:#1d4ed8;
+    --cc-grad-b:#2f6df0;
+    --cc-on-accent-chip-bg:rgb(0 0 0 / .30);
+    --cc-orange:#f59e0b;
+    --cc-on-orange:#1a1204;
+    --cc-bar:#2c313b;
+    --cc-bar-track:#1c2027;
+    --cc-gauge-off:#272c35;
+    --cc-thumb:#e6e9ee;
+    --cc-swatch-ring:#59606d;
+    --cc-ok-bg:#10291b;
+    --cc-ok-fg:#5fd38f;
+    --cc-ok-solid:#2fa865;
+    --cc-warn-bg:#2d2210;
+    --cc-warn-fg:#ebb65c;
+    --cc-warn-solid:#d99a2b;
+    --cc-err-bg:#331614;
+    --cc-err-fg:#f58a80;
+    --cc-err-solid:#e5544a;
+    --cc-danger-solid:#c93a30;
+    --cc-info-bg:#18244a;
+    --cc-info-fg:#8fb5ff;
+    --cc-neutral-bg:#23272f;
+    --cc-neutral-fg:#b9bfc9;
+    --cc-hit:#10261a;
+    --cc-hit-edge:#34b46b;
+    --cc-miss:#2f1513;
+    --cc-miss-edge:#e5564b;
+    --cc-part:#2c2210;
+    --cc-part-edge:#e0a23a;
+    --cc-patch:#1a2747;
+    --cc-chart-1:#5a92ff;
+    --cc-chart-2:#a78bfa;
+    --cc-chart-3:#2dd4bf;
+    --cc-chart-grid:#272c35;
+    --cc-chart-text:#8a919e;
+    --cc-tk-k:#c4b5fd;
+    --cc-tk-t:#67e8f9;
+    --cc-tk-s:#fcd34d;
+    --cc-code-bg:#12151a;
+    --cc-scrim:rgb(0 0 0 / .6);
+    --cc-pop-shadow:0 24px 60px -20px rgb(0 0 0 / .75);
+    --cc-tip-shadow:0 10px 30px -8px rgb(0 0 0 / .55);
+    --cc-soft-shadow:none;
+    color-scheme: dark;
+  }
+}
+
+/* Dark theme forced by the toggle (on <html>) or by a scope. */
+[data-theme="dark"] {
+  --cc-ground:#0c0e12;
+  --cc-card:#16191f;
+  --cc-card-2:#1f232b;
+  --cc-card-3:#2a2f39;
+  --cc-line:#242831;
+  --cc-line-2:#323843;
+  --cc-fg:#eef0f4;
+  --cc-fg-2:#9ba2ae;
+  --cc-fg-3:#8a919e;
+  --cc-fg-4:#656c79;
+  --cc-ink:#f2f3f6;
+  --cc-ink-hover:#ffffff;
+  --cc-on-ink:#111318;
+  --cc-accent:#3d7fff;
+  --cc-accent-2:#8fb9ff;
+  --cc-accent-soft:#18244a;
+  --cc-accent-fg:#8fb5ff;
+  --cc-on-accent:#ffffff;
+  --cc-grad-a:#1d4ed8;
+  --cc-grad-b:#2f6df0;
+  --cc-on-accent-chip-bg:rgb(0 0 0 / .30);
+  --cc-orange:#f59e0b;
+  --cc-on-orange:#1a1204;
+  --cc-bar:#2c313b;
+  --cc-bar-track:#1c2027;
+  --cc-gauge-off:#272c35;
+  --cc-thumb:#e6e9ee;
+  --cc-swatch-ring:#59606d;
+  --cc-ok-bg:#10291b;
+  --cc-ok-fg:#5fd38f;
+  --cc-ok-solid:#2fa865;
+  --cc-warn-bg:#2d2210;
+  --cc-warn-fg:#ebb65c;
+  --cc-warn-solid:#d99a2b;
+  --cc-err-bg:#331614;
+  --cc-err-fg:#f58a80;
+  --cc-err-solid:#e5544a;
+  --cc-danger-solid:#c93a30;
+  --cc-info-bg:#18244a;
+  --cc-info-fg:#8fb5ff;
+  --cc-neutral-bg:#23272f;
+  --cc-neutral-fg:#b9bfc9;
+  --cc-hit:#10261a;
+  --cc-hit-edge:#34b46b;
+  --cc-miss:#2f1513;
+  --cc-miss-edge:#e5564b;
+  --cc-part:#2c2210;
+  --cc-part-edge:#e0a23a;
+  --cc-patch:#1a2747;
+  --cc-chart-1:#5a92ff;
+  --cc-chart-2:#a78bfa;
+  --cc-chart-3:#2dd4bf;
+  --cc-chart-grid:#272c35;
+  --cc-chart-text:#8a919e;
+  --cc-tk-k:#c4b5fd;
+  --cc-tk-t:#67e8f9;
+  --cc-tk-s:#fcd34d;
+  --cc-code-bg:#12151a;
+  --cc-scrim:rgb(0 0 0 / .6);
+  --cc-pop-shadow:0 24px 60px -20px rgb(0 0 0 / .75);
+  --cc-tip-shadow:0 10px 30px -8px rgb(0 0 0 / .55);
+  --cc-soft-shadow:none;
+  color-scheme: dark;
+}

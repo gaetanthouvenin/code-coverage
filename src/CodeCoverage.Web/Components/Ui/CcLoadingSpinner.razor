@@ -1,0 +1,10 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcLoadingSpinner.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<span class="@CssClass" role="status">
+  <span class="cc-spinner__ring" aria-hidden="true"></span>
+  <span class="@(ShowLabel ? "cc-spinner__label" : "cc-sr-only")">@EffectiveLabel</span>
+</span>

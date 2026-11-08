@@ -1,0 +1,28 @@
+workflow: GitFlow/v1
+mode: ContinuousDelivery
+
+assembly-versioning-scheme: MajorMinorPatch
+assembly-file-versioning-scheme: MajorMinorPatchTag
+tag-prefix: "v"
+
+branches:
+  main:
+    regex: ^main$
+    label: ""
+    increment: Patch
+  develop:
+    regex: ^develop$
+    label: beta
+    increment: Minor
+  release:
+    regex: ^release[/-]
+    label: rc
+    increment: Patch
+  hotfix:
+    regex: ^hotfix[/-]
+    label: hotfix
+    increment: Patch
+  feature:
+    regex: ^feature[/-]
+    label: alpha
+    increment: Patch

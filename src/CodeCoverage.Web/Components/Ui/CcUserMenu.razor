@@ -1,0 +1,56 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcUserMenu.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass" @onkeydown="OnKeyDown">
+  @if (Href is not null)
+  {
+    <a class="cc-user-menu__trigger" href="@Href" title="@UserName">
+      <span class="cc-user-menu__avatar" aria-hidden="true">@EffectiveInitials</span>
+      <span class="cc-user-menu__who">
+        <span class="cc-user-menu__name">@UserName</span>
+        @if (!string.IsNullOrEmpty(RoleLabel))
+        {
+          <span class="cc-user-menu__role">@RoleLabel</span>
+        }
+      </span>
+    </a>
+  }
+  else if (ChildContent is not null)
+  {
+    <button type="button"
+            class="cc-user-menu__trigger"
+            aria-label="@MenuLabel"
+            aria-expanded="@(_open ? "true" : "false")"
+            aria-controls="@_panelId"
+            @onclick="Toggle">
+      <span class="cc-user-menu__avatar" aria-hidden="true">@EffectiveInitials</span>
+      <span class="cc-user-menu__who" aria-hidden="true">
+        <span class="cc-user-menu__name">@UserName</span>
+        @if (!string.IsNullOrEmpty(RoleLabel))
+        {
+          <span class="cc-user-menu__role">@RoleLabel</span>
+        }
+      </span>
+    </button>
+    @if (_open)
+    {
+      <div id="@_panelId" class="cc-user-menu__panel">@ChildContent</div>
+    }
+  }
+  else
+  {
+    <div class="cc-user-menu__trigger">
+      <span class="cc-user-menu__avatar" aria-hidden="true">@EffectiveInitials</span>
+      <span class="cc-user-menu__who">
+        <span class="cc-user-menu__name">@UserName</span>
+        @if (!string.IsNullOrEmpty(RoleLabel))
+        {
+          <span class="cc-user-menu__role">@RoleLabel</span>
+        }
+      </span>
+    </div>
+  }
+</div>

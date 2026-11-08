@@ -1,0 +1,50 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcButton.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (Href is not null)
+{
+  <a class="@CssClass"
+     href="@(Disabled ? null : Href)"
+     role="@(Disabled ? "link" : null)"
+     aria-disabled="@(Disabled ? "true" : null)"
+     aria-label="@AriaLabel"
+     @attributes="AdditionalAttributes">
+    @if (Icon is { } linkIcon)
+    {
+      @if (IsPill)
+      {
+        <span class="cc-button__round"><CcIcon Name="linkIcon" /></span>
+      }
+      else
+      {
+        <CcIcon Name="linkIcon" />
+      }
+    }
+    @ChildContent
+  </a>
+}
+else
+{
+  <button type="@Type"
+          class="@CssClass"
+          disabled="@Disabled"
+          aria-label="@AriaLabel"
+          @onclick="OnClick"
+          @attributes="AdditionalAttributes">
+    @if (Icon is { } buttonIcon)
+    {
+      @if (IsPill)
+      {
+        <span class="cc-button__round"><CcIcon Name="buttonIcon" /></span>
+      }
+      else
+      {
+        <CcIcon Name="buttonIcon" />
+      }
+    }
+    @ChildContent
+  </button>
+}

@@ -1,0 +1,18 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcEmptyState.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  <span class="cc-empty-state__icon" aria-hidden="true"><CcIcon Name="Icon" /></span>
+  <h2 class="cc-empty-state__title">@Title</h2>
+  @if (ChildContent is not null)
+  {
+    <p class="cc-empty-state__description">@ChildContent</p>
+  }
+  @if (Actions is not null)
+  {
+    <div class="cc-empty-state__actions">@Actions</div>
+  }
+</div>

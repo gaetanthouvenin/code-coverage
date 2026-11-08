@@ -1,0 +1,15 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcSearchBar.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass" role="search">
+  <CcIcon Name="CcIconName.Search" Class="cc-search__icon" />
+  <input type="search"
+         class="cc-search__input"
+         value="@Value"
+         placeholder="@EffectivePlaceholder"
+         aria-label="@EffectiveAriaLabel"
+         @oninput="OnInputAsync" />
+</div>

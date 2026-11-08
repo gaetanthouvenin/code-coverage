@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="CodeCoverage Rules" Description="This file contains the diagnostic settings of the CodeCoverage projects." ToolsVersion="17.0">
+  <Rules AnalyzerId="AsyncFixer" RuleNamespace="AsyncFixer">
+    <Rule Id="AsyncFixer01" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="CSharpGuidelinesAnalyzer" RuleNamespace="CSharpGuidelinesAnalyzer">
+    <Rule Id="AV1755" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
+    <Rule Id="IDE0008" Action="None" />
+    <Rule Id="IDE0058" Action="None" />
+    <Rule Id="IDE0160" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.FxCopAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.FxCopAnalyzers">
+    <Rule Id="CA1032" Action="Info" />
+    <Rule Id="CA1040" Action="Info" />
+    <Rule Id="CA1054" Action="Info" />
+    <Rule Id="CA1056" Action="Info" />
+    <Rule Id="CA1062" Action="Info" />
+    <Rule Id="CA1303" Action="Info" />
+    <Rule Id="CA1308" Action="Info" />
+    <Rule Id="CA1710" Action="Info" />
+    <Rule Id="CA1716" Action="Info" />
+    <Rule Id="CA1819" Action="Info" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
+    <Rule Id="CA1030" Action="None" />
+    <Rule Id="CA1031" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.NetCore.Analyzers" RuleNamespace="Microsoft.NetCore.Analyzers">
+    <Rule Id="CA1835" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="Roslynator.Analyzers" RuleNamespace="Roslynator.Analyzers">
+    <Rule Id="RCS1174" Action="None" />
+    <Rule Id="RCS1194" Action="Info" />
+  </Rules>
+</RuleSet>

@@ -1,0 +1,17 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcIcon.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<svg class="@CssClass"
+     viewBox="0 0 24 24"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     focusable="false"
+     role="@(IsDecorative ? null : "img")"
+     aria-label="@(IsDecorative ? null : Title)"
+     aria-hidden="@(IsDecorative ? "true" : null)">@Markup</svg>

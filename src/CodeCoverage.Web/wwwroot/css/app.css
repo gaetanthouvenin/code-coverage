@@ -1,0 +1,44 @@
+/* ------------------------------------------------------------------------------------------------
+   Coverage application styles: what belongs to the pages of the product (Web/Components/Pages and
+   Layout), not to the reusable components of components.css. Every class is prefixed with cc-;
+   colours, radii and fonts come from tokens.css only, so the dark theme follows on its own.
+   ------------------------------------------------------------------------------------------------ */
+
+/* ---- status pages (Error, NotFound, AccessDenied) ---- */
+.cc-status-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 28px 36px;
+}
+
+.cc-status-page .cc-empty-state {
+  padding-bottom: 24px;
+}
+
+.cc-status-page__request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  color: var(--cc-fg-3);
+  font-size: 13px;
+}
+
+.cc-status-page__request-id {
+  padding: 4px 10px;
+  overflow-wrap: anywhere;
+  border-radius: var(--cc-r-sm);
+  background: var(--cc-code-bg);
+  color: var(--cc-fg-2);
+  font-family: var(--cc-mono);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .cc-status-page {
+    padding: 12px 16px 28px;
+  }
+}

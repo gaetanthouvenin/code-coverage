@@ -1,0 +1,36 @@
+<Solution>
+  <Folder Name="/config/">
+    <File Path=".editorconfig" />
+    <File Path="AGENT.md" />
+    <File Path="CLAUDE.md" />
+    <File Path="GitVersion.yml" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/deploy/">
+    <File Path=".dockerignore" />
+    <File Path=".env.example" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/default.ruleset" />
+    <File Path="src/Directory.Build.props" />
+    <Project Path="src/CodeCoverage.Domain/CodeCoverage.Domain.csproj" />
+    <Project Path="src/CodeCoverage.Application/CodeCoverage.Application.csproj" />
+    <Project Path="src/CodeCoverage.Infrastructure/CodeCoverage.Infrastructure.csproj" />
+    <Project Path="src/CodeCoverage.Infrastructure.PostgreSql/CodeCoverage.Infrastructure.PostgreSql.csproj" />
+    <Project Path="src/CodeCoverage.Infrastructure.SqlServer/CodeCoverage.Infrastructure.SqlServer.csproj" />
+    <Project Path="src/CodeCoverage.Api/CodeCoverage.Api.csproj" />
+    <Project Path="src/CodeCoverage.Web/CodeCoverage.Web.csproj" />
+    <Project Path="src/CodeCoverage.Uploader/CodeCoverage.Uploader.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/CodeCoverage.Domain.Tests/CodeCoverage.Domain.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Application.Tests/CodeCoverage.Application.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Infrastructure.Tests/CodeCoverage.Infrastructure.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Api.Tests/CodeCoverage.Api.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Web.Tests/CodeCoverage.Web.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Uploader.Tests/CodeCoverage.Uploader.Tests.csproj" />
+    <Project Path="tests/CodeCoverage.Architecture.Tests/CodeCoverage.Architecture.Tests.csproj" />
+  </Folder>
+</Solution>

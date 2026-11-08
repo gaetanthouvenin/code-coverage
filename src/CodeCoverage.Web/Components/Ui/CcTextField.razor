@@ -1,0 +1,32 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcTextField.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  @if (!string.IsNullOrEmpty(Label))
+  {
+    <label class="cc-field__label" for="@InputId">@Label</label>
+  }
+  <input id="@InputId"
+         class="@InputClass"
+         type="@Type"
+         value="@Value"
+         placeholder="@Placeholder"
+         autocomplete="@AutoComplete"
+         disabled="@Disabled"
+         readonly="@ReadOnly"
+         required="@Required"
+         aria-invalid="@(HasError ? "true" : null)"
+         aria-describedby="@DescribedBy"
+         @oninput="OnInputAsync" />
+  @if (!string.IsNullOrEmpty(Help))
+  {
+    <p class="cc-field__help" id="@HelpId">@Help</p>
+  }
+  @if (HasError)
+  {
+    <p class="cc-field__error" id="@ErrorId">@Error</p>
+  }
+</div>

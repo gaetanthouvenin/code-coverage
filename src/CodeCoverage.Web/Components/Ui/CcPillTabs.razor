@@ -1,0 +1,21 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcPillTabs.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<nav class="@CssClass" aria-label="@AriaLabel">
+  @foreach (var item in Items)
+  {
+    var active = CcNavMatcher.IsActive(Navigation, item);
+    <a href="@item.Href"
+       class="@(active ? "cc-pill-tabs__tab cc-pill-tabs__tab--active" : "cc-pill-tabs__tab")"
+       aria-current="@(active ? "page" : null)">
+      @if (item.Icon is { } icon)
+      {
+        <CcIcon Name="icon" />
+      }
+      @item.Label
+    </a>
+  }
+</nav>

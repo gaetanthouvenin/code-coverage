@@ -1,0 +1,21 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcKpiCard.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass" role="group" aria-label="@Label">
+  <span class="cc-kpi__label">@Label</span>
+  @if (Icon is { } icon)
+  {
+    <span class="@IconClass" aria-hidden="true"><CcIcon Name="icon" /></span>
+  }
+  <div class="cc-kpi__row">
+    <span class="cc-kpi__value">@Value</span>
+    @Trend
+  </div>
+  @if (Footer is not null)
+  {
+    <span class="cc-kpi__footer">@Footer</span>
+  }
+</div>

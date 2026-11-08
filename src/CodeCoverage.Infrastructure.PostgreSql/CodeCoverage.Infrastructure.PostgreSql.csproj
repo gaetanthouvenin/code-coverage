@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The PostgreSQL migrations of CodeCoverageDbContext, in an assembly of their own: each provider has its
+    own migrations. Referenced by the Api and Web hosts only, which deploy it next to the executable.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CodeCoverage.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeCoverage.Infrastructure\CodeCoverage.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

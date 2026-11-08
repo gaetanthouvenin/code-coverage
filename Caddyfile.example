@@ -1,0 +1,29 @@
+# Caddyfile.example — TLS reverse proxy in front of the two hosts (ARCHITECTURE.md §12.2).
+#
+# Copy to Caddyfile and adjust the host names. Caddy obtains and renews the certificates itself
+# (ports 80 and 443 must be reachable from the Internet for the ACME challenge).
+#
+# - Caddy on the VM itself: keep the loopback upstreams below (published by docker-compose.yml).
+# - Caddy as a container on the compose network: set CC_API_UPSTREAM=api:8080 and
+#   CC_WEB_UPSTREAM=web:8080.
+#
+# Then declare the address Caddy connects from in FORWARDED_KNOWN_PROXIES (.env), e.g. 127.0.0.1
+# or the Caddy container address, so that the Api trusts its X-Forwarded-For / X-Forwarded-Proto.
+{
+  # Contact address for the ACME account (certificate expiry notices).
+  email {$ACME_EMAIL:admin@example.com}
+}
+
+# The Api: reachable by GitHub (webhooks), the CI agents (uploads) and camo (badges).
+{$CC_API_HOST:coverage-api.example.com} {
+  encode zstd gzip
+  # No body size limit here: the Api enforces its own upload limit (hot-reloadable setting).
+  reverse_proxy {$CC_API_UPSTREAM:127.0.0.1:8081}
+}
+
+# The Web console (Blazor Server: Caddy forwards the WebSocket upgrade by itself). It can be limited
+# to the internal network or the VPN, e.g. with a remote_ip matcher.
+{$CC_WEB_HOST:coverage.example.com} {
+  encode zstd gzip
+  reverse_proxy {$CC_WEB_UPSTREAM:127.0.0.1:8080}
+}

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pure business rules: the BCL only, no project and no package (checked by Architecture.Tests). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CodeCoverage.Domain.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+</Project>

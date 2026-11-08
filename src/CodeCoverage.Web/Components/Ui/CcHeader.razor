@@ -1,0 +1,50 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcHeader.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  <div class="cc-header__row">
+    <div class="cc-header__text">
+      @if (Breadcrumb is { Count: > 0 })
+      {
+        <nav class="cc-breadcrumb" aria-label="@L["Breadcrumb"]">
+          @for (var i = 0; i < Breadcrumb.Count; i++)
+          {
+            var step = Breadcrumb[i];
+            var last = i == Breadcrumb.Count - 1;
+            @if (i > 0)
+            {
+              <span class="cc-breadcrumb__sep" aria-hidden="true">/</span>
+            }
+            @if (step.Href is not null && !last)
+            {
+              <a href="@step.Href">@step.Label</a>
+            }
+            else
+            {
+              <span aria-current="@(last ? "page" : null)">@step.Label</span>
+            }
+          }
+        </nav>
+      }
+      <h1 class="cc-header__title">
+        @if (Icon is { } icon)
+        {
+          <CcIcon Name="icon" />
+        }
+        @Title
+      </h1>
+      @if (!string.IsNullOrEmpty(Subtitle))
+      {
+        <p class="cc-header__subtitle">@Subtitle</p>
+      }
+    </div>
+    @if (Actions is not null)
+    {
+      <div class="cc-header__actions">@Actions</div>
+    }
+  </div>
+  @Tabs
+</div>

@@ -1,0 +1,26 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcFolderTabs.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass" role="tablist" aria-label="@AriaLabel">
+  @for (var i = 0; i < Tabs.Count; i++)
+  {
+    var index = i;
+    var tab = Tabs[index];
+    var active = tab.Id == ActiveId;
+    <button type="button"
+            role="tab"
+            id="@TabId(tab)"
+            class="@(active ? "cc-folder-tabs__tab cc-folder-tabs__tab--active" : "cc-folder-tabs__tab")"
+            aria-selected="@(active ? "true" : "false")"
+            aria-controls="@PanelId"
+            tabindex="@(active ? 0 : -1)"
+            @ref="_tabElements[index]"
+            @onclick="() => SelectAsync(index, moveFocus: false)"
+            @onkeydown="args => OnKeyDownAsync(args, index)">
+      @tab.Label
+    </button>
+  }
+</div>

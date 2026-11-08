@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The source rules (header, regions, one type per file) parse the files of src/ and tests/ with
+    Roslyn (Microsoft.CodeAnalysis.CSharp, test-only); the layer rules use NetArchTest.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.*" />
+    <PackageReference Include="NetArchTest.Rules" Version="1.3.*" />
+  </ItemGroup>
+
+  <!-- References every production project, so that each rule inspects the real assemblies. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CodeCoverage.Domain\CodeCoverage.Domain.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Application\CodeCoverage.Application.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure\CodeCoverage.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure.PostgreSql\CodeCoverage.Infrastructure.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Infrastructure.SqlServer\CodeCoverage.Infrastructure.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Api\CodeCoverage.Api.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Web\CodeCoverage.Web.csproj" />
+    <ProjectReference Include="..\..\src\CodeCoverage.Uploader\CodeCoverage.Uploader.csproj" />
+  </ItemGroup>
+
+</Project>

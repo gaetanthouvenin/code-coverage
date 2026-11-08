@@ -1,0 +1,37 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcSelectField.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  @if (!string.IsNullOrEmpty(Label))
+  {
+    <label class="@(Pill ? "cc-sr-only" : "cc-field__label")" for="@SelectId">@Label</label>
+  }
+  <div class="@WrapperClass">
+    @if (LeadIcon is { } lead)
+    {
+      <span class="cc-select__lead" aria-hidden="true"><CcIcon Name="lead" /></span>
+    }
+    <select id="@SelectId"
+            class="cc-input cc-select__control"
+            disabled="@Disabled"
+            aria-describedby="@(string.IsNullOrEmpty(Help) ? null : HelpId)"
+            @onchange="OnChangeAsync">
+      @if (!string.IsNullOrEmpty(Placeholder))
+      {
+        <option value="" selected="@string.IsNullOrEmpty(Value)">@Placeholder</option>
+      }
+      @foreach (var option in Options)
+      {
+        <option value="@option.Value" selected="@(option.Value == Value)">@option.Label</option>
+      }
+    </select>
+    <span class="cc-select__chevron" aria-hidden="true"><CcIcon Name="CcIconName.ChevronDown" /></span>
+  </div>
+  @if (!string.IsNullOrEmpty(Help))
+  {
+    <p class="cc-field__help" id="@HelpId">@Help</p>
+  }
+</div>

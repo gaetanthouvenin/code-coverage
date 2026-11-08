@@ -1,0 +1,133 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="UiGallerySamples.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@* Development-only samples of the /_ui gallery: sample texts, not product strings. *@
+<section class="cc-stack" aria-label="@($"{Theme} theme")">
+  <h2 class="cc-panel__title">@Theme theme</h2>
+
+  <div class="cc-grid cc-grid--4">
+    <CcKpiCard Label="Project coverage" Value="82.41 %" Icon="CcIconName.Target" Accent="true">
+      <Trend><CcBadge Chip="true">+1.2 pt</CcBadge></Trend>
+      <Footer>Target <b>80 %</b> on main</Footer>
+    </CcKpiCard>
+    <CcKpiCard Label="Patch coverage" Value="72.50 %" Icon="CcIconName.PullRequest" IconStyle="CcKpiIconStyle.Ink">
+      <Trend><CcBadge Chip="true" Tone="CcTone.Danger">-3.0 pt</CcBadge></Trend>
+      <Footer>Pull request <b>#423</b></Footer>
+    </CcKpiCard>
+    <CcKpiCard Label="Covered lines" Value="12 480" Icon="CcIconName.Lines" IconStyle="CcKpiIconStyle.Gradient">
+      <Trend><CcBadge Chip="true" Tone="CcTone.Warning">carried</CcBadge></Trend>
+      <Footer>of <b>15 143</b> lines</Footer>
+    </CcKpiCard>
+    <CcKpiCard Label="Uploads" Value="3" Icon="CcIconName.Upload">
+      <Footer>Last one <b>12 min</b> ago</Footer>
+    </CcKpiCard>
+  </div>
+
+  <div class="cc-grid cc-grid--2">
+    <div class="cc-panel">
+      <div class="cc-panel__head"><h3 class="cc-panel__title">Badges and buttons</h3></div>
+      <div class="cc-panel__body cc-stack">
+        <div class="cc-cluster">
+          <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">Processed</CcBadge>
+          <CcBadge Tone="CcTone.Warning" Icon="CcIconName.Clock">Processing</CcBadge>
+          <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Close">Failed</CcBadge>
+          <CcBadge Tone="CcTone.Info">Carried forward</CcBadge>
+          <CcBadge>No upload</CcBadge>
+        </div>
+        <div class="cc-cluster">
+          <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Check">Save</CcButton>
+          <CcButton Icon="CcIconName.Copy">Copy</CcButton>
+          <CcButton Variant="CcButtonVariant.Danger">Revoke</CcButton>
+          <CcButton Variant="CcButtonVariant.SolidDanger">Delete</CcButton>
+          <CcButton Disabled="true">Disabled</CcButton>
+        </div>
+        <div class="cc-cluster">
+          <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Refresh">Retry</CcButton>
+          <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary">Small primary</CcButton>
+          <CcButton Href="_ui" Size="CcButtonSize.Small" Icon="CcIconName.External">Link</CcButton>
+          <CcButton Variant="CcButtonVariant.Pill" Icon="CcIconName.Filter">Pill in a card</CcButton>
+        </div>
+      </div>
+    </div>
+
+    <div class="cc-panel">
+      <div class="cc-panel__head"><h3 class="cc-panel__title">Banners and toasts</h3></div>
+      <div class="cc-panel__body cc-stack">
+        <CcBanner Tone="CcTone.Info" Title="Base commit resolved">The comparison uses the fork point of the branch.</CcBanner>
+        <CcBanner Tone="CcTone.Success">The token has been created.</CcBanner>
+        <CcBanner Tone="CcTone.Warning" Title="Incomplete diff">
+          <ChildContent>GitHub returned a truncated diff: the patch coverage is partial.</ChildContent>
+          <Actions><CcButton Size="CcButtonSize.Small">Details</CcButton></Actions>
+        </CcBanner>
+        <CcBanner Tone="CcTone.Danger" Title="Upload failed">The report format is unknown.</CcBanner>
+        <div class="cc-cluster">
+          <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Check" OnClick="ShowSuccessToast">Success toast</CcButton>
+          <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Alert" OnClick="ShowErrorToast">Error toast</CcButton>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-grid cc-grid--2">
+    <div class="cc-panel">
+      <div class="cc-panel__head"><h3 class="cc-panel__title">Fields</h3></div>
+      <div class="cc-panel__body cc-stack">
+        <CcTextField Label="Token name" @bind-Value="_name" Placeholder="ci-main" Help="Shown in the audit log." />
+        <CcTextField Label="Upload token" Value="not-a-token" Error="The token must be a GUID." />
+        <CcTextField Label="Read-only" Value="https://coverage.example.test" ReadOnly="true" />
+        <CcSelectField Label="Retention" @bind-Value="_retention" Options="RetentionOptions" Help="Older data is purged every night." />
+        <div class="cc-cluster">
+          <CcSelectField Label="Branch" Pill="true" LeadIcon="CcIconName.Commit" @bind-Value="_branch" Options="BranchOptions" />
+          <CcSearchBar @bind-Value="_search" Placeholder="Search a file" />
+        </div>
+      </div>
+    </div>
+
+    <div class="cc-panel">
+      <div class="cc-panel__head">
+        <h3 class="cc-panel__title">Folder tabs</h3>
+        <CcFolderTabs Tabs="RangeTabs" @bind-Value="_range" AriaLabel="Range" PanelId="@PanelId" />
+      </div>
+      <div class="cc-panel__body cc-stack" id="@PanelId" role="tabpanel">
+        <p class="cc-muted">Selected range: <b>@_range</b> days.</p>
+        <div class="cc-cluster">
+          <CcLoadingSpinner Size="CcSpinnerSize.Small" />
+          <CcLoadingSpinner Label="Loading the commits…" />
+          <CcLoadingSpinner ShowLabel="false" />
+        </div>
+        <CcLoadingSpinner Size="CcSpinnerSize.Large" Label="Processing the upload…" />
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-grid cc-grid--2">
+    <div class="cc-panel">
+      <CcEmptyState Title="Not found or not accessible">
+        <ChildContent>This repository does not exist, or your GitHub account cannot see it.</ChildContent>
+        <Actions><CcButton Variant="CcButtonVariant.Primary" Href="_ui">Back to the repositories</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+
+    <div class="cc-stack">
+      <CcErrorBoundary>
+        <UiGalleryFault Fail="_fail" />
+      </CcErrorBoundary>
+      <div class="cc-cluster">
+        <CcButton Variant="CcButtonVariant.Danger" Icon="CcIconName.Alert" OnClick="Fail">Throw in the boundary</CcButton>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-panel">
+    <div class="cc-panel__head"><h3 class="cc-panel__title">Icons</h3></div>
+    <div class="cc-panel__body cc-cluster">
+      @foreach (var icon in Icons)
+      {
+        <CcBadge Icon="icon">@icon</CcBadge>
+      }
+    </div>
+  </div>
+</section>

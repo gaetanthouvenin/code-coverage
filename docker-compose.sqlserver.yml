@@ -1,0 +1,57 @@
+# docker-compose.sqlserver.yml — overlay running the stack on SQL Server 2022 instead of PostgreSQL.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sqlserver.yml up -d --build
+#
+# The "db" service becomes a SQL Server 2022 instance (Developer edition: local use only, licence a
+# production instance or use Azure SQL). The one-shot "db-init" service creates the database with
+# READ_COMMITTED_SNAPSHOT on before the Api starts: the job queue relies on it and /health/ready
+# stays red without it (ARCHITECTURE.md §4.1). DB_PASSWORD becomes the "sa" password and must meet
+# the SQL Server complexity policy (8 characters or more, three of: upper case, lower case, digits,
+# symbols). Requires Docker Compose 2.24 or later (!override).
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment: !override
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+    volumes: !override
+      - mssql:/var/opt/mssql
+    healthcheck: !override
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -b -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 20
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+    entrypoint: ["/bin/bash", "-c"]
+    # Idempotent: the database is created once, RCSI is (re)applied on every start.
+    command:
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -b -S db -U sa -P "$${MSSQL_SA_PASSWORD}"
+        -Q "IF DB_ID(N'codecoverage') IS NULL CREATE DATABASE codecoverage;
+        ALTER DATABASE codecoverage SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;"
+    restart: "no"
+
+  api:
+    depends_on: !override
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__CodeCoverage: "Server=db,1433;Database=codecoverage;User Id=sa;Password=${DB_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+      CodeCoverage__Database__Provider: SqlServer
+
+  web:
+    environment:
+      ConnectionStrings__CodeCoverage: "Server=db,1433;Database=codecoverage;User Id=sa;Password=${DB_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+      CodeCoverage__Database__Provider: SqlServer
+
+volumes:
+  mssql: {}

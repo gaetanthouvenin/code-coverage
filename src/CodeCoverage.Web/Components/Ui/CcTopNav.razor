@@ -1,0 +1,70 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcTopNav.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  <header class="cc-topnav__bar">
+    <a class="cc-topnav__brand" href="@HomeHref" aria-label="@HomeLabel">
+      <span class="cc-topnav__brand-mark" aria-hidden="true">
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--partial"></span>
+        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--miss"></span>
+      </span>
+      @EffectiveProductName
+    </a>
+
+    <nav class="cc-topnav__tabs" aria-label="@L["MainNavigation"]">
+      @foreach (var item in Items)
+      {
+        var active = CcNavMatcher.IsActive(Navigation, item);
+        <a href="@item.Href"
+           class="@(active ? "cc-topnav__tab cc-topnav__tab--active" : "cc-topnav__tab")"
+           aria-current="@(active ? "page" : null)">@item.Label</a>
+      }
+    </nav>
+
+    <div class="cc-topnav__end">
+      @if (Actions is not null || ShowThemeToggle)
+      {
+        <div class="cc-topnav__icons">
+          @Actions
+          @if (ShowThemeToggle)
+          {
+            <button type="button"
+                    class="cc-round-button cc-topnav__theme"
+                    aria-label="@ThemeLabel"
+                    title="@ThemeLabel"
+                    @onclick="ToggleThemeAsync">
+              <CcIcon Name="@(_isDark ? CcIconName.Sun : CcIconName.Moon)" />
+            </button>
+          }
+        </div>
+      }
+      @UserMenu
+      <button type="button"
+              class="cc-round-button cc-topnav__menu-button"
+              aria-label="@(_menuOpen ? L["CloseMenu"] : L["OpenMenu"])"
+              aria-expanded="@(_menuOpen ? "true" : "false")"
+              aria-controls="@_mobileId"
+              @onclick="ToggleMenu">
+        <CcIcon Name="@(_menuOpen ? CcIconName.Close : CcIconName.Menu)" />
+      </button>
+    </div>
+  </header>
+
+  <nav id="@_mobileId"
+       class="@(_menuOpen ? "cc-topnav__mobile cc-topnav__mobile--open" : "cc-topnav__mobile")"
+       aria-label="@L["MobileNavigation"]">
+    @foreach (var item in Items)
+    {
+      var active = CcNavMatcher.IsActive(Navigation, item);
+      <a href="@item.Href"
+         class="@(active ? "cc-topnav__tab cc-topnav__tab--active" : "cc-topnav__tab")"
+         aria-current="@(active ? "page" : null)">@item.Label</a>
+    }
+  </nav>
+</div>

@@ -1,0 +1,21 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="MainLayout.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@inherits LayoutComponentBase
+
+<CcAppShell>
+  <TopNav>
+    <CcTopNav Items="NavItems" />
+  </TopNav>
+  <ChildContent>
+    @* Recovered on every navigation: a page that failed never blocks the next one. *@
+    <CcErrorBoundary @ref="_errorBoundary">
+      @Body
+    </CcErrorBoundary>
+  </ChildContent>
+</CcAppShell>
+
+<CcToast />
