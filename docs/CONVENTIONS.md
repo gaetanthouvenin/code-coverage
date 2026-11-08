@@ -1010,6 +1010,10 @@ Mécanisme central (exigence utilisateur, voir §16.3 point 4) :
   `General.Unexpected` : l'utilisateur ne voit jamais un code brut ni le message technique de
   l'exception.
 - Des tests vérifient que les deux langues ont les mêmes clés (`Web.Tests/Resources/`).
+- Dans ces quatre fichiers, chaque entrée tient sur une seule ligne
+  (`<data …><value>…</value></data>`), ce que vérifie un test : ils fusionnent en `merge=union`
+  (`.gitattributes`), et des entrées sur plusieurs lignes s'entremêleraient à la fusion. Un retour
+  à la ligne dans une valeur s'écrit `&#10;`.
 
 ### 11.6 UI maison
 

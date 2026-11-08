@@ -12,58 +12,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AccountMenu" xml:space="preserve">
-    <value>Menu du compte</value>
-  </data>
-  <data name="Breadcrumb" xml:space="preserve">
-    <value>Fil d'Ariane</value>
-  </data>
-  <data name="CloseMenu" xml:space="preserve">
-    <value>Fermer le menu</value>
-  </data>
-  <data name="Dismiss" xml:space="preserve">
-    <value>Fermer</value>
-  </data>
-  <data name="ErrorDescription" xml:space="preserve">
-    <value>Cette partie de la page n'a pas pu être affichée. Réessayez, ou rechargez la page.</value>
-  </data>
-  <data name="ErrorTitle" xml:space="preserve">
-    <value>Une erreur est survenue</value>
-  </data>
-  <data name="Home" xml:space="preserve">
-    <value>{0}, accueil</value>
-  </data>
-  <data name="Loading" xml:space="preserve">
-    <value>Chargement…</value>
-  </data>
-  <data name="MainNavigation" xml:space="preserve">
-    <value>Navigation principale</value>
-  </data>
-  <data name="MobileNavigation" xml:space="preserve">
-    <value>Navigation principale (mobile)</value>
-  </data>
-  <data name="Notifications" xml:space="preserve">
-    <value>Notifications</value>
-  </data>
-  <data name="OpenMenu" xml:space="preserve">
-    <value>Ouvrir le menu</value>
-  </data>
-  <data name="ProductName" xml:space="preserve">
-    <value>Coverage</value>
-  </data>
-  <data name="Retry" xml:space="preserve">
-    <value>Réessayer</value>
-  </data>
-  <data name="Search" xml:space="preserve">
-    <value>Rechercher</value>
-  </data>
-  <data name="SkipToContent" xml:space="preserve">
-    <value>Aller au contenu</value>
-  </data>
-  <data name="ThemeToDark" xml:space="preserve">
-    <value>Passer en thème sombre</value>
-  </data>
-  <data name="ThemeToLight" xml:space="preserve">
-    <value>Passer en thème clair</value>
-  </data>
+  <data name="AccountMenu" xml:space="preserve"><value>Menu du compte</value></data>
+  <data name="Breadcrumb" xml:space="preserve"><value>Fil d'Ariane</value></data>
+  <data name="CloseMenu" xml:space="preserve"><value>Fermer le menu</value></data>
+  <data name="Dismiss" xml:space="preserve"><value>Fermer</value></data>
+  <data name="ErrorDescription" xml:space="preserve"><value>Cette partie de la page n'a pas pu être affichée. Réessayez, ou rechargez la page.</value></data>
+  <data name="ErrorTitle" xml:space="preserve"><value>Une erreur est survenue</value></data>
+  <data name="Home" xml:space="preserve"><value>{0}, accueil</value></data>
+  <data name="Loading" xml:space="preserve"><value>Chargement…</value></data>
+  <data name="MainNavigation" xml:space="preserve"><value>Navigation principale</value></data>
+  <data name="MobileNavigation" xml:space="preserve"><value>Navigation principale (mobile)</value></data>
+  <data name="Notifications" xml:space="preserve"><value>Notifications</value></data>
+  <data name="OpenMenu" xml:space="preserve"><value>Ouvrir le menu</value></data>
+  <data name="ProductName" xml:space="preserve"><value>Coverage</value></data>
+  <data name="Retry" xml:space="preserve"><value>Réessayer</value></data>
+  <data name="Search" xml:space="preserve"><value>Rechercher</value></data>
+  <data name="SkipToContent" xml:space="preserve"><value>Aller au contenu</value></data>
+  <data name="ThemeToDark" xml:space="preserve"><value>Passer en thème sombre</value></data>
+  <data name="ThemeToLight" xml:space="preserve"><value>Passer en thème clair</value></data>
 </root>
