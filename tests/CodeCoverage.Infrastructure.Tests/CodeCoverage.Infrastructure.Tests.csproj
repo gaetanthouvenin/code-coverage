@@ -5,6 +5,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.*" />
+    <PackageReference Include="NetArchTest.Rules" Version="1.3.*" />
     <PackageReference Include="Testcontainers.MsSql" Version="4.*" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.*" />
     <PackageReference Include="WireMock.Net.Minimal" Version="2.*" />
