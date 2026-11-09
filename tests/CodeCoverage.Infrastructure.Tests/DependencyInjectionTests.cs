@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.GitHub;
@@ -24,6 +25,7 @@ using CodeCoverage.Infrastructure.PostgreSql;
 using CodeCoverage.Infrastructure.PostgreSql.Jobs;
 using CodeCoverage.Infrastructure.Reports;
 using CodeCoverage.Infrastructure.Reports.Codecs;
+using CodeCoverage.Infrastructure.Reports.Parsers;
 using CodeCoverage.Infrastructure.Security;
 using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.SqlServer;
@@ -108,6 +110,14 @@ public sealed class DependencyInjectionTests
     await using var services = Build(new Dictionary<string, string?>());
 
     services.GetRequiredService<IReportParserCatalog>().ShouldBeOfType<ReportParserCatalog>();
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheCoberturaParser()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+
+    services.GetRequiredService<IReportParserCatalog>().Find(ReportFormat.Cobertura).ShouldBeOfType<CoberturaParser>();
   }
 
   [Fact]
