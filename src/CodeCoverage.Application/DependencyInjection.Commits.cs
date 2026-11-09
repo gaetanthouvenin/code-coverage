@@ -23,6 +23,7 @@ public static partial class DependencyInjection
     services.AddScoped<CommitAncestry>();
     services.AddScoped<ConfigResolver>();
     services.AddScoped<RepositoryTreeProvider>();
+    services.AddScoped<DiffProvider>();
 
     return services;
   }

@@ -36,6 +36,12 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   private const string RawMediaType = "application/vnd.github.raw+json";
 
   /// <summary>The refusal of a resource that does not exist.</summary>
+  /// <summary>The size of a page of the files of a pull request.</summary>
+  private const int PullFilesPerPage = 50;
+
+  /// <summary>The number of pages that reach the 3000 files GitHub lists at most for a pull request.</summary>
+  private const int PullFilesMaxPages = 60;
+
   private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
 
   /// <summary>
@@ -202,6 +208,46 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
       GitHubGatewayMapper.ToForgePull,
       cancellationToken
     );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  /// <remarks>A last page that is full leaves the list marked truncated: GitHub cannot say whether a 3001st file exists.</remarks>
+  public async Task<ForgePullFiles?> ListPullFilesAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
+
+    var (installationId, root) = Locate(repository);
+    var files = new List<ForgeChangedFile>();
+
+    for (var page = 1; page <= PullFilesMaxPages; page++)
+    {
+      var read = await GetAsync<IReadOnlyList<GitHubCompareFile>, IReadOnlyList<ForgeChangedFile>>(
+                   installationId,
+                   string.Create(CultureInfo.InvariantCulture, $"{root}/pulls/{number}/files?per_page={PullFilesPerPage}&page={page}"),
+                   GitHubJsonContext.Default.IReadOnlyListGitHubCompareFile,
+                   NotFound,
+                   static list => [.. list.Select(GitHubGatewayMapper.ToForgeChangedFile)],
+                   cancellationToken
+                 ).ConfigureAwait(false);
+
+      if (read is null)
+      {
+        return null;
+      }
+
+      files.AddRange(read);
+
+      if (read.Count < PullFilesPerPage)
+      {
+        return new ForgePullFiles(files, Truncated: false);
+      }
+    }
+
+    return new ForgePullFiles(files, Truncated: true);
   }
 
   /// <inheritdoc />

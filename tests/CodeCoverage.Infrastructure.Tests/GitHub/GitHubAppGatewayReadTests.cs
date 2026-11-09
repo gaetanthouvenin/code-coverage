@@ -634,6 +634,91 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
 
   private static JsonNode FirstCommit() => FixtureNode("commits.json")[0]!.DeepClone();
 
+  [Fact]
+  public async Task ListPullFiles_ShouldReadEveryPage()
+  {
+    GivenFilesPage(1, 50);
+    GivenFilesPage(2, 3);
+
+    var files = (await _github.Gateway.ListPullFilesAsync(Repository, 1347, Cancellation)).ShouldNotBeNull();
+
+    files.Files.Count.ShouldBe(53);
+    files.Truncated.ShouldBeFalse();
+    files.Files[0].Path.ShouldBe("f0.cs");
+    files.Files[0].Status.ShouldBe(ForgeChangedFileStatus.Modified);
+    files.Files[0].Patch.ShouldBe("@@ -1 +1 @@\n-a\n+b");
+
+    var requests = ForgeRequests.ToList();
+    requests.Count.ShouldBe(2);
+    requests.ShouldAllBe(static r => r.Path == $"{Root}/pulls/1347/files");
+    requests[0].Query!["per_page"].ShouldBe(["50"]);
+    requests[1].Query!["page"].ShouldBe(["2"]);
+  }
+
+  // A full last page: GitHub lists 3000 files at most and cannot say whether there is one more.
+  [Fact]
+  public async Task ListPullFiles_ThreeThousandFiles_ShouldStopAndBeTruncated()
+  {
+    for (var page = 1; page <= 61; page++)
+    {
+      GivenFilesPage(page, 50);
+    }
+
+    var files = (await _github.Gateway.ListPullFilesAsync(Repository, 1347, Cancellation)).ShouldNotBeNull();
+
+    files.Files.Count.ShouldBe(3000);
+    files.Truncated.ShouldBeTrue();
+    ForgeRequests.Count().ShouldBe(60);
+  }
+
+  [Fact]
+  public async Task ListPullFiles_LastPageNotFull_ShouldNotBeTruncated()
+  {
+    for (var page = 1; page <= 59; page++)
+    {
+      GivenFilesPage(page, 50);
+    }
+
+    GivenFilesPage(60, 49);
+
+    var files = (await _github.Gateway.ListPullFilesAsync(Repository, 1347, Cancellation)).ShouldNotBeNull();
+
+    files.Files.Count.ShouldBe(2999);
+    files.Truncated.ShouldBeFalse();
+  }
+
+  [Fact]
+  public async Task ListPullFiles_WithoutPatch_ShouldKeepItUnknown()
+  {
+    GivenBody($"{Root}/pulls/1347/files", """[{"filename":"binary.png","status":"added"}]""");
+
+    var files = (await _github.Gateway.ListPullFilesAsync(Repository, 1347, Cancellation)).ShouldNotBeNull();
+
+    files.Files.ShouldHaveSingleItem().Patch.ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task ListPullFiles_NoSuchPull_ShouldReturnNull()
+  {
+    GivenStatus($"{Root}/pulls/1347/files", 404);
+
+    (await _github.Gateway.ListPullFilesAsync(Repository, 1347, Cancellation)).ShouldBeNull();
+  }
+
+  private void GivenFilesPage(int page, int count)
+  {
+    var files = new JsonArray();
+
+    for (var index = 0; index < count; index++)
+    {
+      files.Add(new JsonObject { ["filename"] = $"f{index}.cs", ["status"] = "modified", ["patch"] = "@@ -1 +1 @@\n-a\n+b" });
+    }
+
+    _github.Server
+           .Given(Request.Create().WithPath($"{Root}/pulls/1347/files").WithParam("page", page.ToString(CultureInfo.InvariantCulture)).UsingGet())
+           .RespondWith(Response.Create().WithBody(files.ToJsonString()));
+  }
+
   private async Task ReadEverythingAsync()
   {
     var gateway = _github.Gateway;

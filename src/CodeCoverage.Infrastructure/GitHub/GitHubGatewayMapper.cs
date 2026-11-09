@@ -150,7 +150,7 @@ internal static class GitHubGatewayMapper
   /// <param name="file">The file.</param>
   /// <returns>The changed file of the port.</returns>
   /// <exception cref="JsonException">The status is unknown.</exception>
-  private static ForgeChangedFile ToForgeChangedFile(GitHubCompareFile file)
+  public static ForgeChangedFile ToForgeChangedFile(GitHubCompareFile file)
   {
     var status = file.Status switch
     {
