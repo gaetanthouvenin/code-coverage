@@ -15,12 +15,13 @@
 - L'Api et le Web sont publiés sur **deux noms d'hôte distincts** : par exemple `coverage-api.example.com` pour l'Api et `coverage.example.com` pour le Web (les noms réels sont choisis au déploiement).
 - **Aucun routage par chemin** : chaque hôte est servi à la racine. Le reverse proxy (Caddy sur VM, ingress sur Azure Container Apps) termine TLS et route par nom d'hôte.
 - Les URL publiques sont des paramètres (`Urls:ApiPublicUrl`, `Urls:WebPublicUrl`) utilisés pour les liens du commentaire de PR, l'audience OIDC et la configuration de l'App.
+- **Exposition du Web (`docs/PLAN.md` §11-6, ADR-013) :** le Web est public, avec connexion GitHub, puisque des utilisateurs de plusieurs organisations doivent y accéder.
 
 ## Conséquences
 
 - **Positives :**
   - aucune collision de routes ni de `PathBase` ; configuration du proxy triviale ;
-  - le Web peut être restreint au réseau interne ou au VPN sans affecter l'Api ;
+  - le proxy peut appliquer à chaque hôte ses propres restrictions sans affecter l'autre ;
   - cookies d'authentification du Web isolés de l'Api.
 - **Négatives :**
   - deux enregistrements DNS et deux certificats à gérer ;
