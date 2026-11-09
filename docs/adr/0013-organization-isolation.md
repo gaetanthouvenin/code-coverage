@@ -1,6 +1,6 @@
 # ADR-013 : Isolation entre organisations sur une instance partagée
 
-- **Statut :** proposé, jusqu'à ce que M1.16d2 soit vert sur PostgreSQL et SQL Server ; passe alors à « accepté » (M1.16a2). Remplace [ADR-003](0003-single-tenant.md).
+- **Statut :** accepté le 2026-11-09 (M1.16a2), M1.16d2 et le jeton de concurrence étant verts sur PostgreSQL et SQL Server. Remplace [ADR-003](0003-single-tenant.md).
 - **Date :** 2026-11-08
 - **Références :** `docs/PLAN.md` §1.4, §4.4 (M1.16a1 à M1.16i), §10 et §11 ; `docs/ARCHITECTURE.md` §1.3, §3bis, §4.2, §5.1, §6.1, §8, §10.2 et §10bis, réécrits par M1.16a2 ; [ADR-014](0014-multi-forge.md) complète l'identité et les adresses
 
@@ -38,7 +38,7 @@ Quatre mécanismes tiennent l'isolation par construction.
 
 1. **Filtre EF sur les tables d'organisation.** Chaque table d'organisation porte une colonne fantôme `OrganizationId` non nulle, marquée par `IsOrganizationOwned`, et un unique filtre nommé `Organization` installé par une boucle dans `OnModelCreating`. Le filtre lit `ICurrentOrganization`, dont l'accesseur lève si le contexte n'est pas posé. Il n'y a **aucune clause pour le principal système**.
 2. **Aucun contournement.** `IgnoreQueryFilters` est interdit dans `src`, avec une liste d'exceptions vide. Ce qui précède l'entrée dans une organisation ne lit que des tables globales sans donnée métier : owner dans `Organizations`, `installation.id` dans `Installations`, hash de jeton API dans `ApiTokens`, utilisateur dans `OrganizationMemberships`. Le travail inter-organisations est un job coordinateur qui lit `Organizations` et met en file un enfant par organisation.
-3. **Une seule porte.** Une portée DI n'entre dans une organisation que par `AuthorizationBehavior` (à partir du login de l'owner, à chaque envoi, avant les validateurs), par `JobWorker` (à partir de la ligne `Jobs`) ou par `SystemCommandRunner` (CLI d'administration). L'entrée n'a lieu qu'une fois par portée. Chaque message déclare exactement un marqueur d'accès et sert une seule audience ; `IOrganizationScoped.RequiredRole` n'a pas de valeur par défaut. La mise en file pour une autre organisation par identifiant est limitée à une liste de sources nommées.
+3. **Une seule porte.** Une portée DI n'entre dans une organisation que par `AuthorizationBehavior` (à partir du login de l'owner, à chaque envoi, avant les validateurs), par `JobWorker` (à partir de la ligne `Jobs`) ou par `SystemCommandRunner` (CLI d'administration). L'entrée n'a lieu qu'une fois par portée. Chaque message déclare exactement un marqueur d'accès et sert une seule audience ; `IOrganizationScoped.RequiredRole` n'a pas de valeur par défaut. La mise en file pour une autre organisation par identifiant est limitée à une liste de sources nommées. La règle de build réserve `IOrganizationScope` à `AuthorizationBehavior` ; `JobWorker` emploie directement `OrganizationContext.Enter`, que cette règle ne couvre pas (voir « Risques résiduels »), et `SystemCommandRunner` n'existe pas encore (M1.22a).
 4. **Écritures, adresses et clés.** `SaveChanges` estampille les lignes ajoutées et lève sur une ligne modifiée ou supprimée d'une autre organisation. La colonne `OrganizationId` est aussi un jeton de concurrence, posé une seule fois dans `IsOrganizationOwned` : chaque `UPDATE` et chaque `DELETE` d'une sauvegarde la porte dans son `WHERE`, à côté de la clé primaire. Toute adresse routée contient l'owner. `SqlJobQueue` préfixe `LockKey` et `DedupKey` par l'organisation.
 
 ### Classement des 32 tables
@@ -117,6 +117,8 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - Une instance dont la colonne fantôme reçoit à la main l'organisation courante passe la garde, que la valeur soit écrite avant l'attachement ou après, avec ou sans sa valeur d'origine. Sans le jeton de concurrence, `Remove` supprime la ligne de l'autre organisation et `Update` la réécrit : les 18 cas d'attaque échouent sur les deux fournisseurs une fois le jeton retiré. Avec le jeton, le `WHERE` porte l'organisation courante, aucune ligne n'est touchée et la ligne de l'autre organisation reste intacte en base (`OrganizationConcurrencyTokenTests`). Le refus est identique pour une clé d'une autre organisation et pour une clé inconnue, et un échec n'écrit rien, y compris les lignes ajoutées dans la même sauvegarde.
 - Les deux migrations `AddOrganizationConcurrencyToken` sont vides : le jeton ne change que l'instantané du modèle. Une ligne lue par le contexte se modifie et se supprime comme avant, et `ExecuteUpdate` et `ExecuteDelete` ne sont pas affectés (`OrganizationWriteGuardTests`, `OrganizationFilterTests`).
 
+**Rejoué le 2026-11-09 pour passer à « accepté »**, avec Docker : les 272 tests d'`Infrastructure.Tests` portant sur `Persistence/Organizations`, `Identity`, la file de jobs, `OrganizationSettingsProviderTests` et `RepositoryIsolationCoverageTests` sont verts sur les deux fournisseurs, aucun n'étant ignoré. Les 129 tests d'`Architecture.Tests` et les 37 tests d'`AuthorizationBehaviorTests` et `PipelineOrderTests` sont verts.
+
 **Probable**, non exécuté à la date de cette décision :
 
 - Les comportements GitHub : SAML et `GET /user/installations`, collaborateurs externes dans cette liste, contenu de l'événement `transferred`, réception de `installation_repositories` par l'origine, `installation_target` sur les deux types de compte, secrets Actions après un transfert, lecture d'un dépôt public d'un autre compte par un jeton d'installation, forme `/repositories/{id}` sur chaque endpoint. **M4.02a les vérifie sur deux comptes réels avant M4.08** ; le pilote M1.47 exerce la forme par identifiant plus tôt.
@@ -127,10 +129,11 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - Entre un transfert et la réconciliation de l'origine, un jeton de dépôt resté dans les secrets du dépôt transféré peut encore écrire sur l'ancienne ligne. La fenêtre est bornée par l'événement du destinataire, ou par la synchronisation quotidienne s'il est perdu.
 - Un jeton d'organisation présent dans les secrets d'un dépôt transféré reste valide jusqu'à sa rotation manuelle ; la conception ne pose qu'un bandeau audité (`RotationAdvisedAt`), car une révocation aveugle casserait les autres dépôts de l'origine.
 - Sans clé étrangère composite, un bogue écrivant l'identifiant d'un parent d'une autre organisation n'est pas refusé par la base. La ligne reste dans l'organisation qui écrit et se lit vide sous le filtre.
-- Qui exploite la base, les sauvegardes et les journaux voit toutes les organisations ; `docs/ARCHITECTURE.md` §12.5 et §12.6 le diront (M1.16a2). La console d'instance n'expose aucune donnée métier.
+- Qui exploite la base, les sauvegardes et les journaux voit toutes les organisations ; `docs/ARCHITECTURE.md` §12.5 et §12.6 le disent. La console d'instance n'expose aucune donnée métier.
 - Le retard de jobs d'une organisation peut retarder les statuts d'une autre tant que la réclamation équitable n'existe pas ; seule une mesure pendant le pilote dira si cela compte.
 - Les données d'une organisation suspendue sont conservées sans limite tant que l'effacement n'est pas construit, ce qui peut compter face à une demande légale.
 - Les administrateurs d'organisation ne voient ni leurs échecs de job ni leur audit, et l'administrateur d'instance ne voit que des métadonnées : diagnostiquer un job échoué peut demander un accès opérateur aux journaux.
+- La règle de build de la seule porte ne couvre que `IOrganizationScope`, réservé à `AuthorizationBehavior`. `OrganizationContext.Enter` est `internal`, ce qui le tient hors de l'Application et des hôtes, mais aucune règle ne limite ses appelants dans l'Infrastructure : `OrganizationScope` et `JobWorker` sont les seuls à ce jour, et seule la revue garde cet état. L'ajout d'une règle reste à décider.
 
 ## Conséquences
 
@@ -142,7 +145,7 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
   - 21 micro-features nouvelles et 58 modifiées, soit environ 48 sessions estimées ;
   - M1.17 attend M1.16d2 et M1.16f ;
   - `/api/v1/uploads/{id}` et `/api/v1/repos` sont remplacées par des routes portant l'owner ou l'organisation ;
-  - `docs/ARCHITECTURE.md` et `AGENT.md` décrivent encore une organisation unique jusqu'à M1.16a2, qui attend la preuve de M1.16d2.
+  - `docs/ARCHITECTURE.md` et `AGENT.md` ont décrit une organisation unique jusqu'à M1.16a2, qui attendait la preuve de M1.16d2.
 
 ## Alternatives écartées
 

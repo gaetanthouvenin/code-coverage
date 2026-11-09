@@ -11,8 +11,11 @@
 
 1. **Codecov formula and behaviour.** `coverage = hits / (hits + misses + partials)`. A repository
    that works with Codecov keeps the same `codecov.yml`, the same status names and the same
-   secrets; every difference with Codecov is named, documented and configurable.
-2. **The diff always comes from the GitHub API**, never from the git history of the CI agent
+   secrets; every difference with Codecov is named, documented and configurable, except the
+   differences of multi-organization hosting and of the forges that ADR-013 and ADR-014 name as not
+   configurable. The compatibility holds for GitHub, Bitbucket and GitLab; Azure DevOps has no Codecov
+   reference, so it follows GitHub and ADR-014 names its differences.
+2. **The diff always comes from the forge API**, never from the git history of the CI agent
    (shallow clones must work). The commit is always the head of the pull request, never the
    synthetic merge commit.
 3. **No heavy work in an HTTP request.** Uploads and webhooks are stored, queued in the database
@@ -27,8 +30,20 @@
    `Get{Thing}ViewModelAsync`).
 6. **Coverage tooling never breaks a build.** The uploader exits with 0 unless `--fail-on-error`.
 7. **Settings live in the database**, are edited in the web console and reloaded without a restart
-   (`IOptionsMonitor<T>`). The environment only carries the bootstrap values (connection string,
-   provider, Data Protection); no functional parameter in `appsettings.json`.
+   (`IOptionsMonitor<T>`). The 4 settings of an organization (`SettingScope.Organization`) are read
+   through the scoped `IOrganizationSettingsProvider` instead. The environment only carries the
+   bootstrap values (connection string, provider, Data Protection); no functional parameter in
+   `appsettings.json`.
+8. **Isolation between organizations (ADR-013).** Every table of the model is classified in
+   `TableClassification` (organization, operational or global); a test fails until a new one is.
+   An organization table is declared with `IsOrganizationOwned`. `IgnoreQueryFilters` is never used
+   in `src`, with no exception: cross-organization work is a coordinator job that queues one child
+   per organization. A DI scope enters an organization only through the door of ADR-013:
+   `AuthorizationBehavior` through `IOrganizationScope` for a message, `JobWorker` from the `Jobs`
+   row for a job, and `SystemCommandRunner` for the administration command line once it exists
+   (M1.22a). The build restricts `IOrganizationScope` to `AuthorizationBehavior`; no build rule
+   covers the callers of `OrganizationContext.Enter`, which is only `internal` to the Infrastructure
+   (ADR-013, residual risks).
 
 ---
 
@@ -41,6 +56,8 @@
 | Solution | `CodeCoverage.slnx` |
 | Projects | `CodeCoverage.{Domain,Application,Infrastructure,Infrastructure.PostgreSql,Infrastructure.SqlServer,Api,Web,Uploader}` |
 | Configuration section | `CodeCoverage:` (bootstrap) plus the setting groups of the database (`GitHub:`, `Uploads:`, `Processing:`…) |
+| Organization table | shadow column `OrganizationId` and query filter `Organization`, declared by `IsOrganizationOwned` |
+| Organization setting | `SettingScope.Organization` in `SettingDefinitions`, stored in `OrganizationSettings` |
 | Hosts | two host names chosen at deployment, e.g. Web `coverage.example.com`, Api `coverage-api.example.com` |
 | Images | `${IMAGE_PREFIX}-api`, `${IMAGE_PREFIX}-web`: `code-coverage-*` locally, `ghcr.io/<owner>/code-coverage-*` from the CI |
 | Uploader | `dotnet tool` `coverage-upload` (`net8.0;net10.0`), plus standalone binaries served by the Api |
@@ -105,6 +122,8 @@ messages.
 | An API endpoint | an MVC controller `Api/Controllers/{Resource}Controller.cs` under `/api/v1` (no minimal API), contracts in `Api/Contracts/`, mapper in `Api/Mapping/{Feature}Mapper.cs`; its XML `<summary>` / `<remarks>` feed Swagger and Scalar |
 | A screen | `Web/Components/Pages/{Name}.razor(.cs)`, ViewModels in `Web/ViewModels/{Feature}/`, mapper in `Web/Mapping/{Feature}Mapper.cs`, sent through `UiRequestRunner` |
 | A setting | a `SettingDefinition` of `Domain/Settings/SettingDefinitions`, bound to an options class read through `IOptionsMonitor<T>` |
+| A setting of an organization | a `SettingDefinition` of `SettingScope.Organization` (never secret) and a member of `OrganizationSettingsSnapshot`, read through `IOrganizationSettingsProvider` |
+| A table of an organization | `IsOrganizationOwned()` in its `Persistence/Configurations/` file (`HasOrganizationForeignKey()` only when its unique index starts with `OrganizationId`), its name in `TableClassification.OrganizationOwned`, and a test class on two organizations for its repository |
 
 ## 4. Tests
 

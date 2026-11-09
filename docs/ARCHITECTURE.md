@@ -11,7 +11,7 @@
 
 ### 1.1 Objectif
 
-Remplacer `codecov.io` par un service interne et pouvoir résilier l'abonnement à la fin du MVP. Le service ingère les rapports Cobertura, LCOV, OpenCover, JaCoCo et Clover produits par GitHub Actions et Azure Pipelines. Il publie sur GitHub des statuts de commit et un commentaire de PR, sert des badges SVG et affiche l'historique de couverture.
+Remplacer `codecov.io` par un service auto-hébergé et pouvoir résilier l'abonnement à la fin du MVP. Une même instance héberge plusieurs organisations, isolées les unes des autres (ADR-013). Le service ingère les rapports Cobertura, LCOV, OpenCover, JaCoCo et Clover produits par GitHub Actions et Azure Pipelines. Il publie sur GitHub des statuts de commit et un commentaire de PR, sert des badges SVG et affiche l'historique de couverture.
 
 ### 1.2 MVP : ce qui est livré avant la résiliation
 
@@ -27,17 +27,20 @@ Transverse MVP :
 - GitHub Actions et Azure Pipelines, y compris les clones superficiels (`fetchDepth: 1`) ;
 - jetons d'upload organisation et dépôt, import des `CODECOV_TOKEN` existants, OIDC GitHub Actions ;
 - connexion GitHub avec contrôle d'accès par dépôt ;
+- plusieurs organisations sur une instance, admises une à une par un administrateur d'instance (ADR-013) ;
 - paramètres stockés en base, rechargés à chaud et édités dans l'UI ;
 - PostgreSQL et SQL Server ;
 - source annotée (lignes couvertes, manquées ou partielles) lue en direct depuis GitHub.
 
 ### 1.3 Hors périmètre
 
-Test analytics, bundle analysis, notifications Slack/Teams/e-mail, GraphQL, facturation et sièges, GitLab/Bitbucket, multi-tenant.
+Test analytics, bundle analysis, notifications Slack/Teams/e-mail, GraphQL, facturation et sièges. GitLab auto-hébergé et les versions serveur des forges restent hors portée.
+
+L'identité, les adresses et le port principal sont indépendants de la forge (ADR-014), mais seul GitHub est implémenté avant la bascule. Azure DevOps Services, Bitbucket Cloud et GitLab.com sont des jalons ultérieurs (M7, M8 et M9).
 
 ### 1.4 Principes non négociables
 
-1. **Le diff est toujours calculé côté serveur, via l'API GitHub.** L'historique git de l'agent CI n'est jamais lu, donc les clones superficiels ne gênent pas.
+1. **Le diff est toujours calculé côté serveur, via l'API de la forge.** L'historique git de l'agent CI n'est jamais lu, donc les clones superficiels ne gênent pas.
 2. **Le SHA attribué est toujours celui de la tête de PR, jamais celui du commit de merge synthétique.** L'uploader le détecte, et le serveur corrige ce que l'uploader aurait manqué (§6.2).
 3. **Formule Codecov exacte :** `coverage = hits / (hits + misses + partials)`.
 4. **Aucun travail lourd dans une requête HTTP.** Uploads et webhooks sont mis en file, puis traités par le worker.
@@ -52,7 +55,7 @@ flowchart LR
   subgraph CI["CI (GitHub Actions / Azure Pipelines)"]
     U["coverage-upload<br/>(dotnet tool / binaire / curl)"]
   end
-  subgraph GH["GitHub (organisation servie)"]
+  subgraph GH["GitHub (organisations admises)"]
     APP["GitHub App<br/>CodeCoverage"]
   end
   subgraph Host["Docker (VM) ou Azure Container Apps"]
@@ -67,19 +70,21 @@ flowchart LR
   WEB -- "contents (source annotée, après contrôle d'accès)" --> GH
   API <--> DB
   WEB <--> DB
-  Browser["Navigateurs (équipe)"] --> WEB
+  Browser["Navigateurs (utilisateurs connectés)"] --> WEB
   Readme["README (camo)"] -- "badge.svg?token=" --> API
 ```
 
 | Composant | Rôle |
 |---|---|
 | **Api** (`CodeCoverage.Api`) | API REST `/api/v1`, endpoint d'upload, webhooks GitHub, badges, téléchargement de l'uploader, Swagger/Scalar. Héberge le **JobWorker** (file de jobs en base) et applique les migrations au démarrage. Joignable par GitHub, par les agents CI et par camo. |
-| **Web** (`CodeCoverage.Web`) | UI Blazor Server. Exécute **en process** les mêmes commandes et requêtes de l'Application que l'Api, via le médiateur. Pas de worker, pas de migrations. Peut rester limité au réseau interne. |
+| **Web** (`CodeCoverage.Web`) | UI Blazor Server. Exécute **en process** les mêmes commandes et requêtes de l'Application que l'Api, via le médiateur. Pas de worker, pas de migrations. Public, avec connexion GitHub (ADR-013). |
 | **Base** | PostgreSQL 17 par défaut ; SQL Server 2022 et Azure SQL sont supportés. Elle contient tout l'état : rapports, uploads bruts (en morceaux), jobs, paramètres et clés Data Protection. |
-| **GitHub App** | Une seule application privée, installée sur l'organisation servie (`<owner>`, paramètre `GitHub:Organization`). Elle porte l'identité serveur (statuts, commentaires, diff, webhooks) et la connexion des utilisateurs (user-to-server tokens). |
+| **GitHub App** | Une seule application publique, partagée par les organisations, installable par tout compte et inerte tant que ce compte n'est pas admis (ADR-013). Elle porte l'identité serveur (statuts, commentaires, diff, webhooks) et la connexion des utilisateurs (user-to-server tokens). |
 | **Uploader** | `coverage-upload` : détecte le contexte CI, envoie `git ls-files` et les rapports bruts compressés. |
 
 Il n'y a ni Redis, ni MinIO, ni TimescaleDB, ni Hangfire, ni SPA séparée. Le Web et l'Api sont publiés sur **deux noms d'hôte** (choisis au déploiement, par exemple `coverage.example.com` pour le Web et `coverage-api.example.com` pour l'Api). Aucun routage par chemin n'est nécessaire.
+
+**Organisations (ADR-013) :** une organisation est un compte d'une forge, admis par un administrateur d'instance. Ses données sont isolées par une colonne `OrganizationId` sur les tables d'organisation (§4.2), et une portée DI n'entre dans une organisation que par la porte décrite au §3bis.2.
 
 **Cycle de vie d'un upload :**
 1. `POST /uploads` : authentification, puis stockage brut en morceaux et `Upload(Received)`. Le job `ProcessUpload` est mis en file et la réponse est 202.
@@ -241,7 +246,9 @@ Ports/
   ICommitConfigRepository, IUploadTokenRepository, IApiTokenRepository, IUserRepository, IUserRepositoryAccessRepository,
   IWebhookDeliveryRepository, IJobQueue, IJobMonitor, IRawUploadStore, IReportParserCatalog, IReportParser,
   ICoverageReportCodec, ICoverageConfigParser, IGitHubAppGateway, IGitHubUserGateway, IOidcTokenValidator,
-  ISecretProtector, ITokenHasher, ISettingsStore, ICurrentUser, IClock, IAuditLog
+  ISecretProtector, ITokenHasher, ISettingsStore, ICurrentUser, IClock, IAuditLog, ICurrentOrganization, IOrganizationScope,
+  IOrganizationDirectory, IOrganizationSettingsProvider, IOrganizationSettingRepository, IOrganizationMembershipRepository,
+  IOrganizationRoleResolver, IForgeGateway, IForgeGatewayProvider
 Contracts/
   GitHub/   GitHubRepositoryInfo, GitHubCommitInfo (Sha, ParentShas, Message, AuthorLogin, CommittedAt),
             GitHubCompareResult (MergeBaseSha, AheadBy, BehindBy, Files, Truncated), GitHubChangedFile (Path, PreviousPath,
@@ -249,12 +256,13 @@ Contracts/
             GitHubWebhookEvent (Event, Action, DeliveryId, payload fields)
   Uploads/  UploadPart (Kind Report|Network, FileName, Stream Content), UploadCredential (VO, redacted ToString),
             UploadMetadata (Slug, Sha, Branch, PullNumber, ParentSha, Flags, Name, Ci, Root, UploaderVersion), CiContext
-  Jobs/     JobRequest (Type, LockKey, DedupKey?, PayloadJson, RunAfter, Coalesce, MaxDelay?)
+  Jobs/     JobRequest (Create, ForInstance, ForOrganization ; Type, LockKey, DedupKey?, PayloadJson, RunAfter, Coalesce, MaxDelay?)
   Identity/ GitHubOidcIdentity (Repository, RepositoryId, RepositoryOwner, Ref, EventName)
 Coverage/      LineCoverage, LineKind, LineState, FileCoverage, CoverageReport, CoverageTotals, ParsedReport, ParsedFile,
                ReportFormat, CoverageMath, ReportMerger, ReportView (filtrage flags + paths)
 Paths/         PathFixer, PathFixContext, PathFixResult, NetworkIndex, PathPattern, PathPatternSet, FixRule
 Diffs/         FileDiff, FileDiffStatus, Hunk, UnifiedDiffParser, LineShifter, DiffSet (Complete/Truncated, Source)
+Organizations/ Organization, OrganizationState, OrganizationAccountType, OrganizationRole, SuspensionReason, Forge, ReservedLogins
 Repositories/  TrackedRepository, Installation, Branch, RepositorySlug (VO : "owner/repo" et "owner::::repo")
 Commits/       Commit, CommitState, GitCommit, Session, SessionKind, Upload, UploadState, ProcessingLog, CommitFlagTotals,
                CarryforwardBuilder, CarryforwardPlan
@@ -272,7 +280,8 @@ Users/         AppUser, RepositoryPermission, RepositoryAccess
 History/       CoveragePoint, CoverageSeries                          (read models)
 Operations/    JobSummary, WebhookDeliverySummary, SystemStatus      (read models pour l'admin)
 Source/        AnnotatedSource, AnnotatedLine                        (read model de la source annotée)
-Settings/      SettingDefinition, SettingDefinitions (catalogue), SettingValue, SettingSource
+Settings/      SettingDefinition, SettingDefinitions (catalogue), SettingValue, SettingSource, SettingScope,
+               OrganizationSettingsSnapshot
 IDomainEvent.cs, IHasDomainEvents.cs
 ```
 
@@ -287,7 +296,8 @@ Behaviors/   LoggingBehavior, AuthorizationBehavior, ValidationBehavior
 Exceptions/  ApplicationException, BadRequestException, ValidationException, UnauthorizedException, ForbiddenException,
              NotFoundException, ConflictException, UnprocessableEntityException, BadGatewayException,
              RetryLaterException (interne au worker, jamais exposée en HTTP), ErrorCodes/GeneralErrors.cs
-Security/    IRepositoryScoped (Owner, Name, RequiredPermission), IAdminOnly, ISystemOnly
+Security/    IRepositoryScoped (Forge, Owner, Name, RequiredPermission), IOrganizationScoped (Forge, Login, RequiredRole),
+             IPublicOwnerAddressed (Forge, Owner), IAnonymousEntry, IUserScoped, IAdminOnly, ISystemOnly, SecurityErrors
 Services/    UploadAuthenticator, CommitMerger, BaseResolver, DiffProvider, ComparisonBuilder, CommentComposer,
              NotificationService, ConfigResolver, BranchHeadTracker
 Features/    (tableau ci-dessous)
@@ -301,12 +311,33 @@ DependencyInjection.cs
   - **Ne sérialise jamais le message.** Ni le jeton, ni le flux d'upload ne peuvent donc fuir.
   - Niveaux : `Warning` pour un refus `ApplicationException`, `Error` pour le reste.
 - **`AuthorizationBehavior`**
-  - Messages `IRepositoryScoped` : `IRepositoryAccessService.CanAsync(user, repo, permission)` est appelé. Sans droit de lecture, le behavior lève `NotFoundException(Repository.NotFound)` pour ne pas révéler l'existence d'un dépôt privé. Sans droit d'administration, il lève `ForbiddenException`.
-  - Messages `IAdminOnly` : `ICurrentUser.IsAdmin` est exigé.
-  - Messages `ISystemOnly` (jobs, webhooks) : seul le principal système du worker peut les envoyer.
-  - **Principal système :** le worker et le traitement des webhooks s'exécutent avec `ICurrentUser.IsSystem = true`, qui passe tous les contrôles. Les hôtes HTTP ne peuvent jamais produire ce principal.
-  - Les commandes d'upload ne sont pas `IRepositoryScoped`. Leur identifiant est vérifié par `UploadAuthenticator` dans le handler.
+  - **Porte d'entrée dans une organisation (ADR-013).** Elle s'exécute à chaque envoi, avant les validateurs : l'owner reçu est donc brut, et un owner nul ou mal formé ne produit qu'une entrée refusée, jamais une erreur serveur.
+  - **Marqueurs.** `MessageMarkerTests` exige que chaque message de l'Application déclare exactement un marqueur d'accès de `Application/Security` :
+
+    | Marqueur | Entrée dans l'organisation | Refus |
+    |---|---|---|
+    | `IRepositoryScoped` | par `IOrganizationScope`, à partir de ce qui précède le premier `:` de l'owner | `NotFoundException(Repository.NotFound)` |
+    | `IOrganizationScoped` | par `IOrganizationScope`, à partir du login | `NotFoundException(Organization.NotFound)` |
+    | `IPublicOwnerAddressed` | si l'organisation est `Active` ; sinon la portée reste non posée | aucun ici : le handler authentifie le credential |
+    | `IAnonymousEntry` | aucune | aucun |
+    | `IUserScoped` | aucune | `UnauthorizedException(Access.Unauthenticated)` sans utilisateur connecté |
+    | `IAdminOnly` | aucune : une lecture filtrée y lève | `UnauthorizedException(Access.Unauthenticated)`, puis `ForbiddenException(Access.Forbidden)` |
+    | `ISystemOnly` | celle du job | `ForbiddenException(Access.Forbidden)` pour tout autre expéditeur |
+
+  - **Contrôle d'accès.** Jusqu'à M3.04, tout expéditeur non système d'un message `IRepositoryScoped` ou `IOrganizationScoped` est refusé après la tentative d'entrée, qu'elle réussisse ou non : la réponse ne dépend donc pas de l'état de l'organisation. À partir de M3.04, `IRepositoryAccessService.CanAsync(user, repo, permission)` décide : sans droit de lecture, le behavior lève `NotFoundException(Repository.NotFound)` pour ne pas révéler l'existence d'un dépôt privé ; sans droit d'administration, il lève `ForbiddenException`.
+  - **Principal système :** le worker, donc aussi le traitement des webhooks, s'exécute avec `ICurrentUser.IsSystem = true`. Ce principal passe tous les contrôles et garde la portée du job : le behavior n'y entre dans aucune organisation. `CurrentUserContext.SetSystem` est `internal` : les hôtes HTTP ne peuvent jamais produire ce principal (`SetSystem_ShouldNeverBeVisibleFromTheHosts`). La seule exception prévue est la CLI d'administration, qui n'est pas une requête HTTP : `AdminCommandLine` (M1.23) exécutera une liste nommée de commandes par `SystemCommandRunner` (M1.22a). Aucun des deux n'existe encore, et `Source_SystemCommandRunner_ShouldStayInAdminCommandLine` réserve déjà ce type à ce fichier.
+  - Les commandes d'upload sont `IPublicOwnerAddressed`, et non `IRepositoryScoped`. Leur identifiant est vérifié par `UploadAuthenticator` dans le handler.
 - **`ValidationBehavior`** : FluentValidation 12. En cas d'échec, lève `ValidationException` (400, `General.ValidationFailed`, erreurs groupées par propriété).
+
+**Une seule porte (ADR-013).** Une portée DI n'entre dans une organisation que par l'un de ces chemins, et une seule fois : `OrganizationContext.Enter` est sans effet pour la même organisation et lève pour une autre.
+
+| Chemin | Source de l'organisation | État |
+|---|---|---|
+| `AuthorizationBehavior`, par `IOrganizationScope.TryEnterAsync` (organisations `Active` seulement) | forge et login portés par le message | livré |
+| `JobWorker`, par `OrganizationContext.Enter` | colonne `Jobs.OrganizationId`, jamais le payload | livré |
+| `SystemCommandRunner` (CLI d'administration) | organisation facultative du verbe d'administration | M1.22a |
+
+`OrganizationIsolationTests` réserve `IOrganizationScope` à `AuthorizationBehavior` et interdit `IgnoreQueryFilters` sans exception. Aucune règle de build ne couvre en revanche les appelants d'`OrganizationContext.Enter`, employé par `OrganizationScope` et `JobWorker` : `internal` les tient hors de l'Application et des hôtes, mais rien n'empêcherait un autre appelant dans l'Infrastructure. Ce risque résiduel est consigné dans ADR-013.
 
 **Exceptions (§6 des conventions)**
 
@@ -316,7 +347,7 @@ DependencyInjection.cs
 | `UnauthorizedException` | 401 | Jeton d'upload ou API absent ou invalide, utilisateur non connecté |
 | `ForbiddenException` | 403 | Jeton non valable pour ce dépôt, rôle d'administrateur manquant |
 | `NotFoundException` | 404 | Dépôt, commit ou upload inconnu (ou masqué) |
-| `ConflictException` | 409 | Concurrence (`Version`), job non relançable |
+| `ConflictException` | 409 | Concurrence (`Version`), écriture d'une table d'organisation qui n'a touché aucune ligne (`General.ConcurrentChange`, §4.2), job non relançable |
 | `UnprocessableEntityException` | 422 | Règle métier ou « BusinessRule » : dépôt désactivé, paramètre fourni par l'environnement, commit compacté |
 | `BadGatewayException` | 502 | GitHub indisponible (5xx, timeout) |
 
@@ -373,10 +404,33 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 
 ### 4.2 Tables
 
+**Classement des 32 tables (ADR-013).** Chaque table du modèle appartient à une seule classe, listée dans `TableClassification`. `Model_EveryEntity_ShouldBeClassifiedOnce` fait échouer le build pour une table non classée.
+
+| Classe | Tables |
+|---|---|
+| **D'organisation, filtrées (21)** | `Repositories`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06) |
+| **Opérationnelles, `OrganizationId` nullable, sans filtre (3)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` |
+| **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
+
+**État à ce jour.** Ce classement et le tableau des colonnes décrivent le modèle cible. Seules `Organizations`, `OrganizationSettings`, `Jobs`, `AuditEntries`, `Settings`, `SettingsRevision` et `DataProtectionKeys` existent en base, et `TableClassification` ne liste que celles-là : chaque micro-feature y ajoute ses tables (M1.17 pour `Repositories`, `Branches` et `Installations`). `AuditEntries` n'a pas encore sa colonne `OrganizationId` (M1.16g2).
+
+**Isolation par construction.** Ces règles sont prouvées sur PostgreSQL et SQL Server par `Infrastructure.Tests/Persistence/Organizations`, sur `OrganizationSettings`, seule table d'organisation à ce jour.
+
+- **Filtre.** `IsOrganizationOwned` ajoute la colonne fantôme `OrganizationId` non nulle et marque l'entité, et `OnModelCreating` installe dans une boucle l'unique filtre nommé `Organization`. Il couvre les requêtes, `ExecuteUpdate` et `ExecuteDelete`, lit l'organisation du contexte à chaque requête et lève si la portée n'en a pas : il n'a aucune clause pour le principal système.
+- **Estampille et garde.** `SaveChanges` et `SaveChangesAsync` estampillent une ligne ajoutée et lèvent `InvalidOperationException`, sans rien écrire, sur une ligne modifiée, supprimée ou ajoutée au nom d'une autre organisation. La colonne fantôme ne voyage pas avec une instance : une ligne d'organisation doit être lue par le contexte qui l'écrit.
+- **Jeton de concurrence.** `IsOrganizationOwned` fait aussi de la colonne un jeton de concurrence : chaque `UPDATE` et chaque `DELETE` d'une sauvegarde la porte dans son `WHERE`, à côté de la clé primaire. Une instance dont la colonne a été écrite à la main passe la garde, mais n'atteint aucune ligne d'une autre organisation.
+- **Refus.** Une instruction d'une table d'organisation qui n'affecte aucune ligne lève `ConflictException` (`General.ConcurrentChange`, 409), que le worker rejoue. Le message est le même pour une ligne supprimée entre-temps, une clé inconnue et une clé d'une autre organisation, que la base ne distingue pas. `Organizations`, table globale, garde `DbUpdateConcurrencyException` pour la reprise de son upsert.
+- **Clés étrangères.** Seules `Repositories`, `UploadTokens`, `OrganizationSettings` et `UserRepositoryAccess`, dont l'index unique commence par `OrganizationId`, ont une clé étrangère vers `Organizations`. Les clés étrangères composites ne sont pas utilisées.
+
+La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour les tables d'organisation.
+
 | Table | Colonnes principales (PK en gras) | Index et remarques |
 |---|---|---|
-| **Installations** | **Id** (id d'installation GitHub, bigint), AccountLogin, AccountType, SuspendedAt?, CreatedAt, UpdatedAt | — |
-| **Repositories** | **Id**, GitHubId bigint, InstallationId FK, Owner, Name, DefaultBranch, IsPrivate, IsActive, BadgeTokenProtected (Data Protection, affichable dans le snippet README), DefaultBranchYaml?, DefaultBranchYamlSha?, CreatedAt, UpdatedAt, Version | UX(GitHubId) ; UX(Owner, Name). Owner et Name sont mis à jour lors d'un renommage ; GitHubId reste l'identité stable. |
+| **Organizations** | **Id**, Forge, ExternalAccountId (texte, ≤ 40, en minuscules), Login (≤ 255), NormalizedLogin, AccountType, State (`Pending`, `Active`, `Suspended`), SuspensionReason?, AdmittedBy?, CreatedAt, UpdatedAt, Version | UX(Forge, ExternalAccountId) ; UX(Forge, NormalizedLogin), sans filtre. Un login repris par un autre compte de la même forge devient `~stale-{ExternalAccountId}` sur l'ancienne ligne. |
+| **OrganizationMemberships** | **Id**, UserId, OrganizationId, Role (`Participant`, `Admin`), RefreshedAt | UX(UserId, OrganizationId). Une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien. |
+| **OrganizationSettings** | **Id**, Key, Value, UpdatedAt, UpdatedBy | UX(OrganizationId, Key). Valeurs des 4 clés de portée `Organization` (§4bis.1). |
+| **Installations** | **Id** (id d'installation GitHub, bigint), OrganizationId FK, AccountType, SuspendedAt?, CreatedAt, UpdatedAt | Table propre à GitHub (ADR-014). Le login du compte est dans `Organizations`. |
+| **Repositories** | **Id**, ExternalId (texte), InstallationId FK, Namespace (≤ 512, chaîne vide hors projet Azure DevOps et sous-groupes GitLab), NormalizedNamespace, Owner, Name, NormalizedName, DefaultBranch, IsPrivate, IsActive, BadgeTokenProtected (Data Protection, affichable dans le snippet README), DefaultBranchYaml?, DefaultBranchYamlSha?, CreatedAt, UpdatedAt, Version | UX(OrganizationId, ExternalId) ; UX(OrganizationId, NormalizedNamespace, NormalizedName). Owner et Name sont mis à jour lors d'un renommage ; ExternalId reste l'identité stable. Owner n'est qu'une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler la forge. |
 | **Branches** | **RepositoryId, Name**, HeadSha, HeadUpdatedAt, CoveredCommitId? (FK Commits), CoveredAt?, Version | Source des badges et de la vue « dernier état ». La FK de `CoveredCommitId` est posée par la migration qui crée `Commits`. |
 | **GitCommits** | **RepositoryId, Sha** char(40), ParentShas (json), Message (≤ 1000), AuthorLogin, CommittedAt (date committer GitHub), FetchedAt | Cache immuable des métadonnées GitHub, rempli par `GET /commits?sha=X&per_page=50` (une chaîne d'ancêtres par appel). |
 | **Commits** | **Id**, RepositoryId, Sha, Branch?, PullNumber?, State (`Known`, `Pending`, `Complete`, `Error`, `Compacted`), UploadSequence int, Files, Lines, Hits, Misses, Partials, Branches, Methods, Coverage decimal(9,5)?, SessionCount, UploadedSessionCount, ReportRevision, CarryforwardStatus (`None`, `Applied`, `AncestorPending`, `NotFound`), ConfigSource (chaîne libre : `Source` de `CommitConfigs`, ou `codecov-import`), LastUploadAt?, CompletedAt?, NotifiedAt?, CreatedAt, UpdatedAt, Version | UX(RepositoryId, Sha) ; IX(RepositoryId, Branch, CompletedAt). `Known` désigne un commit vu par webhook, sans upload. |
@@ -393,16 +447,17 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 | **CommitConfigs** | **RepositoryId, Sha**, Source (`Commit`, `RepositoryDefault`, `Organization`, `Builtin`), Path?, RawYaml?, Warnings (json), Errors (json), FetchedAt | YAML immuable par SHA, donc cache définitif. |
 | **DiffCache** | **RepositoryId, BaseSha, HeadSha, Kind** (`Compare`, `PullFiles`), Data (gzip json des `FileDiff`), Incomplete, FetchedAt | Immuable ; purgé à 30 jours. |
 | **RepositoryTrees** | **RepositoryId, Sha**, Data (gzip : chemin et SHA de blob), Truncated, FetchedAt | Repli pour la liste réseau ; vérification « fichier inchangé » du carryforward. |
-| **UploadTokens** | **Id**, Scope (`Organization`, `Repository`), Owner, RepositoryId?, Label, Hint (préfixe ou 4 derniers caractères), Hash binary(32), Imported bool, CreatedBy, CreatedAt, ExpiresAt?, LastUsedAt?, RevokedAt? | UX(Hash). Format `cvc_` + 43 caractères base64url, ou UUID Codecov importé. |
-| **ApiTokens** | **Id**, UserId FK, Name, Hint, Hash binary(32), CreatedAt, ExpiresAt?, LastUsedAt?, RevokedAt? | UX(Hash). Format `cvp_…`. |
-| **Users** | **Id**, GitHubId, Login, AvatarUrl, AccessTokenProtected, RefreshTokenProtected, AccessTokenExpiresAt, RefreshTokenExpiresAt, IsAdmin (calculé), LastLoginAt, Version | UX(GitHubId). Jetons GitHub **côté serveur uniquement**. |
-| **UserRepositoryAccess** | **UserId, GitHubRepositoryId**, Permission (`Read`, `Write`, `Admin`), RefreshedAt | Cache de 10 minutes. `GitHubRepositoryId` est l'identifiant GitHub du dépôt (`Repositories.GitHubId`), sans FK : le cache peut citer un dépôt pas encore suivi. |
-| **WebhookDeliveries** | **DeliveryId** (X-GitHub-Delivery), Event, Action?, InstallationId?, RepositoryGitHubId?, Payload (gzip), ReceivedAt, ProcessedAt?, Error? | Idempotence des redélivrances ; 14 jours. |
-| **Jobs** | **Id**, Type, PayloadJson, LockKey?, DedupKey?, State (`Queued`, `Running`, `Succeeded`, `Failed`, `Dead`), Attempts, MaxAttempts, RunAfter, FirstQueuedAt, LockedBy?, LockedUntil?, LastError?, CorrelationId, CreatedAt, CompletedAt? | IX(State, RunAfter, Id) ; **UX(DedupKey) filtré State='Queued'** ; **UX(LockKey) filtré State='Running'** |
+| **UploadTokens** | **Id**, Scope (`Organization`, `Repository`), RepositoryId?, Label, Hint (préfixe ou 4 derniers caractères), Hash binary(32), Imported bool, CreatedBy, CreatedAt, ExpiresAt?, LastUsedAt?, RevokedAt?, RotationAdvisedAt? | UX(OrganizationId, Hash), car une valeur importée est choisie par l'appelant. Format `cvc_` + 43 caractères base64url, ou UUID Codecov importé. |
+| **ApiTokens** | **Id**, UserId FK, OrganizationId? (fixée à la création, nulle pour un jeton d'instance), Name, Hint, Hash binary(32), CreatedAt, ExpiresAt?, LastUsedAt?, RevokedAt? | UX(Hash). Format `cvp_…`. |
+| **Users** | **Id**, Forge, ExternalId, Login, AvatarUrl, AccessTokenProtected, RefreshTokenProtected, AccessTokenExpiresAt, RefreshTokenExpiresAt, IsAdmin (calculé : administrateur d'instance), LastLoginAt, Version | UX(Forge, ExternalId). Jetons GitHub **côté serveur uniquement**. |
+| **UserRepositoryAccess** | **Id**, UserId, RepositoryExternalId, Permission (`Read`, `Write`, `Admin`), RefreshedAt | UX(OrganizationId, UserId, RepositoryExternalId). Cache de `Access:CacheMinutes` ; une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien. `RepositoryExternalId` est l'identifiant externe du dépôt (`Repositories.ExternalId`), sans FK : le cache peut citer un dépôt pas encore suivi. |
+| **WebhookDeliveries** | **DeliveryId** (X-GitHub-Delivery), OrganizationId?, Event, Action?, InstallationId?, RepositoryGitHubId?, Payload (gzip), ReceivedAt, ProcessedAt?, Error? | Idempotence des redélivrances ; 14 jours. |
+| **Jobs** | **Id**, OrganizationId?, Type, PayloadJson, LockKey?, DedupKey?, State (`Queued`, `Running`, `Succeeded`, `Failed`, `Dead`), Attempts, MaxAttempts, RunAfter, FirstQueuedAt, LockedBy?, LockedUntil?, LastError?, CorrelationId, CreatedAt, CompletedAt? | IX(State, RunAfter, Id) ; **UX(DedupKey) filtré State='Queued'** ; **UX(LockKey) filtré State='Running'** ; `LockKey` et `DedupKey` sont préfixées par la voie du job (§6.1) |
 | **Settings** | **Key**, Value?, IsSecret, UpdatedAt, UpdatedBy | Store de paramètres (§4bis) |
 | **SettingsRevision** | **Id** (=1), Revision bigint | Incrémenté dans la transaction de chaque sauvegarde. |
 | **DataProtectionKeys** | table EF standard | Partagée par les deux hôtes. |
-| **AuditEntries** | **Id**, At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
+| **AuditEntries** | **Id**, OrganizationId? (M1.16g2), At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
+| **CodecovImports** (M5.06) | **Id**, credential Codecov chiffré par Data Protection | Référencée par identifiant depuis le payload de `ImportCodecovHistory`, supprimée en fin d'import. |
 
 ### 4.3 Format de blob `CCR1` (`CcrCodec : ICoverageReportCodec`, Infrastructure)
 
@@ -440,7 +495,7 @@ corps compressé Brotli (qualité 5) :
 
 ### 4bis.1 Mécanisme (§12 des conventions)
 
-- **Domain :** `SettingDefinition(Key, Group, Type, Default, RequiresRestart, Min, Max, IsSecret)` et le catalogue `SettingDefinitions`.
+- **Domain :** `SettingDefinition(Key, Group, Type, Scope, Default, RequiresRestart, Min, Max, IsSecret)` et le catalogue `SettingDefinitions`.
 - **Infrastructure :** `DatabaseSettingsConfigurationSource` et `DatabaseSettingsConfigurationProvider`, ajoutés comme **source la plus faible** par `AddCodeCoverageSettingsStore(connectionString, provider)`.
   - La lecture se fait en ADO.NET brut (`NpgsqlConnection` ou `SqlConnection` selon `CodeCoverage:Database:Provider`), parce que la configuration est construite avant la DI.
   - Si la table est absente, la source renvoie un jeu vide.
@@ -448,6 +503,9 @@ corps compressé Brotli (qualité 5) :
 - **Consommation :** `services.AddOptions<XxxOptions>().Bind(...).ValidateOnStart()`, lu uniquement par `IOptionsMonitor<T>`.
   - **Authentification OAuth :** un `IConfigureNamedOptions<OAuthOptions>` lit `IOptionsMonitor<GitHubOptions>`. Un changement déclenche `IOptionsMonitorCache<OAuthOptions>.TryRemove("GitHub")`.
   - **Rate limiter et taille de corps :** le partitionneur et `IHttpMaxRequestBodySizeFeature` lisent `IOptionsMonitor` à chaque requête, ce qui rend ces réglages rechargeables à chaud.
+- **Deux portées (`SettingScope`) :**
+  - Une clé `Instance` suit le mécanisme de cette section et se lit par `IOptionsMonitor<T>`. `UpdateSetting`, `ResetSetting` et `GetSettings` n'acceptent que ces clés.
+  - Une clé `Organization` (4 clés, §4bis.3) se lit par `IOrganizationSettingsProvider`, à portée et mémorisé une fois par portée DI, avec la précédence ligne de `OrganizationSettings`, puis défaut du catalogue. Une modification vaut à la portée suivante, sans redémarrage et sans `SettingsRevision`.
 - **Propagation entre les deux hôtes (portable PostgreSQL et SQL Server, sans LISTEN/NOTIFY) :**
   1. `UpdateSetting` et `ReplaceSecret` écrivent la valeur **et** exécutent `UPDATE SettingsRevision SET Revision = Revision + 1` dans la même transaction.
   2. Dans chaque hôte, `SettingsChangeWatcher` (`BackgroundService`, `PeriodicTimer` de `Settings:PollSeconds`, 5 s par défaut) lit `SELECT Revision`. Si la valeur a changé, il appelle `DatabaseSettingsConfigurationProvider.RefreshAll(root)`, puis `OnReload()` : les consommateurs `IOptionsMonitor` sont notifiés.
@@ -471,18 +529,17 @@ corps compressé Brotli (qualité 5) :
 | `Settings__PollSeconds` | 5 |
 | `DataProtection__CertificatePath` / `DataProtection__CertificatePassword` **ou** `DataProtection__KeyVaultKeyId` | **obligatoire en Production** : l'hôte refuse de démarrer sans protection du trousseau, sauf `DataProtection__AllowUnprotectedKeys=true` explicite |
 | `ForwardedHeaders__KnownProxies` | adresses du reverse proxy |
-| `CodeCoverage__Bootstrap__AdminLogins` | logins GitHub administrateurs initiaux |
+| `CodeCoverage__Bootstrap__AdminUserIds` | identifiants GitHub numériques des administrateurs d'instance initiaux |
 | `GitHub__*` | surcharge optionnelle de tout réglage GitHub, qui devient alors en lecture seule dans l'UI (déploiement « infra as code ») |
 
 ### 4bis.3 Catalogue des paramètres stockés en base
 
-`*` = secret, `R` = `RequiresRestart`.
+Le catalogue compte 41 clés. `*` = secret, `R` = `RequiresRestart`, `O` = portée `Organization` ; toute autre clé est de portée `Instance`. Aucune clé secrète n'est de portée `Organization`.
 
 | Groupe | Clé | Type | Défaut |
 |---|---|---|---|
 | GitHub | `GitHub:AppId`, `GitHub:ClientId`, `GitHub:AppSlug` | string | — |
 | | `GitHub:ClientSecret`\*, `GitHub:PrivateKeyPem`\*, `GitHub:WebhookSecret`\*, `GitHub:WebhookSecretPrevious`\* (rotation) | string | — |
-| | `GitHub:Organization` | string | — (aucun défaut, saisi dans la console web) |
 | | `GitHub:ApiBaseUrl` | url | `https://api.github.com` |
 | Urls | `Urls:ApiPublicUrl`, `Urls:WebPublicUrl` | url | — |
 | Uploads | `Uploads:MaxRequestMegabytes` | int 1–1000 | 200 |
@@ -490,7 +547,6 @@ corps compressé Brotli (qualité 5) :
 | | `Uploads:MaxFilesPerUpload` | int | 50 |
 | | `Uploads:RateLimitPerMinute` | int | 120 (par jeton et par dépôt) |
 | | `Uploads:OidcAudience` | string | = `Urls:ApiPublicUrl` |
-| | `Uploads:AllowedOwners` | csv | — (aucun défaut, saisi dans la console web) |
 | Processing | `Processing:WorkerConcurrency` (R) | int 1–16 | 4 |
 | | `Processing:MaxParallelParses` | int | 2 |
 | | `Processing:JobMaxAttempts` | int | 8 |
@@ -499,17 +555,18 @@ corps compressé Brotli (qualité 5) :
 | | `Processing:BaseMaxAncestorWalk` | int | 30 |
 | | `Processing:BaseWaitMinutes` | int | 15 |
 | | `Processing:PendingTimeoutMinutes` | int | 60 |
-| Notifications | `Notifications:StatusContextPrefix` | string | `coverage` (pilote), passe à `codecov` à la bascule |
-| | `Notifications:StatusesEnabled`, `Notifications:CommentsEnabled` | bool | true / true |
+| Notifications | `Notifications:StatusContextPrefix` (O) | string | `coverage` ; chaque organisation passe à `codecov` à sa propre date |
+| | `Notifications:StatusesEnabled` (O), `Notifications:CommentsEnabled` (O) | bool | true / true |
 | | `Notifications:DebounceSeconds` | int 0–600 | 20 |
 | | `Notifications:MaxDelaySeconds` | int | 300 |
 | | `Notifications:AfterNBuildsCountsCarryforward` | bool | true (parité Codecov) |
 | | `Notifications:CommentTitle` | string | `Coverage` |
-| Coverage | `Coverage:OrganizationYaml` | yaml | vide |
+| Coverage | `Coverage:OrganizationYaml` (O) | yaml | vide |
 | | `Coverage:AllowFilenameOnlyMatch` | bool | false |
 | Badges | `Badges:Label` | string | `coverage` |
-| Access | `Access:AdminLogins` | csv | — |
-| | `Access:CacheMinutes` | int | 10 |
+| Access | `Access:AdminUserIds` (identifiants GitHub numériques des administrateurs d'instance) | csv | — |
+| | `Access:CacheMinutes` | int 1–60 | 10 |
+| | `Access:HardExpiryMinutes` | int 60–1440 | 60 |
 | Retention | `Retention:RawDays` / `Retention:BranchReportDays` / `Retention:JobDays` / `Retention:WebhookDays` / `Retention:DiffCacheDays` | int | 30 / 180 / 14 / 14 / 30 |
 
 ---
@@ -530,6 +587,7 @@ Le corps est `multipart/form-data`. Chaque partie peut être compressée en gzip
 | Champ | Obligatoire | Description |
 |---|---|---|
 | `slug` | oui | `owner/repo` |
+| `forge` | non | `github` par défaut (ADR-014) : un uploader qui ne l'envoie pas continue de fonctionner |
 | `sha` | oui | 40 caractères hexadécimaux. **Tête de PR, jamais le commit de merge** (corrigé côté serveur sinon, §6.2). |
 | `branch` | non | branche de tête, `refs/heads/` retiré |
 | `pr` | non | numéro de PR GitHub (indice ; la table des PR du serveur fait foi) |
@@ -552,9 +610,9 @@ En-tête facultatif `Idempotency-Key` (128 caractères au plus). L'uploader en e
 | `202 Accepted` | `UploadAcceptedResponse(Guid UploadId, string State, string CommitUrl, string StatusUrl)` |
 | `200 OK` | rejeu idempotent : même corps, upload existant |
 | `400` | validation, ou `Upload.MetadataMustPrecedeFiles` |
-| `401` | `Upload.TokenInvalid` |
-| `403` | `Upload.TokenNotForRepository`, ou incohérence OIDC |
-| `404` | `Repository.NotFound` : dépôt inconnu et App non installée |
+| `401` | `Upload.TokenInvalid`, y compris pour un jeton présenté à un owner qui n'est pas une organisation `Active` |
+| `403` | `Upload.TokenNotForRepository`, ou `Upload.OidcMismatch` |
+| `404` | `Repository.NotFound` : JWT valide présenté à un owner qui n'est pas une organisation `Active`, ou dépôt inconnu dont l'installation n'appartient pas à l'organisation |
 | `413` | corps trop volumineux |
 | `422` | `Repository.Inactive` |
 | `429` | rate limit |
@@ -564,27 +622,28 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 **Déroulement de la requête** (aucun parsing pendant la requête ; réponse en moins de 300 ms hors transfert) :
 
 1. Le contrôleur lit le multipart en flux (`MultipartReader`, sans model binding) et accumule les champs texte.
-2. À la première partie `file` ou `network`, il envoie `AuthorizeUploadQuery(credential, slug)`, qui renvoie `UploadAuthorization` (Domain). **Une requête non authentifiée est rejetée avant toute écriture du corps**, ce qui protège contre le DoS disque ou base.
+2. À la première partie `file` ou `network`, il envoie `AuthorizeUploadQuery(credential, slug)` (`IPublicOwnerAddressed`), qui renvoie `UploadAuthorization` (Domain). **Une requête non authentifiée est rejetée avant toute écriture du corps**, ce qui protège contre le DoS disque ou base.
 3. Il envoie ensuite `ReceiveUploadCommand(UploadCredential, UploadMetadata, IAsyncEnumerable<UploadPart>)`. Les parties sont produites paresseusement, en flux. Le handler :
-   1. ré-authentifie le credential via `UploadAuthenticator` (cache de 60 s par hash) ;
-   2. **résout le dépôt**. S'il est inconnu, il appelle `GET /repos/{o}/{r}/installation` avec le JWT de l'App, puis `GetRepository`, et crée le `TrackedRepository` (actif, nouveau jeton de badge). Sans installation, il lève `NotFoundException(Repository.NotFound)` ;
+   1. ré-authentifie le credential via `UploadAuthenticator` (cache de 60 s par hash, clé préfixée par l'organisation, qui ne garde que l'identité du credential) ;
+   2. **résout le dépôt** par son nom dans l'organisation courante. S'il est inconnu, il appelle `GET /repos/{o}/{r}/installation` avec le JWT de l'App, exige que le compte de l'installation soit celui de l'organisation courante, puis appelle `GetRepository` et crée le `TrackedRepository` (actif, nouveau jeton de badge). Sinon, il lève `NotFoundException(Repository.NotFound)` ;
    3. **commit** : `INSERT` puis relecture en cas de violation d'unicité (course entre uploads parallèles absorbée). Il passe à `Pending` s'il était `Known` ou nouveau, renseigne `Branch` et `PullNumber` s'ils sont vides, et met à jour `LastUploadAt` ;
    4. **numéro de session** : `UPDATE Commits SET UploadSequence = UploadSequence + 1 … RETURNING/OUTPUT`, atomique, sans conflit de `Version` ;
    5. **stockage brut** : chaque partie est écrite en flux dans `IRawUploadStore` (`UploadRawFiles` plus des morceaux de 1 Mo). Le SHA-256 est calculé à la volée. Le volume décompressé est contrôlé par `BoundedDecompressionStream` (2 Go par upload, 100 000 fichiers réseau) ;
    6. dans une transaction : `Upload(Received)` et job `ProcessUpload` (lock `commit:{id}:upload:{uploadId}`, sans clé de dédoublonnage). Un doublon sur `(CommitId, IdempotencyKey)` est un rejeu : le handler renvoie l'upload existant et supprime le brut orphelin ;
    7. il réveille le worker via le canal en process.
 
-**`UploadAuthenticator`**, contrôles dans l'ordre :
+**`UploadAuthenticator`**, contrôles dans l'ordre (ADR-013 : avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de l'organisation) :
 
-1. **JWT** : `IOidcTokenValidator`.
+1. **JWT**, s'il y en a un : `IOidcTokenValidator`.
    - Issuer `https://token.actions.githubusercontent.com`, JWKS par `ConfigurationManager<OpenIdConnectConfiguration>` (cache et rafraîchissement), audience `Uploads:OidcAudience`, tolérance d'horloge d'une minute.
-   - Conditions exigées : `repository_owner ∈ Uploads:AllowedOwners`, **`repository_id == Repositories.GitHubId`** (résiste aux renommages) et `repository == slug`.
-   - Le SHA du corps est accepté tel quel, car OIDC prouve l'identité du dépôt, pas le commit.
-2. **Jeton** : recherche par `SHA-256(token)` dans `UploadTokens`, avec non révoqué et non expiré.
+   - `repository == slug`, sinon 403 `Upload.OidcMismatch`.
+2. **Porte.** Si la portée n'est pas entrée dans l'organisation de l'owner, un jeton reçoit 401 `Upload.TokenInvalid` et un JWT valide 404 `Repository.NotFound`.
+3. **Compte OIDC** : `repository_owner_id` égal au compte de l'organisation et **`repository_id == Repositories.ExternalId`** (résiste aux renommages), ou à l'identifiant renvoyé par GitHub pour un dépôt inconnu. Le SHA du corps est accepté tel quel, car OIDC prouve l'identité du dépôt, pas le commit.
+4. **Jeton** : recherche par `SHA-256(token)` dans `UploadTokens`, sous le filtre d'organisation, avec non révoqué et non expiré ; 401 s'il est absent.
    - Portée `Repository` : `RepositoryId == repo.Id`.
-   - Portée `Organization` : `Owner == slug.owner` et App installée sur le dépôt.
+   - Portée `Organization` : le filtre suffit à lier le jeton à l'organisation, et l'App doit être installée sur le dépôt.
    - `LastUsedAt` est mis à jour au plus une fois par minute.
-3. Aucun mode sans jeton (dépôts privés).
+5. Aucun mode sans jeton (dépôts privés).
 
 **Rate limiting** : fenêtre fixe de `Uploads:RateLimitPerMinute` (120) par paire (hash du credential, dépôt). Un jeton d'organisation partagé ne crée donc pas un goulot commun à tous les dépôts.
 
@@ -735,6 +794,13 @@ steps:
   - Anti-rebond : `RunAfter = min(now + debounce, FirstQueuedAt + maxDelay)`.
 - Un job `Running` ne bloque jamais un nouveau job `Queued` : aucune mise à jour n'est perdue.
 
+**Organisation d'un job (ADR-013)** : chaque job appartient à une voie, choisie par la fabrique de son `JobRequest`.
+- `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle.
+- `JobRequest.ForInstance` reste hors de toute organisation : `Jobs.OrganizationId` est nul, et une lecture d'une table d'organisation y lève.
+- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée, vide à ce jour (`OrganizationIsolationTests`).
+- `SqlJobQueue` préfixe `LockKey` et `DedupKey` par la voie, `o{id}:` ou `i:`, en tête d'`EnqueueInTransactionAsync`. Une même clé métier dans deux voies ne fusionne ni ne sérialise. `KeyMaxLength` vaut 178 pour que la clé préfixée tienne dans la colonne de 200 caractères.
+- **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SweepPendingCommits`, `PurgeExpiredData`).
+
 **Réclamation** (dialecte fourni par l'assembly de migrations) :
 
 ```sql
@@ -756,7 +822,7 @@ OUTPUT inserted.*;
 
 - **Horloge :** `@now` et `@lockedUntil` (`@now` + bail) viennent de l'horloge de l'application (`IClock`), jamais de celle du serveur : `RunAfter` et `LockedUntil` sont écrits partout ailleurs avec cette horloge, la comparaison reste donc cohérente.
 - **Sérialisation par clé :** l'index unique filtré `UX(LockKey) WHERE State='Running'` garantit qu'un seul job d'une clé donnée tourne, sans verrou consultatif ni `sp_getapplock`. Une violation résiduelle (course) est interceptée, et la boucle passe au job suivant.
-- **Clés de verrou :**
+- **Clés de verrou** (écrites ici sans le préfixe de voie) :
   - `commit:{id}` pour `FinalizeCommit`, `NotifyCommit` et `ReprocessCommit` ;
   - `pull:{repoId}:{n}` pour `SyncPullRequest` ;
   - `ProcessUpload` n'a pas de clé : les uploads d'un même commit sont traités en parallèle.
@@ -765,9 +831,9 @@ OUTPUT inserted.*;
 - **Échecs :**
   - `RunAfter = now + min(2^attempts × 10 s, 30 min) ± 20 %`. Après `MaxAttempts` (8), le job est `Dead`, visible dans `/admin/operations` avec un bouton Relancer.
   - `GitHubRateLimitedException(resetAt)` et `RetryLaterException(delay)` reprogramment **sans consommer de tentative** (`Attempts - 1`).
-  - Les refus permanents (`NotFound`, `Validation`, `UnprocessableEntity`) passent directement à `Failed`.
+  - Les refus permanents (`NotFound`, `Validation`, `UnprocessableEntity`) passent directement à `Failed`. Une `ConflictException` (`General.ConcurrentChange`, §4.2) est rejouée.
 - **Concurrence :** `Processing:WorkerConcurrency` boucles (4). Réveil immédiat par le canal en process, sinon scrutation toutes les 2 s. La scrutation couvre aussi les jobs mis en file par le Web (re-notification, relance).
-- **Exécution :** chaque job s'exécute dans un nouveau scope DI, avec `ICurrentUser.IsSystem`, un `LogContext` (JobId, JobType, Repository, CommitSha, CorrelationId) et une `Activity` OpenTelemetry. Le timeout est de 10 minutes.
+- **Exécution :** chaque job s'exécute dans un nouveau scope DI, avec `ICurrentUser.IsSystem`, un `LogContext` (JobId, JobType, Repository, CommitSha, CorrelationId, OrganizationId) et une `Activity` OpenTelemetry. Le worker entre dans l'organisation à partir de `Jobs.OrganizationId`, jamais du payload, et un job dont l'organisation n'est plus active échoue sans s'exécuter (`InvalidJobException`). Le timeout est de 10 minutes.
 
 | Type | LockKey | DedupKey | Commande |
 |---|---|---|---|
@@ -1143,9 +1209,13 @@ informational: true → état envoyé = success, description conservée
 
 ## 8. Intégration GitHub
 
+L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayProvider` (ADR-014), dont seul l'adaptateur GitHub est implémenté. Restent propres à GitHub : `IGitHubAppGateway` (installations, manifest, Check Runs), la réception des webhooks, `IGitHubUserGateway` et `IGitHubUserTokenProvider`. Cette section décrit l'adaptateur GitHub.
+
 ### 8.1 Type d'application et permissions
 
-**Une GitHub App** privée, « CodeCoverage », restreinte à « Only on this account » et installée sur l'organisation servie, `<owner>` (tous les dépôts). Pas de PAT, pas d'OAuth App séparée. Création en un clic via le **flux App Manifest** depuis `/setup` (§10bis). La saisie manuelle reste possible.
+**Une GitHub App** publique, « CodeCoverage », partagée par toutes les organisations : tout compte peut l'installer, et elle reste inerte tant que ce compte n'est pas admis (ADR-013). Pas de PAT, pas d'OAuth App séparée. Création en un clic via le **flux App Manifest** depuis `/setup` (§10bis). La saisie manuelle reste possible. Les secrets `GitHub:*` restent au niveau de l'instance.
+
+**Admission :** `installation.created` crée une organisation `Pending` qui ne suit rien, et un administrateur d'instance l'admet. Avant M2, le verbe `admin admit-organization` crée directement une organisation `Active`. Une réinstallation par le même compte le rattache.
 
 | Portée | Permission | Accès | Usage |
 |---|---|---|---|
@@ -1154,10 +1224,10 @@ informational: true → état envoyé = success, description conservée
 | Repository | Commit statuses | Read & write | statuts |
 | Repository | Pull requests | Read & write | données de PR, commentaires (issue comments) |
 | Repository | Checks | none (Read & write en M5) | annotations |
-| Organization | — | none | — |
+| Organization | Members | Read | rôles d'organisation (`OrganizationMemberships`) |
 | Account | — | none | — |
 
-**Webhook** : `https://coverage-api.example.com/api/v1/github/webhooks`, signé par le secret webhook. Événements : `installation`, `installation_repositories`, `pull_request`, `push`, `repository`, `delete`.
+**Webhook** : `https://coverage-api.example.com/api/v1/github/webhooks`, signé par le secret webhook. Événements : `installation`, `installation_repositories`, `installation_target`, `organization`, `member`, `membership`, `pull_request`, `push`, `repository`, `delete`.
 
 **Autorisation utilisateur** (même App) :
 - URL de callback `https://coverage.example.com/signin-github` ;
@@ -1174,23 +1244,23 @@ informational: true → état envoyé = success, description conservée
   - `AddStandardResilienceHandler()` : 3 nouvelles tentatives sur 5xx et timeout, coupe-circuit ; 403 et 429 exclus.
   - Échec définitif : `BadGatewayException(GitHub.Unavailable)`.
 
-**Endpoints utilisés :**
-- `GET /repos/{o}/{r}/installation` (JWT de l'App) ;
-- `GET /repos/{o}/{r}` ;
-- `GET /repos/{o}/{r}/commits?sha=&per_page=50` et `GET /repos/{o}/{r}/commits/{sha}` ;
-- `GET /repos/{o}/{r}/compare/{base}...{head}` ;
-- `GET /repos/{o}/{r}/pulls/{n}` et `GET /repos/{o}/{r}/pulls/{n}/files?per_page=50&page=` ;
-- `GET /repos/{o}/{r}/git/trees/{sha}[?recursive=1]` ;
-- `GET /repos/{o}/{r}/contents/{path}?ref=` (média `raw`) ;
-- `POST /repos/{o}/{r}/statuses/{sha}` ;
-- `GET|POST /repos/{o}/{r}/issues/{n}/comments`, `PATCH|DELETE /repos/{o}/{r}/issues/comments/{id}` ;
+**Endpoints utilisés.** Un dépôt suivi s'adresse par son identifiant, sous `/repositories/{id}/…` : un renommage ne casse aucune lecture. Seul le suivi d'un dépôt inconnu emploie owner et nom. La forme par identifiant reste à vérifier sur chaque endpoint, sur deux comptes réels (M4.02a).
+- `GET /repos/{o}/{r}/installation` (JWT de l'App) et `GET /repos/{o}/{r}`, pour un dépôt inconnu ;
+- `GET /repositories/{id}` ;
+- `GET /repositories/{id}/commits?sha=&per_page=50` et `GET /repositories/{id}/commits/{sha}` ;
+- `GET /repositories/{id}/compare/{base}...{head}` ;
+- `GET /repositories/{id}/pulls/{n}` et `GET /repositories/{id}/pulls/{n}/files?per_page=50&page=` ;
+- `GET /repositories/{id}/git/trees/{sha}[?recursive=1]` ;
+- `GET /repositories/{id}/contents/{path}?ref=` (média `raw`) ;
+- `POST /repositories/{id}/statuses/{sha}` ;
+- `GET|POST /repositories/{id}/issues/{n}/comments`, `PATCH|DELETE /repositories/{id}/issues/comments/{comment}` ;
 - `GET /app/installations`, `GET /installation/repositories` ;
 - côté utilisateur : `GET /user`, `GET /user/installations`, `GET /user/installations/{id}/repositories`.
 
 ### 8.3 Webhooks (`GitHubWebhooksController`, MVC, `[AllowAnonymous]`)
 
 1. Lecture du corps brut (25 Mo au plus). Vérification de `X-Hub-Signature-256` (HMAC-SHA256, `CryptographicOperations.FixedTimeEquals`) contre le secret courant **et** le précédent (rotation). Signature invalide : 401 et métrique.
-2. `ReceiveWebhookCommand` (système) insère `WebhookDeliveries`. Un `DeliveryId` déjà connu renvoie 200 sans action. Sinon, le job `HandleWebhook` est mis en file. **Réponse 202 en quelques millisecondes ; aucun appel GitHub dans la requête.**
+2. `ReceiveWebhookCommand` (`IAnonymousEntry`, authentifiée par la signature dans son handler, **jamais** `ISystemOnly`) insère `WebhookDeliveries`. Un `DeliveryId` déjà connu renvoie 200 sans action. **Filtre à la réception :** une seule lecture de `installation.id` dans `Installations`, sans appel GitHub. Pour une organisation `Active`, la livraison est stockée et le job `HandleWebhook` mis en file par `ForOrganization`. Sinon, seuls `installation`, `installation_repositories` et `installation_target` sont stockés, sur la voie d'instance, et le reste est abandonné avec 202. **Réponse 202 en quelques millisecondes ; aucun appel GitHub dans la requête.**
 3. `HandleWebhookDelivery`, dans le worker :
    - **`push`** :
      - met à jour `Branches.HeadSha` avec `after`. Si `deleted`, la branche est supprimée ;
@@ -1201,8 +1271,11 @@ informational: true → état envoyé = success, description conservée
    - **`pull_request`** :
      - `opened`, `synchronize`, `reopened`, `edited` (changement de base), `ready_for_review` : upsert de la PR, `SyncPullRequest`. Si le commit de tête est `Complete`, `NotifyCommit` est mis en file (le commentaire apparaît même si l'upload a précédé la PR) ;
      - `closed` : passage à `Closed` ou `Merged` ; plus aucun commentaire ensuite.
-   - **`installation`, `installation_repositories`** : `SyncInstallations` (upsert des installations et des dépôts, désactivation des dépôts retirés).
-   - **`repository`** (`renamed`, `transferred`, `deleted`, `privatized`, `publicized`) : mise à jour d'Owner, Name, IsPrivate et IsActive, avec GitHubId comme clé.
+   - **`installation`, `installation_repositories`** : `SyncInstallations` (upsert des installations et des dépôts, désactivation des dépôts retirés). `installation.created` crée une organisation `Pending`, `deleted` et `suspend` la suspendent, et une réinstallation la rattache. Aucun événement n'admet une organisation.
+   - **`organization`, `member`, `membership`** : `RefreshUserMemberships`.
+   - **`installation_target`** renommé : met à jour le login par identifiant de compte.
+   - **`repository`** (`renamed`, `deleted`, `privatized`, `publicized`) : mise à jour d'Owner, Name, IsPrivate et IsActive, avec ExternalId comme clé.
+   - **`repository.transferred`** : **aucune donnée n'est déplacée.** Le destinataire reçoit une nouvelle ligne. Une réconciliation de la voie d'instance désactive l'ancienne ligne, révoque ses jetons de dépôt, fait tourner son jeton de badge, marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces actions.
 4. **Réconciliation** : `SyncInstallations` quotidien. L'écran Opérations affiche la dernière livraison par événement. Une redélivrance depuis GitHub est absorbée par l'idempotence.
 
 ### 8.4 Commentaire de PR (`CommentComposer` et `NotificationService`)
@@ -1317,7 +1390,7 @@ Pour une notification de PR typique (cas chaud, caches remplis), environ 5 appel
 2. Si rien n'est trouvé : `Repositories.DefaultBranchYaml`, rafraîchi lors d'un push sur la branche par défaut. `codecov.strict_yaml_branch` est respecté.
 3. **Configuration effective** = fusion profonde, dans l'ordre :
    1. défauts intégrés ;
-   2. `Coverage:OrganizationYaml` (édité dans l'UI) ;
+   2. `Coverage:OrganizationYaml` de l'organisation du dépôt, lu par `IOrganizationSettingsProvider` (édité dans l'UI) ;
    3. YAML du dépôt ou du commit.
 
    Les maps sont fusionnées ; les scalaires et les listes sont remplacés (`merge_yamls`).
@@ -1435,39 +1508,43 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 
 ### 10.2 Endpoints
 
+**Règle d'entrée (ADR-013, ADR-014).** Toute route qui adresse une donnée d'organisation contient la forge et l'owner, ou la forge et l'organisation, et ce couple décide de l'entrée (§3bis.2) : aucune donnée d'organisation n'est adressée par un seul identifiant. `POST /api/v1/uploads` lit l'owner et la forge dans ses champs, et les badges compatibles Codecov gardent leur forme. `/api/v1/settings` et `/api/v1/ops` restent au niveau de l'instance et ne renvoient aucune donnée métier. Un jeton API appartient à une seule organisation, choisie à la création, ou est réservé à l'instance. Seules les routes de santé, `GET /api/v1/diagnostics/ping` et `POST /api/v1/validate` existent à ce jour : les autres sont construites par leur micro-feature.
+
 | Méthode et route | Contrôleur | Auth | Requête | Réponse | Cas d'usage |
 |---|---|---|---|---|---|
 | `POST /api/v1/uploads` | Uploads | upload | multipart (§5.1) | `UploadAcceptedResponse` 202/200 | `AuthorizeUpload`, `ReceiveUpload` |
-| `GET /api/v1/uploads/{id:guid}` | Uploads | upload ou ApiToken | — | `UploadResponse(Id, State, Flags, Name, ResolvedFiles, UnresolvedFiles, Totals, Log, Error)` | `GetUpload` |
-| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/uploads-complete` | Commits | upload | — | `UploadsCompleteResponse(Total, Processed, Processing, Failed)` | `CompleteUploads` |
-| `GET /api/v1/repos` | Repositories | ApiToken | `?search=` | `IReadOnlyList<RepositoryResponse>` | `ListRepositories` |
-| `GET /api/v1/repos/{owner}/{repo}` | Repositories | ApiToken | — | `RepositoryDetailResponse` (dernières valeurs, branches, flags) | `GetRepository` |
-| `POST /api/v1/repos/{owner}/{repo}/activate` / `deactivate` | Repositories | ApiToken (admin) | — | 204 | `Activate`/`DeactivateRepository` |
-| `GET /api/v1/repos/{owner}/{repo}/branches` | Repositories | ApiToken | — | `IReadOnlyList<BranchResponse>` | `ListBranches` |
-| `GET /api/v1/repos/{owner}/{repo}/history` | Repositories | ApiToken | `?branch=&flag=&from=&to=&interval=commit\|day\|week` | `CoverageSeriesResponse` | `GetCoverageHistory` |
-| `GET /api/v1/repos/{owner}/{repo}/config` | Repositories | ApiToken | `?sha=` | `EffectiveConfigResponse(Source, Yaml, Warnings, Errors)` | `GetEffectiveConfig` |
-| `POST /api/v1/repos/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | — | `BadgeTokenResponse` | `RotateBadgeToken` |
-| `PUT /api/v1/repos/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | `ImportBadgeTokenRequest` | 204 | `ImportBadgeToken` |
-| `GET /api/v1/repos/{owner}/{repo}/commits` | Commits | ApiToken | `?branch=&page=&pageSize=` | `CommitPageResponse` | `ListCommits` |
-| `GET /api/v1/repos/{owner}/{repo}/commits/{sha}` | Commits | ApiToken | — | `CommitResponse` (totaux, état, sessions, uploads, flags, statuts publiés) | `GetCommit` |
-| `GET /api/v1/repos/{owner}/{repo}/commits/{sha}/files` | Commits | ApiToken | `?flag=&path=` | `IReadOnlyList<FileTotalsResponse>` | `GetCommitFiles` |
-| `GET /api/v1/repos/{owner}/{repo}/commits/{sha}/files/{**path}` | Commits | ApiToken | `?flag=` | `FileCoverageResponse(Lines[{Line, State, Hits, Branches}])` | `GetFileCoverage` |
-| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/notify` | Commits | ApiToken (admin du dépôt) | — | 202 | `TriggerNotify` |
-| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/reprocess` | Commits | ApiToken (admin du dépôt) | — | 202 | `ReprocessCommit` |
-| `GET /api/v1/repos/{owner}/{repo}/compare` | Comparisons | ApiToken | `?base=&head=` | `ComparisonResponse` | `CompareCommits` |
-| `GET /api/v1/repos/{owner}/{repo}/pulls` | PullRequests | ApiToken | `?state=` | `IReadOnlyList<PullRequestResponse>` | `ListPullRequests` |
-| `GET /api/v1/repos/{owner}/{repo}/pulls/{number}` | PullRequests | ApiToken | — | `ComparisonResponse` (patch, projet, fichiers impactés, flags, changements indirects, bases) | `GetPullRequestComparison` |
-| `GET\|POST /api/v1/upload-tokens`, `DELETE /api/v1/upload-tokens/{id}` | UploadTokens | ApiToken (admin, ou admin du dépôt pour la portée dépôt) | `CreateUploadTokenRequest(Scope, Owner?, Repository?, Label, ImportValue?)` | `IssuedUploadTokenResponse` (valeur **une seule fois**) / liste | `Create`, `List`, `RevokeUploadToken` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/uploads/{id:guid}` | Uploads | upload ou ApiToken | — | `UploadResponse(Id, State, Flags, Name, ResolvedFiles, UnresolvedFiles, Totals, Log, Error)` | `GetUpload` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/uploads-complete` | Commits | upload | — | `UploadsCompleteResponse(Total, Processed, Processing, Failed)` | `CompleteUploads` |
+| `GET /api/v1/orgs/{forge}/{org}/repos` | Repositories | ApiToken | `?search=` | `IReadOnlyList<RepositoryResponse>` | `ListRepositories` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}` | Repositories | ApiToken | — | `RepositoryDetailResponse` (dernières valeurs, branches, flags) | `GetRepository` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/activate` / `deactivate` | Repositories | ApiToken (admin) | — | 204 | `Activate`/`DeactivateRepository` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/branches` | Repositories | ApiToken | — | `IReadOnlyList<BranchResponse>` | `ListBranches` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/history` | Repositories | ApiToken | `?branch=&flag=&from=&to=&interval=commit\|day\|week` | `CoverageSeriesResponse` | `GetCoverageHistory` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/config` | Repositories | ApiToken | `?sha=` | `EffectiveConfigResponse(Source, Yaml, Warnings, Errors)` | `GetEffectiveConfig` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | — | `BadgeTokenResponse` | `RotateBadgeToken` |
+| `PUT /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | `ImportBadgeTokenRequest` | 204 | `ImportBadgeToken` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits` | Commits | ApiToken | `?branch=&page=&pageSize=` | `CommitPageResponse` | `ListCommits` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}` | Commits | ApiToken | — | `CommitResponse` (totaux, état, sessions, uploads, flags, statuts publiés) | `GetCommit` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` | Commits | ApiToken | `?flag=&path=` | `IReadOnlyList<FileTotalsResponse>` | `GetCommitFiles` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files/{**path}` | Commits | ApiToken | `?flag=` | `FileCoverageResponse(Lines[{Line, State, Hits, Branches}])` | `GetFileCoverage` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/notify` | Commits | ApiToken (admin du dépôt) | — | 202 | `TriggerNotify` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/reprocess` | Commits | ApiToken (admin du dépôt) | — | 202 | `ReprocessCommit` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/compare` | Comparisons | ApiToken | `?base=&head=` | `ComparisonResponse` | `CompareCommits` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/pulls` | PullRequests | ApiToken | `?state=` | `IReadOnlyList<PullRequestResponse>` | `ListPullRequests` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/pulls/{number}` | PullRequests | ApiToken | — | `ComparisonResponse` (patch, projet, fichiers impactés, flags, changements indirects, bases) | `GetPullRequestComparison` |
+| `GET\|POST /api/v1/orgs/{forge}/{org}/upload-tokens`, `DELETE …/{id}` ; `GET\|POST /api/v1/repos/{forge}/{owner}/{repo}/upload-tokens`, `DELETE …/{id}` | UploadTokens | ApiToken (admin de l'organisation ; admin du dépôt pour la portée dépôt) | `CreateUploadTokenRequest` | `IssuedUploadTokenResponse` (valeur **une seule fois**) / liste | `Create`, `List`, `RevokeUploadToken` |
 | `GET\|POST /api/v1/api-tokens`, `DELETE /api/v1/api-tokens/{id}` | ApiTokens | ApiToken | `CreateApiTokenRequest` | `IssuedApiTokenResponse` | `Create`, `List`, `RevokeApiToken` |
+| `GET /api/v1/orgs` | Organizations | ApiToken | — | organisations de l'utilisateur | `ListMyOrganizations` |
+| `GET\|PUT /api/v1/orgs/{forge}/{org}/settings` | Organizations | ApiToken (admin de l'organisation) | — / valeur | liste des 4 clés `Organization` / 204, sans route de secret | `GetOrganizationSettings`, `UpdateOrganizationSetting` |
 | `POST /api/v1/validate` | Configuration | anonyme (rate-limité) | corps YAML texte | `ValidationResultResponse(Valid, Normalized, Warnings, Errors)` | `ValidateCoverageYaml` |
-| `GET /api/v1/settings` | Settings | ApiToken (admin) | — | `IReadOnlyList<SettingResponse>` (secrets masqués, source) | `GetSettings` |
-| `PUT /api/v1/settings/{key}` | Settings | ApiToken (admin) | `UpdateSettingRequest(Value)` | 204 | `UpdateSetting` |
-| `PUT /api/v1/settings/{key}/secret` | Settings | ApiToken (admin) | `ReplaceSecretRequest(Value)` | 204 | `ReplaceSecret` |
-| `GET /api/v1/ops/jobs`, `POST /api/v1/ops/jobs/{id}/retry` | Operations | ApiToken (admin) | `?state=` | `JobPageResponse` / 202 | `ListJobs`, `RetryJob` |
-| `GET /api/v1/ops/webhooks` | Operations | ApiToken (admin) | — | `IReadOnlyList<WebhookDeliveryResponse>` | `ListWebhookDeliveries` |
-| `GET /api/v1/ops/status` | Operations | ApiToken (admin) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats) | `GetSystemStatus` |
+| `GET /api/v1/settings` | Settings | ApiToken (admin d'instance) | — | `IReadOnlyList<SettingResponse>` (clés `Instance`, secrets masqués, source) | `GetSettings` |
+| `PUT /api/v1/settings/{key}` | Settings | ApiToken (admin d'instance) | `UpdateSettingRequest(Value)` | 204 | `UpdateSetting` |
+| `PUT /api/v1/settings/{key}/secret` | Settings | ApiToken (admin d'instance) | `ReplaceSecretRequest(Value)` | 204 | `ReplaceSecret` |
+| `GET /api/v1/ops/jobs`, `POST /api/v1/ops/jobs/{id}/retry` | Operations | ApiToken (admin d'instance) | `?state=` | `JobPageResponse` / 202 | `ListJobs`, `RetryJob` |
+| `GET /api/v1/ops/webhooks` | Operations | ApiToken (admin d'instance) | — | `IReadOnlyList<WebhookDeliveryResponse>` | `ListWebhookDeliveries` |
+| `GET /api/v1/ops/status` | Operations | ApiToken (admin d'instance) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats) | `GetSystemStatus` |
 | `POST /api/v1/github/webhooks` | GitHubWebhooks | HMAC | événement GitHub | 202 | `ReceiveWebhook` |
-| `GET /api/v1/badges/{owner}/{repo}.{ext:regex(^(svg\|txt)$)}` | Badges | anonyme et jeton | `?branch=&flag=&token=&precision=` | SVG / texte | `GetBadge` |
+| `GET /api/v1/badges/{forge}/{owner}/{repo}.{ext:regex(^(svg\|txt)$)}` | Badges | anonyme et jeton | `?branch=&flag=&token=&precision=` | SVG / texte | `GetBadge` |
 | `GET /{service:regex(^(gh\|github)$)}/{owner}/{repo}/{graph:regex(^graphs?$)}/badge.{ext}` | Badges | idem | idem | idem | `GetBadge` |
 | `GET /{service}/{owner}/{repo}/branch/{**branchAndSuffix}` (suffixe `/graph(s)/badge.{ext}`) | Badges | idem | idem | idem | `GetBadge` |
 | `GET /api/v1/uploader/{rid}`, `GET /api/v1/uploader/{rid}.sha256` | Uploader | anonyme | — | binaire / texte | fichier statique |
@@ -1496,11 +1573,13 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
   - À la connexion, `SignInUserCommand` enregistre l'utilisateur, avec **jeton d'accès et jeton de rafraîchissement chiffrés dans `Users`, côté serveur**.
   - Le cookie ne contient que l'identifiant utilisateur et un horodatage de session.
 - **Rafraîchissement** : quand le jeton d'accès expire (8 h), `IGitHubUserTokenProvider` utilise le refresh token (usage unique) sous un verrou par utilisateur (`SemaphoreSlim` en process et `Users.Version`) et stocke la nouvelle paire. Cela fonctionne à l'intérieur d'un circuit Blazor, sans réécriture de cookie. Si le rafraîchissement échoue, l'utilisateur est redirigé vers la connexion.
-- **Autorisation d'entrée** : la liste `GET /user/installations/{installationId}/repositories` de l'utilisateur doit être non vide (membre ayant accès à au moins un dépôt de l'installation).
+- **Exposition** : le Web est public, avec connexion GitHub (ADR-013).
+- **Règle d'entrée** : l'organisation vient toujours de l'adresse. `AuthorizationBehavior` y entre à chaque envoi (§3bis.2), et `CircuitUserScopeInitializer` ne copie aucune organisation dans le circuit.
+- **Rôles d'organisation** (`OrganizationMemberships`) : `Participant` (accès à au moins un dépôt de l'installation, aucun droit sur l'organisation) ou `Admin` (membre actif avec le rôle admin, ou propriétaire du compte personnel).
 - **`IRepositoryAccessService`** :
-  - lecture : `repo.GitHubId ∈ UserRepositoryAccess` (rafraîchi par le job `RefreshUserAccess` à la connexion, puis tous les `Access:CacheMinutes`), avec les permissions `admin`, `push` et `pull` renvoyées par GitHub ;
+  - lecture : `repo.ExternalId ∈ UserRepositoryAccess` (rafraîchi par le job `RefreshUserAccess` à la connexion, puis tous les `Access:CacheMinutes`), avec les permissions `admin`, `push` et `pull` renvoyées par GitHub ;
   - administration du dépôt : permission `admin` ;
-  - administration globale : login présent dans `Access:AdminLogins` ou `CodeCoverage__Bootstrap__AdminLogins`.
+  - administration d'instance : identifiant GitHub numérique présent dans `Access:AdminUserIds` ou `CodeCoverage__Bootstrap__AdminUserIds`, réévalué à chaque lecture. Elle n'accorde aucun accès aux données d'une organisation (ADR-013), et `IAdminOnly` n'entre dans aucune organisation.
 - **Premier démarrage** :
   - tant que `GitHub:AppId` est vide, le Web journalise en `Warning` un **jeton de mise en place** à usage unique (stocké haché) et redirige vers `/setup?token=` ;
   - après la mise en place, le jeton est supprimé et l'OAuth normal s'applique ;
@@ -1510,21 +1589,23 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 
 | Route | But | Données affichées | Actions | Rôle |
 |---|---|---|---|---|
-| `/` | Accueil, liste des dépôts | Dépôts accessibles : nom, couverture de la branche par défaut, sparkline 30 jours, dernier commit (état, date), flags | Recherche, filtre actifs/inactifs | connecté |
-| `/{owner}/{repo}` | Vue d'ensemble | Cartes projet et par flag (couverture, Δ 30 jours) ; graphique d'historique (`CcLineChart`, sélecteur de branche, multi-sélection de flags, plage 30, 90 ou 365 jours) ; commits récents ; PR ouvertes ; snippets Markdown et HTML du badge (avec jeton si privé) | Changer de branche ou de flag | lecture |
-| `/{owner}/{repo}/commits` | Liste des commits | Paginé par branche : SHA, message, auteur, date, couverture, Δ, état, nombre de sessions | Filtrer par branche | lecture |
-| `/{owner}/{repo}/commit/{sha}` | Détail d'un commit | Totaux ; tableau des flags (avec marqueur de report) ; uploads et sessions (lien CI, flags, état, origine du report, **journal de traitement : chemins non résolus ou ambigus, formats inconnus, erreurs**) ; statuts publiés ; source et avertissements de configuration ; arbre des fichiers triable (depuis `FileIndex`) | Re-notifier, retraiter (admin du dépôt) ; filtrer par flag | lecture |
-| `/{owner}/{repo}/commit/{sha}/blob/{**path}` | **Source annotée** | Source lue en direct depuis GitHub (`contents?ref=`, jeton d'installation, **après contrôle d'accès**, cache mémoire borné de 100 Mo et 10 minutes, jamais persistée) ; marge Hit (vert), Miss (rouge), Partial (jaune) ; hits et `c/t` au survol ; lignes du patch surlignées si l'on vient d'une PR (`?pull=`) ; coloration syntaxique highlight.js (servie depuis `wwwroot`) | Filtre de flag ; aller à la prochaine ligne non couverte | lecture |
-| `/{owner}/{repo}/pulls` | Liste des PR | Numéro, titre, auteur, état, couverture du patch, Δ projet | Filtrer par état | lecture |
-| `/{owner}/{repo}/pull/{n}` | Comparaison de PR | Explication des bases (tête, point de fourche, `comparedTo`, retard) ; patch ; Δ projet ; tableau `diff` ; flags ; fichiers impactés (liens vers la source annotée) ; changements indirects ; avertissements (diff incomplet, base manquante) ; lien vers le commentaire GitHub | Re-notifier (admin du dépôt) | lecture |
-| `/{owner}/{repo}/compare/{base}...{head}` | Comparaison libre | Même contenu que la page PR, sans commentaire | — | lecture |
-| `/{owner}/{repo}/settings` | Réglages du dépôt | État actif ; jetons d'upload du dépôt (indice, création, dernière utilisation) ; jeton de badge ; YAML effectif (lecture seule) et validation | Activer ou désactiver ; créer un jeton (valeur affichée **une fois**) ou importer un `CODECOV_TOKEN` ; révoquer ; renouveler ou importer le jeton de badge ; retraiter un commit | admin du dépôt (GitHub) ou admin global |
+| `/` | Accueil, liste des dépôts | Dépôts accessibles, toutes organisations confondues ou filtrés sur une seule : nom, couverture de la branche par défaut, sparkline 30 jours, dernier commit (état, date), flags | Recherche, filtre actifs/inactifs | connecté |
+| `/{forge}/{owner}/{repo}` | Vue d'ensemble | Cartes projet et par flag (couverture, Δ 30 jours) ; graphique d'historique (`CcLineChart`, sélecteur de branche, multi-sélection de flags, plage 30, 90 ou 365 jours) ; commits récents ; PR ouvertes ; snippets Markdown et HTML du badge (avec jeton si privé) | Changer de branche ou de flag | lecture |
+| `/{forge}/{owner}/{repo}/commits` | Liste des commits | Paginé par branche : SHA, message, auteur, date, couverture, Δ, état, nombre de sessions | Filtrer par branche | lecture |
+| `/{forge}/{owner}/{repo}/commit/{sha}` | Détail d'un commit | Totaux ; tableau des flags (avec marqueur de report) ; uploads et sessions (lien CI, flags, état, origine du report, **journal de traitement : chemins non résolus ou ambigus, formats inconnus, erreurs**) ; statuts publiés ; source et avertissements de configuration ; arbre des fichiers triable (depuis `FileIndex`) | Re-notifier, retraiter, relancer un upload échoué (admin du dépôt) ; filtrer par flag | lecture |
+| `/{forge}/{owner}/{repo}/commit/{sha}/blob/{**path}` | **Source annotée** | Source lue en direct depuis GitHub (`contents?ref=`, jeton d'installation, **après contrôle d'accès**, cache mémoire borné de 100 Mo et 10 minutes, jamais persistée) ; marge Hit (vert), Miss (rouge), Partial (jaune) ; hits et `c/t` au survol ; lignes du patch surlignées si l'on vient d'une PR (`?pull=`) ; coloration syntaxique highlight.js (servie depuis `wwwroot`) | Filtre de flag ; aller à la prochaine ligne non couverte | lecture |
+| `/{forge}/{owner}/{repo}/pulls` | Liste des PR | Numéro, titre, auteur, état, couverture du patch, Δ projet | Filtrer par état | lecture |
+| `/{forge}/{owner}/{repo}/pull/{n}` | Comparaison de PR | Explication des bases (tête, point de fourche, `comparedTo`, retard) ; patch ; Δ projet ; tableau `diff` ; flags ; fichiers impactés (liens vers la source annotée) ; changements indirects ; avertissements (diff incomplet, base manquante) ; lien vers le commentaire GitHub | Re-notifier (admin du dépôt) | lecture |
+| `/{forge}/{owner}/{repo}/compare/{base}...{head}` | Comparaison libre | Même contenu que la page PR, sans commentaire | — | lecture |
+| `/{forge}/{owner}/{repo}/settings` | Réglages du dépôt | État actif ; jetons d'upload du dépôt (indice, création, dernière utilisation) ; jeton de badge ; YAML effectif (lecture seule) et validation | Activer ou désactiver ; créer un jeton (valeur affichée **une fois**) ou importer un `CODECOV_TOKEN` ; révoquer ; renouveler ou importer le jeton de badge ; retraiter un commit | admin du dépôt (GitHub) |
 | `/account/tokens` | Jetons API personnels | Liste (nom, indice, dates) | Créer (affiché une fois), révoquer | connecté |
-| `/admin/settings` | Paramètres | Groupes du catalogue (§4bis.3), source effective (base, environnement, défaut), badge `RequiresRestart`, état « défini » des secrets | Modifier ; « Remplacer » un secret ; réinitialiser ; clés venant de l'environnement en lecture seule | admin global |
-| `/admin/upload-tokens` | Jetons d'organisation | Liste | Créer ou importer (valeur Codecov), révoquer | admin global |
-| `/admin/repositories` | Dépôts suivis | Tous les dépôts de l'installation, état, dernier upload | Activer ou désactiver, synchroniser les installations | admin global |
-| `/admin/operations` | Exploitation | Profondeur de file, plus ancien job, jobs morts ou en échec (erreur), livraisons de webhooks (dernière par événement, erreurs), heartbeats du worker, quota GitHub restant, uploads échoués récents | Relancer un job, relancer un upload | admin global |
-| `/admin/audit` | Journal d'audit | Jetons, paramètres, secrets, relances | Filtrer | admin global |
+| `/admin/settings` | Paramètres de l'instance | Clés `Instance` du catalogue (§4bis.3), source effective (base, environnement, défaut), badge `RequiresRestart`, état « défini » des secrets | Modifier ; « Remplacer » un secret ; réinitialiser ; clés venant de l'environnement en lecture seule | admin d'instance |
+| `/orgs/{forge}/{org}/settings` | Paramètres de l'organisation | Les 4 clés `Organization`, sans secret | Modifier, réinitialiser | admin de l'organisation |
+| `/orgs/{forge}/{org}/upload-tokens` | Jetons d'organisation | Liste, bandeau quand `RotationAdvisedAt` est posé | Créer ou importer (valeur Codecov), révoquer | admin de l'organisation |
+| `/orgs/{forge}/{org}/repositories` | Dépôts de l'organisation | Tous les dépôts de l'installation de l'organisation, état, dernier upload | Activer ou désactiver, synchroniser l'installation | admin de l'organisation |
+| `/admin/organizations` | Organisations de l'instance | Lignes `Organizations` et profondeur de file par organisation, sans donnée métier | Admettre, suspendre | admin d'instance |
+| `/admin/operations` | Exploitation, métadonnées seulement | Profondeur de file, plus ancien job, jobs morts ou en échec, livraisons de webhooks (dernière par événement, erreurs), heartbeats du worker, quota GitHub restant | Relancer un job | admin d'instance |
+| `/admin/audit` | Journal d'audit, métadonnées seulement | Jetons, paramètres, secrets, relances | Filtrer | admin d'instance |
 | `/setup` | Assistant de premier démarrage | État (App créée, installée, URL publiques, administrateurs) | Créer l'App par manifest (`CompleteGitHubAppManifest` reçoit `code`, puis `POST /app-manifests/{code}/conversions` stocke AppId, ClientId, secrets et PEM) ; ou saisie manuelle ; définir les URL et les administrateurs ; installer l'App | jeton de mise en place |
 | `/error`, `/not-found`, `/access-denied` | Pages d'erreur | Message localisé, identifiant de corrélation | Retour | — |
 
@@ -1532,7 +1613,8 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 - Dépôts ;
 - dans un dépôt, onglets de second niveau `CcPillTabs` sous le titre : Vue d'ensemble, Commits, Pull requests, Réglages ; même principe pour les pages d'administration ;
 - Mon compte (jetons API) ;
-- Administration (Paramètres, Jetons, Dépôts, Opérations, Audit), visible uniquement par les administrateurs.
+- Organisation (Paramètres, Jetons, Dépôts), visible par les administrateurs de l'organisation ;
+- Administration (Organisations, Paramètres, Opérations, Audit), visible uniquement par les administrateurs d'instance.
 
 ### 10bis.4 Gestion des erreurs dans l'UI (§11.4 des conventions)
 
@@ -1657,10 +1739,11 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 - **SQL Server :** sauvegardes automatiques Azure SQL.
 - **Tout l'état est en base**, y compris les uploads bruts.
 - Sauvegarder **séparément** le certificat Data Protection ou la clé Key Vault. Sans elle, les secrets GitHub sont à ressaisir, mais les données de couverture survivent.
+- **Une sauvegarde contient toutes les organisations.** Qui exploite la base et ses sauvegardes voit les données de chacune (ADR-013) : l'isolation tient dans l'application, pas dans la base.
 
 ### 12.6 Observabilité
 
-- **Serilog** (§8.4 des conventions) : logger de bootstrap, `CompactJsonFormatter`, fichier roulant, enrichisseurs. Chaque job journalise dans un `LogContext` (JobId, JobType, Repository, CommitSha, CorrelationId). Le `CorrelationId` de la requête d'upload est propagé au job.
+- **Serilog** (§8.4 des conventions) : logger de bootstrap, `CompactJsonFormatter`, fichier roulant, enrichisseurs. Chaque job journalise dans un `LogContext` (JobId, JobType, Repository, CommitSha, CorrelationId, OrganizationId). Le `CorrelationId` de la requête d'upload est propagé au job.
 - **OpenTelemetry** : traces ASP.NET Core, `HttpClient` (GitHub) et `ActivitySource("CodeCoverage.Jobs")`, exportées en OTLP si `OTEL_EXPORTER_OTLP_ENDPOINT` est défini.
 - **Métriques** (`Meter "CodeCoverage"`) :
   - `uploads_received_total{repo,flag}`, `uploads_failed_total{reason}` ;
@@ -1677,6 +1760,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
   - échecs de signature de webhook ;
   - quota GitHub < 10 %.
 - Les mêmes indicateurs sont visibles dans `/admin/operations`.
+- **Exposition opérateur (ADR-013).** Les journaux, les traces et les métriques ne sont pas cloisonnés par organisation : qui y accède voit toutes les organisations. La console d'instance n'expose que des métadonnées.
 
 ### 12.7 Sécurité (récapitulatif)
 
@@ -1710,7 +1794,7 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 |---|---|
 | [ADR-001](adr/0001-mediator.md) | Médiateur martinothamar `Mediator` 3.x : générateur dans Application, `Handle`/`ValueTask` à la place de `HandleAsync`, pipeline Logging → Authorization → Validation. |
 | [ADR-002](adr/0002-two-hosts.md) | Deux hôtes, worker uniquement dans l'Api (`Worker__Enabled`) ; le Web exécute l'Application en process. |
-| [ADR-003](adr/0003-single-tenant.md) | Mono-tenant (pas de bibliothèque de multi-tenancy) : une organisation GitHub, un déploiement, isolation par dépôt via les droits GitHub. Plusieurs organisations restent possibles grâce à `Installations` et `Owner`. Ajouter un `TenantId` plus tard serait une migration mécanique. |
+| [ADR-003](adr/0003-single-tenant.md) | Remplacé par ADR-013. |
 | [ADR-004](adr/0004-no-octokit.md) | Ni Octokit ni Octokit.Webhooks : `HttpClient` typé, HMAC maison, contrôleurs MVC. |
 | [ADR-005](adr/0005-database-job-queue.md) | File de jobs en base, portable (SKIP LOCKED / READPAST, index filtrés `Queued`/`Running`), sans Hangfire. |
 | [ADR-006](adr/0006-settings-revision-polling.md) | Paramètres propagés par interrogation de `SettingsRevision` (5 s), sans LISTEN/NOTIFY. |
@@ -1720,6 +1804,8 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | [ADR-010](adr/0010-bigint-keys-chunked-raw.md) | Clés `bigint` identity ; brut en base par morceaux. |
 | [ADR-011](adr/0011-two-public-hostnames.md) | Deux noms d'hôte publics (Api et Web) ; aucun routage par chemin. |
 | [ADR-012](adr/0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api avec SHA-256 épinglé ; outil dotnet en complément. |
+| [ADR-013](adr/0013-organization-isolation.md) | Plusieurs organisations isolées sur une instance : filtre EF, estampille, garde et jeton de concurrence à l'écriture, une seule porte, App publique partagée, admission fermée. |
+| [ADR-014](adr/0014-multi-forge.md) | Préparation à plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway`, GitHub seul implémenté avant la bascule. |
 
 ### 13.2 Décisions encore ouvertes
 

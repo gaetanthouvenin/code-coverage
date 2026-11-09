@@ -450,6 +450,11 @@ dans `{Host}/Configuration` quand elle dépend de la requête). Règles (vérifi
   changement sur plusieurs agrégats = une méthode de repository (une transaction) ;
 - un handler n'enregistre jamais rien lui-même.
 
+Un port ne reçoit aucun paramètre d'organisation : l'organisation est celle de la portée DI
+(`ICurrentOrganization`), appliquée par le filtre et la sauvegarde du `DbContext` (ADR-013). Seuls
+`IOrganizationDirectory` et `IOrganizationScope`, qui résolvent l'organisation, reçoivent une forge
+et un login. Cette règle-ci se vérifie en revue.
+
 Exemples : `src/CodeCoverage.Domain/Ports/IClock.cs` (le plus court) et
 `src/CodeCoverage.Domain/Ports/ISettingsStore.cs` (lecture, liste, enregistrement « saved at
 once »). Forme générique d'un repository :
@@ -622,11 +627,18 @@ validé (`PipelineOrderTests`).
   `Debug`, commandes en `Information` ; un refus (`ApplicationException`) est une réponse,
   journalisé en `Warning` avec son code d'erreur ; toute autre exception en `Error`. Seul le nom du
   type du message est journalisé, jamais son contenu (ni jeton ni flux d'upload dans les logs).
-- `AuthorizationBehavior` : le principal système (jobs, webhooks) passe tout ; un message
-  `ISystemOnly` envoyé par un autre est refusé (`ForbiddenException`) ; un message `IAdminOnly`
-  exige un utilisateur connecté (`UnauthorizedException`) administrateur (`ForbiddenException`) ;
-  un message sans marqueur passe (son handler l'authentifie au besoin, par exemple un jeton
-  d'upload). Les marqueurs sont des interfaces vides de `Application/Security`.
+- `AuthorizationBehavior` : le principal système (jobs, traitement des webhooks) passe tout et
+  garde la portée du job ; un message `ISystemOnly` envoyé par un autre est refusé
+  (`ForbiddenException`) ; un message `IAdminOnly` exige un utilisateur connecté
+  (`UnauthorizedException`) administrateur d'instance (`ForbiddenException`) ; un message
+  `IUserScoped` exige un utilisateur connecté. Le behavior est aussi la porte d'entrée dans
+  l'organisation d'un message `IRepositoryScoped`, `IOrganizationScoped` ou `IPublicOwnerAddressed`
+  (ADR-013, `docs/ARCHITECTURE.md` §3bis.2).
+- **Marqueurs** (`Application/Security`) : chaque message déclare **exactement un** marqueur d'accès
+  (`MessageMarkerTests`), y compris `IAnonymousEntry` pour un message sans contrôle d'accès, dont le
+  handler authentifie au besoin le credential. `IOrganizationScoped.RequiredRole` n'a pas de valeur
+  par défaut. Un message sert une seule audience : un même cas vu par deux audiences donne deux
+  messages, ce qui se vérifie en revue.
 - `ValidationBehavior` : exécute **séquentiellement** chaque validateur (ils sont scoped, comme le
   `DbContext` qu'une règle asynchrone peut interroger), avec un `ValidationContext` par validateur,
   et lève la `ValidationException` **du projet** (§6.4), jamais celle de FluentValidation
@@ -808,6 +820,15 @@ Côté Web, même forme dans `CodeCoverage.Web.Mapping`, avec `ToViewModel` et
 - `Persistence/Configurations/{Entity}Configuration.cs` : `internal sealed class … :
   IEntityTypeConfiguration<T>` avec `#region Implementation of IEntityTypeConfiguration<T>` ; mappe
   les entités du Domain.
+- **Table d'organisation (ADR-013)** : sa configuration appelle `IsOrganizationOwned()`, qui ajoute
+  la colonne fantôme `OrganizationId` non nulle, en fait un jeton de concurrence et marque l'entité
+  pour le filtre nommé `Organization`, installé une seule fois dans `OnModelCreating`. La table est
+  classée dans `TableClassification`, et son repository a une classe de tests à deux organisations
+  (`RepositoryIsolationCoverageTests`). Une ligne est lue par le contexte qui l'écrit : la colonne
+  fantôme ne voyage pas avec une instance. Une écriture qui n'affecte aucune ligne lève
+  `ConflictException` (`General.ConcurrentChange`). `IgnoreQueryFilters` est interdit dans `src` sans
+  exception, le SQL brut est limité à une liste d'exceptions nommées, et `SetProperty` ne vise jamais
+  `OrganizationId` (`OrganizationIsolationTests`).
 - `Persistence/Conventions/` : conventions communes aux deux fournisseurs (énumérations stockées en
   texte, convertisseurs JSON).
 - `Persistence/Repositories/{Entity}Repository.cs` : `internal sealed`, implémente le port, Domain
@@ -829,6 +850,12 @@ fournisseur : `Infrastructure.PostgreSql` et `Infrastructure.SqlServer`.
   ouverte à la fois**, dans l'ordre de `docs/PLAN.md` ; la suivante s'ouvre une fois la précédente
   fusionnée dans `develop`. Après un rebase qui apporte une autre migration, régénérer la sienne :
   `pwsh scripts/new-migration.ps1 -Name AddThing -Regenerate`.
+- **Migration d'une table d'organisation** : `OrganizationId` (`bigint`, non nulle) est créée avec
+  la table. Seules les tables dont l'index unique commence par `OrganizationId` appellent
+  `HasOrganizationForeignKey()` : cet index sert la clé étrangère, et la convention n'en crée pas
+  d'autre (`Model_OrganizationForeignKey_ShouldBeServedByTheUniqueIndex`). Le jeton de concurrence
+  ne produit aucune opération : il ne change que l'instantané du modèle, comme le montrent les deux
+  migrations `AddOrganizationConcurrencyToken`, vides.
 - Aucun SQL propre à un fournisseur hors des dialectes de la file de jobs
   (`PostgreSqlJobClaimDialect`, `SqlServerJobClaimDialect`, §9).
 - Choix du moteur : `src/CodeCoverage.Infrastructure/Persistence/DbContextOptionsBuilderExtensions.cs`
@@ -1106,12 +1133,17 @@ Options liées par
 et lues par **`IOptionsMonitor<XxxOptions>`**, jamais `IOptions<T>` pour un réglage modifiable.
 Un réglage `RequiresRestart` est signalé dans l'UI.
 
+Les 4 clés de portée `SettingScope.Organization` ne passent pas par `IOptionsMonitor<T>`, qui ne
+garde qu'une valeur par processus : elles sont lues par `IOrganizationSettingsProvider`, à portée et
+mémorisé une fois par portée DI, avec la ligne de l'organisation, puis le défaut du catalogue. Elles
+ne sont jamais secrètes et n'emploient pas `SettingsRevision` (ADR-013).
+
 ### 12.5 Amorçage (environnement uniquement)
 
 Restent dans l'environnement (ou `appsettings.json`) : `ConnectionStrings:CodeCoverage`,
 `CodeCoverage:Database:Provider`, `CodeCoverage:Database:MigrateOnStartup`, `Logging:FilePath`,
 `Features:EnableApiDocs`, `Worker:Enabled`, `Settings:PollSeconds`, `DataProtection:*`,
-`ForwardedHeaders:KnownProxies`, `CodeCoverage:Bootstrap:AdminLogins`. La liste complète est dans
+`ForwardedHeaders:KnownProxies`, `CodeCoverage:Bootstrap:AdminUserIds`. La liste complète est dans
 `docs/ARCHITECTURE.md` §4bis.2. Tout le reste passe par le store.
 
 ---
@@ -1264,7 +1296,7 @@ Le dépôt suit GitFlow, aligné sur `GitVersion.yml` (`workflow: GitFlow/v1`) :
 | OpenAPI | Swashbuckle + Swagger UI + Scalar (exigence utilisateur) |
 | Paramètres | Provider de configuration sur table + `IOptionsMonitor`, propagation par révision (ADR-006) |
 | Persistance | Un modèle EF Core 10, PostgreSQL et SQL Server, deux assemblies de migrations |
-| Tenancy | Instance mono-tenant (ADR-003) |
+| Tenancy | Plusieurs organisations isolées sur une instance (ADR-013) |
 | Région des constructeurs | `Ctors` |
 | Visibilité des handlers | `internal sealed` |
 | `ConfigureAwait` | `false` partout, `true` dans les `.razor.cs` et `UiRequestRunner` |
@@ -1306,9 +1338,8 @@ Points qui ont demandé une décision avant implémentation :
 7. **Paramètres rechargeables avec deux hôtes** — tranché (ADR-006) : interrogation périodique de
    `SettingsRevision` (§12.3).
 8. **Couverture de code en CI** — le projet la définit lui-même (§14.2, jalon M5).
-9. **Multi-tenant** — tranché (ADR-003) : instance mono-tenant.
+9. **Multi-tenant** — tranché (ADR-013, qui remplace ADR-003) : une instance héberge plusieurs organisations isolées.
 10. **Nom du produit et du dépôt** — tranché : produit `CodeCoverage`, dépôt `code-coverage`,
-    projet indépendant ; l'organisation GitHub servie n'est pas fixée (`GitHub:Organization` et
-    `Uploads:AllowedOwners` sans valeur par défaut, saisis dans la console web).
+    projet indépendant, lié à aucune organisation : chacune est admise sur l'instance (ADR-013).
 11. **Application des régions par l'outillage** — ouvert : aucun File Layout ReSharper ; l'ordre
     des régions est vérifié en revue.

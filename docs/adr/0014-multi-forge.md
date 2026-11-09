@@ -1,6 +1,6 @@
 # ADR-014 : Préparation à plusieurs forges
 
-- **Statut :** proposé, jusqu'à M1.16a2 ; passe alors à « accepté ». Complète [ADR-013](0013-organization-isolation.md).
+- **Statut :** accepté le 2026-11-09 (M1.16a2). Complète [ADR-013](0013-organization-isolation.md).
 - **Date :** 2026-11-08
 - **Références :** `docs/PLAN.md` §1.4, §2.1, §2.3, §4.4, §9, §10 et §11 ; `docs/ARCHITECTURE.md` §1.3, §4.2, §5.1, §8, §10.2 et §10bis.3, réécrits par M1.16a2
 
@@ -133,7 +133,7 @@ ADR-013 nommait un écart sur les logins réservés : il disparaît avec M3.43a.
   - des adresses un peu plus longues pour un produit qui ne sert d'abord que GitHub ;
   - une préparation d'environ 3 à 4 sessions, réparties sur les fiches concernées ;
   - M7 (environ 28 sessions), M8 (environ 20 sessions) et M9 (environ 22 sessions) restent à faire. Ces ordres de grandeur ne sont pas mesurés.
-  - `docs/ARCHITECTURE.md` et `AGENT.md` décrivent encore GitHub seul jusqu'à M1.16a2 ; en cas de conflit, cette décision prime.
+  - `docs/ARCHITECTURE.md` et `AGENT.md` ont décrit GitHub seul jusqu'à M1.16a2.
 
 ## Alternatives écartées
 

@@ -18,6 +18,7 @@
 - Dans chaque hôte, `SettingsChangeWatcher` (`BackgroundService`, `PeriodicTimer` de `Settings:PollSeconds`, 5 s par défaut) lit la révision. Si elle a changé, il recharge le provider de configuration, ce qui notifie les consommateurs `IOptionsMonitor`.
 - L'hôte qui enregistre se rafraîchit immédiatement ; l'autre suit en 5 secondes au plus.
 - **Pas de `LISTEN/NOTIFY`**, ni de bus de messages.
+- Les 4 paramètres d'organisation (ADR-013) n'emploient pas ce compteur : `IOrganizationSettingsProvider` les lit dans chaque portée DI, sans `IOptionsMonitor`.
 
 ## Conséquences
 

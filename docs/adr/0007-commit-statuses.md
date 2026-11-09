@@ -15,9 +15,9 @@
 
 - Le MVP publie des **statuts de commit** `project`, `patch` et `changes` (ce dernier désactivé par défaut, comme chez Codecov).
 - Les **Check Runs**, avec annotations des lignes du patch non couvertes, arrivent en **M5**, avec les mêmes noms de contexte. La permission `Checks` de l'App reste à « none » jusque-là.
-- Le préfixe de contexte est réglable à chaud (`Notifications:StatusContextPrefix`) :
-  - **`coverage`** pendant le pilote (statuts `coverage/project`, `coverage/patch`) ;
-  - **`codecov`** à la bascule (M4), ce qui reprend les noms déjà exigés par la protection de branche.
+- Le préfixe de contexte est réglable à chaud, par organisation (`Notifications:StatusContextPrefix`, ADR-013) :
+  - **`coverage`** par défaut, pendant le pilote (statuts `coverage/project`, `coverage/patch`) ;
+  - **`codecov`** à la bascule de chaque organisation, à sa propre date, ce qui reprend les noms déjà exigés par la protection de branche.
 
 ## Conséquences
 
