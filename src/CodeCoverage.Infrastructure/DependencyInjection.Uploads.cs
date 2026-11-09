@@ -40,6 +40,7 @@ public static partial class DependencyInjection
     );
 
     services.AddScoped<IRawUploadStore, SqlRawUploadStore>();
+    services.AddScoped<IUploadCredentialCache, MemoryUploadCredentialCache>();
     services.AddSingleton<ITokenGenerator, TokenGenerator>();
 
     return services;

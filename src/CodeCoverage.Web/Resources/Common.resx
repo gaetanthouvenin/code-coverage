@@ -39,6 +39,15 @@
   <data name="Organization.ReservedLogin" xml:space="preserve"><value>This login is a segment of the product's addresses: this account cannot be admitted.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
+  <data name="Upload.InvalidSlug" xml:space="preserve"><value>The repository must be written owner/name.</value></data>
+  <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>The upload named a merge commit: it was attached to the head of the pull request.</value></data>
+  <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>The text fields must come before the files.</value></data>
+  <data name="Upload.NoFileMapped" xml:space="preserve"><value>No file of the reports was found in the repository.</value></data>
+  <data name="Upload.OidcMismatch" xml:space="preserve"><value>The OIDC token was issued for another repository.</value></data>
+  <data name="Upload.TokenInvalid" xml:space="preserve"><value>The upload token is not valid.</value></data>
+  <data name="Upload.TokenNotForRepository" xml:space="preserve"><value>This upload token belongs to another repository.</value></data>
+  <data name="Upload.TooLarge" xml:space="preserve"><value>The content of this upload is too large.</value></data>
+  <data name="Upload.UnsupportedFormat" xml:space="preserve"><value>This report format is not supported.</value></data>
   <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>This value is already a token of this organization.</value></data>
   <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>The expiry must be in the future.</value></data>
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>An imported token must be a Codecov token (a UUID).</value></data>

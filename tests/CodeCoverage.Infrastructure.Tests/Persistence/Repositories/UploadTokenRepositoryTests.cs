@@ -156,6 +156,72 @@ public sealed class UploadTokenRepositoryTests(DatabaseFixture database)
     await Should.ThrowAsync<InvalidOperationException>(() => new UploadTokenRepository(context).UpdateAsync(OrganizationToken(Hash), Ct));
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindByHash_ShouldFindTheTokenOfTheOrganizationOnly(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var token = OrganizationToken(Hash);
+
+    await using (var writer = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      await new UploadTokenRepository(writer).TryAddAsync(token, Ct);
+    }
+
+    await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    await using var second = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+
+    (await new UploadTokenRepository(first).FindByHashAsync(Hash, Ct)).ShouldNotBeNull().Id.ShouldBe(token.Id);
+    (await new UploadTokenRepository(second).FindByHashAsync(Hash, Ct)).ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RecordUse_WithinAMinute_ShouldKeepTheFirstDate(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var token = OrganizationToken(Hash);
+
+    await using (var writer = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      await new UploadTokenRepository(writer).TryAddAsync(token, Ct);
+      await new UploadTokenRepository(writer).RecordUseAsync(token.Id, Now, Ct);
+      await new UploadTokenRepository(writer).RecordUseAsync(token.Id, Now.AddSeconds(30), Ct);
+    }
+
+    await using (var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      (await new UploadTokenRepository(reader).FindByHashAsync(Hash, Ct)).ShouldNotBeNull().LastUsedAt.ShouldBe(Now);
+    }
+
+    await using var late = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    await new UploadTokenRepository(late).RecordUseAsync(token.Id, Now.AddSeconds(61), Ct);
+
+    await using var last = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    (await new UploadTokenRepository(last).FindByHashAsync(Hash, Ct)).ShouldNotBeNull().LastUsedAt.ShouldBe(Now.AddSeconds(61));
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RecordUse_OtherOrganization_ShouldChangeNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var token = OrganizationToken(Hash);
+
+    await using (var writer = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      await new UploadTokenRepository(writer).TryAddAsync(token, Ct);
+    }
+
+    await using (var other = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      await new UploadTokenRepository(other).RecordUseAsync(token.Id, Now, Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    (await new UploadTokenRepository(reader).FindByHashAsync(Hash, Ct)).ShouldNotBeNull().LastUsedAt.ShouldBeNull();
+  }
+
   private static UploadToken OrganizationToken(byte[] hash) =>
     UploadToken.Create(UploadTokenScope.Organization, null, "ci", "hint", hash, false, "octocat", Now, null);
 
