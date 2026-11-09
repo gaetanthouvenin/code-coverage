@@ -28,6 +28,7 @@ public static partial class DependencyInjection
     services.AddScoped<ICommitReportRepository, CommitReportRepository>();
     services.AddScoped<IGitCommitRepository, GitCommitRepository>();
     services.AddScoped<IUploadRepository, UploadRepository>();
+    services.AddScoped<IUploadTokenRepository, UploadTokenRepository>();
 
     return services;
   }

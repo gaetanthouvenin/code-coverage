@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
+using CodeCoverage.Infrastructure.Security;
 using CodeCoverage.Infrastructure.Uploads;
 
 namespace CodeCoverage.Infrastructure;
@@ -39,6 +40,7 @@ public static partial class DependencyInjection
     );
 
     services.AddScoped<IRawUploadStore, SqlRawUploadStore>();
+    services.AddSingleton<ITokenGenerator, TokenGenerator>();
 
     return services;
   }

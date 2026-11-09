@@ -32,6 +32,11 @@
   <data name="Organization.NotFound" xml:space="preserve"><value>This organization does not exist, or you do not have access to it.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
+  <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>This value is already a token of this organization.</value></data>
+  <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>The expiry must be in the future.</value></data>
+  <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>An imported token must be a Codecov token (a UUID).</value></data>
+  <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Give the token a name of at most 128 characters.</value></data>
+  <data name="UploadToken.NotFound" xml:space="preserve"><value>This token does not exist.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>The value does not match the type of the setting.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>This setting is a secret: replace it instead of changing it.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>This setting is not a secret: change its value instead.</value></data>
