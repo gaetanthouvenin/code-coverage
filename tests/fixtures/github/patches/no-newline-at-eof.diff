@@ -1,0 +1,27 @@
+@@ -24,7 +24,7 @@ bld/
+ [Bb]in/
+ [Oo]bj/
+ [Ll]og/
+-msbuild.binlog
++*.binlog
+ 
+ # Visual Studio 2015 cache/options directory
+ .vs/
+@@ -303,4 +303,15 @@ __pycache__/
+ .AssemblyAttributes
+ DeterministicTest.props
+ test/coverlet.integration.determisticbuild/*.txt
+-test/coverlet.integration.determisticbuild/runsettings
+\ No newline at end of file
++test/coverlet.integration.determisticbuild/runsettings
++
++coverage.json
++coverage.xml
++coverage.*.json
++coverage.*.xml
++coverage.cobertura.xml
++coverage.opencover.xml
++coverage.*.cobertura.xml
++coverage.*.opencover.xml
++
++FolderProfile.pubxml
