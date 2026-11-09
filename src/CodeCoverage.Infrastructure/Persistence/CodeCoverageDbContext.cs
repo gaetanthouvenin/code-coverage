@@ -22,6 +22,7 @@ using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Settings;
+using CodeCoverage.Infrastructure.Uploads;
 
 namespace CodeCoverage.Infrastructure.Persistence;
 
@@ -125,6 +126,12 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the coverage of the processed uploads (<c>UploadCoverages</c>).</summary>
   internal DbSet<UploadCoverageRecord> UploadCoverages => Set<UploadCoverageRecord>();
+
+  /// <summary>Gets the chunks of the stored parts of the uploads (<c>UploadRawChunks</c>).</summary>
+  internal DbSet<UploadRawChunkRecord> UploadRawChunks => Set<UploadRawChunkRecord>();
+
+  /// <summary>Gets the stored parts of the uploads (<c>UploadRawFiles</c>).</summary>
+  internal DbSet<UploadRawFileRecord> UploadRawFiles => Set<UploadRawFileRecord>();
 
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();

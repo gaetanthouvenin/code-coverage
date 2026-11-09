@@ -930,6 +930,86 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.ToTable("Settings", (string)null);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Uploads.UploadRawChunkRecord", b =>
+                {
+                    b.Property<long>("RawFileId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ChunkIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("RawFileId", "ChunkIndex");
+
+                    b.ToTable("UploadRawChunks", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Uploads.UploadRawFileRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CompressedSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DetectedFormat")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .IsFixedLength();
+
+                    b.Property<long>("UncompressedSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("UploadPublicId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_UploadRawFiles_ExpiresAt");
+
+                    b.HasIndex("UploadPublicId")
+                        .HasDatabaseName("IX_UploadRawFiles_UploadPublicId");
+
+                    b.ToTable("UploadRawFiles", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -1055,6 +1135,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Uploads.UploadRawChunkRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Infrastructure.Uploads.UploadRawFileRecord", null)
+                        .WithMany()
+                        .HasForeignKey("RawFileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

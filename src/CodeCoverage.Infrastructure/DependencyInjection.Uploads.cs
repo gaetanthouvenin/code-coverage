@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
+using CodeCoverage.Infrastructure.Uploads;
 
 namespace CodeCoverage.Infrastructure;
 
@@ -36,6 +37,8 @@ public static partial class DependencyInjection
         provider.GetRequiredService<ILogger<GitHubOidcTokenValidator>>()
       )
     );
+
+    services.AddScoped<IRawUploadStore, SqlRawUploadStore>();
 
     return services;
   }
