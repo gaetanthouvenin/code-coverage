@@ -1,0 +1,36 @@
+{
+  "sha": "9fb037999f264ba9a7fc6274d15fa3ae2ab98312",
+  "url": "https://api.github.com/repos/octocat/Hello-World/git/trees/9fb037999f264ba9a7fc6274d15fa3ae2ab98312",
+  "tree": [
+    {
+      "path": "codecov.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44b4fc6d56897b048c772eb4087f854f46256132",
+      "size": 30,
+      "url": "https://api.github.com/repos/octocat/Hello-World/git/blobs/44b4fc6d56897b048c772eb4087f854f46256132"
+    },
+    {
+      "path": "src",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f484d249c660418515fb01c2b9662073663c242e",
+      "url": "https://api.github.com/repos/octocat/Hello-World/git/trees/f484d249c660418515fb01c2b9662073663c242e"
+    },
+    {
+      "path": "src/Calculator.cs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bbcd538c8e72b8c175046e27cc8f907076331401",
+      "size": 62,
+      "url": "https://api.github.com/repos/octocat/Hello-World/git/blobs/bbcd538c8e72b8c175046e27cc8f907076331401"
+    },
+    {
+      "path": "vendor/library",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "fa8f5c5a5c1b1b0d8c7e6f5a4b3c2d1e0f9a8b7c"
+    }
+  ],
+  "truncated": false
+}

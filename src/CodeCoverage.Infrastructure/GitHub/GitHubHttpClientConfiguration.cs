@@ -35,7 +35,10 @@ internal static class GitHubHttpClientConfiguration
 
   #region Methods
 
-  /// <summary>Registers the <c>github</c> client, from the outside in: the rate limit handler, then the resilience pipeline.</summary>
+  /// <summary>
+  ///   Registers the <c>github</c> client, from the outside in: the rate limit handler, then the resilience pipeline;
+  ///   <see cref="GitHubAppGateway" /> is its typed client.
+  /// </summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="services" /> is <see langword="null" />.</exception>
@@ -58,6 +61,8 @@ internal static class GitHubHttpClientConfiguration
                 resilience.CircuitBreaker.ShouldHandle = static arguments => ValueTask.FromResult(IsTransient(arguments.Outcome));
               }
             );
+
+    services.AddHttpClient<GitHubAppGateway>(ClientName);
 
     return services;
   }

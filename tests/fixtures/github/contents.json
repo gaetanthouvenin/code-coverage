@@ -1,0 +1,18 @@
+{
+  "type": "file",
+  "encoding": "base64",
+  "size": 25,
+  "name": "codecov.yml",
+  "path": "codecov.yml",
+  "content": "Y292ZXJhZ2U6CiAgcHJlY2lzaW9uOiAyCg==\n",
+  "sha": "44b4fc6d56897b048c772eb4087f854f46256132",
+  "url": "https://api.github.com/repos/octocat/Hello-World/contents/codecov.yml?ref=6dcb09b5b57875f334f61aebed695e2e4193db5e",
+  "git_url": "https://api.github.com/repos/octocat/Hello-World/git/blobs/44b4fc6d56897b048c772eb4087f854f46256132",
+  "html_url": "https://github.com/octocat/Hello-World/blob/6dcb09b5b57875f334f61aebed695e2e4193db5e/codecov.yml",
+  "download_url": "https://raw.githubusercontent.com/octocat/Hello-World/6dcb09b5b57875f334f61aebed695e2e4193db5e/codecov.yml",
+  "_links": {
+    "git": "https://api.github.com/repos/octocat/Hello-World/git/blobs/44b4fc6d56897b048c772eb4087f854f46256132",
+    "html": "https://github.com/octocat/Hello-World/blob/6dcb09b5b57875f334f61aebed695e2e4193db5e/codecov.yml",
+    "self": "https://api.github.com/repos/octocat/Hello-World/contents/codecov.yml?ref=6dcb09b5b57875f334f61aebed695e2e4193db5e"
+  }
+}
