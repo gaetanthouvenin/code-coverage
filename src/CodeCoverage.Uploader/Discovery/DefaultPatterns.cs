@@ -33,6 +33,7 @@ internal static class DefaultPatterns
     "**/coverage.cobertura.xml",
     "**/*cobertura*.xml",
     "**/coverage.opencover.xml",
+    "**/coverage.xml",
     "**/lcov.info",
     "**/*.lcov",
     "**/jacoco*.xml",
