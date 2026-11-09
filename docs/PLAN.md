@@ -907,7 +907,7 @@ graph TD
 - **Issue :** [#4](https://github.com/gaetanthouvenin/code-coverage/issues/4)
 - **Objectif :** motifs `ignore`, `paths` et `branches` (§6.4), dont le mode branche (`ParseBranch`) et l'inversion (`Invert()`).
 - **Couches :** Domain.
-- **Fichiers :** `Domain/Paths/PathPattern.cs` (négation, expression régulière, glob, préfixe ; `NonBacktracking`, timeout de 100 ms), `Domain/Paths/PathPatternSet.cs`.
+- **Fichiers :** `Domain/Paths/PathPattern.cs` (négation, expression régulière, glob, préfixe ; `NonBacktracking`, sans timeout de correspondance), `Domain/Paths/PathPatternSet.cs`.
 - **Tests :** `Domain.Tests/Paths/PathPatternTests` — `Match_Glob_DoubleStar_ShouldCrossDirectories`, `Match_Regex_ShouldBeAnchored`, `Match_Prefix_ShouldMatchSubpaths` ; `PathPatternSetTests` — `Includes_WithOnlyNegatives_ShouldIncludeOthers`.
 - **Acceptation :** aucun motif ne peut provoquer de retour arrière catastrophique.
 - **Dépend de :** M0.05

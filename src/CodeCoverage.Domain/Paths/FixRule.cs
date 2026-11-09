@@ -24,8 +24,9 @@ namespace CodeCoverage.Domain.Paths;
 ///     alternative is anchored, because Codecov only anchors the first one of that random order.
 ///   </para>
 ///   <para>
-///     Entries run without backtracking, under a timeout. An entry that cannot run this way, or that
-///     does not compile, is left out and reported in <see cref="RefusedFixes" />.
+///     Entries run without backtracking, in a time linear in the length of the path, and without a
+///     match timeout, for the reason given by <see cref="PathPattern" />. An entry that cannot run
+///     this way, or that does not compile, is left out and reported in <see cref="RefusedFixes" />.
 ///   </para>
 /// </remarks>
 public sealed class FixRule
@@ -37,7 +38,7 @@ public sealed class FixRule
   private const RegexOptions CompileOptions =
     RegexOptions.CultureInvariant | RegexOptions.NonBacktracking;
 
-  private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
+  private static readonly TimeSpan MatchTimeout = Regex.InfiniteMatchTimeout;
 
   private static readonly Regex SingleStar = new(@"(?<!\.)\*", RegexOptions.CultureInvariant);
 
@@ -235,23 +236,16 @@ public sealed class FixRule
       return path;
     }
 
-    try
-    {
-      var match = _alternation.Match(path);
+    var match = _alternation.Match(path);
 
-      if (!match.Success || match.Length == 0)
-      {
-        return path;
-      }
-
-      var rule = Array.FindIndex(_groups, group => match.Groups[group].Success);
-
-      return string.Concat(_replacements[rule], path.AsSpan(match.Length));
-    }
-    catch (RegexMatchTimeoutException)
+    if (!match.Success || match.Length == 0)
     {
       return path;
     }
+
+    var rule = Array.FindIndex(_groups, group => match.Groups[group].Success);
+
+    return string.Concat(_replacements[rule], path.AsSpan(match.Length));
   }
 
   #endregion

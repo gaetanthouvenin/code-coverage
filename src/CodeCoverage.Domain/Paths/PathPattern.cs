@@ -11,9 +11,17 @@ namespace CodeCoverage.Domain.Paths;
 
 /// <summary>A <c>codecov.yml</c> pattern, matched against a path or a branch name.</summary>
 /// <remarks>
-///   Patterns come from user-supplied files: they run without backtracking, under a timeout. A
-///   pattern that cannot run this way is refused rather than rejected: it stays in its set, it
-///   matches nothing and <see cref="IsSupported" /> is <see langword="false" />.
+///   <para>
+///     Patterns come from user-supplied files: they run without backtracking, in a time linear in
+///     the length of the value. A pattern that cannot run this way is refused rather than rejected:
+///     it stays in its set, it matches nothing and <see cref="IsSupported" /> is
+///     <see langword="false" />.
+///   </para>
+///   <para>
+///     There is deliberately no match timeout. The engine reads the clock while it builds its
+///     automaton, so a timeout turned a preempted thread into a wrong answer, which is not an answer
+///     Codecov can give. The ceiling is the timeout of the job.
+///   </para>
 /// </remarks>
 public sealed class PathPattern
 {
@@ -22,7 +30,7 @@ public sealed class PathPattern
   private const RegexOptions CompileOptions =
     RegexOptions.CultureInvariant | RegexOptions.NonBacktracking;
 
-  private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
+  private static readonly TimeSpan MatchTimeout = Regex.InfiniteMatchTimeout;
 
   private static readonly char[] ReservedCharacters = ['*', '$', '[', ']'];
 
@@ -110,26 +118,14 @@ public sealed class PathPattern
   /// <param name="path">The repository-relative path, or the branch name.</param>
   /// <returns>
   ///   <see langword="true" /> if the pattern matches; <see langword="false" /> otherwise, or if it
-  ///   is refused or times out, since coverage tooling never breaks a build.
+  ///   is refused.
   /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="path" /> is null.</exception>
   public bool Match(string path)
   {
     ArgumentNullException.ThrowIfNull(path);
 
-    if (_regex is null)
-    {
-      return false;
-    }
-
-    try
-    {
-      return _regex.IsMatch(path);
-    }
-    catch (RegexMatchTimeoutException)
-    {
-      return false;
-    }
+    return _regex is not null && _regex.IsMatch(path);
   }
 
   /// <summary>Tests whether a pattern body is recognized as a prefix.</summary>
