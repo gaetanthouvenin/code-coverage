@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Reports;
 using CodeCoverage.Infrastructure.Reports.Codecs;
+using CodeCoverage.Infrastructure.Reports.Parsers;
 using CodeCoverage.Infrastructure.Yaml;
 
 namespace CodeCoverage.Infrastructure;
@@ -27,6 +28,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddReports(this IServiceCollection services)
   {
     services.TryAddSingleton<ICoverageConfigParser, YamlCoverageConfigParser>();
+    services.TryAddEnumerable(ServiceDescriptor.Singleton<IReportParser, CoberturaParser>());
     services.TryAddSingleton<IReportParserCatalog, ReportParserCatalog>();
     services.TryAddSingleton<ICoverageReportCodec, CcrCodec>();
 

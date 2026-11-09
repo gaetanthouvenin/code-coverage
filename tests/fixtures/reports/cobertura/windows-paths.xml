@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
+<coverage line-rate="0.717948717948718" branch-rate="0.6" lines-covered="28" lines-valid="39" branches-covered="18" branches-valid="30" complexity="33" version="0" timestamp="1794219950">
+  <sources>
+    <source>D:/a/sample/sample/src/Sample/</source>
+  </sources>
+  <packages>
+    <package name="Sample" line-rate="0.717948717948718" branch-rate="0.6" complexity="33">
+      <classes>
+        <class name="Sample.Calculator" filename="D:\a\sample\sample\src\Sample\Calculator.cs" line-rate="0.6875" branch-rate="0.5" complexity="14">
+          <methods>
+            <method name="Clamp" signature="(System.Int32,System.Int32,System.Int32)" line-rate="0.8" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="7" hits="4" branch="true" condition-coverage="100% (2/2)" />
+                <line number="9" hits="2" branch="false" />
+                <line number="12" hits="2" branch="true" condition-coverage="50% (1/2)" />
+                <line number="14" hits="0" branch="false" />
+                <line number="17" hits="2" branch="false" />
+              </lines>
+            </method>
+            <method name="Describe" signature="(System.Int32)" line-rate="0.8333333333333334" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="20" hits="4" branch="true" condition-coverage="75% (3/4)" />
+                <line number="21" hits="4" branch="false" />
+                <line number="22" hits="0" branch="false" />
+                <line number="23" hits="2" branch="false" />
+                <line number="24" hits="2" branch="false" />
+                <line number="25" hits="4" branch="false" />
+              </lines>
+            </method>
+            <method name="Runtime" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="30" hits="1" branch="false" />
+              </lines>
+            </method>
+            <method name="Untested" signature="(System.Int32)" line-rate="0" branch-rate="0" complexity="4">
+              <lines>
+                <line number="35" hits="0" branch="true" condition-coverage="0% (0/4)" />
+                <line number="37" hits="0" branch="false" />
+                <line number="40" hits="0" branch="false" />
+              </lines>
+            </method>
+            <method name="Runtime" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="28" hits="1" branch="false" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="7" hits="4" branch="true" condition-coverage="100% (2/2)" />
+            <line number="9" hits="2" branch="false" />
+            <line number="12" hits="2" branch="true" condition-coverage="50% (1/2)" />
+            <line number="14" hits="0" branch="false" />
+            <line number="17" hits="2" branch="false" />
+            <line number="20" hits="4" branch="true" condition-coverage="75% (3/4)" />
+            <line number="21" hits="4" branch="false" />
+            <line number="22" hits="0" branch="false" />
+            <line number="23" hits="2" branch="false" />
+            <line number="24" hits="2" branch="false" />
+            <line number="25" hits="4" branch="false" />
+            <line number="28" hits="1" branch="false" />
+            <line number="30" hits="1" branch="false" />
+            <line number="35" hits="0" branch="true" condition-coverage="0% (0/4)" />
+            <line number="37" hits="0" branch="false" />
+            <line number="40" hits="0" branch="false" />
+          </lines>
+        </class>
+        <class name="Sample.Formatter" filename="D:\a\sample\sample\src\Sample\Calculator.cs" line-rate="1" branch-rate="0.5" complexity="4">
+          <methods>
+            <method name="Format" signature="(System.Nullable`1&lt;System.Int32&gt;)" line-rate="1" branch-rate="0.5" complexity="4">
+              <lines>
+                <line number="46" hits="2" branch="true" condition-coverage="50% (2/4)" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="46" hits="2" branch="true" condition-coverage="50% (2/4)" />
+          </lines>
+        </class>
+        <class name="Sample.Internal.Helper" filename="D:\a\sample\sample\src\Sample\Internal\Helper.cs" line-rate="1" branch-rate="0.5" complexity="2">
+          <methods>
+            <method name="Double" signature="(System.Int32)" line-rate="1" branch-rate="0.5" complexity="2">
+              <lines>
+                <line number="7" hits="2" branch="true" condition-coverage="50% (1/2)" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="7" hits="2" branch="true" condition-coverage="50% (1/2)" />
+          </lines>
+        </class>
+        <class name="Sample.Worker" filename="D:\a\sample\sample\src\Sample\Worker.cs" line-rate="0.7142857142857143" branch-rate="0.75" complexity="13">
+          <methods>
+            <method name="Adder" signature="(System.Int32)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="54" hits="4" branch="false" />
+              </lines>
+            </method>
+            <method name="Evens" signature="()" line-rate="1" branch-rate="1" complexity="4">
+              <lines>
+                <line number="45" hits="20" branch="true" condition-coverage="100% (2/2)" />
+                <line number="47" hits="8" branch="true" condition-coverage="100% (2/2)" />
+                <line number="49" hits="4" branch="false" />
+                <line number="52" hits="2" branch="false" />
+              </lines>
+            </method>
+            <method name="NeverAsync" signature="()" line-rate="0" branch-rate="0" complexity="2">
+              <lines>
+                <line number="39" hits="0" branch="true" condition-coverage="0% (0/2)" />
+                <line number="40" hits="0" branch="false" />
+                <line number="41" hits="0" branch="false" />
+              </lines>
+            </method>
+            <method name="ReadAsync" signature="()" line-rate="0.5714285714285714" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="22" hits="2" branch="true" condition-coverage="100% (2/2)" />
+                <line number="24" hits="2" branch="true" condition-coverage="50% (1/2)" />
+                <line number="26" hits="0" branch="false" />
+                <line number="29" hits="2" branch="false" />
+                <line number="31" hits="0" branch="false" />
+                <line number="33" hits="0" branch="false" />
+                <line number="35" hits="2" branch="false" />
+              </lines>
+            </method>
+            <method name="SumAsync" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="7" hits="2" branch="false" />
+                <line number="9" hits="12" branch="true" condition-coverage="100% (2/2)" />
+                <line number="11" hits="4" branch="false" />
+                <line number="12" hits="4" branch="false" />
+                <line number="15" hits="2" branch="false" />
+                <line number="16" hits="2" branch="false" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="7" hits="2" branch="false" />
+            <line number="9" hits="12" branch="true" condition-coverage="100% (2/2)" />
+            <line number="11" hits="4" branch="false" />
+            <line number="12" hits="4" branch="false" />
+            <line number="15" hits="2" branch="false" />
+            <line number="16" hits="2" branch="false" />
+            <line number="22" hits="2" branch="true" condition-coverage="100% (2/2)" />
+            <line number="24" hits="2" branch="true" condition-coverage="50% (1/2)" />
+            <line number="26" hits="0" branch="false" />
+            <line number="29" hits="2" branch="false" />
+            <line number="31" hits="0" branch="false" />
+            <line number="33" hits="0" branch="false" />
+            <line number="35" hits="2" branch="false" />
+            <line number="39" hits="0" branch="true" condition-coverage="0% (0/2)" />
+            <line number="40" hits="0" branch="false" />
+            <line number="41" hits="0" branch="false" />
+            <line number="45" hits="20" branch="true" condition-coverage="100% (2/2)" />
+            <line number="47" hits="8" branch="true" condition-coverage="100% (2/2)" />
+            <line number="49" hits="4" branch="false" />
+            <line number="52" hits="2" branch="false" />
+            <line number="54" hits="4" branch="false" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
