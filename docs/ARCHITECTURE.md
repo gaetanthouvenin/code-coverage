@@ -1013,6 +1013,7 @@ Dans tous les cas, les hits du résultat sont le maximum des deux côtés et le 
 - **Type de ligne :** le drapeau de méthode l'emporte. Codecov garde le premier type non nul.
 - **Règle des fichiers `.rb` non reprise :** Codecov écarte ou remplace un fichier Ruby entièrement à 0 %, contournement propre à ce langage et non commutatif quand les deux côtés sont à 0 %.
 - **Formes non modélisées :** les lignes `-1`, booléennes et à partials de colonnes de Codecov n'existent pas ici, aucun parseur ne les émet.
+- **`joined: false` :** la session est écartée en entier de la fusion du projet. Chez Codecov (`merge_line(joined=False)`), elle ne change pas la couverture des lignes déjà présentes, mais ajoute celles qui manquent, ce qui dépend de l'ordre d'arrivée. Une session est non jointe dès qu'un de ses flags le dit, comme chez Codecov. Sa vue de flag la compte toujours.
 
 **Sessions et carryforward** (`FinalizeCommit`, sérialisé par la clé `commit:{id}`, reconstruction **déterministe** complète à chaque passage) :
 
