@@ -28,6 +28,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddReports(this IServiceCollection services)
   {
     services.TryAddSingleton<ICoverageConfigParser, YamlCoverageConfigParser>();
+    services.TryAddEnumerable(ServiceDescriptor.Singleton<IReportParser, LcovParser>());
     services.TryAddEnumerable(ServiceDescriptor.Singleton<IReportParser, CoberturaParser>());
     services.TryAddSingleton<IReportParserCatalog, ReportParserCatalog>();
     services.TryAddSingleton<ICoverageReportCodec, CcrCodec>();
