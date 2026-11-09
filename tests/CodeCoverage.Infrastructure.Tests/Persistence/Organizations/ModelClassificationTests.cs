@@ -67,7 +67,8 @@ public sealed class ModelClassificationTests
     }
   }
 
-  // The acceptance of the micro-feature: the unique index serves the foreign key, and the convention adds no other.
+  // The acceptance of the micro-feature: a unique index serves the foreign key, and the convention adds no other.
+  // A table may hold several unique indexes that start with the organization, Repositories does.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public void Model_OrganizationForeignKey_ShouldBeServedByTheUniqueIndex(DatabaseProvider provider)
@@ -85,8 +86,13 @@ public sealed class ModelClassificationTests
                           .Where(static i => i.Properties[0].Name == OrganizationOwnedExtensions.ColumnName)
                           .ToList();
 
-      indexes.ShouldHaveSingleItem(entity.DisplayName()).IsUnique.ShouldBeTrue();
-      indexes[0].Properties.Count.ShouldBeGreaterThan(1);
+      indexes.ShouldNotBeEmpty(entity.DisplayName());
+
+      foreach (var index in indexes)
+      {
+        index.IsUnique.ShouldBeTrue(entity.DisplayName());
+        index.Properties.Count.ShouldBeGreaterThan(1, entity.DisplayName());
+      }
     }
   }
 
