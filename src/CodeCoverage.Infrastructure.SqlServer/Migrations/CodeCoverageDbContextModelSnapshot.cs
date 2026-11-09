@@ -821,6 +821,37 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.RepositoryTreeRecord", b =>
+                {
+                    b.Property<long>("RepositoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Sha")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTimeOffset>("FetchedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("bit");
+
+                    b.HasKey("RepositoryId", "Sha")
+                        .HasName("PK_RepositoryTrees");
+
+                    b.ToTable("RepositoryTrees", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.UploadCoverageRecord", b =>
                 {
                     b.Property<long>("UploadId")
@@ -1203,6 +1234,15 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
                         .WithMany()
                         .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.RepositoryTreeRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

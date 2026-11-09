@@ -119,6 +119,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the tracked repositories (<c>Repositories</c>).</summary>
   public DbSet<TrackedRepository> Repositories => Set<TrackedRepository>();
 
+  /// <summary>Gets the cache of the file trees read from the forges (<c>RepositoryTrees</c>).</summary>
+  internal DbSet<RepositoryTreeRecord> RepositoryTrees => Set<RepositoryTreeRecord>();
+
   /// <summary>Gets the values saved in the settings store (<c>Settings</c>).</summary>
   internal DbSet<StoredSetting> Settings => Set<StoredSetting>();
 

@@ -6,6 +6,8 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Application.Services;
+
 namespace CodeCoverage.Application;
 
 /// <content>Registers the services of the commits area.</content>
@@ -18,6 +20,9 @@ public static partial class DependencyInjection
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddCommitServices(this IServiceCollection services)
   {
+    services.AddScoped<CommitAncestry>();
+    services.AddScoped<RepositoryTreeProvider>();
+
     return services;
   }
 
