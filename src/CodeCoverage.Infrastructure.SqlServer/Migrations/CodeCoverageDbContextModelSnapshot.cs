@@ -239,6 +239,7 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
                         .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("UpdatedAt")

@@ -58,6 +58,7 @@ public sealed class ModelClassificationTests
         var column = entity.FindProperty(OrganizationOwnedExtensions.ColumnName).ShouldNotBeNull(table);
         column.IsShadowProperty().ShouldBeTrue(table);
         column.IsNullable.ShouldBeFalse(table);
+        column.IsConcurrencyToken.ShouldBeTrue(table);
       }
       else
       {

@@ -9,6 +9,8 @@ using System.Linq.Expressions;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
@@ -51,6 +53,11 @@ namespace CodeCoverage.Infrastructure.Persistence;
 ///     modified or deleted rows of another one. The shadow column does not travel with an instance: a row must be
 ///     read through this context before it can be changed, and an attached instance is refused.
 ///   </para>
+///   <para>
+///     The shadow column is also a concurrency token, so a statement that passed the guard still filters on the
+///     organization: a statement that affects no row is refused with a <see cref="ConflictException" />, the same
+///     way for a row removed meanwhile, an unknown key and a key of another organization (ADR-013).
+///   </para>
 /// </remarks>
 public sealed class CodeCoverageDbContext(
   DbContextOptions<CodeCoverageDbContext> options,
@@ -60,6 +67,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>The message of the refusal of a row that does not belong to the organization of the scope.</summary>
   private const string ForeignRowMessage = "The row belongs to another organization.";
+
+  /// <summary>The message of the refusal of a save that affected no row; it is sent to the caller.</summary>
+  private const string NoRowAffectedMessage = "The data was changed or removed in the meantime; reload it and try again.";
 
   #endregion
 
@@ -98,24 +108,40 @@ public sealed class CodeCoverageDbContext(
   /// <exception cref="InvalidOperationException">
   ///   A written row of an organization table belongs to another organization, or the scope has not entered one.
   /// </exception>
+  /// <exception cref="ConflictException">A statement on an organization table affected no row.</exception>
   public override int SaveChanges(bool acceptAllChangesOnSuccess)
   {
     ApplyOrganizationRules();
 
-    return base.SaveChanges(acceptAllChangesOnSuccess);
+    try
+    {
+      return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+    catch (DbUpdateConcurrencyException exception) when (IsOrganizationRow(exception))
+    {
+      throw NoRowAffected(exception);
+    }
   }
 
   /// <inheritdoc />
   /// <exception cref="InvalidOperationException">
   ///   A written row of an organization table belongs to another organization, or the scope has not entered one.
   /// </exception>
+  /// <exception cref="ConflictException">A statement on an organization table affected no row.</exception>
   public override async Task<int> SaveChangesAsync(
     bool acceptAllChangesOnSuccess,
     CancellationToken cancellationToken = default)
   {
     ApplyOrganizationRules();
 
-    return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
+    try
+    {
+      return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
+    }
+    catch (DbUpdateConcurrencyException exception) when (IsOrganizationRow(exception))
+    {
+      throw NoRowAffected(exception);
+    }
   }
 
   /// <inheritdoc />
@@ -160,6 +186,25 @@ public sealed class CodeCoverageDbContext(
 
     return Expression.Lambda(Expression.Equal(owner, current), row);
   }
+
+  /// <summary>Tells whether a save failed on a row of an organization table.</summary>
+  /// <param name="exception">The failure of the save.</param>
+  /// <returns>
+  ///   <see langword="true" /> for a row of an organization table. A global table keeps its own failure:
+  ///   <c>Organizations</c> retries on it.
+  /// </returns>
+  private static bool IsOrganizationRow(DbUpdateConcurrencyException exception) =>
+    exception.Entries.Any(static e => e.Metadata.IsMarkedOrganizationOwned());
+
+  /// <summary>Builds the refusal of a statement that affected no row of an organization table.</summary>
+  /// <param name="exception">The failure of the save.</param>
+  /// <returns>The refusal.</returns>
+  /// <remarks>
+  ///   The database reports the same thing for a row removed meanwhile, an unknown key and a key of another
+  ///   organization, so the caller gets one refusal for the three, and nothing tells them apart.
+  /// </remarks>
+  private static ConflictException NoRowAffected(DbUpdateConcurrencyException exception) =>
+    new(GeneralErrors.ConcurrentChange, NoRowAffectedMessage, exception);
 
   /// <summary>Stamps the added rows of the organization tables and refuses the rows of another organization.</summary>
   /// <exception cref="InvalidOperationException">

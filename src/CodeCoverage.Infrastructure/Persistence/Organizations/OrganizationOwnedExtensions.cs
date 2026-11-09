@@ -36,15 +36,22 @@ internal static class OrganizationOwnedExtensions
   /// <returns>The same builder, for chaining.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="builder" /> is <see langword="null" />.</exception>
   /// <remarks>
-  ///   The filter itself is installed by <see cref="CodeCoverageDbContext" />, once for all the marked
-  ///   entities, and the table is listed in <see cref="TableClassification" />.
+  ///   <para>
+  ///     The filter itself is installed by <see cref="CodeCoverageDbContext" />, once for all the marked
+  ///     entities, and the table is listed in <see cref="TableClassification" />.
+  ///   </para>
+  ///   <para>
+  ///     The column is a concurrency token so that every <c>UPDATE</c> and <c>DELETE</c> of a save filters on it
+  ///     as well as on the primary key: an instance whose shadow column was written by hand can only reach a row
+  ///     of the organization the save guard accepted (ADR-013).
+  ///   </para>
   /// </remarks>
   public static EntityTypeBuilder<TEntity> IsOrganizationOwned<TEntity>(this EntityTypeBuilder<TEntity> builder)
     where TEntity : class
   {
     ArgumentNullException.ThrowIfNull(builder);
 
-    builder.Property<long>(ColumnName).IsRequired();
+    builder.Property<long>(ColumnName).IsRequired().IsConcurrencyToken();
     builder.HasAnnotation(OwnedAnnotation, true);
 
     return builder;

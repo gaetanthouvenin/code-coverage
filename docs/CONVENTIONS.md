@@ -586,7 +586,7 @@ Format **`Feature.Reason`** (PascalCase des deux côtés). Une classe `public st
 {Feature}Errors` à la racine de la feature, constantes dans `#region Fields`, chacune documentée.
 Exemple : `src/CodeCoverage.Application/Features/Settings/SettingErrors.cs`
 (`public const string Unknown = "Setting.Unknown";`). Les codes communs sont dans
-`Exceptions/ErrorCodes/GeneralErrors.cs` (`General.ValidationFailed`, `General.Unexpected`), ceux
+`Exceptions/ErrorCodes/GeneralErrors.cs` (`General.ConcurrentChange`, `General.ValidationFailed`, `General.Unexpected`), ceux
 de la sécurité dans `Security/SecurityErrors.cs`.
 
 Tout nouveau code est traduit dans `Web/Resources/Common.resx` **et** `Common.fr.resx`, sous son
