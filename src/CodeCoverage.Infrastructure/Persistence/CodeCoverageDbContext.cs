@@ -101,6 +101,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the merged reports of the commits (<c>CommitReports</c>).</summary>
   internal DbSet<CommitReportRecord> CommitReports => Set<CommitReportRecord>();
 
+  /// <summary>Gets the cached diffs (<c>DiffCache</c>).</summary>
+  internal DbSet<DiffCacheRecord> DiffCache => Set<DiffCacheRecord>();
+
   /// <summary>Gets the sessions of the commits (<c>CommitSessions</c>).</summary>
   public DbSet<Session> CommitSessions => Set<Session>();
 

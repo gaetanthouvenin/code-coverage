@@ -92,6 +92,15 @@ public interface IForgeGateway
   /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
   Task<ForgePullInfo?> GetPullAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken);
 
+  /// <summary>Lists the files changed by a pull request, page after page.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="number">The number of the pull request.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The files, or <see langword="null" /> when the forge does not have the pull request.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="number" /> is zero or negative.</exception>
+  Task<ForgePullFiles?> ListPullFilesAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken);
+
   /// <summary>Reads a tree.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="sha">The SHA of a commit, or of the tree of a directory.</param>
