@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Diagnostics;
@@ -39,10 +40,16 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///   <para>
 ///     <b>Execution.</b> Each job runs in a new DI scope whose principal is the system
 ///     (<see cref="CurrentUserContext.SetSystem" />), within a logging scope (<c>JobId</c>, <c>JobType</c>,
-///     <c>Attempt</c>, <c>CorrelationId</c>) and an <see cref="Activity" /> of
+///     <c>Attempt</c>, <c>CorrelationId</c>, <c>OrganizationId</c>) and an <see cref="Activity" /> of
 ///     <see cref="CodeCoverageActivitySources.Jobs" />. Its <see cref="IJobDispatcher" /> sends the command of its
 ///     type. The job is canceled after <see cref="JobTimeout" />, when the <see cref="JobHeartbeat" /> that renews
 ///     its lease finds it lost, or when the host stops.
+///   </para>
+///   <para>
+///     <b>Organization.</b> The job of an organization runs inside it: the scope enters the organization of
+///     <see cref="JobRecord.OrganizationId" />, read from the row and never from the payload. A job whose
+///     organization is no longer active ends there, as an <see cref="InvalidJobException" />. A job without
+///     organization enters none: a read of a table of organization fails.
 ///   </para>
 ///   <para><b>Outcome.</b> Every write is conditioned on the worker still holding the job:</para>
 ///   <list type="bullet">
@@ -232,6 +239,34 @@ internal sealed partial class JobWorker : BackgroundService
     return text.Length <= MaxErrorLength ? text : text[..MaxErrorLength];
   }
 
+  /// <summary>Makes the scope of a job enter the organization of the job, if it has one.</summary>
+  /// <param name="job">The job.</param>
+  /// <param name="services">The services of the scope of the job.</param>
+  /// <param name="cancellationToken">The token of the job.</param>
+  /// <returns>A task that completes when the scope has entered the organization.</returns>
+  /// <exception cref="InvalidJobException">The organization of the job is no longer active.</exception>
+  private static async Task EnterOrganizationAsync(
+    JobRecord job,
+    IServiceProvider services,
+    CancellationToken cancellationToken)
+  {
+    if (job.OrganizationId is not { } organizationId)
+    {
+      return;
+    }
+
+    services.GetRequiredService<OrganizationContext>().Enter(organizationId);
+
+    var organization = await services.GetRequiredService<IOrganizationDirectory>()
+                                     .FindCurrentAsync(cancellationToken)
+                                     .ConfigureAwait(false);
+
+    if (organization is not { State: OrganizationState.Active })
+    {
+      throw new InvalidJobException($"The organization {organizationId} of the job is not active.");
+    }
+  }
+
   /// <summary>Tells whether running a job again would fail the same way.</summary>
   /// <param name="exception">The error of the job.</param>
   /// <returns><see langword="true" /> for a refusal of the Application or an invalid job.</returns>
@@ -257,7 +292,7 @@ internal sealed partial class JobWorker : BackgroundService
     return activity;
   }
 
-  /// <summary>Runs one job in a new scope, as the system principal.</summary>
+  /// <summary>Runs one job in a new scope, as the system principal and inside its organization.</summary>
   /// <param name="job">The job.</param>
   /// <param name="cancellationToken">The token of the job.</param>
   /// <returns>A task that completes when the command of the job was handled.</returns>
@@ -268,6 +303,7 @@ internal sealed partial class JobWorker : BackgroundService
     await using (scope.ConfigureAwait(false))
     {
       scope.ServiceProvider.GetRequiredService<CurrentUserContext>().SetSystem();
+      await EnterOrganizationAsync(job, scope.ServiceProvider, cancellationToken).ConfigureAwait(false);
 
       await scope.ServiceProvider.GetRequiredService<IJobDispatcher>()
                  .DispatchAsync(job, cancellationToken)
@@ -402,6 +438,7 @@ internal sealed partial class JobWorker : BackgroundService
       ["JobType"] = job.Type,
       ["Attempt"] = job.Attempts,
       ["CorrelationId"] = job.CorrelationId,
+      ["OrganizationId"] = job.OrganizationId,
     };
 
     using var logScope = _logger.BeginScope(properties);

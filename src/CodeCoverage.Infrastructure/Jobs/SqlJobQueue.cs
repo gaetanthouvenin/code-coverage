@@ -26,6 +26,7 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///   <see cref="IJobQueue" /> over the <c>Jobs</c> table, portable between PostgreSQL and SQL Server.
 /// </summary>
 /// <param name="context">The database context of the scope.</param>
+/// <param name="currentOrganization">The organization of the scope, stamped on the jobs that take it.</param>
 /// <param name="clock">The clock that dates the jobs.</param>
 /// <param name="configuration">
 ///   The running configuration, read at each insertion for <c>Processing:JobMaxAttempts</c>.
@@ -38,6 +39,11 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///     A job is always inserted in the transaction of the change that triggers it: the repositories
 ///     call <see cref="EnqueueInTransactionAsync" /> in their own transaction, and
 ///     <see cref="EnqueueAsync" /> opens one of its own for the isolated triggers.
+///   </para>
+///   <para>
+///     Before anything else, a request gets its <see cref="JobPlacement" />: the organization is stamped on
+///     the job and both keys are prefixed by the lane. No caller can forget it, and the same business key
+///     in two organizations neither merges nor serializes.
 ///   </para>
 ///   <para>
 ///     With a <see cref="JobRequest.DedupKey" />, the queued twin is looked up first. When there is
@@ -67,6 +73,7 @@ namespace CodeCoverage.Infrastructure.Jobs;
 /// </remarks>
 internal sealed class SqlJobQueue(
   CodeCoverageDbContext context,
+  ICurrentOrganization currentOrganization,
   IClock clock,
   IConfiguration configuration,
   IJobClaimDialect dialect,
@@ -456,7 +463,8 @@ internal sealed class SqlJobQueue(
   ///   <paramref name="transactionContext" /> or <paramref name="request" /> is <see langword="null" />.
   /// </exception>
   /// <exception cref="InvalidOperationException">
-  ///   <paramref name="transactionContext" /> has no open transaction, or the twin kept changing state.
+  ///   <paramref name="transactionContext" /> has no open transaction, the twin kept changing state, or the
+  ///   scope does not allow the organization of the request.
   /// </exception>
   /// <remarks>
   ///   The insertion saves the pending changes of <paramref name="transactionContext" />: the repository
@@ -470,22 +478,23 @@ internal sealed class SqlJobQueue(
     ArgumentNullException.ThrowIfNull(transactionContext);
     ArgumentNullException.ThrowIfNull(request);
 
+    var placement = JobPlacement.Of(request, currentOrganization.IsKnown ? currentOrganization.Id : null);
     var transaction = transactionContext.Database.CurrentTransaction
                       ?? throw new InvalidOperationException(
                         "A job is queued in the transaction of the change that triggers it: begin a transaction first."
                       );
     var now = clock.UtcNow;
 
-    if (request.DedupKey is null)
+    if (placement.DedupKey is null)
     {
-      return await InsertAsync(transactionContext, request, now, cancellationToken).ConfigureAwait(false);
+      return await InsertAsync(transactionContext, request, placement, now, cancellationToken).ConfigureAwait(false);
     }
 
     for (var round = 1; round <= MaxRounds; round++)
     {
       var twin = await transactionContext.Jobs
                                          .AsNoTracking()
-                                         .Where(j => j.DedupKey == request.DedupKey && j.State == JobState.Queued)
+                                         .Where(j => j.DedupKey == placement.DedupKey && j.State == JobState.Queued)
                                          .Select(static j => new { j.Id, j.FirstQueuedAt })
                                          .FirstOrDefaultAsync(cancellationToken)
                                          .ConfigureAwait(false);
@@ -502,7 +511,7 @@ internal sealed class SqlJobQueue(
         continue;
       }
 
-      var inserted = await TryInsertUnderSavepointAsync(transactionContext, transaction, request, now, cancellationToken)
+      var inserted = await TryInsertUnderSavepointAsync(transactionContext, transaction, request, placement, now, cancellationToken)
                        .ConfigureAwait(false);
 
       if (inserted is { } id)
@@ -621,21 +630,24 @@ internal sealed class SqlJobQueue(
   /// <summary>Inserts a job and saves it in the current transaction.</summary>
   /// <param name="transactionContext">The context of the caller.</param>
   /// <param name="request">The request.</param>
+  /// <param name="placement">The organization and the prefixed keys of the job.</param>
   /// <param name="now">The current time.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>The identifier of the new job.</returns>
   private async Task<long> InsertAsync(
     CodeCoverageDbContext transactionContext,
     JobRequest request,
+    JobPlacement placement,
     DateTimeOffset now,
     CancellationToken cancellationToken)
   {
     var job = new JobRecord
     {
+      OrganizationId = placement.OrganizationId,
       Type = request.Type,
       PayloadJson = request.PayloadJson,
-      LockKey = request.LockKey,
-      DedupKey = request.DedupKey,
+      LockKey = placement.LockKey,
+      DedupKey = placement.DedupKey,
       State = JobState.Queued,
       Attempts = 0,
       MaxAttempts = ReadMaxAttempts(),
@@ -726,6 +738,7 @@ internal sealed class SqlJobQueue(
   /// <param name="transactionContext">The context of the caller.</param>
   /// <param name="transaction">The current transaction of the caller.</param>
   /// <param name="request">The request.</param>
+  /// <param name="placement">The organization and the prefixed keys of the job.</param>
   /// <param name="now">The current time.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>
@@ -736,6 +749,7 @@ internal sealed class SqlJobQueue(
     CodeCoverageDbContext transactionContext,
     IDbContextTransaction transaction,
     JobRequest request,
+    JobPlacement placement,
     DateTimeOffset now,
     CancellationToken cancellationToken)
   {
@@ -743,7 +757,7 @@ internal sealed class SqlJobQueue(
 
     try
     {
-      return await InsertAsync(transactionContext, request, now, cancellationToken).ConfigureAwait(false);
+      return await InsertAsync(transactionContext, request, placement, now, cancellationToken).ConfigureAwait(false);
     }
     catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, JobRecordConfiguration.DedupIndexName))
     {

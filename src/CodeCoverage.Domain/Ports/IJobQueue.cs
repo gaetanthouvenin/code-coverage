@@ -31,6 +31,10 @@ public interface IJobQueue
   ///   The identifier of the queued job: a new job, or the queued twin the request was merged into.
   /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="request" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">
+  ///   The current scope does not allow the organization of the request: see
+  ///   <see cref="JobRequest.ResolveOrganizationId" />.
+  /// </exception>
   Task<long> EnqueueAsync(JobRequest request, CancellationToken cancellationToken);
 
   #endregion

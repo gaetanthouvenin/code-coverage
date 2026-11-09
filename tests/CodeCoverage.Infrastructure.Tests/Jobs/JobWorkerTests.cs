@@ -17,6 +17,7 @@ using CodeCoverage.Application;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Jobs;
@@ -166,7 +167,7 @@ public sealed class JobWorkerTests(DatabaseFixture database)
 
     await using (var scope = services.CreateAsyncScope())
     {
-      id = await scope.ServiceProvider.GetRequiredService<IJobQueue>().EnqueueAsync(JobRequest.Create(JobTypes.Ping, "{}"), Ct);
+      id = await scope.ServiceProvider.GetRequiredService<IJobQueue>().EnqueueAsync(JobRequest.ForInstance(JobTypes.Ping, "{}"), Ct);
     }
 
     (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
@@ -184,6 +185,87 @@ public sealed class JobWorkerTests(DatabaseFixture database)
     (await Worker(observed).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
 
     isSystem.ShouldBe(true);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Dispatch_OrganizationJob_ShouldEnterItsOrganization(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var organizationId = await SeedOrganizationAsync(provider, connectionString, suspended: false);
+    long? entered = null;
+    bool? isSystem = null;
+    await using var services = BuildServices(
+      provider,
+      connectionString,
+      inJob: scope =>
+      {
+        entered = scope.GetRequiredService<ICurrentOrganization>().Id;
+        isSystem = scope.GetRequiredService<ICurrentUser>().IsSystem;
+
+        return Task.CompletedTask;
+      }
+    );
+    var record = Record();
+    record.OrganizationId = organizationId;
+    var id = await SeedAsync(provider, connectionString, record);
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    entered.ShouldBe(organizationId);
+    isSystem.ShouldBe(true);
+    (await JobAsync(provider, connectionString, id)).State.ShouldBe(JobState.Succeeded);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Dispatch_SuspendedOrganizationJob_ShouldEndWithoutRunning(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var organizationId = await SeedOrganizationAsync(provider, connectionString, suspended: true);
+    var ran = false;
+    await using var services = BuildServices(
+      provider,
+      connectionString,
+      inJob: _ =>
+      {
+        ran = true;
+
+        return Task.CompletedTask;
+      }
+    );
+    var record = Record();
+    record.OrganizationId = organizationId;
+    var id = await SeedAsync(provider, connectionString, record);
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    ran.ShouldBeFalse();
+    var job = await JobAsync(provider, connectionString, id);
+    job.State.ShouldBe(JobState.Failed);
+    job.LastError!.ShouldContain("not active");
+    job.CompletedAt.ShouldNotBeNull();
+  }
+
+  // Nothing lets a job of the instance read a table of organization: the query filter throws.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Dispatch_InstanceJobReadingOwnedTable_ShouldFail(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var services = BuildServices(
+      provider,
+      connectionString,
+      inJob: scope => scope.GetRequiredService<CodeCoverageDbContext>().OrganizationSettings.ToListAsync(Ct)
+    );
+    var id = await SeedAsync(provider, connectionString, Record());
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    var job = await JobAsync(provider, connectionString, id);
+    job.State.ShouldBe(JobState.Queued, "the failure goes through the retries");
+    job.Attempts.ShouldBe(1);
+    job.LastError!.ShouldContain("has not entered an organization");
   }
 
   [Theory]
@@ -290,7 +372,8 @@ public sealed class JobWorkerTests(DatabaseFixture database)
     string connectionString,
     IJobDispatcher? dispatcher = null,
     Action<ICurrentUser>? observeUser = null,
-    IMeterFactory? meterFactory = null)
+    IMeterFactory? meterFactory = null,
+    Func<IServiceProvider, Task>? inJob = null)
   {
     var configuration = new ConfigurationBuilder()
                         .AddInMemoryCollection(new Dictionary<string, string?>
@@ -324,7 +407,38 @@ public sealed class JobWorkerTests(DatabaseFixture database)
       services.AddScoped(sp => Observing(sp.GetRequiredService<ICurrentUser>(), observeUser));
     }
 
+    if (inJob is not null)
+    {
+      services.AddScoped(sp => Running(sp, inJob));
+    }
+
     return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+  }
+
+  private static IJobDispatcher Running(IServiceProvider scope, Func<IServiceProvider, Task> inJob)
+  {
+    var dispatcher = A.Fake<IJobDispatcher>();
+    A.CallTo(() => dispatcher.DispatchAsync(A<JobRecord>._, A<CancellationToken>._)).ReturnsLazily(() => inJob(scope));
+
+    return dispatcher;
+  }
+
+  private static async Task<long> SeedOrganizationAsync(DatabaseProvider provider, string connectionString, bool suspended)
+  {
+    var now = DateTimeOffset.UtcNow;
+    var organization = Organization.CreatePending(Forge.GitHub, "1001", "octo", OrganizationAccountType.Organization, now);
+    organization.Admit("admin-user", now);
+
+    if (suspended)
+    {
+      organization.Suspend(SuspensionReason.Administrator, now);
+    }
+
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    context.Organizations.Add(organization);
+    await context.SaveChangesAsync(Ct);
+
+    return organization.Id;
   }
 
   private static IJobDispatcher Observing(ICurrentUser user, Action<ICurrentUser> observe)

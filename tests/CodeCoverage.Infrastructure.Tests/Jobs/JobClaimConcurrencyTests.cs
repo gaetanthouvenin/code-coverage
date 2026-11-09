@@ -9,9 +9,11 @@ using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -159,6 +161,27 @@ public sealed class JobClaimConcurrencyTests(DatabaseFixture database) : IDispos
     var second = (await queue.ClaimNextAsync("worker-3", Ct)).ShouldNotBeNull();
     second.LockKey.ShouldBe("commit:42");
     second.Id.ShouldNotBe(first.Id);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Claim_SameLockKeyTwoOrganizations_ShouldRunBoth(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var queue = CreateQueue(context);
+    await queue.EnqueueAsync(JobRequest.ForOrganization(1, JobType, "{}", lockKey: "repo:7"), Ct);
+    await queue.EnqueueAsync(JobRequest.ForOrganization(2, JobType, "{}", lockKey: "repo:7"), Ct);
+    await queue.EnqueueAsync(JobRequest.ForOrganization(2, JobType, "{}", lockKey: "repo:7"), Ct);
+
+    var first = (await queue.ClaimNextAsync("worker-1", Ct)).ShouldNotBeNull();
+    var second = (await queue.ClaimNextAsync("worker-2", Ct)).ShouldNotBeNull();
+    (await queue.ClaimNextAsync("worker-3", Ct)).ShouldBeNull("the second job of an organization waits for the first");
+
+    first.OrganizationId.ShouldBe(1);
+    first.LockKey.ShouldBe("o1:repo:7");
+    second.OrganizationId.ShouldBe(2);
+    second.LockKey.ShouldBe("o2:repo:7");
   }
 
   [Theory]
@@ -401,6 +424,7 @@ public sealed class JobClaimConcurrencyTests(DatabaseFixture database) : IDispos
 
     return new SqlJobQueue(
       context,
+      new OrganizationContext(),
       clock,
       new ConfigurationBuilder().Build(),
       dialect ?? JobClaimDialects.For(context),

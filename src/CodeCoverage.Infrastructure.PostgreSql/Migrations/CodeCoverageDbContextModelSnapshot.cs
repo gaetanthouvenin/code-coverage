@@ -178,6 +178,9 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("MaxAttempts")
                         .HasColumnType("integer");
 
+                    b.Property<long?>("OrganizationId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("text");

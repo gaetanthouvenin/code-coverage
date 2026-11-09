@@ -20,6 +20,10 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///     whatever the number of replicas that schedule it. The requests are coalesced, so a request made while
 ///     the job of the next slot is already queued is dropped.
 ///   </para>
+///   <para>
+///     A recurring job stays out of any organization (<see cref="JobRequest.ForInstance" />): when its work
+///     spans the organizations, it is a coordinator that queues one child for each.
+///   </para>
 /// </remarks>
 internal sealed class RecurringJobDefinition
 {
@@ -61,7 +65,7 @@ internal sealed class RecurringJobDefinition
     ArgumentOutOfRangeException.ThrowIfLessThan(interval, MinInterval);
 
     // The same checks as every request: a definition that cannot be queued fails at startup, not at its first slot.
-    _ = JobRequest.Create(type, payloadJson, lockKey, dedupKey, coalesce: true);
+    _ = JobRequest.ForInstance(type, payloadJson, lockKey, dedupKey, coalesce: true);
 
     Type = type;
     Interval = interval;
@@ -115,7 +119,7 @@ internal sealed class RecurringJobDefinition
   /// <param name="now">The current time.</param>
   /// <returns>A coalesced request, deduplicated by <see cref="DedupKey" />, that runs at <see cref="NextRun" />.</returns>
   public JobRequest ToRequest(DateTimeOffset now) =>
-    JobRequest.Create(Type, PayloadJson, LockKey, DedupKey, NextRun(now), coalesce: true);
+    JobRequest.ForInstance(Type, PayloadJson, LockKey, DedupKey, NextRun(now), coalesce: true);
 
   /// <inheritdoc />
   public override string ToString() => $"{Type} every {Interval} (dedup: {DedupKey})";
