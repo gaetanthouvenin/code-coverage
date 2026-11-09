@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <None Include="..\fixtures\github\**\*" LinkBase="fixtures\github" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CodeCoverage.Domain\CodeCoverage.Domain.csproj" />
   </ItemGroup>
 

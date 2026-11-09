@@ -1,0 +1,27 @@
+@@ -9,14 +9,15 @@ WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and
+ -->
+ 
+ <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
++
+   <Target Name="CopyCoverletDataCollectorFiles" AfterTargets="ComputeFilesToPublish">
+     <ItemGroup>
+-      <CoverletDataCollectorFiles Include="$(MSBuildThisFileDirectory)\*.*" />
++      <CoverletDataCollectorFiles Include="$(MSBuildThisFileDirectory)\**\*.*" />
+       <CoverletDataCollectorFiles Remove="@(ResolvedFileToPublish->'$(MSBuildThisFileDirectory)%(Filename)%(Extension)')" />
+     </ItemGroup>
+     <Copy SourceFiles="@(CoverletDataCollectorFiles)" DestinationFolder="$(PublishDir)%(RecursiveDir)" />
+-
+   </Target>
++  
+   <Target Name="SetXPlatDataCollectorPath" BeforeTargets="VSTest">
+     <PropertyGroup>
+       <VSTestTestAdapterPath>$(VSTestTestAdapterPath);$(MSBuildThisFileDirectory)</VSTestTestAdapterPath>
+@@ -26,7 +27,7 @@ WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and
+   <PropertyGroup>
+     <_CoverletSdkNETCoreSdkVersion>$(NETCoreSdkVersion)</_CoverletSdkNETCoreSdkVersion>
+     <_CoverletSdkNETCoreSdkVersion Condition="$(_CoverletSdkNETCoreSdkVersion.Contains('-'))">$(_CoverletSdkNETCoreSdkVersion.Split('-')[0])</_CoverletSdkNETCoreSdkVersion>
+-    <_CoverletSdkMinVersionWithDependencyTarget>3.1.300</_CoverletSdkMinVersionWithDependencyTarget>
++    <_CoverletSdkMinVersionWithDependencyTarget>6.0.100</_CoverletSdkMinVersionWithDependencyTarget>
+     <_CoverletSourceRootTargetName>CoverletGetPathMap</_CoverletSourceRootTargetName>
+     <_CoverletSourceRootTargetName Condition="'$([System.Version]::Parse($(_CoverletSdkNETCoreSdkVersion)).CompareTo($([System.Version]::Parse($(_CoverletSdkMinVersionWithDependencyTarget)))))' &gt;= '0' ">InitializeSourceRootMappedPaths</_CoverletSourceRootTargetName>
+   </PropertyGroup>
