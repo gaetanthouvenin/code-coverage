@@ -19,14 +19,14 @@ internal static class TableClassification
 
   /// <summary>Gets the tables without business data, read before an organization is entered.</summary>
   public static IReadOnlySet<string> Global { get; } =
-    new[] { "DataProtectionKeys", "Installations", "Organizations", "Settings", "SettingsRevision" }.ToFrozenSet(StringComparer.Ordinal);
+    new[] { "DataProtectionKeys", "Installations", "Organizations", "Settings", "SettingsRevision", "Users" }.ToFrozenSet(StringComparer.Ordinal);
 
   /// <summary>Gets the tables of the rows of one organization, under the query filter.</summary>
   public static IReadOnlySet<string> OrganizationOwned { get; } =
     new[]
     {
       "Branches", "CommitConfigs", "CommitFlagTotals", "CommitReports", "CommitSessions", "Commits", "DiffCache", "GitCommits", "OrganizationSettings", "PullRequests", "Repositories",
-      "RepositoryTrees", "UploadCoverages", "UploadRawChunks", "UploadRawFiles", "UploadTokens", "Uploads",
+      "RepositoryTrees", "UploadCoverages", "UploadRawChunks", "UploadRawFiles", "UploadTokens", "Uploads", "UserRepositoryAccess",
     }.ToFrozenSet(StringComparer.Ordinal);
 
   /// <summary>Gets the operational tables, which are never filtered.</summary>
