@@ -23,7 +23,11 @@ internal static class TableClassification
 
   /// <summary>Gets the tables of the rows of one organization, under the query filter.</summary>
   public static IReadOnlySet<string> OrganizationOwned { get; } =
-    new[] { "Branches", "Commits", "GitCommits", "OrganizationSettings", "Repositories", "Uploads" }.ToFrozenSet(StringComparer.Ordinal);
+    new[]
+    {
+      "Branches", "CommitFlagTotals", "CommitReports", "CommitSessions", "Commits", "GitCommits", "OrganizationSettings", "Repositories",
+      "UploadCoverages", "Uploads",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
   /// <summary>Gets the operational tables, which are never filtered.</summary>
   public static IReadOnlySet<string> Operational { get; } =

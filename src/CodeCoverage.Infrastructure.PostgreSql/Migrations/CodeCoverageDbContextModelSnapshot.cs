@@ -140,6 +140,62 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Commits.CommitFlagTotals", b =>
+                {
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Flag")
+                        .HasMaxLength(446)
+                        .HasColumnType("character varying(446)");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("CarriedForwardFromSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("Coverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("numeric(9,5)");
+
+                    b.Property<int>("Hits")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsCarriedForward")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Lines")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Misses")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Partials")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("RepositoryId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("CommitId", "Flag");
+
+                    b.HasIndex("RepositoryId", "Branch", "Flag", "CompletedAt")
+                        .HasDatabaseName("IX_CommitFlagTotals_RepositoryId_Branch_Flag_CompletedAt");
+
+                    b.ToTable("CommitFlagTotals", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Commits.GitCommit", b =>
                 {
                     b.Property<long>("RepositoryId")
@@ -176,6 +232,87 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasName("PK_GitCommits");
 
                     b.ToTable("GitCommits", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Commits.Session", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BuildUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("CarriedForwardFromSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CiService")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("Coverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("numeric(9,5)");
+
+                    b.Property<byte[]>("Data")
+                        .HasColumnType("bytea");
+
+                    b.Property<long?>("DataUploadId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Flags")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Hits")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Lines")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Misses")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(271)
+                        .HasColumnType("character varying(271)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Partials")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("SourceSessionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("UploadId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommitId")
+                        .HasDatabaseName("IX_CommitSessions_CommitId");
+
+                    b.ToTable("CommitSessions", (string)null);
 
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
@@ -582,6 +719,59 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.CommitReportRecord", b =>
+                {
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("Codec")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("FileIndex")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CommitId");
+
+                    b.ToTable("CommitReports", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.UploadCoverageRecord", b =>
+                {
+                    b.Property<long>("UploadId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("Codec")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UploadId");
+
+                    b.ToTable("UploadCoverages", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Jobs.JobRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -768,11 +958,29 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Commits.CommitFlagTotals", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Commits.GitCommit", b =>
                 {
                     b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
                         .WithMany()
                         .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Commits.Session", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -820,6 +1028,24 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.CommitReportRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.UploadCoverageRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Upload", null)
+                        .WithMany()
+                        .HasForeignKey("UploadId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

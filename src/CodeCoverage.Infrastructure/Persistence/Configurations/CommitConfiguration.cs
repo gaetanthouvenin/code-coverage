@@ -28,17 +28,17 @@ internal sealed class CommitConfiguration : IEntityTypeConfiguration<Commit>
   /// <summary>The unique index of the commits of a repository by SHA.</summary>
   public const string ShaIndexName = "UX_Commits_RepositoryId_Sha";
 
+  /// <summary>The total number of digits of a coverage.</summary>
+  public const int CoveragePrecision = 9;
+
+  /// <summary>The number of decimals of a coverage.</summary>
+  public const int CoverageScale = 5;
+
   /// <summary>The name of the <c>Commits</c> table.</summary>
   private const string TableName = "Commits";
 
   /// <summary>The index that lists the finalized commits of a branch.</summary>
   private const string BranchIndexName = "IX_Commits_RepositoryId_Branch_CompletedAt";
-
-  /// <summary>The total number of digits of a coverage.</summary>
-  private const int CoveragePrecision = 9;
-
-  /// <summary>The number of decimals of a coverage.</summary>
-  private const int CoverageScale = 5;
 
   #endregion
 

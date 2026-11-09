@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
 
@@ -181,6 +182,69 @@ public sealed class Commit
     var utc = at.ToUniversalTime();
     LastUploadAt = utc;
     UpdatedAt = utc;
+  }
+
+  /// <summary>Records the result of a finalization, in a new revision of its report.</summary>
+  /// <param name="state">The state it ends in: <see cref="CommitState.Complete" />, or <see cref="CommitState.Error" /> when every upload failed.</param>
+  /// <param name="files">The number of files of the report.</param>
+  /// <param name="totals">The counters of the merged report.</param>
+  /// <param name="sessionCount">The number of sessions of the report, the carried-forward ones included.</param>
+  /// <param name="uploadedSessionCount">The number of sessions that were uploaded for this commit.</param>
+  /// <param name="carryforwardStatus">What the finalization found for the carried-forward flags.</param>
+  /// <param name="configSource">Where the configuration came from.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks><see cref="Version" /> changes, so that a save detects a finalization that ran in the meantime.</remarks>
+  /// <exception cref="ArgumentOutOfRangeException">
+  ///   <paramref name="state" /> is not a final state, <paramref name="carryforwardStatus" /> is not a defined value, or
+  ///   a number is negative or inconsistent.
+  /// </exception>
+  /// <exception cref="ArgumentNullException"><paramref name="configSource" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="configSource" /> is too long.</exception>
+  public void RecordFinalization(
+    CommitState state,
+    int files,
+    CoverageTotals totals,
+    int sessionCount,
+    int uploadedSessionCount,
+    CarryforwardStatus carryforwardStatus,
+    string configSource,
+    DateTimeOffset at)
+  {
+    if (state is not (CommitState.Complete or CommitState.Error))
+    {
+      throw new ArgumentOutOfRangeException(nameof(state), state, "A finalization ends in the Complete or the Error state.");
+    }
+
+    ArgumentOutOfRangeException.ThrowIfNegative(files);
+    ArgumentOutOfRangeException.ThrowIfNegative(uploadedSessionCount);
+    ArgumentOutOfRangeException.ThrowIfLessThan(sessionCount, uploadedSessionCount);
+    ArgumentOutOfRangeException.ThrowIfUndefined(carryforwardStatus);
+    ArgumentNullException.ThrowIfNull(configSource);
+
+    ArgumentException.ThrowIf(
+      configSource.Length > ConfigSourceMaxLength,
+      $"The value cannot be longer than {ConfigSourceMaxLength} characters.",
+      nameof(configSource));
+
+    var utc = at.ToUniversalTime();
+
+    State = state;
+    Files = files;
+    Lines = totals.Lines;
+    Hits = totals.Hits;
+    Misses = totals.Misses;
+    Partials = totals.Partials;
+    Branches = totals.Branches;
+    Methods = totals.Methods;
+    Coverage = totals.Coverage;
+    SessionCount = sessionCount;
+    UploadedSessionCount = uploadedSessionCount;
+    CarryforwardStatus = carryforwardStatus;
+    ConfigSource = configSource;
+    CompletedAt = utc;
+    UpdatedAt = utc;
+    ReportRevision++;
+    Version++;
   }
 
   #endregion

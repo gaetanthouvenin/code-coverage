@@ -17,6 +17,7 @@ using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
@@ -86,6 +87,15 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the commits of the tracked repositories (<c>Commits</c>).</summary>
   public DbSet<Commit> Commits => Set<Commit>();
 
+  /// <summary>Gets the totals of the commits by flag (<c>CommitFlagTotals</c>).</summary>
+  public DbSet<CommitFlagTotals> CommitFlagTotals => Set<CommitFlagTotals>();
+
+  /// <summary>Gets the merged reports of the commits (<c>CommitReports</c>).</summary>
+  internal DbSet<CommitReportRecord> CommitReports => Set<CommitReportRecord>();
+
+  /// <summary>Gets the sessions of the commits (<c>CommitSessions</c>).</summary>
+  public DbSet<Session> CommitSessions => Set<Session>();
+
   /// <inheritdoc />
   public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -112,6 +122,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the single row of the settings revision (<c>SettingsRevision</c>).</summary>
   internal DbSet<SettingsRevisionRow> SettingsRevisions => Set<SettingsRevisionRow>();
+
+  /// <summary>Gets the coverage of the processed uploads (<c>UploadCoverages</c>).</summary>
+  internal DbSet<UploadCoverageRecord> UploadCoverages => Set<UploadCoverageRecord>();
 
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();
