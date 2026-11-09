@@ -251,6 +251,15 @@ public sealed class PathPatternTests
     stopwatch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(5));
   }
 
+  [Fact]
+  public void Match_MatchSlowerThanAFormerTimeout_ShouldStillAnswer()
+  {
+    var path = SlowToMatchPath.Build();
+
+    PathPattern.Parse(SlowToMatchPath.Pattern).Match(path).ShouldBeTrue();
+    PathPattern.ParseBranch(SlowToMatchPath.Pattern).Match(path).ShouldBeTrue();
+  }
+
   [Theory]
   [InlineData("main", "main", true)]
   [InlineData("main", "main-2", false)]
