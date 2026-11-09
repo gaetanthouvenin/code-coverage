@@ -7,6 +7,8 @@
 using Microsoft.Extensions.DependencyInjection;
 
 using CodeCoverage.Application.Configuration;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Settings;
 
 namespace CodeCoverage.Infrastructure;
 
@@ -14,12 +16,13 @@ public static partial class DependencyInjection
 {
   #region Methods
 
-  /// <summary>Binds the options of the settings groups to their configuration sections.</summary>
+  /// <summary>Binds the options of the settings groups to their configuration sections and registers the settings of the organizations.</summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
   /// <remarks>
   ///   The options follow the configuration, the settings store included: a consumer that reads them through
-  ///   <c>IOptionsMonitor&lt;T&gt;</c> sees a change without a restart.
+  ///   <c>IOptionsMonitor&lt;T&gt;</c> sees a change without a restart. The provider of the settings of an organization
+  ///   is scoped, never a singleton, so that no value is shared between organizations.
   /// </remarks>
   private static IServiceCollection AddSettings(this IServiceCollection services)
   {
@@ -30,6 +33,8 @@ public static partial class DependencyInjection
     services.AddOptions<AccessOptions>().BindConfiguration(AccessOptions.SectionName).ValidateOnStart();
     services.AddOptions<BadgeOptions>().BindConfiguration(BadgeOptions.SectionName).ValidateOnStart();
     services.AddOptions<RetentionOptions>().BindConfiguration(RetentionOptions.SectionName).ValidateOnStart();
+
+    services.AddScoped<IOrganizationSettingsProvider, OrganizationSettingsProvider>();
 
     return services;
   }

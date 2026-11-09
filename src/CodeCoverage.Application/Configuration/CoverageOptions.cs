@@ -8,8 +8,11 @@ using CodeCoverage.Domain.Settings;
 
 namespace CodeCoverage.Application.Configuration;
 
-/// <summary>The <c>Coverage</c> settings group: the coverage rules.</summary>
-/// <remarks>Read through <c>IOptionsMonitor&lt;T&gt;</c>: a change in the settings store applies without a restart.</remarks>
+/// <summary>The instance-level settings of the <c>Coverage</c> group: the coverage rules.</summary>
+/// <remarks>
+///   Read through <c>IOptionsMonitor&lt;T&gt;</c>: a change in the settings store applies without a restart. The
+///   settings of the group set per organization are read through <c>IOrganizationSettingsProvider</c>.
+/// </remarks>
 public sealed class CoverageOptions
 {
   #region Fields
@@ -20,10 +23,6 @@ public sealed class CoverageOptions
   #endregion
 
   #region Properties
-
-  /// <summary>Gets or sets the YAML configuration shared by every repository of the organization.</summary>
-  /// <value><see langword="null" /> by default.</value>
-  public string? OrganizationYaml { get; set; }
 
   /// <summary>
   ///   Gets or sets a value indicating whether a report path may match a repository file by its name alone.
