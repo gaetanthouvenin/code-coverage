@@ -11,6 +11,17 @@ namespace CodeCoverage.Api.Configuration;
 /// <summary>Registers the MVC controllers of the REST API.</summary>
 public static class PresentationConfiguration
 {
+  #region Fields
+
+  /// <summary>The depth of the JSON the API reads and writes.</summary>
+  /// <remarks>
+  ///   Above the 32 levels of MVC: the validation returns a <c>codecov.yml</c> file as read, and the YAML
+  ///   parser accepts 64 levels.
+  /// </remarks>
+  internal const int MaximumJsonDepth = 128;
+
+  #endregion
+
   #region Methods
 
   /// <summary>Registers the controllers, with the enumerations serialized as their names.</summary>
@@ -22,7 +33,11 @@ public static class PresentationConfiguration
     ArgumentNullException.ThrowIfNull(services);
 
     services.AddControllers()
-            .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+            .AddJsonOptions(o =>
+                            {
+                              o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                              o.JsonSerializerOptions.MaxDepth = MaximumJsonDepth;
+                            });
 
     return services;
   }
