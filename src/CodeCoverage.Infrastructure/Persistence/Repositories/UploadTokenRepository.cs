@@ -23,6 +23,9 @@ internal sealed class UploadTokenRepository(CodeCoverageDbContext context) : IUp
   /// <summary>The message of the refusal of a token that this context did not read.</summary>
   private const string NotReadMessage = "A token must be read in this scope before it can be updated.";
 
+  /// <summary>How often the use of a token is written.</summary>
+  private static readonly TimeSpan MinimumUseInterval = TimeSpan.FromMinutes(1);
+
   #endregion
 
   #region Implementation of IUploadTokenRepository
@@ -54,6 +57,29 @@ internal sealed class UploadTokenRepository(CodeCoverageDbContext context) : IUp
     await context.UploadTokens
                  .SingleOrDefaultAsync(t => t.Id == id, cancellationToken)
                  .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<UploadToken?> FindByHashAsync(byte[] hash, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(hash);
+
+    return await context.UploadTokens
+                        .AsNoTracking()
+                        .SingleOrDefaultAsync(t => t.Hash == hash, cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  public async Task RecordUseAsync(long id, DateTimeOffset at, CancellationToken cancellationToken)
+  {
+    var used = at.ToUniversalTime();
+    var limit = used - MinimumUseInterval;
+
+    await context.UploadTokens
+                 .Where(t => t.Id == id && (t.LastUsedAt == null || t.LastUsedAt <= limit))
+                 .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.LastUsedAt, used), cancellationToken)
+                 .ConfigureAwait(false);
+  }
 
   /// <inheritdoc />
   public async Task<IReadOnlyList<UploadToken>> ListOfOrganizationAsync(CancellationToken cancellationToken) =>

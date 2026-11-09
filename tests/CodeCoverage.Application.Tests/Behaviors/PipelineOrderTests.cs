@@ -89,6 +89,9 @@ public sealed class PipelineOrderTests
     // resolves every handler.
     services.AddScoped(_ => A.Fake<IAuditLog>());
     services.AddScoped(_ => A.Fake<IOrganizationDirectory>());
+    services.AddScoped(_ => A.Fake<ICurrentOrganization>());
+    services.AddScoped(_ => A.Fake<IOidcTokenValidator>());
+    services.AddScoped(_ => A.Fake<IUploadCredentialCache>());
     services.AddScoped(_ => A.Fake<ISecretProtector>());
     services.AddScoped(_ => A.Fake<ISettingsStore>());
     services.AddScoped(_ => A.Fake<ICoverageConfigParser>());

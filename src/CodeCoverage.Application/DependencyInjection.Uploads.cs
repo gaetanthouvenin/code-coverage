@@ -25,6 +25,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddUploadServices(this IServiceCollection services)
   {
     services.AddScoped<UploadTokenService>();
+    services.AddScoped<UploadAuthenticator>();
 
     return services;
   }

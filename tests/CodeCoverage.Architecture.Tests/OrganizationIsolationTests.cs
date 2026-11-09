@@ -39,6 +39,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string TokenProvider = Infrastructure + "GitHub/GitHubAppTokenProvider.cs";
 
+  private const string UploadCredentialCache = Infrastructure + "Uploads/MemoryUploadCredentialCache.cs";
+
   private const string AdminCommandLine = "src/CodeCoverage.Api/Configuration/Administration/AdminCommandLine.cs";
 
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
@@ -102,6 +104,8 @@ public sealed partial class OrganizationIsolationTests
   [
     // Caches installation tokens by installation id, which belongs to a single account.
     (TokenProvider, "IMemoryCache"),
+    // Remembers the identity of an upload token, under a key that starts with the organization of the scope.
+    (UploadCredentialCache, "IMemoryCache"),
   ];
 
   // Not in AllowLists: AdminCommandLine (M1.23), which holds the only use, does not exist yet.
