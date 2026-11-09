@@ -11,6 +11,7 @@ using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Operations;
 using CodeCoverage.Infrastructure.Persistence;
+using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Tests.Support;
 
 namespace CodeCoverage.Infrastructure.Tests.Operations;
@@ -43,7 +44,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     var interceptor = new CapturingSaveChangesInterceptor();
     await using var context = CreateCapturingContext(interceptor);
 
-    await new AuditLog(context, user, Clock()).RecordAsync("Commits.Reprocess", "42", null, Ct);
+    await new AuditLog(context, user, new OrganizationContext(), Clock()).RecordAsync("Commits.Reprocess", "42", null, Ct);
 
     var entry = interceptor.Added.ShouldHaveSingleItem().ShouldBeOfType<AuditEntry>();
     entry.Actor.ShouldBe(AuditEntry.SystemActor);
@@ -62,7 +63,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     var interceptor = new CapturingSaveChangesInterceptor();
     await using var context = CreateCapturingContext(interceptor);
 
-    await new AuditLog(context, user, Clock()).RecordAsync(
+    await new AuditLog(context, user, new OrganizationContext(), Clock()).RecordAsync(
       "Settings.Update",
       "Processing:WorkerConcurrency",
       new Dictionary<string, string> { ["Value"] = "8" },
@@ -80,7 +81,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     var interceptor = new CapturingSaveChangesInterceptor();
     await using var context = CreateCapturingContext(interceptor);
 
-    await new AuditLog(context, new CurrentUserContext(), Clock()).RecordAsync("Settings.Update", "Key", null, Ct);
+    await new AuditLog(context, new CurrentUserContext(), new OrganizationContext(), Clock()).RecordAsync("Settings.Update", "Key", null, Ct);
 
     interceptor.Added.ShouldHaveSingleItem().ShouldBeOfType<AuditEntry>().Actor.ShouldBe(AuditEntry.AnonymousActor);
   }
@@ -92,7 +93,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
   {
     var interceptor = new CapturingSaveChangesInterceptor();
     await using var context = CreateCapturingContext(interceptor);
-    var log = new AuditLog(context, new CurrentUserContext(), Clock());
+    var log = new AuditLog(context, new CurrentUserContext(), new OrganizationContext(), Clock());
 
     await Should.ThrowAsync<ArgumentException>(
       () => log.RecordAsync("Settings.ReplaceSecret", "GitHub:WebhookSecret", new Dictionary<string, string> { [key] = "s3cr3t" }, Ct)
@@ -106,7 +107,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
   public async Task Record_WithNullAction_ShouldThrowArgumentNullException()
   {
     await using var context = CreateCapturingContext(new CapturingSaveChangesInterceptor());
-    var log = new AuditLog(context, new CurrentUserContext(), Clock());
+    var log = new AuditLog(context, new CurrentUserContext(), new OrganizationContext(), Clock());
 
     (await Should.ThrowAsync<ArgumentNullException>(() => log.RecordAsync(null!, "Key", null, Ct)))
       .ParamName.ShouldBe("action");
@@ -121,7 +122,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     options.UseCodeCoverageDatabase(DatabaseProvider.PostgreSql, UnusedConnection)
            .AddInterceptors(new FailingSaveChangesInterceptor());
     await using var context = new CodeCoverageDbContext(options.Options, new OrganizationContext());
-    var log = new AuditLog(context, new CurrentUserContext(), Clock());
+    var log = new AuditLog(context, new CurrentUserContext(), new OrganizationContext(), Clock());
 
     await Should.ThrowAsync<DbUpdateException>(() => log.RecordAsync("Settings.Update", "Key", null, Ct));
 
@@ -140,7 +141,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
     await using (var context = DatabaseFixture.CreateContext(provider, connectionString))
     {
       await context.Database.MigrateAsync(Ct);
-      await new AuditLog(context, user, Clock()).RecordAsync(
+      await new AuditLog(context, user, new OrganizationContext(), Clock()).RecordAsync(
         "Commits.Reprocess",
         "owner/repo@0123456789abcdef0123456789abcdef01234567",
         new Dictionary<string, string> { ["Reason"] = "manual", ["CommitId"] = "42" },
@@ -157,6 +158,42 @@ public sealed class AuditLogTests(DatabaseFixture database)
     entry.Action.ShouldBe("Commits.Reprocess");
     entry.Target.ShouldBe("owner/repo@0123456789abcdef0123456789abcdef01234567");
     entry.Details.ShouldBe(new Dictionary<string, string> { ["CommitId"] = "42", ["Reason"] = "manual" });
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Record_InOrganizationScope_ShouldStampIt(DatabaseProvider provider)
+  {
+    var organization = new OrganizationContext();
+    organization.Enter(7);
+
+    (await RecordAndReadOrganizationAsync(provider, organization)).ShouldBe(7);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Record_WithoutOrganization_ShouldStoreNull(DatabaseProvider provider)
+  {
+    (await RecordAndReadOrganizationAsync(provider, new OrganizationContext())).ShouldBeNull();
+  }
+
+  private async Task<long?> RecordAndReadOrganizationAsync(DatabaseProvider provider, OrganizationContext organization)
+  {
+    var connectionString = await database.NewDatabaseAsync(provider, Ct);
+    var user = new CurrentUserContext();
+    user.SetSystem();
+
+    await using (var context = DatabaseFixture.CreateContext(provider, connectionString, organization))
+    {
+      await context.Database.MigrateAsync(Ct);
+      await new AuditLog(context, user, organization, Clock()).RecordAsync("Settings.Update", "Key", null, Ct);
+    }
+
+    await using var check = DatabaseFixture.CreateContext(provider, connectionString);
+
+    return await check.AuditEntries
+                      .Select(static e => EF.Property<long?>(e, OrganizationOwnedExtensions.ColumnName))
+                      .SingleAsync(Ct);
   }
 
   private static IClock Clock()

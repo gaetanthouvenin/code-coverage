@@ -412,7 +412,7 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 | **Opérationnelles, `OrganizationId` nullable, sans filtre (3)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` |
 | **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
 
-**État à ce jour.** Ce classement et le tableau des colonnes décrivent le modèle cible. Seules `Organizations`, `OrganizationSettings`, `Jobs`, `AuditEntries`, `Settings`, `SettingsRevision` et `DataProtectionKeys` existent en base, et `TableClassification` ne liste que celles-là : chaque micro-feature y ajoute ses tables (M1.17 pour `Repositories`, `Branches` et `Installations`). `AuditEntries` n'a pas encore sa colonne `OrganizationId` (M1.16g2).
+**État à ce jour.** Ce classement et le tableau des colonnes décrivent le modèle cible. Seules `Organizations`, `OrganizationSettings`, `Jobs`, `AuditEntries`, `Settings`, `SettingsRevision` et `DataProtectionKeys` existent en base, et `TableClassification` ne liste que celles-là : chaque micro-feature y ajoute ses tables (M1.17 pour `Repositories`, `Branches` et `Installations`).
 
 **Isolation par construction.** Ces règles sont prouvées sur PostgreSQL et SQL Server par `Infrastructure.Tests/Persistence/Organizations`, sur `OrganizationSettings`, seule table d'organisation à ce jour.
 
@@ -456,7 +456,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **Settings** | **Key**, Value?, IsSecret, UpdatedAt, UpdatedBy | Store de paramètres (§4bis) |
 | **SettingsRevision** | **Id** (=1), Revision bigint | Incrémenté dans la transaction de chaque sauvegarde. |
 | **DataProtectionKeys** | table EF standard | Partagée par les deux hôtes. |
-| **AuditEntries** | **Id**, OrganizationId? (M1.16g2), At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
+| **AuditEntries** | **Id**, OrganizationId?, At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
 | **CodecovImports** (M5.06) | **Id**, credential Codecov chiffré par Data Protection | Référencée par identifiant depuis le payload de `ImportCodecovHistory`, supprimée en fin d'import. |
 
 ### 4.3 Format de blob `CCR1` (`CcrCodec : ICoverageReportCodec`, Infrastructure)
