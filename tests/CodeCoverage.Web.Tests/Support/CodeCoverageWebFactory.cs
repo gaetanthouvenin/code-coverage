@@ -68,6 +68,9 @@ public sealed class CodeCoverageWebFactory : WebApplicationFactory<Program>
     // The tests that switch to Production carry no certificate: they accept unprotected keys explicitly.
     builder.UseSetting("DataProtection:AllowUnprotectedKeys", "true");
 
+    // An instance already set up: SetupRedirectMiddlewareTests covers the first start.
+    builder.UseSetting("GitHub:AppId", "1");
+
     // The key ring of the unreachable database (antiforgery) is replaced by an in-memory one; the
     // shared key ring is covered by the Infrastructure tests.
     builder.ConfigureTestServices(services => services.AddDataProtection().UseEphemeralDataProtectionProvider());

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
+using CodeCoverage.Infrastructure.Settings;
 
 namespace CodeCoverage.Infrastructure;
 
@@ -31,6 +32,8 @@ public static partial class DependencyInjection
     services.AddGitHubHttpClient();
     services.AddSingleton<GitHubAppTokenProvider>();
     services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
+    services.AddSingleton<ISetupTokenIssuer, SetupTokenIssuer>();
+    services.AddTransient<IGitHubAppGateway>(static provider => provider.GetRequiredService<GitHubAppGateway>());
     services.AddTransient<IForgeGatewayProvider, ForgeGatewayProvider>();
 
     return services;

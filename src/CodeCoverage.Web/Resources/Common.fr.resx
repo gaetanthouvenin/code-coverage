@@ -43,6 +43,11 @@
   <data name="Setting.InvalidValue" xml:space="preserve"><value>La valeur ne correspond pas au type du paramètre.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>Ce paramètre est un secret : remplacez-le au lieu de le modifier.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>Ce paramètre n’est pas un secret : modifiez plutôt sa valeur.</value></data>
+  <data name="Setting.GitHubAppAlreadyCreated" xml:space="preserve"><value>La GitHub App existe déjà sur cette instance.</value></data>
+  <data name="Setting.GitHubAppNotCreated" xml:space="preserve"><value>Créez d’abord la GitHub App.</value></data>
+  <data name="Setting.InvalidAdministrators" xml:space="preserve"><value>Indiquez au moins un administrateur, par ses identifiants GitHub numériques séparés par des virgules.</value></data>
+  <data name="Setting.InvalidManifestCode" xml:space="preserve"><value>GitHub ne reconnaît pas ce code, ou il a expiré. Recréez l’App.</value></data>
+  <data name="Setting.InvalidSetupToken" xml:space="preserve"><value>Le jeton de mise en place est absent ou invalide. Il figure dans les journaux de l’hôte Web.</value></data>
   <data name="Setting.OutOfRange" xml:space="preserve"><value>La valeur est en dehors des limites autorisées pour ce paramètre.</value></data>
   <data name="Setting.ProvidedByEnvironment" xml:space="preserve"><value>Ce paramètre est fourni par l’environnement et ne peut pas être modifié ici.</value></data>
   <data name="Setting.Unknown" xml:space="preserve"><value>Ce paramètre n’existe pas.</value></data>

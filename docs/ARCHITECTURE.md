@@ -1581,7 +1581,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
   - administration du dépôt : permission `admin` ;
   - administration d'instance : identifiant GitHub numérique présent dans `Access:AdminUserIds` ou `CodeCoverage__Bootstrap__AdminUserIds`, réévalué à chaque lecture. Elle n'accorde aucun accès aux données d'une organisation (ADR-013), et `IAdminOnly` n'entre dans aucune organisation.
 - **Premier démarrage** :
-  - tant que `GitHub:AppId` est vide, le Web journalise en `Warning` un **jeton de mise en place** à usage unique (stocké haché) et redirige vers `/setup?token=` ;
+  - tant que `GitHub:AppId` est vide, le Web journalise en `Warning` un **jeton de mise en place** à usage unique (stocké haché, en mémoire du processus) et redirige vers `/setup`, où l'opérateur le fournit (`?token=`) : la redirection ne le contient jamais ;
   - après la mise en place, le jeton est supprimé et l'OAuth normal s'applique ;
   - les variables `GitHub__*` d'environnement permettent aussi une configuration sans passer par l'assistant.
 

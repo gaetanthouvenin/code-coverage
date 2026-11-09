@@ -96,6 +96,8 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<ITokenGenerator>());
     services.AddScoped(_ => A.Fake<ITokenHasher>());
     services.AddScoped(_ => A.Fake<IClock>());
+    services.AddScoped(_ => A.Fake<ISetupTokenIssuer>());
+    services.AddScoped(_ => A.Fake<IGitHubAppGateway>());
     services.AddScoped(_ => A.Fake<IWebhookSignatureValidator>());
     services.AddScoped(_ => A.Fake<IWebhookDeliveryRepository>());
     services.AddScoped(_ => A.Fake<IInstallationRepository>());

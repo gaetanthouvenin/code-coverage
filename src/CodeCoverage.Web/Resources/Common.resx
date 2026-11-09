@@ -43,6 +43,11 @@
   <data name="Setting.InvalidValue" xml:space="preserve"><value>The value does not match the type of the setting.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>This setting is a secret: replace it instead of changing it.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>This setting is not a secret: change its value instead.</value></data>
+  <data name="Setting.GitHubAppAlreadyCreated" xml:space="preserve"><value>The GitHub App already exists on this instance.</value></data>
+  <data name="Setting.GitHubAppNotCreated" xml:space="preserve"><value>Create the GitHub App first.</value></data>
+  <data name="Setting.InvalidAdministrators" xml:space="preserve"><value>Give at least one administrator, as numeric GitHub identifiers separated by commas.</value></data>
+  <data name="Setting.InvalidManifestCode" xml:space="preserve"><value>GitHub does not recognize this code, or it has expired. Create the App again.</value></data>
+  <data name="Setting.InvalidSetupToken" xml:space="preserve"><value>The setup token is missing or invalid. Find it in the logs of the Web host.</value></data>
   <data name="Setting.OutOfRange" xml:space="preserve"><value>The value is outside the range allowed for this setting.</value></data>
   <data name="Setting.ProvidedByEnvironment" xml:space="preserve"><value>This setting is provided by the environment and cannot be changed here.</value></data>
   <data name="Setting.Unknown" xml:space="preserve"><value>This setting does not exist.</value></data>
