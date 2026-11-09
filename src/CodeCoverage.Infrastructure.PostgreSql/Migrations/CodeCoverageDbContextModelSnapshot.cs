@@ -1023,7 +1023,7 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("OrganizationId", "UserId", "RepositoryExternalId")
                         .IsUnique()
-                        .HasDatabaseName("UX_UserRepositoryAccess_OrganizationId_UserId_RepositoryExternalId");
+                        .HasDatabaseName("UX_UserRepositoryAccess_OrganizationId_UserId_ExternalId");
 
                     b.ToTable("UserRepositoryAccess", (string)null);
 
