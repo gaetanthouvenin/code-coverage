@@ -32,6 +32,7 @@ public static partial class DependencyInjection
     services.AddScoped<IPullRequestRepository, PullRequestRepository>();
     services.AddScoped<IUploadRepository, UploadRepository>();
     services.AddScoped<IUploadTokenRepository, UploadTokenRepository>();
+    services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
 
     return services;
   }

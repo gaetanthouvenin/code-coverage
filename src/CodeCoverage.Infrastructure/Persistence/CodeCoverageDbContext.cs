@@ -21,6 +21,7 @@ using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Infrastructure.Commits;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
@@ -150,6 +151,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();
+
+  /// <summary>Gets the webhook deliveries (<c>WebhookDeliveries</c>).</summary>
+  internal DbSet<WebhookDeliveryRecord> WebhookDeliveries => Set<WebhookDeliveryRecord>();
 
   /// <summary>Gets the identifier of the organization of the scope, read by the query filter and by the save.</summary>
   /// <exception cref="InvalidOperationException">The scope has not entered an organization.</exception>

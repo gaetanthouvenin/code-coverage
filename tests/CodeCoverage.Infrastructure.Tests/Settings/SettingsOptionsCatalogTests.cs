@@ -36,8 +36,6 @@ public sealed class SettingsOptionsCatalogTests
     SettingDefinitions.GitHubAppId,
     SettingDefinitions.GitHubAppSlug,
     SettingDefinitions.GitHubClientSecret,
-    SettingDefinitions.GitHubWebhookSecret,
-    SettingDefinitions.GitHubWebhookSecretPrevious,
     SettingDefinitions.UrlsApiPublicUrl,
     SettingDefinitions.UrlsWebPublicUrl,
   ];

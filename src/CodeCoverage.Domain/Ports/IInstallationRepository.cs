@@ -23,6 +23,12 @@ public interface IInstallationRepository
   /// <returns>The installation, or <see langword="null" />.</returns>
   Task<Installation?> FindAsync(long id, CancellationToken cancellationToken);
 
+  /// <summary>Finds the organization of an installation and its state, in one read.</summary>
+  /// <param name="id">The identifier of the installation.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The owner of the installation, or <see langword="null" /> when the installation is unknown.</returns>
+  Task<InstallationOwner?> FindOwnerAsync(long id, CancellationToken cancellationToken);
+
   /// <summary>Adds an installation, saved at once.</summary>
   /// <param name="installation">The installation.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>

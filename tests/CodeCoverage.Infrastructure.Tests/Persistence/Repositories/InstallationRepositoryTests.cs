@@ -6,6 +6,7 @@
 
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
@@ -38,6 +39,37 @@ public sealed class InstallationRepositoryTests(DatabaseFixture database)
     var found = await new InstallationRepository(context).FindAsync(SecondInstallation, Ct);
 
     found.ShouldNotBeNull().OrganizationId.ShouldBe(organizations.SecondId);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindOwner_ShouldGiveTheOrganizationAndItsState(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await AddInstallationsAsync(organizations, Ct);
+
+    await using (var writer = organizations.ContextWithoutOrganization())
+    {
+      var first = await writer.Organizations.SingleAsync(o => o.Id == organizations.FirstId, Ct);
+      first.Admit("admin", Now);
+      await writer.SaveChangesAsync(Ct);
+    }
+
+    await using var context = organizations.ContextWithoutOrganization();
+    var repository = new InstallationRepository(context);
+
+    (await repository.FindOwnerAsync(FirstInstallation, Ct)).ShouldBe(new InstallationOwner(organizations.FirstId, OrganizationState.Active));
+    (await repository.FindOwnerAsync(SecondInstallation, Ct)).ShouldBe(new InstallationOwner(organizations.SecondId, OrganizationState.Pending));
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindOwner_Unknown_ShouldReturnNull(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await using var context = organizations.ContextWithoutOrganization();
+
+    (await new InstallationRepository(context).FindOwnerAsync(999, Ct)).ShouldBeNull();
   }
 
   [Theory]

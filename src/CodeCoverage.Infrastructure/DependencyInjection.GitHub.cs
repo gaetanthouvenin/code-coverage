@@ -30,6 +30,7 @@ public static partial class DependencyInjection
     services.AddMemoryCache();
     services.AddGitHubHttpClient();
     services.AddSingleton<GitHubAppTokenProvider>();
+    services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
     services.AddTransient<IForgeGatewayProvider, ForgeGatewayProvider>();
 
     return services;

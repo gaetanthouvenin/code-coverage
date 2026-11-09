@@ -31,7 +31,7 @@ internal static class TableClassification
 
   /// <summary>Gets the operational tables, which are never filtered.</summary>
   public static IReadOnlySet<string> Operational { get; } =
-    new[] { "AuditEntries", "Jobs" }.ToFrozenSet(StringComparer.Ordinal);
+    new[] { "AuditEntries", "Jobs", "WebhookDeliveries" }.ToFrozenSet(StringComparer.Ordinal);
 
   #endregion
 }
