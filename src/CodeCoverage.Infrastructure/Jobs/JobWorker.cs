@@ -18,6 +18,7 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
 
 using AppException = CodeCoverage.Application.Exceptions.ApplicationException;
@@ -57,6 +58,10 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///     <item>
 ///       <see cref="RetryLaterException" />: queued again after its delay, without consuming the attempt
 ///       (<see cref="SqlJobQueue.RescheduleAsync" />);
+///     </item>
+///     <item>
+///       <see cref="GitHubRateLimitedException" />: queued again at the moment GitHub accepts requests again, without
+///       consuming the attempt;
 ///     </item>
 ///     <item>
 ///       permanent refusal (<see cref="NotFoundException" />, <see cref="ValidationException" />,
@@ -398,6 +403,17 @@ internal sealed partial class JobWorker : BackgroundService
       LogRetryLater(_logger, job.Id, runAfter, retryLater.Message);
       await WithQueueAsync(q => q.RescheduleAsync(job.Id, workerId, runAfter, Describe(retryLater), cancellationToken))
         .ConfigureAwait(false);
+      return;
+    }
+
+    if (failure is GitHubRateLimitedException rateLimited)
+    {
+      var resetAt = rateLimited.ResetAt > now ? rateLimited.ResetAt : now;
+
+      LogRetryLater(_logger, job.Id, resetAt, rateLimited.Message);
+      await WithQueueAsync(q => q.RescheduleAsync(job.Id, workerId, resetAt, Describe(rateLimited), cancellationToken))
+        .ConfigureAwait(false);
+
       return;
     }
 

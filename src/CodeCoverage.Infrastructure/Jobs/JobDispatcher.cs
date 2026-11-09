@@ -4,9 +4,12 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Text.Json;
+
 using Mediator;
 
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
+using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 
 namespace CodeCoverage.Infrastructure.Jobs;
@@ -24,6 +27,28 @@ namespace CodeCoverage.Infrastructure.Jobs;
 /// </remarks>
 internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 {
+  #region Methods
+
+  /// <summary>Reads the upload of a job.</summary>
+  /// <param name="job">The job.</param>
+  /// <returns>The public identifier of the upload.</returns>
+  /// <exception cref="InvalidJobException">The payload is not valid.</exception>
+  private static Guid ReadUploadId(JobRecord job)
+  {
+    try
+    {
+      using var payload = JsonDocument.Parse(job.PayloadJson);
+
+      return payload.RootElement.GetProperty("UploadId").GetGuid();
+    }
+    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+    {
+      throw new InvalidJobException($"The payload of the {job.Type} job {job.Id} is not valid.");
+    }
+  }
+
+  #endregion
+
   #region Implementation of IJobDispatcher
 
   /// <inheritdoc />
@@ -35,6 +60,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
     {
       case JobTypes.Ping:
         await sender.Send(new RunDiagnosticJobCommand(job.Id), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.ProcessUpload:
+        await sender.Send(new ProcessUploadCommand(ReadUploadId(job), job.LockedBy ?? job.Type), cancellationToken).ConfigureAwait(false);
         break;
 
       default:

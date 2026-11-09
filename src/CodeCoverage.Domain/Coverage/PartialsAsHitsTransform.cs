@@ -5,9 +5,8 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Config;
-using CodeCoverage.Domain.Coverage;
 
-namespace CodeCoverage.Infrastructure.Reports;
+namespace CodeCoverage.Domain.Coverage;
 
 /// <summary>Applies the <c>parsers.{format}.partials_as_hits</c> option to a parsed report.</summary>
 /// <remarks>
@@ -34,7 +33,7 @@ namespace CodeCoverage.Infrastructure.Reports;
 ///     with a <c>0/2</c> that names them, is a hit in Codecov and a miss here.
 ///   </para>
 /// </remarks>
-internal static class PartialsAsHitsTransform
+public static class PartialsAsHitsTransform
 {
   #region Methods
 

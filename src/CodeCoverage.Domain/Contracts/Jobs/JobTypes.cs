@@ -35,5 +35,8 @@ public static class JobTypes
   /// <summary>Parses an upload that was stored at its reception.</summary>
   public const string ProcessUpload = "ProcessUpload";
 
+  /// <summary>Rebuilds the report of a commit from its uploads.</summary>
+  public const string FinalizeCommit = "FinalizeCommit";
+
   #endregion
 }

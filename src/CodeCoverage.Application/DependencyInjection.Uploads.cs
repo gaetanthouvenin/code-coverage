@@ -26,6 +26,8 @@ public static partial class DependencyInjection
   {
     services.AddScoped<UploadTokenService>();
     services.AddScoped<UploadAuthenticator>();
+    services.AddScoped<UploadProcessor>();
+    services.AddSingleton<ParseGate>();
 
     return services;
   }

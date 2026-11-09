@@ -90,6 +90,10 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<IAuditLog>());
     services.AddScoped(_ => A.Fake<IOrganizationDirectory>());
     services.AddScoped(_ => A.Fake<ICommitRepository>());
+    services.AddScoped(_ => A.Fake<IReportParserCatalog>());
+    services.AddScoped(_ => A.Fake<ICoverageReportCodec>());
+    services.AddScoped(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.CoverageOptions>>());
+    services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.ProcessingOptions>>());
     services.AddScoped(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.UploadOptions>>());
     services.AddScoped(_ => A.Fake<ICommitReportRepository>());
     services.AddScoped(_ => A.Fake<IRawUploadStore>());

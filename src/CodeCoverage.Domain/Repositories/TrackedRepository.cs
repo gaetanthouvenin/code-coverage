@@ -4,8 +4,12 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Domain.Repositories;
 
@@ -142,6 +146,12 @@ public sealed class TrackedRepository
   #endregion
 
   #region Methods
+
+  /// <summary>Gives the address of the repository on its forge.</summary>
+  /// <param name="forge">The forge of the organization.</param>
+  /// <returns>The address, which survives a renaming.</returns>
+  public ForgeRepositoryRef ToForgeRef(Forge forge) =>
+    new(forge, InstallationId.ToString(CultureInfo.InvariantCulture), ExternalId);
 
   /// <summary>Starts tracking a repository.</summary>
   /// <param name="installationId">The GitHub installation that gives access to the repository.</param>

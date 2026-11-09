@@ -7,7 +7,6 @@
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Infrastructure.Reports;
 using CodeCoverage.Infrastructure.Reports.Parsers;
 
 namespace CodeCoverage.Infrastructure.Tests.Reports;

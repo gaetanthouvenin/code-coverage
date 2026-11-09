@@ -55,6 +55,7 @@
   <data name="Upload.InvalidPart" xml:space="preserve"><value>Une partie de cet upload n’est pas valide : un nom trop long, un gzip corrompu, ou plus d’une liste de fichiers.</value></data>
   <data name="Upload.RateLimited" xml:space="preserve"><value>Trop d’uploads pour ce dépôt : réessayez dans un instant.</value></data>
   <data name="Upload.NotFound" xml:space="preserve"><value>Cet upload n’existe pas, ou vous n’y avez pas accès.</value></data>
+  <data name="Upload.ParseFailed" xml:space="preserve"><value>Un rapport de cet upload n’a pas pu être lu.</value></data>
   <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>Cette valeur est déjà un jeton de cette organisation.</value></data>
   <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>La date d’expiration doit être dans le futur.</value></data>
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un jeton importé doit être un jeton Codecov (un UUID).</value></data>
