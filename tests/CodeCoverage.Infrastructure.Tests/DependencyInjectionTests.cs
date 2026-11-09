@@ -75,6 +75,17 @@ public sealed class DependencyInjectionTests
   }
 
   [Fact]
+  public async Task AddInfrastructure_ShouldRegisterTheOidcTokenValidatorAsSingleton()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+
+    var validator = services.GetRequiredService<IOidcTokenValidator>();
+
+    validator.ShouldBeOfType<GitHubOidcTokenValidator>();
+    services.GetRequiredService<IOidcTokenValidator>().ShouldBeSameAs(validator);
+  }
+
+  [Fact]
   public async Task AddInfrastructure_ShouldRegisterTheTokenHasher()
   {
     await using var services = Build(new Dictionary<string, string?>());
