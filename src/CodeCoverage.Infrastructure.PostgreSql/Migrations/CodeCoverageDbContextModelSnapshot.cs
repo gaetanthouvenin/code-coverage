@@ -602,6 +602,102 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.ToTable("Organizations", (string)null);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.PullRequests.PullRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AuthorLogin")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("BaseBranch")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("BaseShaGitHub")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<byte[]>("CommentBodyHash")
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .IsFixedLength();
+
+                    b.Property<long?>("CommentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CommentedHeadSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ComparedToSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ForkPointSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("HeadBranch")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("HeadSha")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RepositoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RepositoryId", "ForkPointSha")
+                        .HasDatabaseName("IX_PullRequests_RepositoryId_ForkPointSha");
+
+                    b.HasIndex("RepositoryId", "HeadSha")
+                        .HasDatabaseName("IX_PullRequests_RepositoryId_HeadSha");
+
+                    b.HasIndex("RepositoryId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PullRequests_RepositoryId_Number");
+
+                    b.ToTable("PullRequests", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Repositories.Branch", b =>
                 {
                     b.Property<long>("RepositoryId")
@@ -1222,6 +1318,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                 });
 
             modelBuilder.Entity("CodeCoverage.Domain.Config.CommitConfig", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.PullRequests.PullRequest", b =>
                 {
                     b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
                         .WithMany()

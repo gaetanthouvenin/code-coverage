@@ -17,6 +17,7 @@ using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Infrastructure.Commits;
@@ -119,6 +120,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the values saved by the organizations (<c>OrganizationSettings</c>).</summary>
   internal DbSet<StoredOrganizationSetting> OrganizationSettings => Set<StoredOrganizationSetting>();
+
+  /// <summary>Gets the pull requests of the tracked repositories (<c>PullRequests</c>).</summary>
+  public DbSet<PullRequest> PullRequests => Set<PullRequest>();
 
   /// <summary>Gets the tracked repositories (<c>Repositories</c>).</summary>
   public DbSet<TrackedRepository> Repositories => Set<TrackedRepository>();
