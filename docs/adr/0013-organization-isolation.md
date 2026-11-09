@@ -106,9 +106,16 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - `Architecture.Tests` référence déjà Roslyn ; `SettingsOptionsBindingTests` n'emploie que des clés qui restent au niveau de l'instance.
 - Une valeur de niveau instance pour une clé `Organization` ne serait modifiable nulle part, ce que la règle 7 interdit : la précédence est donc la ligne de l'organisation, puis le défaut du catalogue.
 
+**Prouvé par exécution** sur PostgreSQL 17 et SQL Server 2022 (M1.16d1 et M1.16d2, `Infrastructure.Tests/Persistence/Organizations`) :
+
+- Le filtre nommé couvre les requêtes, `ExecuteUpdate` et `ExecuteDelete`, et lève sans organisation ; chaque contexte lit sa propre organisation bien que le modèle soit construit une seule fois (`OrganizationFilterTests`).
+- L'index unique qui commence par `OrganizationId` sert la clé étrangère : la convention n'en crée pas d'autre (`ModelClassificationTests`).
+- `SaveChanges` et `SaveChangesAsync` estampillent une ligne ajoutée et lèvent sans organisation. La colonne fantôme comprise dans l'index unique reçoit bien la valeur estampillée : une même clé coexiste dans deux organisations, un doublon dans une organisation est refusé par la base, et une clé supprimée puis ajoutée dans une même sauvegarde passe (`OrganizationWriteGuardTests`).
+- La garde lève, sans rien écrire, sur une ligne modifiée ou supprimée d'une autre organisation, sur une ligne déplacée vers une autre organisation et sur une ligne ajoutée au nom d'une autre (`OrganizationWriteGuardTests`). Sauvegarder les seules tables globales et opérationnelles ne demande pas d'organisation.
+- La colonne fantôme ne voyage pas avec une instance : `Update` ou `Remove` d'une instance détachée la laisse à zéro et la garde refuse la ligne. Une ligne d'organisation doit donc être lue par le contexte qui l'écrit, ce qui s'impose aux repositories à partir de M1.17.
+
 **Probable**, non exécuté à la date de cette décision :
 
-- Le comportement du filtre EF 10 sur `ExecuteUpdate` et `ExecuteDelete`, l'estampillage d'une colonne fantôme comprise dans un index unique, et l'index créé par convention pour une clé étrangère. **M1.16d1 et M1.16d2 les testent sur les deux fournisseurs ; ce document reste « proposé » jusque-là.**
 - Les comportements GitHub : SAML et `GET /user/installations`, collaborateurs externes dans cette liste, contenu de l'événement `transferred`, réception de `installation_repositories` par l'origine, `installation_target` sur les deux types de compte, secrets Actions après un transfert, lecture d'un dépôt public d'un autre compte par un jeton d'installation, forme `/repositories/{id}` sur chaque endpoint. **M4.02a les vérifie sur deux comptes réels avant M4.08** ; le pilote M1.47 exerce la forme par identifiant plus tôt.
 
 ## Risques résiduels
@@ -117,6 +124,7 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - Entre un transfert et la réconciliation de l'origine, un jeton de dépôt resté dans les secrets du dépôt transféré peut encore écrire sur l'ancienne ligne. La fenêtre est bornée par l'événement du destinataire, ou par la synchronisation quotidienne s'il est perdu.
 - Un jeton d'organisation présent dans les secrets d'un dépôt transféré reste valide jusqu'à sa rotation manuelle ; la conception ne pose qu'un bandeau audité (`RotationAdvisedAt`), car une révocation aveugle casserait les autres dépôts de l'origine.
 - Sans clé étrangère composite, un bogue écrivant l'identifiant d'un parent d'une autre organisation n'est pas refusé par la base. La ligne reste dans l'organisation qui écrit et se lit vide sous le filtre.
+- La garde de `SaveChanges` se fie à la valeur que suit le contexte, et le `WHERE` d'un `UPDATE` ou d'un `DELETE` ne porte que sur la clé primaire. Un code qui écrit lui-même l'organisation courante dans la colonne fantôme d'une instance détachée atteint donc la ligne d'une autre organisation (constaté sur les deux fournisseurs). Il faut pour cela écrire explicitement la colonne fantôme hors de `CodeCoverageDbContext`.
 - Qui exploite la base, les sauvegardes et les journaux voit toutes les organisations ; `docs/ARCHITECTURE.md` §12.5 et §12.6 le diront (M1.16a2). La console d'instance n'expose aucune donnée métier.
 - Le retard de jobs d'une organisation peut retarder les statuts d'une autre tant que la réclamation équitable n'existe pas ; seule une mesure pendant le pilote dira si cela compte.
 - Les données d'une organisation suspendue sont conservées sans limite tant que l'effacement n'est pas construit, ce qui peut compter face à une demande légale.

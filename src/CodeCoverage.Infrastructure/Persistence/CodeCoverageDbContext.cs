@@ -9,6 +9,7 @@ using System.Linq.Expressions;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -21,7 +22,7 @@ namespace CodeCoverage.Infrastructure.Persistence;
 
 /// <summary>The CodeCoverage database, on PostgreSQL or SQL Server.</summary>
 /// <param name="options">The context options (engine and migrations assembly).</param>
-/// <param name="currentOrganization">The organization of the scope, read by the query filter.</param>
+/// <param name="currentOrganization">The organization of the scope, read by the query filter and by the save.</param>
 /// <remarks>
 ///   <para>
 ///     One model serves both engines: the entity configurations
@@ -45,11 +46,23 @@ namespace CodeCoverage.Infrastructure.Persistence;
 ///     the organization of this context each time a query runs, although the model is built once and shared, and
 ///     has no clause for the system principal: without an organization, the query throws (ADR-013).
 ///   </para>
+///   <para>
+///     Saving stamps the added rows of those entities with the organization of this context and refuses the
+///     modified or deleted rows of another one. The shadow column does not travel with an instance: a row must be
+///     read through this context before it can be changed, and an attached instance is refused.
+///   </para>
 /// </remarks>
 public sealed class CodeCoverageDbContext(
   DbContextOptions<CodeCoverageDbContext> options,
   ICurrentOrganization currentOrganization) : DbContext(options), IDataProtectionKeyContext
 {
+  #region Fields
+
+  /// <summary>The message of the refusal of a row that does not belong to the organization of the scope.</summary>
+  private const string ForeignRowMessage = "The row belongs to another organization.";
+
+  #endregion
+
   #region Properties
 
   /// <summary>Gets the audit trail (<c>AuditEntries</c>).</summary>
@@ -73,13 +86,37 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the single row of the settings revision (<c>SettingsRevision</c>).</summary>
   internal DbSet<SettingsRevisionRow> SettingsRevisions => Set<SettingsRevisionRow>();
 
-  /// <summary>Gets the identifier of the organization of the scope, read by the query filter.</summary>
+  /// <summary>Gets the identifier of the organization of the scope, read by the query filter and by the save.</summary>
   /// <exception cref="InvalidOperationException">The scope has not entered an organization.</exception>
   private long CurrentOrganizationId => currentOrganization.Id;
 
   #endregion
 
   #region Methods
+
+  /// <inheritdoc />
+  /// <exception cref="InvalidOperationException">
+  ///   A written row of an organization table belongs to another organization, or the scope has not entered one.
+  /// </exception>
+  public override int SaveChanges(bool acceptAllChangesOnSuccess)
+  {
+    ApplyOrganizationRules();
+
+    return base.SaveChanges(acceptAllChangesOnSuccess);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="InvalidOperationException">
+  ///   A written row of an organization table belongs to another organization, or the scope has not entered one.
+  /// </exception>
+  public override async Task<int> SaveChangesAsync(
+    bool acceptAllChangesOnSuccess,
+    CancellationToken cancellationToken = default)
+  {
+    ApplyOrganizationRules();
+
+    return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
+  }
 
   /// <inheritdoc />
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -122,6 +159,38 @@ public sealed class CodeCoverageDbContext(
     var current = Expression.Property(Expression.Constant(this), nameof(CurrentOrganizationId));
 
     return Expression.Lambda(Expression.Equal(owner, current), row);
+  }
+
+  /// <summary>Stamps the added rows of the organization tables and refuses the rows of another organization.</summary>
+  /// <exception cref="InvalidOperationException">
+  ///   A written row belongs to another organization, or the scope has not entered one.
+  /// </exception>
+  /// <remarks>
+  ///   Runs before the save, so the statements and the unique indexes that hold the shadow column see the stamped
+  ///   value. The organization is read only when such a row is written: saving the global and operational tables
+  ///   needs none. A value of zero on a row that is not added means it was attached without being read here.
+  /// </remarks>
+  private void ApplyOrganizationRules()
+  {
+    var written = ChangeTracker.Entries<object>()
+                               .Where(static e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                               .Where(static e => e.Metadata.IsMarkedOrganizationOwned());
+
+    foreach (var entry in written)
+    {
+      var owner = entry.Property<long>(OrganizationOwnedExtensions.ColumnName);
+      var current = CurrentOrganizationId;
+
+      if (entry.State is EntityState.Added)
+      {
+        InvalidOperationException.ThrowIf(owner.CurrentValue != 0 && owner.CurrentValue != current, ForeignRowMessage);
+        owner.CurrentValue = current;
+      }
+      else
+      {
+        InvalidOperationException.ThrowIf(owner.OriginalValue != current || owner.CurrentValue != current, ForeignRowMessage);
+      }
+    }
   }
 
   #endregion
