@@ -97,6 +97,30 @@ public sealed class UploadsController(ISender sender, UploadRateLimiter rateLimi
     return StatusCode(isReplay ? StatusCodes.Status200OK : StatusCodes.Status202Accepted, response);
   }
 
+  /// <summary>Read an upload</summary>
+  /// <remarks>
+  ///   Gives the state of an upload and its processing log, with the credential that sends the uploads of the repository.
+  ///   An upload that the credential cannot read answers like one that does not exist.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="id">The public identifier of the upload.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The upload.</returns>
+  [HttpGet("repos/{forge}/{owner}/{repo}/uploads/{id:guid}", Name = "GetUpload")]
+  [AllowAnonymous]
+  [ProducesResponseType<UploadResponse>(StatusCodes.Status200OK)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<ActionResult<UploadResponse>> GetAsync(string forge, string owner, string repo, Guid id, CancellationToken cancellationToken)
+  {
+    var credential = UploadCredentialReader.Read(Request.Headers)
+                     ?? throw new UnauthorizedException(UploadErrors.TokenInvalid, "The upload token is not valid.");
+
+    return await sender.GetUploadResponseAsync(credential, forge, owner, repo, id, cancellationToken).ConfigureAwait(false);
+  }
+
   /// <summary>Refuses an upload over the limit of its credential and its repository.</summary>
   /// <param name="retryAfter">How long to wait.</param>
   /// <returns>The answer.</returns>

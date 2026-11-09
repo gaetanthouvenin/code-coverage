@@ -17,7 +17,10 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Application.Features.Uploads.Commands.ReceiveUpload;
 using CodeCoverage.Application.Features.Uploads.Queries.AuthorizeUpload;
+using CodeCoverage.Application.Features.Uploads.Queries.GetUploadByCredential;
+using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Uploads;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
@@ -113,6 +116,38 @@ internal static partial class UploadMapper
     return (new UploadAcceptedResponse(received.Upload.PublicId, received.Upload.State.ToString(), commitUrl, statusUrl), received.IsReplay);
   }
 
+  /// <summary>Reads an upload with the credential that sends the uploads of its repository.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="credential">The credential.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="id">The public identifier of the upload.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The upload.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  /// <exception cref="NotFoundException">The forge segment names no forge.</exception>
+  public static async Task<UploadResponse> GetUploadResponseAsync(
+    this ISender sender,
+    string credential,
+    string forge,
+    string owner,
+    string repo,
+    Guid id,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!ForgeSegments.TryParse(forge, out var parsed))
+    {
+      throw new NotFoundException(UploadErrors.NotFound, "The upload does not exist or cannot be read.");
+    }
+
+    var upload = await sender.Send(new GetUploadByCredentialQuery(ToCredential(credential), parsed, owner, repo, id), cancellationToken).ConfigureAwait(false);
+
+    return ToResponse(upload);
+  }
+
   /// <summary>Builds the check of a credential.</summary>
   /// <param name="credential">The credential.</param>
   /// <param name="fields">The text fields.</param>
@@ -164,6 +199,26 @@ internal static partial class UploadMapper
 
   [GeneratedRegex("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$", RegexOptions.CultureInvariant)]
   private static partial Regex JwtPattern();
+
+  private static UploadResponse ToResponse(Upload upload)
+  {
+    var log = upload.ProcessingLog;
+    var totals = upload.State is UploadState.Processed
+                   ? new UploadTotalsModel(upload.Lines, upload.Hits, upload.Misses, upload.Partials, CoverageMath.Ratio(upload.Hits, upload.Lines))
+                   : null;
+
+    return new UploadResponse(
+      upload.PublicId,
+      upload.State.ToString(),
+      upload.Flags,
+      upload.Name,
+      upload.ResolvedFileCount,
+      upload.UnresolvedFileCount,
+      totals,
+      new UploadLogModel(log.Messages, log.MessageTotal, log.Paths, log.PathTotal),
+      upload.ErrorCode
+    );
+  }
 
   private static UploadCredential ToCredential(string credential) =>
     new(JwtPattern().IsMatch(credential) ? UploadCredentialKind.Jwt : UploadCredentialKind.UploadToken, credential);
