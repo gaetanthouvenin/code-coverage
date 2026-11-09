@@ -114,7 +114,9 @@ public sealed class ReportFinderTests : IDisposable
   }
 
   [Theory]
-  [InlineData("coverage.xml")]
+  [InlineData("Coverage.xml")]
+  [InlineData("my-coverage.xml")]
+  [InlineData("coverage.xml.bak")]
   [InlineData("coverage.json")]
   [InlineData("clover.lcov.txt")]
   [InlineData("my-clover.xml")]
@@ -125,6 +127,37 @@ public sealed class ReportFinderTests : IDisposable
     Write($"a/{name}");
 
     Find().ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Find_CoverageXml_ShouldBeFoundByTheDefaultSearch()
+  {
+    Write("coverage.xml");
+    Write("services/api/reports/coverage.xml");
+
+    Find().ShouldBe(["coverage.xml", "services/api/reports/coverage.xml"]);
+  }
+
+  [Fact]
+  public void Find_CoverageXml_ShouldStayUnderTheExclusions()
+  {
+    Write("src/coverage.xml");
+    Write("tests/App/bin/Debug/net10.0/TestResults/guid/coverage.xml");
+    Write("tests/App/obj/TestResults/guid/coverage.xml");
+    Write("tests/App/bin/Debug/coverage.xml");
+    Write("tests/App/obj/coverage.xml");
+    Write("web/node_modules/pkg/coverage.xml");
+    Write("web/node_modules/pkg/TestResults/coverage.xml");
+    Write(".git/coverage.xml");
+    Write("vendor/lib/coverage.xml");
+    Write(".venv/lib/coverage.xml");
+
+    Find().ShouldBe(
+    [
+      "src/coverage.xml",
+      "tests/App/bin/Debug/net10.0/TestResults/guid/coverage.xml",
+      "tests/App/obj/TestResults/guid/coverage.xml",
+    ]);
   }
 
   [Fact]

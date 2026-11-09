@@ -674,7 +674,7 @@ coverage-upload --url $COVERAGE_URL [--token $COVERAGE_TOKEN|$CODECOV_TOKEN] [-f
 **Comportement :**
 
 1. **Recherche de fichiers.** Avec `-f`, les chemins donnés sont utilisés. Sinon, la recherche porte sur la racine du dépôt et sur `$AGENT_TEMPDIRECTORY` si elle est définie, avec les motifs :
-   `**/coverage.cobertura.xml`, `**/*cobertura*.xml`, `**/coverage.opencover.xml`, `**/lcov.info`, `**/*.lcov`, `**/jacoco*.xml`, `**/clover.xml`.
+   `**/coverage.cobertura.xml`, `**/*cobertura*.xml`, `**/coverage.opencover.xml`, `**/coverage.xml`, `**/lcov.info`, `**/*.lcov`, `**/jacoco*.xml`, `**/clover.xml`.
    Exclusions : `node_modules`, `.git`, `vendor`, `.venv`, et `bin`/`obj` sauf `TestResults`. Si aucun fichier n'est trouvé : avertissement, puis code 0 (code 1 avec `--fail-on-error`).
 2. **Contexte CI.**
    - **GitHub Actions** (`GITHUB_ACTIONS=true`) :
