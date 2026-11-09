@@ -288,7 +288,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
     var pull = await _github.Gateway.GetPullAsync(Repository, 1347, Cancellation);
 
     pull.ShouldBe(
-      new ForgePullInfo(1347, ForgePullState.Open, "Amazing new feature", "octocat", Head, "new-topic", "main", Base)
+      new ForgePullInfo(1347, ForgePullState.Open, "Amazing new feature", "octocat", Head, "new-topic", "main", Base, GitSha.Parse("e5bd3914e2e596debea16f433f57875b5b90bcd6"))
     );
   }
 

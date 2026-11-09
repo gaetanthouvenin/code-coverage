@@ -14,6 +14,7 @@ namespace CodeCoverage.Infrastructure.GitHub.Models;
 /// <param name="Head">The head of the pull request.</param>
 /// <param name="Base">The base of the pull request.</param>
 /// <param name="User">The account of the author, or <see langword="null" /> when it no longer exists.</param>
+/// <param name="MergeCommitSha">The SHA of the synthetic merge commit, or <see langword="null" /> when GitHub has none.</param>
 internal sealed record GitHubPullResponse(
   int Number,
   string State,
@@ -21,4 +22,5 @@ internal sealed record GitHubPullResponse(
   bool Merged,
   GitHubPullBranch Head,
   GitHubPullBranch Base,
-  GitHubUser? User = null);
+  GitHubUser? User = null,
+  string? MergeCommitSha = null);

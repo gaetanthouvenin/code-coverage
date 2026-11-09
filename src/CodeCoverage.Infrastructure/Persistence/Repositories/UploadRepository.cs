@@ -8,7 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
 
@@ -26,6 +29,9 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
 
   /// <summary>The message of the refusal of an upload whose key is already used; it is sent to the caller.</summary>
   private const string DuplicateMessage = "The upload was received in the meantime; reload it and try again.";
+
+  /// <summary>The message of the refusal of a move to a commit that already holds the same upload.</summary>
+  private const string AlreadyOnTargetMessage = "The commit that receives the upload already holds the same idempotency key.";
 
   /// <summary>The message of the refusal of a commit that cannot be read; it is sent to the caller.</summary>
   private const string CommitGoneMessage = "The commit was changed or removed in the meantime; reload it and try again.";
@@ -73,6 +79,47 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
                                .ConfigureAwait(false);
 
     return updated > 0;
+  }
+
+  /// <inheritdoc />
+  /// <remarks>
+  ///   Each step can be run again: the commit is added once, a number lost by a failure only leaves a gap between the
+  ///   sessions, and the move is the last write. The other changes of the upload are saved with it, or before it; a
+  ///   refused move gives the upload back its commit and its number.
+  /// </remarks>
+  public async Task<Commit> MoveToCommitAsync(Upload upload, GitSha targetSha, DateTimeOffset at, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(upload);
+    ArgumentNullException.ThrowIfNull(targetSha);
+    InvalidOperationException.ThrowIf(context.Entry(upload).State is EntityState.Detached, "An upload must be read in this scope before it can be moved.");
+
+    var sourceId = upload.CommitId;
+    var source = await context.Commits.SingleAsync(c => c.Id == sourceId, cancellationToken).ConfigureAwait(false);
+    var commits = new CommitRepository(context);
+    var target = await commits.GetOrCreateAsync(source.RepositoryId, targetSha, at, cancellationToken).ConfigureAwait(false);
+
+    target.MarkPending(source.Branch, source.PullNumber, at);
+    await commits.UpdateAsync(target, cancellationToken).ConfigureAwait(false);
+
+    var sequence = await commits.NextUploadSequenceAsync(target.Id, cancellationToken).ConfigureAwait(false);
+
+    upload.MoveToCommit(target.Id, sequence);
+
+    try
+    {
+      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, UploadConfiguration.IdempotencyIndexName))
+    {
+      var entry = context.Entry(upload);
+
+      entry.CurrentValues.SetValues(entry.OriginalValues);
+      entry.State = EntityState.Unchanged;
+
+      throw new ConflictException(UploadErrors.Duplicate, AlreadyOnTargetMessage, exception);
+    }
+
+    return target;
   }
 
   /// <inheritdoc />

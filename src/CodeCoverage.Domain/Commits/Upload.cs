@@ -234,6 +234,30 @@ public sealed class Upload
     };
   }
 
+  /// <summary>Attaches the upload to another commit: the head of a pull request, when it named its merge commit.</summary>
+  /// <param name="commitId">The identifier of the commit.</param>
+  /// <param name="sequence">The session number it receives there.</param>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="commitId" /> or <paramref name="sequence" /> is not positive.</exception>
+  public void MoveToCommit(long commitId, int sequence)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commitId);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequence);
+
+    CommitId = commitId;
+    Sequence = sequence;
+  }
+
+  /// <summary>Adds a message to the processing log before the processing ends.</summary>
+  /// <param name="message">The message.</param>
+  /// <remarks>Saved with the next change of the upload, it survives a processing that fails and runs again.</remarks>
+  /// <exception cref="ArgumentException"><paramref name="message" /> is empty or white space.</exception>
+  public void AddToLog(string message)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+    ProcessingLog = ProcessingLog.Add(message);
+  }
+
   /// <summary>Records the result of a processing that gave a coverage.</summary>
   /// <param name="reportFileCount">The number of reports it held.</param>
   /// <param name="resolvedFileCount">The number of files whose path was resolved.</param>

@@ -75,7 +75,7 @@ internal sealed class CommitAncestry(IGitCommitRepository commits, IForgeGateway
   /// <param name="sha">The SHA of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
   /// <returns>The commit, or <see langword="null" /> when the forge does not have it.</returns>
-  private async Task<GitCommit?> GetAsync(long repositoryId, ForgeRepositoryRef repository, GitSha sha, CancellationToken cancellationToken)
+  internal async Task<GitCommit?> GetAsync(long repositoryId, ForgeRepositoryRef repository, GitSha sha, CancellationToken cancellationToken)
   {
     var cached = await commits.FindAsync(repositoryId, sha, cancellationToken).ConfigureAwait(false);
 

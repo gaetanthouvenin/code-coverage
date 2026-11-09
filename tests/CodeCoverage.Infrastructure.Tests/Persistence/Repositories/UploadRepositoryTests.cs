@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -262,6 +264,89 @@ public sealed class UploadRepositoryTests(DatabaseFixture database)
     await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
 
     (await new UploadRepository(other).TryStartProcessingAsync(upload.PublicId, "worker-1", Ct)).ShouldBeFalse();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MoveToCommit_ShouldCreateTheTargetAndGiveTheNextNumber(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var upload = New(seed.FirstCommit, 1, "key");
+    var head = GitSha.Parse(new string('e', GitSha.Length));
+
+    await using (var writer = seed.Organizations.ContextOf(first))
+    {
+      await new UploadRepository(writer).AddAsync(upload, Ct);
+    }
+
+    long targetId;
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var read = await context.Uploads.SingleAsync(u => u.Id == upload.Id, Ct);
+      read.AddToLog("moved");
+      var target = await new UploadRepository(context).MoveToCommitAsync(read, head, Now, Ct);
+
+      targetId = target.Id;
+      target.Sha.ShouldBe(head);
+      target.State.ShouldBe(CommitState.Pending);
+    }
+
+    await using var check = seed.Organizations.ContextOf(first);
+    var moved = await check.Uploads.SingleAsync(u => u.Id == upload.Id, Ct);
+
+    moved.CommitId.ShouldBe(targetId);
+    moved.Sequence.ShouldBe(1);
+    moved.State.ShouldBe(UploadState.Received);
+    moved.ProcessingLog.Messages.ShouldBe(["moved"]);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MoveToCommit_KeyAlreadyOnTheTarget_ShouldThrowConflict(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var moving = New(seed.FirstCommit, 1, "shared");
+    var head = GitSha.Parse(new string('e', GitSha.Length));
+
+    await using (var writer = seed.Organizations.ContextOf(first))
+    {
+      await new UploadRepository(writer).AddAsync(moving, Ct);
+      var target = await new CommitRepository(writer).GetOrCreateAsync(seed.FirstRepository, head, Now, Ct);
+      await new UploadRepository(writer).AddAsync(New(target.Id, 1, "shared"), Ct);
+    }
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var read = await context.Uploads.SingleAsync(u => u.Id == moving.Id, Ct);
+    read.AddToLog("moved");
+
+    var exception = await Should.ThrowAsync<ConflictException>(() => new UploadRepository(context).MoveToCommitAsync(read, head, Now, Ct));
+
+    exception.ErrorCode.ShouldBe(UploadErrors.Duplicate);
+    read.CommitId.ShouldBe(seed.FirstCommit);
+
+    // The scope stays usable: the copy can be ended on its own commit.
+    read.MarkFailed(UploadErrors.Duplicate, "duplicate", 0, 0, 0, ProcessingLog.Empty, Now);
+    await context.SaveChangesAsync(Ct);
+
+    await using var check = seed.Organizations.ContextOf(first);
+    var stored = await check.Uploads.SingleAsync(u => u.Id == moving.Id, Ct);
+    stored.CommitId.ShouldBe(seed.FirstCommit);
+    stored.State.ShouldBe(UploadState.Failed);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MoveToCommit_UploadNotReadInThisScope_ShouldThrow(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    await Should.ThrowAsync<InvalidOperationException>(
+      () => new UploadRepository(context).MoveToCommitAsync(New(seed.FirstCommit, 1, "key"), GitSha.Parse(new string('e', GitSha.Length)), Now, Ct)
+    );
   }
 
   private static Upload New(long commitId, int sequence, string key) =>
