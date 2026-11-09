@@ -159,14 +159,15 @@ Version majeure flottante, sans CPM (§2.9 des conventions).
 | Api | `Swashbuckle.AspNetCore` 10.\*, `Scalar.AspNetCore` 2.\*, `Serilog.AspNetCore` 10.\*, `Serilog.Sinks.Console` 6.\*, `Serilog.Sinks.File` 7.\*, `Serilog.Formatting.Compact` 3.\*, `Serilog.Enrichers.Environment` 3.\*, `Serilog.Enrichers.Thread` 4.\*, `OpenTelemetry.Extensions.Hosting` 1.\* + `OpenTelemetry.Instrumentation.AspNetCore` / `.Http` 1.\* + `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.\* |
 | Web | (aucune librairie UI : composants maison `Web/Components/Ui`), `AspNet.Security.OAuth.GitHub` 10.\*, même lot Serilog et OpenTelemetry |
 | Uploader | `System.CommandLine` 2.0.\*. Rien d'autre : `HttpClient`, `GZipStream` et `System.Text.Json` (source-gen) de la BCL. |
-| Tests | Lot §2.9 des conventions (`xunit.v3` 3.2.\*, `Shouldly` 4.3.\*, `FakeItEasy` 9.0.\*, `Microsoft.NET.Test.Sdk` 18.\*), `NetArchTest.Rules` 1.3.\*, `Microsoft.CodeAnalysis.CSharp` 5.0.\* (Architecture.Tests : règles de conventions de source, **tests seulement**), `Microsoft.AspNetCore.Mvc.Testing` 10.\*, `Testcontainers.PostgreSql` / `.MsSql` 4.\*, `WireMock.Net` 1.\*, `Verify.XunitV3` 31.\*, `bunit` 2.\*, `ReportGenerator.Core` 5.\* (oracle de totaux, **tests seulement**) |
+| Tests | Lot §2.9 des conventions (`xunit.v3` 3.2.\*, `Shouldly` 4.3.\*, `FakeItEasy` 9.0.\*, `Microsoft.NET.Test.Sdk` 18.\*), `NetArchTest.Rules` 1.3.\*, `Microsoft.CodeAnalysis.CSharp` 5.0.\* (Architecture.Tests : règles de conventions de source, **tests seulement**), `Microsoft.AspNetCore.Mvc.Testing` 10.\*, `Testcontainers.PostgreSql` / `.MsSql` 4.\*, `WireMock.Net.Minimal` 2.\*, `Verify.XunitV3` 31.\*, `bunit` 2.\*, `ReportGenerator.Core` 5.\* (oracle de totaux, **tests seulement**) |
 
 **Écartés volontairement :**
 - MediatR ;
 - Octokit et Octokit.Webhooks. Une quinzaine d'endpoints passe par un `HttpClient` typé avec des records `System.Text.Json` générés, ce qui donne le contrôle exact de la pagination, du champ `patch` et des en-têtes de rate limit ;
 - AutoMapper, Mapster, Mapperly ;
 - Hangfire, Redis, DiffPlex ;
-- ReportGenerator à l'exécution.
+- ReportGenerator à l'exécution ;
+- `WireMock.Net` 1.\*, dont les dépendances (`Scriban.Signed` 5.5.0, `OpenTelemetry` 1.14) portent des avis de sécurité critiques : les tests emploient `WireMock.Net.Minimal` 2.\*.
 
 ### 3.4 Médiateur : martinothamar `Mediator` 3.x (ADR-001)
 
@@ -792,7 +793,7 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
    - Le rattachement se fait par une méthode de repository unique qui déplace l'upload vers le commit cible, créé au besoin.
 3. Chargement du brut et de la **configuration effective** au SHA (§9, cache `CommitConfigs`).
 4. **Liste réseau** : la partie `network` de l'upload. À défaut, `RepositoryTrees` au SHA (`GET /git/trees/{sha}?recursive=1`). Si l'arbre est tronqué, la liste partielle est utilisée et un avertissement est journalisé.
-5. **Parsing** : pour chaque rapport, `IReportParserCatalog.Detect(4 premiers Ko, nom)` choisit le parseur, qui parse en flux. Un format inconnu, par exemple le JSON coverlet ou `coverage-final.json`, est journalisé `Upload.UnsupportedFormat` et ignoré, sans faire échouer l'upload. Au plus `Processing:MaxParallelParses` (2) parsings tournent en même temps (`SemaphoreSlim`).
+5. **Parsing** : pour chaque rapport, `IReportParserCatalog.Detect(4 premiers Ko, nom)` donne le format, et `Find(format)` son parseur, qui parse en flux. Un format inconnu, par exemple le JSON coverlet ou `coverage-final.json`, est journalisé `Upload.UnsupportedFormat` et ignoré, sans faire échouer l'upload. Au plus `Processing:MaxParallelParses` (2) parsings tournent en même temps (`SemaphoreSlim`).
 6. **Correction des chemins** (§6.4) pour chaque fichier parsé. Les chemins non résolus ou ambigus vont dans `ProcessingLog` (200 premiers et total).
 7. Fusion de tous les fichiers de l'upload (règle §6.5), puis application de `ignore`.
 8. **Écriture**, en une transaction :
@@ -804,7 +805,7 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
 ### 6.3 Parseurs (`Infrastructure/Reports/Parsers/*Parser`, `internal sealed`, `IReportParser`)
 
 **Commun :**
-- XML : `XmlReaderSettings { DtdProcessing = Ignore, XmlResolver = null, MaxCharactersFromEntities = 0, IgnoreComments = true }`. Pas de XXE, et le DOCTYPE JaCoCo n'est jamais récupéré.
+- XML : `XmlReaderSettings { DtdProcessing = Ignore, XmlResolver = null, MaxCharactersFromEntities = 0, IgnoreComments = true, Async = true }`. La protection réelle est `DtdProcessing.Ignore` avec `XmlResolver = null` : le DOCTYPE, celui de JaCoCo compris, est sauté sans être récupéré (pas de XXE, aucun accès réseau ni fichier), et une référence à une entité, jamais déclarée, lève une `XmlException`. `MaxCharactersFromEntities = 0` signifie « aucune limite » en .NET : ce réglage ne protège de rien et reste sans effet tant qu'aucune DTD n'est traitée.
 - Nombres en culture invariante, hits en `long` (bornés à 0 au minimum).
 - Les doublons de lignes au sein d'un même rapport sont fusionnés avec la règle §6.5.
 - Sortie : `ParsedReport(Format, SourceRoots, Files[RawPath → LineCoverage[]])`.
@@ -813,11 +814,13 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
 
 | Indice | Format |
 |---|---|
-| `<CoverageSession` | OpenCover |
-| `<report` ou DOCTYPE JaCoCo | JaCoCo |
-| `<coverage` avec un attribut `clover`, ou un enfant `<project` | Clover |
-| `<coverage` avec `line-rate`, `lines-valid` ou `<packages` | Cobertura |
-| texte contenant `SF:` et `end_of_record` | LCOV |
+| racine `CoverageSession` | OpenCover |
+| racine `report` | JaCoCo |
+| racine `coverage` avec un attribut `clover`, ou un enfant `project` | Clover |
+| racine `coverage` avec `line-rate`, `lines-valid` ou un enfant `packages` | Cobertura |
+| texte contenant une ligne `SF:` et `end_of_record` | LCOV |
+
+Sur une racine `coverage`, les attributs priment sur les enfants. Le nom de fichier ne sert qu'à départager ce que la fenêtre de 4 Ko ne dit pas : une racine `coverage` muette (nom contenant `clover` ou `cobertura`), ou un `SF:` sans `end_of_record` (nom contenant `lcov` ou finissant par `.info`). À lui seul, il ne fait jamais un rapport.
 
 Règles par format, alignées sur le code Codecov (`services/report/languages/*`) :
 
@@ -854,13 +857,19 @@ Entrées :
 Étapes :
 
 1. **Normalisation.** Trim, suppression de `file://`, `\` remplacé par `/`, suppression de la lettre de lecteur `^[A-Za-z]:`, réduction des `//`, résolution de `./` et `../`, suppression des préfixes `/_/` et `/`.
-2. **`fixes` utilisateur** (sémantique Codecov). Les règles `before::after` forment **une seule expression régulière par alternatives**, ancrée par `^`, où `**` devient `.*` et `*` devient `[^/]+`. Une seule substitution est faite : la première règle qui correspond l'emporte. Les règles `::prefix` ajoutent un préfixe.
+2. **`fixes` utilisateur** (`FixRule`, d'après `UserPathFixes` et `CustomFixPathSchemaField` de Codecov, écarts nommés plus bas). Les entrées forment **une seule expression régulière par alternatives**, chacune ancrée au début du chemin. Une seule substitution est faite : la première règle qui correspond, dans l'ordre du fichier, l'emporte.
+   - `before::after` : `before` passe par la détection de `PathPattern` (préfixe `^value` non échappé, glob ou expression régulière).
+   - `before::` (remplacement vide) : `before` est toujours une expression régulière brute, dont le `/` initial est retiré.
+   - `**` devient `.*`. Un `*` non précédé de `.` exige **au moins 2 caractères** hors `/` dans un glob `before::after` (`[^/][^/\n]+`, donc `before/tests-*::after/` ne correspond pas à `before/tests-a/x`), et au moins 1 dans une règle `before::` (`[^/\n]+`). Comme chez Codecov, cette expansion touche aussi le `*` d'une expression régulière.
+   - Un préfixe qui commence par `/` et porte un remplacement ne correspond jamais, le chemin normalisé ayant perdu son `/` : `/opt/x/::project/` est sans effet, alors que `/opt/x/::` s'applique.
+   - Les règles `::prefix` ne s'appliquent **pas** ici : elles sont ajoutées au chemin retenu (étape 7).
 3. **Retrait de la racine.** Si la racine normalisée est un préfixe, insensible à la casse, elle est retirée.
 4. **Candidats :**
    - `p` ;
-   - `normalise(source) + "/" + p` pour chaque racine Cobertura ;
-   - `dirname(rapport) + "/" + p` ;
+   - avec une liste réseau et pour un chemin brut relatif seulement, chaque répertoire de base joint au **chemin brut**, le tout repassé par les étapes 1 à 3 : `dirname(rapport)` d'abord, puis chaque racine Cobertura ;
    - `p` débarrassé des préfixes CI connus : `^home/runner/work/[^/]+/[^/]+/`, `^__w/[^/]+/[^/]+/`, `^a/[^/]+/[^/]+/`, `^a/\d+/s/`, `^home/vsts/work/\d+/s/`, `^agent/_work/\d+/s/`, `^(Users|home)/[^/]+/`. Le dernier n'est tenté que si rien d'autre ne correspond.
+
+   Avec une liste réseau et `codecov.disable_default_path_fixes`, `p` est le seul candidat, conservé tel quel même s'il est inconnu de la liste.
 5. **Avec une liste réseau :**
    1. Correspondance exacte sensible à la casse sur un candidat : retenue.
    2. Sinon, correspondance exacte insensible à la casse.
@@ -868,7 +877,7 @@ Entrées :
    4. Égalités départagées par : chemin sous les `paths` des flags de l'upload, puis chemin sous le répertoire du rapport, puis chemin le plus court. **Si l'égalité persiste, le chemin est ambigu : il est abandonné et journalisé.**
    5. Non résolu : **abandonné** (`Path.Unresolved: <raw>`).
 6. **Sans liste réseau ni arbre :** le premier candidat sans préfixe CI est retenu, avec l'avertissement « no file list: paths not verified ».
-7. Le résultat est un chemin relatif au dépôt, ou `null`.
+7. **Second passage des `fixes`** sur le chemin retenu, résolu ou non vérifié : `ApplyFixes(chemin, addPrefixes: true)` ajoute les `::prefix`, jointes par `/` dans l'ordre du fichier, **puis refait la substitution**, comme Codecov (« applied pre and post »). `src::src/main` donne donc `src/main/main/…`, et `::src` sur `x/a.c` trouvé en `src/x/a.c` donne `src/src/x/a.c`. Le résultat est un chemin relatif au dépôt, ou `null`.
 
 `PathPattern.Parse` (`ignore` et `paths`, d'après `PathPatternSchemaField` de Codecov) retire les `!` initiaux, qui rendent le motif négatif, puis un `./` initial, et reconnaît le motif dans cet ordre :
 1. aucun des caractères `*`, `$`, `[`, `]` : **préfixe** ;
@@ -899,6 +908,15 @@ Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking`
 - seuls les `!` initiaux sont retirés d'un motif négatif, là où `Matcher` retire tous ses `!` ;
 - la comparaison littérale de la valeur avec le texte compilé des motifs (`s in self._patterns`) n'est pas reproduite ;
 - `!.*` exclut tout. Dans `UserPathIncludes`, sa présence annule au contraire **toutes** les exclusions, de sorte que `ignore: ['.*', 'x']` n'ignore rien chez Codecov. Ce comportement n'existe pas pour les branches et n'est pas reproduit par `PathPatternSet`.
+
+Écarts de `PathFixer` avec Codecov, délibérés et non configurables à ce jour :
+- **Ordre des règles :** celui du fichier. Codecov le tire d'un `set` Python, qui change d'un processus à l'autre : un même rapport y donne des chemins différents selon l'exécution. Il en va de même pour la jointure des `::prefix`.
+- **Ancrage :** chaque alternative est ancrée. Codecov n'ancre que la première de cet ordre aléatoire (`^(a)|(b)`), si bien qu'une autre règle peut s'appliquer au milieu d'un chemin.
+- **Groupes capturants :** chaque règle garde son remplacement. Chez Codecov, un groupe capturant écrit par l'utilisateur décale `zip(groups, replacements)` et applique le remplacement d'une autre règle.
+- **Règles refusées :** une entrée que `NonBacktracking` ne sait pas exécuter (références arrière, assertions) ou qui ne compile pas, syntaxe propre à Python comprise, est écartée et listée dans `FixRule.RefusedFixes`, là où Codecov accepte ce que `re` accepte. Un `codecov.yml` ne doit pas pouvoir provoquer un retour arrière catastrophique.
+- **Correspondance vide :** une alternative qui correspond à la chaîne vide ne substitue rien, là où Codecov lève une `AssertionError`.
+- **Normalisation (étape 1) :** `.github/a` garde son point, que le `lstrip("./")` de Codecov retire ; la lettre de lecteur, `file://` et `/_/` sont retirés, là où Codecov les garde et compte sur la résolution par suffixe. La lettre de lecteur est aussi retirée du `before` d'une règle, sans quoi `C:/Users/x::y` ne correspondrait plus ; en contrepartie, un `before` qui commence par une classe de lecteur (`[A-Z]:/x`) ne correspond jamais.
+- **Retrait de la racine (étape 3) et préfixes CI (étape 4) :** propres à ce projet, absents du worker de Codecov.
 
 ### 6.5 Modèle de ligne et fusion (Domain)
 
@@ -1152,7 +1170,7 @@ informational: true → état envoyé = success, description conservée
 - **Jeton d'installation :** `POST /app/installations/{id}/access_tokens`. Mis en cache dans `IMemoryCache` jusqu'à expiration moins 10 minutes, avec un seul appel concurrent par installation (`SemaphoreSlim`). Jamais persisté.
 - **Client HTTP :** `HttpClient` typé `github` (`GitHubAppGateway`, `GitHubUserGateway`, records `System.Text.Json` générés dans `GitHubJsonContext`).
   - En-têtes : `X-GitHub-Api-Version: 2022-11-28`, `User-Agent: CodeCoverage`.
-  - `RateLimitHandler` : lit `x-ratelimit-remaining` et `x-ratelimit-reset`. Sur 403 ou 429 avec `retry-after`, ou sur message de limite secondaire, il lève `GitHubRateLimitedException(resetAt)` (job reprogrammé sans perte de tentative). Il publie la métrique de quota restant par installation.
+  - `RateLimitHandler` : lit `x-ratelimit-remaining` et `x-ratelimit-reset`. Il lève `GitHubRateLimitedException(resetAt)` sur tout 429, et sur un 403 portant `retry-after`, `x-ratelimit-remaining: 0` ou un corps mentionnant « rate limit » (limites primaire et secondaire, comme GitHub le documente) ; tout autre 403 reste une réponse pour l'appelant. `resetAt` vient de `retry-after`, sinon de `x-ratelimit-reset` si le quota est vide, sinon de l'heure courante plus une minute. Le job doit alors être reprogrammé sans perte de tentative (§6.1), ce que `JobWorker` ne fait pas encore (PLAN §11, « Manques connus »). Il publie la métrique de quota restant par installation.
   - `AddStandardResilienceHandler()` : 3 nouvelles tentatives sur 5xx et timeout, coupe-circuit ; 403 et 429 exclus.
   - Échec définitif : `BadGatewayException(GitHub.Unavailable)`.
 
@@ -1191,7 +1209,7 @@ informational: true → état envoyé = success, description conservée
 
 **Conditions :**
 - PR ouverte et `pr.HeadSha == commit.Sha` : un commit obsolète ne commente jamais, mais ses statuts sont publiés avec son propre diff (§7.4) ;
-- `comment != false` et `Notifications:CommentsEnabled` ;
+- `comment` n'est pas un booléen (`true` désactive aussi le commentaire, comme `CommentNotifier.is_enabled` de Codecov) et `Notifications:CommentsEnabled` ;
 - `comment.after_n_builds ≤ sessions` ;
 - `comment.branches` correspond à la branche de base ;
 - `require_changes`, évalué **seulement pour la première publication**. Une fois `CommentId` connu, le commentaire est toujours mis à jour.
@@ -1201,8 +1219,10 @@ informational: true → état envoyé = success, description conservée
 | `false` | toujours |
 | `true` ou `any_change` | changements indirects, ou lignes couvrables dans le patch |
 | `coverage_drop` | `head − base < 0` et `|Δ| ≥ project.default.threshold + 0.01` (donnée manquante = vrai) |
-| `uncovered_patch` | lignes de patch > 0 et patch < 100 |
-| combinaisons `AND` / `OR` | évaluées de gauche à droite (`RequireChangesExpression`) |
+| `uncovered_patch` | lignes de patch > 0, patch connu et `100 − patch ≥ 0.01` |
+| combinaisons `and` / `or` | groupes `or` joints par `and` (`RequireChangesExpression`, d'après `CoverageCommentRequirementSchemaField` de Codecov) : `a and b or c` vaut `a and (b or c)` |
+
+Le `0.01` est le double `Decimal(0.01)` de Codecov, légèrement supérieur à un centième : un écart d'exactement 0,01 ne compte ni pour `coverage_drop` ni pour `uncovered_patch`, et un patch à 99,99 n'est donc pas « non couvert ». Point ouvert : Codecov lit `coverage.status.project.threshold`, clé qu'un fichier valide n'a pas (seuil nul en pratique), là où ce document retient `project.default.threshold`. `RequireChangesFacts.ProjectThreshold` laisse le choix à l'appelant.
 
 **Publication et mise à jour :**
 - La première ligne du corps est le marqueur caché `<!-- code-coverage:comment -->`.
@@ -1263,7 +1283,7 @@ informational: true → état envoyé = success, description conservée
 - Préfixes du tableau `diff` : `+` ou `-` selon que le sens est bon ou mauvais. Par exemple, une hausse des misses est préfixée `-` parce qu'elle est mauvaise.
 - `hide_project_coverage` masque la ligne projet et le tableau `diff`.
 - `show_carryforward_flags: false` (défaut) masque les flags reportés du tableau des flags.
-- Tableau des fichiers : tri par lignes de patch manquantes décroissantes, puis par `|Δ|` décroissant. `files: N` règle la limite (10 par défaut). Les fichiers supprimés sont barrés.
+- Tableau des fichiers : tri par lignes de patch manquantes décroissantes, puis par `|Δ|` décroissant. La limite vient du jeton `files:N` ou `tree:N` de `comment.layout`, sinon de `comment.files` (§9.3), sinon vaut 10. Les fichiers supprimés sont barrés.
 - Les numéros suivent `coverage.precision` et `coverage.round`. Le titre vient de `Notifications:CommentTitle`.
 - Le contenu est figé par des tests snapshot Verify.
 
@@ -1303,6 +1323,8 @@ Pour une notification de PR typique (cas chaud, caches remplis), environ 5 appel
    Les maps sont fusionnées ; les scalaires et les listes sont remplacés (`merge_yamls`).
 4. **YAML invalide** : repli sur l'étape 2, puis 3 ; l'erreur est stockée, affichée sur la page commit et signalée par une ligne dans le commentaire. Les clés inconnues ou non supportées produisent des `ConfigWarning` visibles dans l'UI et renvoyées par `POST /api/v1/validate`.
 
+**Lecture du YAML.** `YamlCoverageConfigParser` type les scalaires selon YAML 1.1, comme `safe_load` de PyYAML : `off` est un booléen, `0x10` un nombre, `<<` fusionne une map et une valeur entre guillemets reste un texte. Il applique les déplacements de `pre_process_yaml` (par exemple `coverage.flags` vers la racine) et change en nombres les `target` et `threshold` écrits `80%` ou `"80"`.
+
 ### 9.2 Défauts intégrés (défauts historiques de Codecov, ajustés à ce qui est implémenté)
 
 ```yaml
@@ -1336,22 +1358,32 @@ parsers: { cobertura: { partials_as_hits: false }, lcov: { partials_as_hits: fal
 | Clé | Support |
 |---|---|
 | `coverage.precision`, `round`, `range` | complet |
-| `coverage.status.{project,patch,changes}` (bool, `default`, entrées nommées) : `target`, `threshold`, `base`, `flags`, `paths`, `branches`, `only_pulls`, `informational`, `if_not_found`, `removed_code_behavior`, `flag_coverage_not_uploaded_behavior` (alias `carryforward_behavior`), `enabled` | complet |
+| `coverage.status.{project,patch}` (bool, `default`, entrées nommées) : `target`, `threshold`, `base`, `flags`, `paths`, `branches`, `only_pulls`, `informational`, `if_not_found`, `removed_code_behavior`, `flag_coverage_not_uploaded_behavior` (alias `carryforward_behavior`), `enabled` | complet |
+| `coverage.status.changes` (mêmes formes) : mêmes clés, sans `target` ni `threshold` | complet ; ces deux clés, absentes du schéma de Codecov pour `changes`, donnent `Config.UnknownKey` |
 | `coverage.status.default_rules` | complet |
 | `if_ci_failed`, `if_no_uploads`, `measurement` | lus, sans effet (avertissement) |
 | `flags.<name>.{paths, ignore, carryforward, after_n_builds, joined}` | complet (`joined: false` exclut le flag de la fusion) |
 | `flag_management.default_rules` et `individual_flags[].{name, paths, ignore, carryforward, after_n_builds, statuses[]}` (avec `name_prefix`) | complet. Résolution d'un flag (`FlagRule`, d'après `get_flag_configuration`) : une entrée `flags.<F>`, même vide, est utilisée seule, sans aucune fusion ; sinon `default_rules`, dont les clés sont remplacées par celles de la première entrée `individual_flags` de ce nom (mise à jour superficielle) ; un flag non listé reçoit `default_rules`. Seul `carryforward` (d'après `flag_has_carryfoward`) traverse une entrée `flags.<F>` vide, et `joined` n'est lu que dans `flags.<F>`. Si ni l'entrée résolue ni `default_rules` ne définissent `paths`, le filtre couvre tous les chemins. |
-| `ignore`, `fixes`, `codecov.disable_default_path_fixes`, `codecov.branch`, `codecov.max_report_age`, `codecov.allow_pseudo_compare` | complet |
+| `ignore`, `fixes`, `codecov.disable_default_path_fixes`, `codecov.branch`, `codecov.strict_yaml_branch`, `codecov.max_report_age`, `codecov.allow_pseudo_compare` | complet |
 | `codecov.notify.after_n_builds`, `manual_trigger`, `notify_error` | complet |
-| `comment` (`false` ou objet) : `layout`, `behavior` (`default`, `once`), `require_changes`, `after_n_builds`, `hide_project_coverage`, `show_carryforward_flags`, `branches`, `files` | complet ; `new` et `spammy` en M5 (repli sur `default` avec avertissement) |
+| `comment` (objet ; `false` et `true` le désactivent) : `layout` (avec les limites `files:N`, `tree:N`), `behavior` (`default`, `once`), `require_changes`, `after_n_builds`, `hide_project_coverage`, `show_carryforward_flags`, `branches`, `files` (extension, voir plus bas) | complet ; `new` et `spammy` en M5 (repli sur `default` avec avertissement) |
 | `comment.require_base`, `require_head` | lus ; seul l'avertissement « upload report for BASE » s'affiche (comme le worker actuel) |
 | `parsers.{cobertura,lcov,jacoco}.partials_as_hits`, `parsers.cobertura.handle_missing_conditions` | complet |
 | `codecov.require_ci_to_pass`, `notify.wait_for_ci` | lus, sans effet (avertissement si `true`) ; M6 |
 | `github_checks` | sans effet en v1 ; M5 |
 | `component_management` | sans effet avec avertissement ; M6 |
 | `slack_app`, `codecov.token`, `codecov.url`, `bundle_analysis`, `test_analytics`, `ai_pr_review`, `beta_groups` | ignorés silencieusement |
+| Autres clés du schéma de Codecov (`codecov.ci`, `codecov.bot`, `comment.flags`, `comment.paths`, `coverage.status.no_upload_behavior`, `flags.<F>.carryforward_mode`, `parsers.gcov`…) | non appliquées, avertissement `Config.IgnoredKey` |
 
 Une valeur dont la forme est invalide (`range: 90..60`, une entrée de `fixes` sans `::`, `precision: abc`) produit un `ConfigWarning` et la valeur par défaut de cette seule clé, ou l'entrée est écartée. C'est un écart assumé : Codecov refuse le fichier entier, alors qu'une clé erronée ne doit pas priver un dépôt de toute sa configuration. Autre écart : `precision` accepte 0 à 99 comme Codecov, mais une valeur supérieure à 28 (la limite de `decimal`) est ramenée à 28 avec un avertissement.
+
+Autres écarts avec Codecov, délibérés et non configurables à ce jour :
+- **Clés inconnues :** un avertissement `Config.UnknownKey`, là où Codecov refuse le fichier, pour la même raison que les valeurs invalides.
+- **`carryforward_behavior` :** appliqué comme alias de `flag_coverage_not_uploaded_behavior`, sur la demande du plan (M2.06) : le schéma de Codecov accepte la clé, et ce que le fichier demande est appliqué. D'après son code, qui n'a pas été exécuté, le worker de Codecov ne lit que le nom courant : un dépôt qui n'écrit que l'alias se comporte donc autrement ici. Le nom courant prime dans une règle ; dans `default_rules`, l'alias prime, car les défauts intégrés définissent toujours le nom courant.
+- **`enabled: false` sur un statut de flag :** le statut n'est pas publié, comme toute règle désactivée (§7.7). `get_statuses` de Codecov ne filtre cette clé que pour les composants : la désactivation demandée y serait ignorée.
+- **`coverage.status: true` :** avertissement et statuts intégrés. Le schéma de Codecov l'accepte, puis `get_statuses` échoue en appelant `items()` sur le booléen ; ici, une clé mal écrite ne fait pas taire tous les statuts.
+- **`comment.files` :** extension absente du schéma de Codecov, qui refuserait le fichier, donc sans effet pour un dépôt qui fonctionne avec Codecov. Une limite écrite dans `layout` l'emporte.
+- **Fichiers hostiles :** une profondeur supérieure à 64, plus de 100 000 nœuds (un alias compte pour la taille de ce qu'il répète) ou un alias qui se référence lui-même rendent le fichier invalide. Ces limites sont propres à ce projet : le fichier vient de l'extérieur, sans authentification sur `POST /api/v1/validate`.
 
 ### 9.4 Exemple de monorepo recommandé
 
@@ -1440,6 +1472,13 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `GET /{service}/{owner}/{repo}/branch/{**branchAndSuffix}` (suffixe `/graph(s)/badge.{ext}`) | Badges | idem | idem | idem | `GetBadge` |
 | `GET /api/v1/uploader/{rid}`, `GET /api/v1/uploader/{rid}.sha256` | Uploader | anonyme | — | binaire / texte | fichier statique |
 | `/health/live`, `/health/ready` | framework | anonyme | — | — | — |
+
+**`POST /api/v1/validate`.** Le corps est le fichier, quel que soit son type de contenu (`curl --data-binary @codecov.yml`). L'action ne lie donc aucun paramètre, pas même le `CancellationToken`, sinon MVC consommerait un corps de formulaire avant elle. Seul le fichier posté est lu, sans les défauts ni le YAML d'organisation. La réponse est 200 si le fichier est utilisable (une valeur que Codecov rejette, comme `comment: 123`, donne un avertissement, §9.3), 400 avec le même corps sinon. La profondeur JSON de toute l'API est de 128 niveaux, car l'analyseur YAML en accepte 64 et le writer de MVC s'arrête à 32 par défaut.
+
+Écarts avec Codecov, non configurables à ce jour :
+- **`{}` est refusé** (400), alors que Codecov l'accepte : l'analyseur donne la même map vide pour `{}` et pour un fichier vide ou réduit à des commentaires, que Codecov refuse.
+- **Limite de débit :** 60 requêtes par minute et par adresse cliente (fenêtre fixe, 429 avec `Retry-After`), constante dans le code. La route est anonyme, et Codecov n'a pas de limite applicative sur `/validate`. Aucun paramètre du catalogue ne la porte encore.
+- **Taille du corps :** 2 621 440 octets au plus (413 au-delà), constante dans le code, parce que la route est anonyme. C'est la valeur par défaut de `DATA_UPLOAD_MAX_MEMORY_SIZE` chez Codecov.
 
 ---
 

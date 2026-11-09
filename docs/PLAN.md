@@ -922,14 +922,14 @@ graph TD
   - `Normalize_DeterministicSourcePrefix_ShouldStrip` (`/_/`) ;
   - `ApplyFixes_FirstMatchingRuleShouldWin` ;
   - `Candidates_ShouldIncludeCoberturaSourcesAndCiPrefixes`.
-- **Acceptation :** les règles `before::after` et `::prefix` sont conformes à la sémantique Codecov.
+- **Acceptation :** les règles `before::after` et `::prefix` sont conformes à la sémantique Codecov, aux écarts nommés de §6.4 près.
 - **Dépend de :** M1.03
 
 #### M1.05 — `PathFixer` : résolution sur la liste réseau
 - **Issue :** [#6](https://github.com/gaetanthouvenin/code-coverage/issues/6)
-- **Objectif :** étapes 5 à 7 (exact, insensible à la casse, suffixe avec score ≥ 2, départage, ambiguïté).
+- **Objectif :** étapes 5 à 7 (exact, insensible à la casse, suffixe avec score ≥ 2, départage, ambiguïté), puis second passage des `fixes` : `ApplyFixes(resolved, addPrefixes: true)` sur le chemin retenu, seul endroit où `::prefix` s'applique, `Candidates` ayant déjà fait le passage sans préfixes. Avec `disable_default_path_fixes` et une liste, le seul candidat est conservé même s'il est inconnu de la liste. `FixRule.RefusedFixes` doit rejoindre le journal de traitement.
 - **Couches :** Domain.
-- **Fichiers :** `Domain/Paths/PathFixer.cs` (partie résolution), `PathFixResult.cs` (`Resolved`, `Unresolved`, `Ambiguous`, `Unverified`).
+- **Fichiers :** `Domain/Paths/PathFixer.cs` (partie résolution), `PathFixResult.cs` (`Resolved`, `Unresolved`, `Ambiguous`, `Unverified`), `PathFixContext.cs` (ajout des `paths` des flags et de `AllowFilenameOnlyMatch`, qui n'y figurent pas encore).
 - **Tests :** `Domain.Tests/Paths/PathFixerResolutionTests` :
   - `Fix_SuffixScoreOne_ShouldBeRejectedByDefault` ;
   - `Fix_SuffixScoreOne_WithAllowFilenameOnlyAndUnique_ShouldResolve` ;
@@ -955,19 +955,19 @@ graph TD
 - **Objectif :** modèle de configuration fusionnable (§9.1 à §9.3), hors statuts et commentaire.
 - **Couches :** Domain.
 - **Fichiers :**
-  - `Domain/Config/ConfigNode.cs`, `ConfigMerger.cs` (maps fusionnées, scalaires et listes remplacés), `CoverageConfigDefaults.cs` (§9.2) ;
+  - `Domain/Config/ConfigNode.cs`, `ConfigNodeKind.cs`, `ConfigMerger.cs` (maps fusionnées, scalaires et listes remplacés), `CoverageConfigDefaults.cs` (§9.2), `ConfigPatterns.cs` (lecture des motifs `paths` et `branches`) ;
   - `CoverageConfig.cs` (vues typées `precision`, `round`, `range`, `ignore`, `fixes`, `codecov.*`, `parsers`, flags ; un motif dont `IsSupported` est faux produit un `ConfigWarning`, `branches` est lu par `PathPattern.ParseBranch` et les entrées de `ignore` sont inversées) ;
-  - `FlagRule.cs` (résolution `default_rules`, puis `individual_flags`, puis `flags.<F>`), `ParserRule.cs`, `CoverageRange.cs`, `ConfigWarning.cs` ;
-  - `Domain/Ports/ICoverageConfigParser.cs`.
+  - `FlagRule.cs` (d'après `get_flag_configuration` : une entrée `flags.<F>`, même vide, est utilisée seule ; sinon `default_rules`, mises à jour par la première entrée `individual_flags` du flag ; §9.3), `ParserRule.cs`, `CoverageRange.cs`, `ConfigWarning.cs` ;
+  - `Domain/Ports/ICoverageConfigParser.cs`, `Domain/Contracts/Config/ConfigParseResult.cs`.
 - **Tests :** `Domain.Tests/Config/ConfigMergerTests` — `Merge_ListShouldReplace`, `Merge_MapShouldMerge` ; `FlagRuleTests` — `Resolve_LegacyFlagsShouldWinOverIndividualFlags`, `Resolve_FlagWithoutPaths_ShouldCoverAll`.
 - **Acceptation :** défauts intégrés identiques à §9.2.
 - **Dépend de :** M1.03, M1.01
 
 #### M1.08 — `YamlCoverageConfigParser`
 - **Issue :** [#9](https://github.com/gaetanthouvenin/code-coverage/issues/9)
-- **Objectif :** lire le YAML et produire des `ConfigWarning` pour les clés inconnues, sans effet ou ignorées.
+- **Objectif :** lire le YAML, en typant les scalaires selon YAML 1.1 comme `safe_load` de PyYAML, et produire des `ConfigWarning` pour les clés inconnues, sans effet ou ignorées.
 - **Couches :** Infrastructure.
-- **Fichiers :** `Infrastructure/Yaml/YamlCoverageConfigParser.cs` (YamlDotNet 16.\*, vers `ConfigNode`), `Infrastructure/Yaml/SupportedKeys.cs`.
+- **Fichiers :** `Infrastructure/Yaml/YamlCoverageConfigParser.cs` (YamlDotNet 16.\*, vers `ConfigNode`), `Infrastructure/Yaml/SupportedKeys.cs`, enregistrement de `ICoverageConfigParser` dans `DependencyInjection.Reports.cs`.
 - **Tests :** `Infrastructure.Tests/Yaml/YamlCoverageConfigParserTests` — `Parse_InvalidYaml_ShouldReturnError`, `Parse_UnsupportedKey_ShouldWarn`, `Parse_SilentlyIgnoredKey_ShouldNotWarn`, `Parse_PercentStrings_ShouldParseTargets`.
 - **Acceptation :** les `codecov.yml` des dépôts pilotes se lisent sans erreur.
 - **Dépend de :** M1.07
@@ -981,7 +981,7 @@ graph TD
 - **Fichiers :**
   - `Domain/Coverage/ParsedReport.cs`, `ParsedFile.cs`, `ReportFormat.cs` ;
   - `Domain/Ports/IReportParser.cs`, `Domain/Ports/IReportParserCatalog.cs` ;
-  - `Infrastructure/Reports/ReportParserCatalog.cs` (`Detect` sur les 4 premiers Ko et le nom de fichier), `Infrastructure/Reports/SafeXmlReaderFactory.cs` ;
+  - `Infrastructure/Reports/ReportParserCatalog.cs` (`Detect` sur les 4 premiers Ko et le nom de fichier, `Find` par format), `Infrastructure/Reports/SafeXmlReaderFactory.cs` ; enregistrement du catalogue dans `DependencyInjection.Reports.cs` ;
   - `tests/fixtures/reports/security/xxe.xml`.
 - **Tests :** `Infrastructure.Tests/Reports/ReportParserCatalogTests` — `Detect_EachFixture_ShouldReturnExpectedFormat`, `Detect_CoverletJson_ShouldReturnNull` ; `SafeXmlReaderFactoryTests` — `Read_XxePayload_ShouldNotResolveEntity`.
 - **Acceptation :** aucun accès réseau ni fichier pendant la lecture d'un DOCTYPE.
@@ -1120,7 +1120,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Domain/Ports/ICurrentOrganization.cs` (`Id` lève si le contexte n'est pas posé, `IsKnown`) ;
   - `IOrganizationDirectory.FindCurrentAsync`, ajouté ici puisqu'il lit `ICurrentOrganization` ;
   - `Domain/Ports/IOrganizationScope.cs` (`TryEnterAsync(forge, login, CancellationToken)`, organisations `Active` seulement, `false` pour une entrée nulle, vide ou mal formée) ;
-  - `Infrastructure/Identity/OrganizationContext.cs` (`internal Enter(long)` : même valeur sans effet, autre valeur lève), enregistré en portée.
+  - `Infrastructure/Identity/OrganizationContext.cs` (`internal Enter(long)` : même valeur sans effet, autre valeur lève), enregistré en portée, et `Infrastructure/Identity/OrganizationScope.cs`, son adaptateur.
 - **Tests :** `Infrastructure.Tests/Identity/OrganizationContextTests` — `Id_WhenUnset_ShouldThrow`, `Enter_SameValueTwice_ShouldKeepIt`, `Enter_OtherValue_ShouldThrow` ; `OrganizationScopeTests` — `TryEnter_SuspendedOrganization_ShouldReturnFalseAndStayUnset`, `TryEnter_UnknownLogin_ShouldReturnFalse`, `TryEnter_MalformedLogin_ShouldReturnFalse`.
 - **Acceptation :** l'Application ne peut pas faire entrer la portée courante par identifiant (le compilateur le refuse).
 - **Dépend de :** M1.16b, M1.16a4
@@ -1133,7 +1133,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `CodeCoverageDbContext` reçoit `ICurrentOrganization` et installe le filtre nommé `Organization` dans une boucle après `ApplyConfigurationsFromAssembly` ;
   - `Infrastructure/Persistence/Organizations/OrganizationOwnedExtensions.cs` (`IsOrganizationOwned`, et l'assistant de clé étrangère pour les quatre tables à index unique commençant par `OrganizationId`) ;
   - `Infrastructure/Persistence/Organizations/TableClassification.cs` ;
-  - un contexte de conception qui lève, pour les 2 fabriques ; les 5 sites de construction des tests ; une fixture à deux organisations dans `tests/Support` ;
+  - un contexte de conception qui lève, pour les 2 fabriques ; les 5 sites de construction des tests ; une fixture à deux organisations, `tests/CodeCoverage.Infrastructure.Tests/Support/TwoOrganizationDatabase.cs` ;
   - EF `StoredOrganizationSetting` (`Id`, `UX(OrganizationId, Key)`, `Value`, `UpdatedAt`, `UpdatedBy`) ;
   - Migration `AddOrganizationSettings`.
 - **Tests :** `Infrastructure.Tests/Persistence/Organizations/OrganizationFilterTests` — `Query_WithoutOrganization_ShouldThrow`, `Query_OtherOrganizationRows_ShouldReturnNothing`, `ExecuteUpdate_OtherOrganizationRows_ShouldAffectNone`, `ExecuteDelete_OtherOrganizationRows_ShouldAffectNone`, `TwoContexts_InOneProcess_ShouldUseTheirOwnOrganization` ; `ModelClassificationTests` — `Model_EveryEntity_ShouldBeClassifiedOnce`, `Model_OwnedEntity_ShouldHaveNamedFilter`.
@@ -1182,9 +1182,10 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** une seule entrée dans une organisation, et aucun message sans marqueur.
 - **Couches :** Application, Web, Architecture.Tests.
 - **Fichiers :**
-  - `Application/Security/IOrganizationScoped.cs` (`Forge`, `Login` et `RequiredRole` obligatoire), `IPublicOwnerAddressed.cs` (`Forge` et `Owner` ; entrée si `Active`, sinon portée laissée non posée), `IAnonymousEntry.cs`, `IUserScoped.cs` ;
+  - `Domain/Organizations/OrganizationRole.cs` (`Participant`, `Admin`), dont `IOrganizationScoped` a besoin ;
+  - `Application/Security/IOrganizationScoped.cs` (`Forge`, `Login` et `RequiredRole` obligatoire), `IPublicOwnerAddressed.cs` (`Forge` et `Owner` ; entrée si `Active`, sinon portée laissée non posée), `IAnonymousEntry.cs`, `IUserScoped.cs` (refuse un expéditeur anonyme avec `Access.Unauthenticated`) ;
   - `IRepositoryScoped` reçoit aussi `Forge` (ADR-014) ;
-  - `AuthorizationBehavior` devient asynchrone, entre par `IOrganizationScope`, refuse `IRepositoryScoped` avec `Repository.NotFound` et `IOrganizationScoped` avec `Organization.NotFound`, et refuse tout expéditeur non système de ces deux marqueurs jusqu'au contrôle réel de M3.04 ;
+  - `AuthorizationBehavior` devient asynchrone, entre par `IOrganizationScope` en ne passant que ce qui précède le premier `:` de l'owner (ADR-014), refuse `IRepositoryScoped` avec `Repository.NotFound` et `IOrganizationScoped` avec `Organization.NotFound`, et refuse tout expéditeur non système de ces deux marqueurs jusqu'au contrôle réel de M3.04 ;
   - `PingQuery` devient `IAnonymousEntry` ;
   - `Features/Repositories/RepositoryErrors.cs` (`Repository.NotFound`) et `Features/Organizations/OrganizationErrors.cs` (`Organization.NotFound`), complétés par M1.31 et M1.22a ; `SecurityErrors` ; `Common.resx` et `Common.fr.resx` ;
   - `Architecture.Tests/MessageMarkerTests.cs`.
@@ -1358,9 +1359,10 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** décrire une forge côté Domain, sans dépendance HTTP (ADR-014).
 - **Couches :** Domain.
 - **Fichiers :**
-  - `Domain/Contracts/Forges/ForgeRepositoryRef.cs`, `ForgeRepositoryInfo.cs`, `ForgeCommitInfo.cs`, `ForgeCompareResult.cs`, `ForgeChangedFile.cs`, `ForgePullInfo.cs`, `ForgeTreeEntry.cs`, `ForgeTree.cs`, `ForgeConnectionInfo.cs` ;
-  - `Domain/Ports/IForgeGateway.cs`, partie lecture : `GetRepositoryConnectionAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`. Chaque méthode au niveau d'un dépôt prend une `ForgeRepositoryRef` (forge, connexion, soit l'identifiant d'installation sur GitHub, et identifiant externe du dépôt suivi), sans connexion par défaut ; `GetRepositoryConnectionAsync` renvoie aussi l'identifiant du compte ;
-  - `Domain/Ports/IForgeGatewayProvider.cs`, qui résout le port de la forge d'une organisation ; `IGitHubAppGateway` reste pour ce qui est propre à GitHub (installations, manifest, Check Runs).
+  - `Domain/Contracts/Forges/ForgeRepositoryRef.cs`, `ForgeRepositoryInfo.cs`, `ForgeCommitInfo.cs`, `ForgeCompareResult.cs`, `ForgeChangedFile.cs`, `ForgeChangedFileStatus.cs`, `ForgePullInfo.cs`, `ForgePullState.cs`, `ForgeTreeEntry.cs`, `ForgeTree.cs`, `ForgeConnectionInfo.cs` ;
+  - `Domain/Git/GitSha.cs`, qui porte chaque SHA du port (40 caractères hexadécimaux en minuscules, vérifiés une fois à la frontière) ;
+  - `Domain/Ports/IForgeGateway.cs`, partie lecture : `GetRepositoryConnectionAsync`, `GetRepositoryAsync`, `ListCommitsAsync(sha, perPage)`, `GetCommitAsync`, `CompareAsync`, `GetPullAsync`, `GetTreeAsync(recursive)`, `GetContentAsync`. Chaque méthode au niveau d'un dépôt prend une `ForgeRepositoryRef` (forge, connexion, soit l'identifiant d'installation sur GitHub, et identifiant externe du dépôt suivi), sans connexion par défaut ; `GetRepositoryConnectionAsync` renvoie aussi l'identifiant du compte et l'identifiant externe du dépôt, sans lequel la référence ne peut pas être construite au premier upload ;
+  - `Domain/Ports/IForgeGatewayProvider.cs`, qui résout le port de la forge d'une organisation. `IGitHubAppGateway`, pour ce qui est propre à GitHub (installations, manifest, Check Runs), n'est pas créé ici : il arrive avec sa première méthode en M2.03.
 - **Tests :** Architecture.Tests (règles des ports).
 - **Acceptation :** chaque méthode du port prend un `CancellationToken` obligatoire.
 - **Dépend de :** M0.05
@@ -1374,7 +1376,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `GitHub/GitHubAppTokenProvider.cs` (JWT RS256 avec `iss = ClientId` ; jeton d'installation en cache jusqu'à expiration moins 10 minutes ; `SemaphoreSlim` par installation) ;
   - `GitHub/GitHubHttpClientConfiguration.cs` (client typé `github`, en-têtes, `AddStandardResilienceHandler` sans 403 ni 429) ;
   - `GitHub/RateLimitHandler.cs`, `GitHub/GitHubRateLimitedException.cs` ;
-  - `GitHub/GitHubJsonContext.cs` (source generation) ;
+  - `GitHub/GitHubJsonContext.cs` (source generation), `GitHub/Models/GitHubInstallationTokenResponse.cs` ;
   - `GitHub/GitHubErrors.cs` (`GitHub.Unavailable`).
 - **Tests :** `Infrastructure.Tests/GitHub/GitHubAppTokenProviderTests` (WireMock) — `GetInstallationToken_Twice_ShouldCallOnce`, `GetInstallationToken_AfterPemRotation_ShouldUseNewKey` ; `RateLimitHandlerTests` — `Send_SecondaryLimit_ShouldThrowRateLimitedWithReset`, `Send_5xxExhausted_ShouldThrowBadGateway`.
 - **Acceptation :** le jeton d'installation n'est jamais persisté, et la métrique `github_ratelimit_remaining` est publiée.
@@ -1706,7 +1708,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Fichiers :**
   - UC `Features/GitHubEvents/Commands/HandleWebhookDelivery` (`ISystemOnly`, dispatcher par événement, exécuté dans l'organisation de la livraison) ;
   - UC `Features/GitHubEvents/Commands/SyncInstallations`, coordinateur (`ForInstance`) qui met en file un enfant par installation ; une organisation non active ne crée aucun dépôt ;
-  - `IGitHubAppGateway.ListInstallationsAsync` et `ListInstallationRepositoriesAsync` ;
+  - `Domain/Ports/IGitHubAppGateway.cs`, créé ici, avec `ListInstallationsAsync` et `ListInstallationRepositoriesAsync` ;
   - traitement de `installation`, `installation_repositories` et `repository` (`renamed`, `transferred`, `deleted`, `privatized`, `publicized`) ;
   - `repository.transferred` crée une nouvelle ligne chez le destinataire et met en file la réconciliation de la voie d'instance, qui désactive l'ancienne ligne, révoque ses jetons de dépôt, fait tourner son jeton de badge (`TrackedRepository.RotateBadgeToken`, réutilisé par M3.14), marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces actions ;
   - `RecurringJobCatalog` : `SyncInstallations` quotidien.
@@ -1756,25 +1758,28 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M2.03, M2.01, M1.26
 
 #### M2.06 — Règles de statut dans la configuration
-- **Objectif :** modéliser `coverage.status.*` et les statuts de `flag_management` (§9.3).
+- **Issue :** [#100](https://github.com/gaetanthouvenin/code-coverage/issues/100)
+- **Objectif :** modéliser `coverage.status.*` et les statuts de `flag_management` (§9.3). `project` et `patch` valent `true` dans les défauts (§9.2) : `target: auto`, `threshold: 0` et, pour `project`, `removed_code_behavior: adjust_base` s'appliquent à la lecture d'une règle.
 - **Couches :** Domain.
-- **Fichiers :** `Domain/Config/StatusRule.cs`, `StatusType.cs`, `Target.cs` (`auto` ou pourcentage), `RemovedCodeBehavior.cs`, `NotUploadedBehavior.cs`, `StatusRuleSet.cs` (entrées `default`, nommées et par flag avec `name_prefix`).
+- **Fichiers :** `Domain/Config/StatusRule.cs`, `StatusType.cs`, `Target.cs` (`auto` ou pourcentage), `StatusBase.cs`, `IfNotFoundBehavior.cs`, `RemovedCodeBehavior.cs`, `NotUploadedBehavior.cs`, `StatusRuleSet.cs` (entrées `default`, nommées et par flag avec `name_prefix`) ; `CoverageConfig.BuildStatusRules(flags)`.
 - **Tests :** `Domain.Tests/Config/StatusRuleSetTests` — `Build_FlagManagementStatuses_ShouldCreateFlagRules`, `Build_CarryforwardBehaviorAlias_ShouldMap`, `Build_ChangesDefault_ShouldBeDisabled`.
 - **Acceptation :** les clés lues mais sans effet produisent un avertissement.
 - **Dépend de :** M1.07
 
 #### M2.07 — Règles de commentaire et de notification
+- **Issue :** [#101](https://github.com/gaetanthouvenin/code-coverage/issues/101)
 - **Objectif :** modéliser `comment.*`, `codecov.notify.*` et `require_changes` avec `AND` et `OR`.
 - **Couches :** Domain.
-- **Fichiers :** `Domain/Config/CommentRule.cs`, `CommentSection.cs`, `RequireChangesExpression.cs` (évaluation de gauche à droite), `NotifyRule.cs`.
-- **Tests :** `Domain.Tests/Config/RequireChangesExpressionTests` — `Evaluate_AndOr_ShouldBeLeftToRight`, `Evaluate_CoverageDropMissingData_ShouldBeTrue` ; `CommentRuleTests` — `Parse_NewBehavior_ShouldFallBackToDefaultWithWarning`.
+- **Fichiers :** `Domain/Config/CommentRule.cs`, `CommentSection.cs`, `CommentBehavior.cs`, `RequireChangesExpression.cs` (groupes `or` joints par `and` : `a and b or c` vaut `a and (b or c)`), `RequireChangesFacts.cs`, `NotifyRule.cs` ; `CoverageConfig` expose `Notify` et `Comment`.
+- **Tests :** `Domain.Tests/Config/RequireChangesExpressionTests` — `Evaluate_AndOr_ShouldGroupOrInsideAnd`, `Evaluate_CoverageDropMissingData_ShouldBeTrue` ; `CommentRuleTests` — `Parse_NewBehavior_ShouldFallBackToDefaultWithWarning`.
 - **Acceptation :** valeurs par défaut conformes à §9.2.
 - **Dépend de :** M1.07
 
 #### M2.08 — `ValidateCoverageYaml` et `POST /api/v1/validate`
-- **Objectif :** valider un `codecov.yml` sans authentification, avec rate limit.
+- **Issue :** [#110](https://github.com/gaetanthouvenin/code-coverage/issues/110)
+- **Objectif :** valider un `codecov.yml` sans authentification, avec rate limit et corps plafonné (écarts nommés en §10.2).
 - **Couches :** Application, Api.
-- **Fichiers :** UC `Features/Configuration/Queries/ValidateCoverageYaml` (`IAnonymousEntry`, renvoie `Domain/Config/ConfigValidationResult.cs`) ; `Api/Controllers/ConfigurationController.cs` ; `Api/Contracts/Configuration/ValidationResultResponse.cs` ; `Api/Mapping/ConfigurationMapper.cs`.
+- **Fichiers :** UC `Features/Configuration/Queries/ValidateCoverageYaml` (`IAnonymousEntry`, renvoie `Domain/Config/ConfigValidationResult.cs`) ; `Api/Controllers/ConfigurationController.cs` ; `Api/Configuration/RateLimiting/ValidateRateLimiterConfiguration.cs` ; `Api/Contracts/Configuration/ValidationResultResponse.cs`, `ConfigWarningModel.cs` ; `Api/Mapping/ConfigurationMapper.cs`.
 - **Tests :** `ValidateCoverageYamlQueryHandlerTests` — `Handle_UnknownKey_ShouldWarn`, `Handle_ShouldNeverMergeOrganizationYaml` ; `Api.Tests/Configuration/ValidateTests` — `Post_ShouldBeRateLimited`.
 - **Acceptation :** renvoie la configuration normalisée, les avertissements et les erreurs.
 - **Dépend de :** M2.06, M2.07, M1.08, M1.16f
@@ -1973,7 +1978,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Objectif :** qui est lié à quelle organisation, avec quel rôle, en échouant fermé.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
-  - `Domain/Organizations/OrganizationMembership.cs`, `OrganizationRole.cs` (`Participant`, `Admin`) ;
+  - `Domain/Organizations/OrganizationMembership.cs` (`OrganizationRole` vient de M1.16f) ;
   - `Domain/Ports/IOrganizationMembershipRepository.cs` (lecture par identifiant d'utilisateur), `IOrganizationRoleResolver.cs` ;
   - `IGitHubUserGateway.ListInstallationsAsync` et `GetOrganizationMembershipAsync` ;
   - UC `Features/Access/Commands/RefreshUserMemberships` ;
@@ -2636,3 +2641,9 @@ Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.Organiz
 - **Résilience par installation** : à construire si les erreurs d'une installation dégradent les autres (M1.25 exclut déjà 403 et 429 du gestionnaire de résilience).
 - **Écrans d'exploitation en libre-service** (jobs, webhooks et audit par organisation) : quand une organisation le demande.
 - **Effacement des données d'une organisation** : lors d'un départ réel ou d'une obligation légale ; la suppression en cascade étant limitée sur SQL Server (M1.18), il lui faut son propre job reprenable.
+
+### Manques connus
+
+Écarts entre le code fusionné et l'architecture qu'aucune micro-fonctionnalité ne couvre encore.
+
+- **Job limité par GitHub** : §6.1 et §8.2 de l'architecture veulent qu'un job touché par `GitHubRateLimitedException` soit reprogrammé sans consommer de tentative, mais `JobWorker` ne traite que `RetryLaterException`. Un tel job perd donc une tentative. À combler avant le premier job qui appelle GitHub.
