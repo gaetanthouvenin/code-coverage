@@ -25,7 +25,7 @@ internal static class TableClassification
   public static IReadOnlySet<string> OrganizationOwned { get; } =
     new[]
     {
-      "Branches", "CommitFlagTotals", "CommitReports", "CommitSessions", "Commits", "GitCommits", "OrganizationSettings", "Repositories",
+      "Branches", "CommitConfigs", "CommitFlagTotals", "CommitReports", "CommitSessions", "Commits", "GitCommits", "OrganizationSettings", "Repositories",
       "RepositoryTrees", "UploadCoverages", "UploadRawChunks", "UploadRawFiles", "UploadTokens", "Uploads",
     }.ToFrozenSet(StringComparer.Ordinal);
 

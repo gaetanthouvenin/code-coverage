@@ -21,6 +21,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddCommitServices(this IServiceCollection services)
   {
     services.AddScoped<CommitAncestry>();
+    services.AddScoped<ConfigResolver>();
     services.AddScoped<RepositoryTreeProvider>();
 
     return services;

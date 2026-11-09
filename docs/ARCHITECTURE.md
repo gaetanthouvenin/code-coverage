@@ -1387,7 +1387,7 @@ Pour une notification de PR typique (cas chaud, caches remplis), environ 5 appel
    - premier fichier trouvé parmi `codecov.yml`, `.codecov.yml`, `codecov.yaml` et `.codecov.yaml`, à la racine, puis dans `.github/`, puis dans `dev/` ;
    - contenu lu par `contents` ;
    - au total, 4 appels au plus, mis en cache **définitivement** dans `CommitConfigs`.
-2. Si rien n'est trouvé : `Repositories.DefaultBranchYaml`, rafraîchi lors d'un push sur la branche par défaut. `codecov.strict_yaml_branch` est respecté.
+2. Si rien n'est trouvé : `Repositories.DefaultBranchYaml`, rafraîchi lors d'un push sur la branche par défaut. Comme chez Codecov, `codecov.strict_yaml_branch` décide seulement quelle branche peut rafraîchir cette valeur (M2.04) : il ne change pas la recherche au SHA.
 3. **Configuration effective** = fusion profonde, dans l'ordre :
    1. défauts intégrés ;
    2. `Coverage:OrganizationYaml` de l'organisation du dépôt, lu par `IOrganizationSettingsProvider` (édité dans l'UI) ;

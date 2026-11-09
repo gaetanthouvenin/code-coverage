@@ -449,6 +449,50 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Config.CommitConfig", b =>
+                {
+                    b.Property<long>("RepositoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Sha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Errors")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("FetchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Path")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RawYaml")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Warnings")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("RepositoryId", "Sha")
+                        .HasName("PK_CommitConfigs");
+
+                    b.ToTable("CommitConfigs", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Operations.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -1173,6 +1217,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
                         .WithMany()
                         .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Config.CommitConfig", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

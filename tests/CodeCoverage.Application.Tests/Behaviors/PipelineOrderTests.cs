@@ -99,6 +99,8 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<IGitCommitRepository>());
     services.AddScoped(_ => A.Fake<IRepositoryTreeRepository>());
     services.AddScoped(_ => A.Fake<IForgeGatewayProvider>());
+    services.AddScoped(_ => A.Fake<ICommitConfigRepository>());
+    services.AddScoped(_ => A.Fake<IOrganizationSettingsProvider>());
     services.AddApplication();
     services.AddScoped<IValidator<PingQuery>>(sp => new TracingPingQueryValidator(
                                                 sp.GetRequiredService<PipelineTrace>(),
