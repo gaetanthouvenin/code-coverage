@@ -43,7 +43,7 @@
 | Configuration section | `CodeCoverage:` (bootstrap) plus the setting groups of the database (`GitHub:`, `Uploads:`, `Processing:`…) |
 | Hosts | two host names chosen at deployment, e.g. Web `coverage.example.com`, Api `coverage-api.example.com` |
 | Images | `${IMAGE_PREFIX}-api`, `${IMAGE_PREFIX}-web`: `code-coverage-*` locally, `ghcr.io/<owner>/code-coverage-*` from the CI |
-| Uploader | `dotnet tool` `coverage-upload` (`net8.0;net10.0`), plus standalone binaries served by the Api |
+| Uploader | `dotnet tool` `coverage-upload` (`net10.0`), plus standalone binaries served by the Api |
 | CSS prefix | `cc-` |
 
 Everything that is code is in English: classes, tables, columns, error codes, settings, commit

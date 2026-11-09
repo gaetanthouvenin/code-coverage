@@ -471,7 +471,7 @@ graph TD
 - **Fichiers :**
   - `CodeCoverage.slnx` (dossiers `/config/`, `/deploy/`, `/src/`, `/tests/`) et `CodeCoverage.sln.DotSettings` (CONVENTIONS §3.1 et §3.7) ;
   - `src/Directory.Build.props` (CONVENTIONS §2.5, avec `Copyright`, `Company` et `Authors` à « Gaëtan Thouvenin », sans `RepositoryUrl` ni `PackageProjectUrl`), `src/default.ruleset` (CONVENTIONS §2.7, `Name="CodeCoverage Rules"`), `tests/Directory.Build.props` (CONVENTIONS §2.6) ;
-  - `.csproj` de Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api (`Microsoft.NET.Sdk.Web`), Web (`Microsoft.NET.Sdk.Web`) et Uploader (`Exe`, `PackAsTool`, `ToolCommandName=coverage-upload`, `TargetFrameworks=net8.0;net10.0`, `RollForward=Major`) ;
+  - `.csproj` de Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api (`Microsoft.NET.Sdk.Web`), Web (`Microsoft.NET.Sdk.Web`) et Uploader (`Exe`, `PackAsTool`, `ToolCommandName=coverage-upload`, `TargetFramework=net10.0`, `RollForward=Major`) ;
   - les sept projets de tests ;
   - `Api/Program.cs` et `Web/Program.cs` minimaux, chacun avec `public partial class Program;` ;
   - `Uploader/Program.cs` qui renvoie 0.
@@ -1599,7 +1599,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Uploader/UploaderSettings.cs`, `Uploader/ExitCodePolicy.cs` (0 sauf `--fail-on-error`), `Uploader/Output/ConsoleReporter.cs` ;
   - `Uploader/Serialization/UploaderJsonContext.cs`.
 - **Tests :** `Uploader.Tests/Commands/UploadCommandFactoryTests` — `Parse_EnvironmentFallbacks_ShouldApply`, `Run_AnyError_WithoutFailOnError_ShouldExitZero`.
-- **Acceptation :** aucun package autre que System.CommandLine, et cible `net8.0;net10.0`.
+- **Acceptation :** aucun package autre que System.CommandLine, et cible `net10.0` seul (ADR-012).
 - **Dépend de :** M0.02
 
 #### M1.41 — Recherche des rapports

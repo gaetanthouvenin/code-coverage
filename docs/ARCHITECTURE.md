@@ -600,7 +600,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 ### 5.3 Uploader `coverage-upload` (`CodeCoverage.Uploader`)
 
 **Empaquetage :**
-- `PackAsTool`, `ToolCommandName=coverage-upload`, `TargetFrameworks=net8.0;net10.0`, `RollForward=Major`.
+- `PackAsTool`, `ToolCommandName=coverage-upload`, `TargetFramework=net10.0`, `RollForward=Major`. L'outil est réservé aux agents disposant de .NET 10 ou ultérieur ; les autres utilisent les binaires autonomes (ADR-012).
 - Package `CodeCoverage.Uploader`, publié sur un flux NuGet choisi en M5 (nuget.org public ou flux privé ; PLAN §11-11).
 - Également publié en `-r {rid} --self-contained -p:PublishSingleFile=true -p:PublishTrimmed=true`. Ces binaires sont embarqués dans l'image Api sous `/app/uploader/` et joints aux releases GitHub.
 
