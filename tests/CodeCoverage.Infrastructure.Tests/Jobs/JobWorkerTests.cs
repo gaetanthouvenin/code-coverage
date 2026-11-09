@@ -20,6 +20,7 @@ using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.PostgreSql;
@@ -70,6 +71,26 @@ public sealed class JobWorkerTests(DatabaseFixture database)
     job.LockedUntil.ShouldBeNull();
     job.LastError!.ShouldContain("The base commit has pending uploads.");
     job.CompletedAt.ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Run_WhenGitHubRateLimits_ShouldRescheduleAtResetWithoutConsumingAttempt(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var resetAt = DateTimeOffset.UtcNow.AddMinutes(20);
+    var dispatcher = Throwing(new GitHubRateLimitedException(resetAt));
+    await using var services = BuildServices(provider, connectionString, dispatcher);
+    var id = await SeedAsync(provider, connectionString, Record());
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    var job = await JobAsync(provider, connectionString, id);
+    job.State.ShouldBe(JobState.Queued);
+    job.Attempts.ShouldBe(0, "a rate limit never consumes an attempt");
+    job.RunAfter.ShouldBe(resetAt, TimeSpan.FromSeconds(1));
+    job.LockedBy.ShouldBeNull();
+    job.LastError!.ShouldContain("rate limited");
   }
 
   [Theory]

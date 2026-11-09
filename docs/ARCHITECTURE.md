@@ -858,7 +858,7 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
    - Le serveur lit le commit (cache `GitCommits`). Si `sha == pr.merge_commit_sha`, ou si le commit a deux parents avec `ParentShas[1] == pr.head.sha`, l'upload est rattaché au commit `pr.head.sha` et `Upload.MergeCommitRewritten` est journalisé.
    - Le rattachement se fait par une méthode de repository unique qui déplace l'upload vers le commit cible, créé au besoin.
 3. Chargement du brut et de la **configuration effective** au SHA (§9, cache `CommitConfigs`).
-4. **Liste réseau** : la partie `network` de l'upload. À défaut, `RepositoryTrees` au SHA (`GET /git/trees/{sha}?recursive=1`). Si l'arbre est tronqué, la liste partielle est utilisée et un avertissement est journalisé.
+4. **Liste réseau** : la partie `network` de l'upload ; vide (git a échoué sur l'agent), elle compte comme absente. À défaut, `RepositoryTrees` au SHA (`GET /git/trees/{sha}?recursive=1`). Si l'arbre est tronqué, la liste partielle est utilisée et un avertissement est journalisé.
 5. **Parsing** : pour chaque rapport, `IReportParserCatalog.Detect(4 premiers Ko, nom)` donne le format, et `Find(format)` son parseur, qui parse en flux. Un format inconnu, par exemple le JSON coverlet ou `coverage-final.json`, est journalisé `Upload.UnsupportedFormat` et ignoré, sans faire échouer l'upload. Au plus `Processing:MaxParallelParses` (2) parsings tournent en même temps (`SemaphoreSlim`).
 6. **Correction des chemins** (§6.4) pour chaque fichier parsé. Les chemins non résolus ou ambigus vont dans `ProcessingLog` (200 premiers et total).
 7. Fusion de tous les fichiers de l'upload (règle §6.5), puis application de `ignore`.
@@ -866,7 +866,7 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
    - `UploadCoverages`, totaux, journal, `State=Processed` ;
    - mise en file de `FinalizeCommit` (fusion).
    - Si aucun fichier n'a été résolu : `State=Failed`, `ErrorCode=Upload.NoFileMapped`, et `FinalizeCommit` est quand même mis en file pour que le commit puisse notifier l'erreur.
-   - Sur exception de parsing : `Failed` avec code, et `FinalizeCommit` est mis en file.
+   - Sur exception de parsing : `Failed` avec le code `Upload.ParseFailed`, et `FinalizeCommit` est mis en file. Une panne du stockage pendant la lecture d'un rapport (`DbException` ou `TimeoutException`, même enveloppée par la stratégie d'exécution du fournisseur) n'en est pas une : elle remonte au job, qui est retenté.
 
 ### 6.3 Parseurs (`Infrastructure/Reports/Parsers/*Parser`, `internal sealed`, `IReportParser`)
 
@@ -979,7 +979,7 @@ Les motifs sont compilés avec `RegexOptions.CultureInvariant | NonBacktracking`
 - **Ordre des règles :** celui du fichier. Codecov le tire d'un `set` Python, qui change d'un processus à l'autre : un même rapport y donne des chemins différents selon l'exécution. Il en va de même pour la jointure des `::prefix`.
 - **Ancrage :** chaque alternative est ancrée. Codecov n'ancre que la première de cet ordre aléatoire (`^(a)|(b)`), si bien qu'une autre règle peut s'appliquer au milieu d'un chemin.
 - **Groupes capturants :** chaque règle garde son remplacement. Chez Codecov, un groupe capturant écrit par l'utilisateur décale `zip(groups, replacements)` et applique le remplacement d'une autre règle.
-- **Règles refusées :** une entrée que `NonBacktracking` ne sait pas exécuter (références arrière, assertions) ou qui ne compile pas, syntaxe propre à Python comprise, est écartée et listée dans `FixRule.RefusedFixes`, là où Codecov accepte ce que `re` accepte. Un `codecov.yml` ne doit pas pouvoir provoquer un retour arrière catastrophique.
+- **Règles refusées :** une entrée que `NonBacktracking` ne sait pas exécuter (références arrière, assertions) ou qui ne compile pas, syntaxe propre à Python comprise, est écartée, listée dans `FixRule.RefusedFixes` et reportée dans le journal de traitement de chaque upload, là où Codecov accepte ce que `re` accepte. Un `codecov.yml` ne doit pas pouvoir provoquer un retour arrière catastrophique.
 - **Correspondance vide :** une alternative qui correspond à la chaîne vide ne substitue rien, là où Codecov lève une `AssertionError`.
 - **Normalisation (étape 1) :** `.github/a` garde son point, que le `lstrip("./")` de Codecov retire ; la lettre de lecteur, `file://` et `/_/` sont retirés, là où Codecov les garde et compte sur la résolution par suffixe. La lettre de lecteur est aussi retirée du `before` d'une règle, sans quoi `C:/Users/x::y` ne correspondrait plus ; en contrepartie, un `before` qui commence par une classe de lecteur (`[A-Z]:/x`) ne correspond jamais.
 - **Retrait de la racine (étape 3) et préfixes CI (étape 4) :** propres à ce projet, absents du worker de Codecov.

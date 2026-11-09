@@ -34,6 +34,13 @@ public interface IUploadRepository
   /// <returns>The uploads, by session number.</returns>
   Task<IReadOnlyList<Upload>> ListByCommitAsync(long commitId, CancellationToken cancellationToken);
 
+  /// <summary>Takes an upload to process it, unless its processing has ended.</summary>
+  /// <param name="publicId">The public identifier of the upload.</param>
+  /// <param name="worker">The worker that takes it.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns><see langword="true" /> when it was taken, a retry of its job included; otherwise <see langword="false" />.</returns>
+  Task<bool> TryStartProcessingAsync(Guid publicId, string worker, CancellationToken cancellationToken);
+
   /// <summary>Adds an upload, saved at once.</summary>
   /// <param name="upload">The upload.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>

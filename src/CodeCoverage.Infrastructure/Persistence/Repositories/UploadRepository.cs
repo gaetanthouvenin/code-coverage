@@ -60,6 +60,22 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<bool> TryStartProcessingAsync(Guid publicId, string worker, CancellationToken cancellationToken)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(worker);
+
+    var updated = await context.Uploads
+                               .Where(u => u.PublicId == publicId && (u.State == UploadState.Received || u.State == UploadState.Processing))
+                               .ExecuteUpdateAsync(
+                                 setters => setters.SetProperty(static u => u.State, UploadState.Processing).SetProperty(static u => u.LockedBy, worker),
+                                 cancellationToken
+                               )
+                               .ConfigureAwait(false);
+
+    return updated > 0;
+  }
+
+  /// <inheritdoc />
   /// <exception cref="ConflictException">The commit cannot be read, or the idempotency key is already used on it.</exception>
   /// <remarks>
   ///   The unique index does not hold the organization, so a row written for the commit of another organization

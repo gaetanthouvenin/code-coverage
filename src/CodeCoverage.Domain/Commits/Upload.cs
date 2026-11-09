@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Guards;
 
 namespace CodeCoverage.Domain.Commits;
@@ -231,6 +232,75 @@ public sealed class Upload
       UploaderVersion = uploaderVersion,
       TokenId = tokenId,
     };
+  }
+
+  /// <summary>Records the result of a processing that gave a coverage.</summary>
+  /// <param name="reportFileCount">The number of reports it held.</param>
+  /// <param name="resolvedFileCount">The number of files whose path was resolved.</param>
+  /// <param name="unresolvedFileCount">The number of files whose path could not be resolved.</param>
+  /// <param name="totals">The counters of its coverage.</param>
+  /// <param name="log">What the processing reported.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="InvalidOperationException">The upload is already processed or failed.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">A number is negative.</exception>
+  /// <exception cref="ArgumentNullException"><paramref name="log" /> is <see langword="null" />.</exception>
+  public void MarkProcessed(int reportFileCount, int resolvedFileCount, int unresolvedFileCount, CoverageTotals totals, ProcessingLog log, DateTimeOffset at)
+  {
+    End(UploadState.Processed, reportFileCount, resolvedFileCount, unresolvedFileCount, log, at);
+
+    Lines = totals.Lines;
+    Hits = totals.Hits;
+    Misses = totals.Misses;
+    Partials = totals.Partials;
+  }
+
+  /// <summary>Records a processing that gave no coverage.</summary>
+  /// <param name="errorCode">The code of the failure.</param>
+  /// <param name="error">Its description.</param>
+  /// <param name="reportFileCount">The number of reports it held.</param>
+  /// <param name="resolvedFileCount">The number of files whose path was resolved.</param>
+  /// <param name="unresolvedFileCount">The number of files whose path could not be resolved.</param>
+  /// <param name="log">What the processing reported.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="InvalidOperationException">The upload is already processed or failed.</exception>
+  /// <exception cref="ArgumentException"><paramref name="errorCode" /> or <paramref name="error" /> is empty, white space or too long.</exception>
+  /// <exception cref="ArgumentNullException">A value is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">A number is negative.</exception>
+  public void MarkFailed(string errorCode, string error, int reportFileCount, int resolvedFileCount, int unresolvedFileCount, ProcessingLog log, DateTimeOffset at)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+    ArgumentException.ThrowIfNullOrWhiteSpace(error);
+    ThrowIfTooLong(errorCode, ErrorCodeMaxLength, nameof(errorCode));
+
+    End(UploadState.Failed, reportFileCount, resolvedFileCount, unresolvedFileCount, log, at);
+
+    ErrorCode = errorCode;
+    Error = error;
+  }
+
+  /// <summary>Ends the processing.</summary>
+  /// <param name="state">The final state.</param>
+  /// <param name="reportFileCount">The number of reports it held.</param>
+  /// <param name="resolvedFileCount">The number of files whose path was resolved.</param>
+  /// <param name="unresolvedFileCount">The number of files whose path could not be resolved.</param>
+  /// <param name="log">What the processing reported.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  private void End(UploadState state, int reportFileCount, int resolvedFileCount, int unresolvedFileCount, ProcessingLog log, DateTimeOffset at)
+  {
+    ArgumentNullException.ThrowIfNull(log);
+    ArgumentOutOfRangeException.ThrowIfNegative(reportFileCount);
+    ArgumentOutOfRangeException.ThrowIfNegative(resolvedFileCount);
+    ArgumentOutOfRangeException.ThrowIfNegative(unresolvedFileCount);
+
+    InvalidOperationException.ThrowIf(State is UploadState.Processed or UploadState.Failed, $"The upload is already {State}.");
+
+    State = state;
+    ReportFileCount = reportFileCount;
+    ResolvedFileCount = resolvedFileCount;
+    UnresolvedFileCount = unresolvedFileCount;
+    ProcessingLog = log;
+    ProcessedAt = at.ToUniversalTime();
+    LockedBy = null;
   }
 
   /// <summary>Refuses a text longer than its column.</summary>

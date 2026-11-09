@@ -216,6 +216,54 @@ public sealed class UploadRepositoryTests(DatabaseFixture database)
     read.ProcessingLog.PathTotal.ShouldBe(3);
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryStartProcessing_ShouldTakeTheUploadUntilItEnds(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var upload = New(seed.FirstCommit, 1, "key");
+
+    await using (var writer = seed.Organizations.ContextOf(first))
+    {
+      await new UploadRepository(writer).AddAsync(upload, Ct);
+    }
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var uploads = new UploadRepository(context);
+
+      (await uploads.TryStartProcessingAsync(upload.PublicId, "worker-1", Ct)).ShouldBeTrue();
+      (await uploads.TryStartProcessingAsync(upload.PublicId, "worker-2", Ct)).ShouldBeTrue("a retry takes it back while it is processing");
+      var read = await uploads.FindByPublicIdAsync(upload.PublicId, Ct);
+      read.ShouldNotBeNull().State.ShouldBe(UploadState.Processing);
+      read.LockedBy.ShouldBe("worker-2");
+
+      read.MarkProcessed(1, 1, 0, default, ProcessingLog.Empty, Now);
+      await context.SaveChangesAsync(Ct);
+    }
+
+    await using var ended = seed.Organizations.ContextOf(first);
+    (await new UploadRepository(ended).TryStartProcessingAsync(upload.PublicId, "worker-3", Ct)).ShouldBeFalse();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryStartProcessing_OtherOrganization_ShouldNotTakeIt(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var upload = New(seed.FirstCommit, 1, "key");
+
+    await using (var writer = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      await new UploadRepository(writer).AddAsync(upload, Ct);
+    }
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+
+    (await new UploadRepository(other).TryStartProcessingAsync(upload.PublicId, "worker-1", Ct)).ShouldBeFalse();
+  }
+
   private static Upload New(long commitId, int sequence, string key) =>
     Upload.Receive(commitId, sequence, key, [], null, null, null, null, null, null, null, null, PrincipalKind.GitHubOidc, Now);
 
