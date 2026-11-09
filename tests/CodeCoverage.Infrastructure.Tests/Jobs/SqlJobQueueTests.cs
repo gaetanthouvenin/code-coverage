@@ -11,6 +11,7 @@ using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -126,7 +127,7 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
     var connectionString = await MigratedDatabaseAsync(provider);
     await using var context = DatabaseFixture.CreateContext(provider, connectionString);
     var queue = CreateQueue(context, maxAttempts: "5");
-    var request = JobRequest.Create("ProcessUpload", """{"uploadId":7}""");
+    var request = JobRequest.ForInstance("ProcessUpload", """{"uploadId":7}""");
 
     var first = await queue.EnqueueAsync(request, Ct);
     var second = await queue.EnqueueAsync(request, Ct);
@@ -300,6 +301,106 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
     snapshot.OldestDueAgeSeconds.ShouldBe(180, tolerance: 0.001);
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Insert_Default_ShouldStampCurrentOrganization(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var organization = new OrganizationContext();
+    organization.Enter(7);
+    var queue = CreateQueue(context, organization: organization);
+
+    await queue.EnqueueAsync(JobRequest.Create(FinalizeType, "{}", lockKey: "commit:42", dedupKey: "finalize:42"), Ct);
+
+    var job = (await JobsAsync(provider, connectionString)).ShouldHaveSingleItem();
+    job.OrganizationId.ShouldBe(7);
+    job.LockKey.ShouldBe("o7:commit:42");
+    job.DedupKey.ShouldBe("o7:finalize:42");
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Insert_DefaultWithoutOrganization_ShouldThrow(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var queue = CreateQueue(context);
+
+    await Should.ThrowAsync<InvalidOperationException>(() => queue.EnqueueAsync(JobRequest.Create(FinalizeType, "{}"), Ct));
+
+    (await JobsAsync(provider, connectionString)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Insert_ForInstance_ShouldStoreNoOrganizationAndTheInstancePrefix(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+
+    await CreateQueue(context).EnqueueAsync(Finalize("{}"), Ct);
+
+    var job = (await JobsAsync(provider, connectionString)).ShouldHaveSingleItem();
+    job.OrganizationId.ShouldBeNull();
+    job.LockKey.ShouldBe("i:commit:42");
+    job.DedupKey.ShouldBe("i:finalize:42");
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Enqueue_ForOrganizationInsideAnotherOne_ShouldThrow(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var organization = new OrganizationContext();
+    organization.Enter(7);
+    var queue = CreateQueue(context, organization: organization);
+
+    await Should.ThrowAsync<InvalidOperationException>(
+      () => queue.EnqueueAsync(JobRequest.ForOrganization(8, FinalizeType, "{}"), Ct)
+    );
+
+    (await JobsAsync(provider, connectionString)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Enqueue_SameDedupKeyOtherOrganization_ShouldNotMerge(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var queue = CreateQueue(context);
+
+    var first = await queue.EnqueueAsync(FinalizeFor(1), Ct);
+    var other = await queue.EnqueueAsync(FinalizeFor(2), Ct);
+    var instance = await queue.EnqueueAsync(Finalize("{}"), Ct);
+    var again = await queue.EnqueueAsync(FinalizeFor(1), Ct);
+
+    new[] { first, other, instance }.ShouldBeUnique();
+    again.ShouldBe(first, "the same organization still merges");
+    (await JobsAsync(provider, connectionString)).Select(static j => j.DedupKey)
+                                                 .ShouldBe(["o1:finalize:42", "o2:finalize:42", "i:finalize:42"], ignoreOrder: true);
+  }
+
+  // The longest prefix and the longest key together: the real column has to take them on both engines.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Enqueue_LongestKey_ShouldFitTheColumn(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var key = new string('k', JobRequest.KeyMaxLength);
+    var expected = $"o{long.MaxValue}:{key}";
+
+    await CreateQueue(context).EnqueueAsync(JobRequest.ForOrganization(long.MaxValue, FinalizeType, "{}", key, key), Ct);
+
+    expected.Length.ShouldBeLessThanOrEqualTo(JobRecord.KeyMaxLength);
+    var job = (await JobsAsync(provider, connectionString)).ShouldHaveSingleItem();
+    job.LockKey.ShouldBe(expected);
+    job.DedupKey.ShouldBe(expected);
+  }
+
   [Fact]
   public async Task EnqueueInTransaction_WithoutTransaction_ShouldThrowInvalidOperationException()
   {
@@ -322,7 +423,10 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
   }
 
   private static JobRequest Finalize(string payloadJson) =>
-    JobRequest.Create(FinalizeType, payloadJson, lockKey: "commit:42", dedupKey: "finalize:42", coalesce: true);
+    JobRequest.ForInstance(FinalizeType, payloadJson, lockKey: "commit:42", dedupKey: "finalize:42", coalesce: true);
+
+  private static JobRequest FinalizeFor(long organizationId) =>
+    JobRequest.ForOrganization(organizationId, FinalizeType, "{}", dedupKey: "finalize:42", coalesce: true);
 
   private static JobRecord Record(JobState state, string? dedupKey, string? lockKey) =>
     new()
@@ -347,7 +451,7 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
   }
 
   private JobRequest Notify() =>
-    JobRequest.Create(
+    JobRequest.ForInstance(
       NotifyType,
       """{"commitId":42,"force":false}""",
       lockKey: "commit:42",
@@ -356,7 +460,10 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
       maxDelay: TimeSpan.FromSeconds(300)
     );
 
-  private SqlJobQueue CreateQueue(CodeCoverageDbContext context, string? maxAttempts = null)
+  private SqlJobQueue CreateQueue(
+    CodeCoverageDbContext context,
+    string? maxAttempts = null,
+    ICurrentOrganization? organization = null)
   {
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).ReturnsLazily(() => _now);
@@ -366,6 +473,7 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
 
     return new SqlJobQueue(
       context,
+      organization ?? new OrganizationContext(),
       clock,
       configuration,
       JobClaimDialects.For(context),

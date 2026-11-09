@@ -51,10 +51,11 @@ internal sealed class JobRecordConfiguration : IEntityTypeConfiguration<JobRecor
     builder.ToTable(TableName);
     builder.HasKey(static j => j.Id);
 
+    builder.Property(static j => j.OrganizationId);
     builder.Property(static j => j.Type).IsRequired().HasMaxLength(JobRequest.TypeMaxLength);
     builder.Property(static j => j.PayloadJson).IsRequired();
-    builder.Property(static j => j.LockKey).HasMaxLength(JobRequest.KeyMaxLength);
-    builder.Property(static j => j.DedupKey).HasMaxLength(JobRequest.KeyMaxLength);
+    builder.Property(static j => j.LockKey).HasMaxLength(JobRecord.KeyMaxLength);
+    builder.Property(static j => j.DedupKey).HasMaxLength(JobRecord.KeyMaxLength);
     builder.Property(static j => j.State).IsRequired();
     builder.Property(static j => j.Attempts).IsRequired();
     builder.Property(static j => j.MaxAttempts).IsRequired();

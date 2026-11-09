@@ -105,5 +105,64 @@ public sealed class JobRequestTests
           .ParamName.ShouldBe("lockKey");
   }
 
+  [Fact]
+  public void Create_InsideOrganizationScope_ShouldTakeIt()
+  {
+    var request = JobRequest.Create("ProcessUpload", "{}");
+
+    request.IsInstance.ShouldBeFalse();
+    request.OrganizationId.ShouldBeNull();
+    request.ResolveOrganizationId(7).ShouldBe(7);
+  }
+
+  [Fact]
+  public void Create_OutsideOrganizationScope_ShouldThrow()
+  {
+    var request = JobRequest.Create("ProcessUpload", "{}");
+
+    Should.Throw<InvalidOperationException>(() => request.ResolveOrganizationId(null));
+  }
+
+  [Theory]
+  [InlineData(null)]
+  [InlineData(7L)]
+  public void ForInstance_WhateverTheScope_ShouldStayOutOfAnyOrganization(long? current)
+  {
+    var request = JobRequest.ForInstance("SweepUploads", "{}");
+
+    request.IsInstance.ShouldBeTrue();
+    request.ResolveOrganizationId(current).ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(null)]
+  [InlineData(7L)]
+  public void ForOrganization_OutsideOrInsideItsOrganization_ShouldNameIt(long? current)
+  {
+    var request = JobRequest.ForOrganization(7, "HandleWebhook", "{}", lockKey: "repo:1", dedupKey: "delivery:1");
+
+    request.OrganizationId.ShouldBe(7);
+    request.LockKey.ShouldBe("repo:1");
+    request.DedupKey.ShouldBe("delivery:1");
+    request.ResolveOrganizationId(current).ShouldBe(7);
+  }
+
+  [Fact]
+  public void ForOrganization_InsideOtherOrganizationScope_ShouldThrow()
+  {
+    var request = JobRequest.ForOrganization(7, "HandleWebhook", "{}");
+
+    Should.Throw<InvalidOperationException>(() => request.ResolveOrganizationId(8));
+  }
+
+  [Theory]
+  [InlineData(0L)]
+  [InlineData(-1L)]
+  public void ForOrganization_WithNonPositiveIdentifier_ShouldThrowArgumentOutOfRangeException(long organizationId)
+  {
+    Should.Throw<ArgumentOutOfRangeException>(() => JobRequest.ForOrganization(organizationId, "HandleWebhook", "{}"))
+          .ParamName.ShouldBe("organizationId");
+  }
+
   #endregion
 }

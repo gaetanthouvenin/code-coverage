@@ -36,6 +36,13 @@ namespace CodeCoverage.Domain.Contracts.Jobs;
 ///       </description>
 ///     </item>
 ///   </list>
+///   <para>
+///     Every job belongs to a lane, chosen by the factory that builds its request: <see cref="Create" />
+///     takes the organization of the current scope when the job is queued, <see cref="ForOrganization" />
+///     names one, and <see cref="ForInstance" /> stays out of any organization. The queue prefixes both
+///     keys with the lane: a key stays the business key (<c>repo:{id}</c>) and never collides with the
+///     same key of another organization.
+///   </para>
 /// </remarks>
 public sealed class JobRequest
 {
@@ -45,13 +52,19 @@ public sealed class JobRequest
   public const int TypeMaxLength = 64;
 
   /// <summary>The maximum length of <see cref="LockKey" /> and <see cref="DedupKey" />.</summary>
-  public const int KeyMaxLength = 200;
+  /// <remarks>
+  ///   Leaves room for the prefix of the queue, <c>o{id}:</c> at 21 characters at most, in the column of
+  ///   200 characters.
+  /// </remarks>
+  public const int KeyMaxLength = 178;
 
   #endregion
 
   #region Ctors
 
   /// <summary>Initializes a new instance of the <see cref="JobRequest" /> class.</summary>
+  /// <param name="isInstance">Whether the job stays out of any organization.</param>
+  /// <param name="organizationId">The organization the request names, or <see langword="null" />.</param>
   /// <param name="type">The type of the job.</param>
   /// <param name="payloadJson">The payload of the job, as JSON.</param>
   /// <param name="lockKey">The key that serializes the job, or <see langword="null" />.</param>
@@ -60,6 +73,8 @@ public sealed class JobRequest
   /// <param name="coalesce">Whether the request is dropped when a twin is queued.</param>
   /// <param name="maxDelay">How long a debounced job may wait since first queued, or <see langword="null" />.</param>
   private JobRequest(
+    bool isInstance,
+    long? organizationId,
     string type,
     string payloadJson,
     string? lockKey,
@@ -68,6 +83,8 @@ public sealed class JobRequest
     bool coalesce,
     TimeSpan? maxDelay)
   {
+    IsInstance = isInstance;
+    OrganizationId = organizationId;
     Type = type;
     PayloadJson = payloadJson;
     LockKey = lockKey;
@@ -80,6 +97,18 @@ public sealed class JobRequest
   #endregion
 
   #region Properties
+
+  /// <summary>
+  ///   Gets a value indicating whether the job stays out of any organization, as
+  ///   <see cref="ForInstance" /> asks.
+  /// </summary>
+  public bool IsInstance { get; }
+
+  /// <summary>
+  ///   Gets the organization named by <see cref="ForOrganization" />, or <see langword="null" /> when the
+  ///   request names none.
+  /// </summary>
+  public long? OrganizationId { get; }
 
   /// <summary>Gets the type of the job, one of <see cref="JobTypes" />.</summary>
   public string Type { get; }
@@ -119,7 +148,37 @@ public sealed class JobRequest
 
   #region Methods
 
-  /// <summary>Creates a request.</summary>
+  /// <summary>Creates a request for the organization of the scope that queues it.</summary>
+  /// <param name="type">The type of the job, one of <see cref="JobTypes" />.</param>
+  /// <param name="payloadJson">The payload of the job, as JSON.</param>
+  /// <param name="lockKey">The key that serializes the job, or <see langword="null" />.</param>
+  /// <param name="dedupKey">The key that merges the job with its queued twin, or <see langword="null" />.</param>
+  /// <param name="runAfter">When the job may run, converted to UTC, or <see langword="null" /> for at once.</param>
+  /// <param name="coalesce">Whether the request is dropped when a twin is queued.</param>
+  /// <param name="maxDelay">How long a debounced job may wait since first queued, or <see langword="null" />.</param>
+  /// <returns>The request; queuing it outside an organization throws.</returns>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="type" /> or <paramref name="payloadJson" /> is <see langword="null" />.
+  /// </exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="type" /> or <paramref name="payloadJson" /> is empty or white space, a text is
+  ///   longer than its maximum length, a key is empty or white space, or <paramref name="coalesce" />
+  ///   or <paramref name="maxDelay" /> is given without <paramref name="dedupKey" />.
+  /// </exception>
+  /// <exception cref="ArgumentOutOfRangeException">
+  ///   <paramref name="maxDelay" /> is zero or negative.
+  /// </exception>
+  public static JobRequest Create(
+    string type,
+    string payloadJson,
+    string? lockKey = null,
+    string? dedupKey = null,
+    DateTimeOffset? runAfter = null,
+    bool coalesce = false,
+    TimeSpan? maxDelay = null) =>
+    Build(isInstance: false, organizationId: null, type, payloadJson, lockKey, dedupKey, runAfter, coalesce, maxDelay);
+
+  /// <summary>Creates a request that stays out of any organization: a coordinator or a maintenance job.</summary>
   /// <param name="type">The type of the job, one of <see cref="JobTypes" />.</param>
   /// <param name="payloadJson">The payload of the job, as JSON.</param>
   /// <param name="lockKey">The key that serializes the job, or <see langword="null" />.</param>
@@ -139,7 +198,44 @@ public sealed class JobRequest
   /// <exception cref="ArgumentOutOfRangeException">
   ///   <paramref name="maxDelay" /> is zero or negative.
   /// </exception>
-  public static JobRequest Create(
+  public static JobRequest ForInstance(
+    string type,
+    string payloadJson,
+    string? lockKey = null,
+    string? dedupKey = null,
+    DateTimeOffset? runAfter = null,
+    bool coalesce = false,
+    TimeSpan? maxDelay = null) =>
+    Build(isInstance: true, organizationId: null, type, payloadJson, lockKey, dedupKey, runAfter, coalesce, maxDelay);
+
+  /// <summary>Creates a request for an organization named by its identifier.</summary>
+  /// <param name="organizationId">The identifier of the organization.</param>
+  /// <param name="type">The type of the job, one of <see cref="JobTypes" />.</param>
+  /// <param name="payloadJson">The payload of the job, as JSON.</param>
+  /// <param name="lockKey">The key that serializes the job, or <see langword="null" />.</param>
+  /// <param name="dedupKey">The key that merges the job with its queued twin, or <see langword="null" />.</param>
+  /// <param name="runAfter">When the job may run, converted to UTC, or <see langword="null" /> for at once.</param>
+  /// <param name="coalesce">Whether the request is dropped when a twin is queued.</param>
+  /// <param name="maxDelay">How long a debounced job may wait since first queued, or <see langword="null" />.</param>
+  /// <returns>The request; queuing it inside another organization throws.</returns>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="type" /> or <paramref name="payloadJson" /> is <see langword="null" />.
+  /// </exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="type" /> or <paramref name="payloadJson" /> is empty or white space, a text is
+  ///   longer than its maximum length, a key is empty or white space, or <paramref name="coalesce" />
+  ///   or <paramref name="maxDelay" /> is given without <paramref name="dedupKey" />.
+  /// </exception>
+  /// <exception cref="ArgumentOutOfRangeException">
+  ///   <paramref name="organizationId" /> is not positive, or <paramref name="maxDelay" /> is zero or
+  ///   negative.
+  /// </exception>
+  /// <remarks>
+  ///   Reserved to the sources that act before a scope enters an organization: the reception of a webhook,
+  ///   the coordinators, the admission of an organization and the refresh at sign-in (ADR-013).
+  /// </remarks>
+  public static JobRequest ForOrganization(
+    long organizationId,
     string type,
     string payloadJson,
     string? lockKey = null,
@@ -147,6 +243,68 @@ public sealed class JobRequest
     DateTimeOffset? runAfter = null,
     bool coalesce = false,
     TimeSpan? maxDelay = null)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(organizationId);
+
+    return Build(isInstance: false, organizationId, type, payloadJson, lockKey, dedupKey, runAfter, coalesce, maxDelay);
+  }
+
+  /// <summary>Tells which organization the job belongs to, once queued from a given scope.</summary>
+  /// <param name="currentOrganizationId">
+  ///   The organization the queuing scope has entered, or <see langword="null" /> when it has entered none.
+  /// </param>
+  /// <returns>The organization of the job, or <see langword="null" /> when it stays out of any.</returns>
+  /// <exception cref="InvalidOperationException">
+  ///   The request takes the organization of the scope and the scope has entered none, or the request names
+  ///   an organization other than the one the scope has entered.
+  /// </exception>
+  public long? ResolveOrganizationId(long? currentOrganizationId)
+  {
+    if (IsInstance)
+    {
+      return null;
+    }
+
+    if (OrganizationId is not { } named)
+    {
+      return currentOrganizationId
+             ?? throw new InvalidOperationException(
+               $"The job '{this}' takes the organization of its scope, and the scope has not entered one."
+             );
+    }
+
+    InvalidOperationException.ThrowIf(
+      currentOrganizationId is not null && currentOrganizationId != named,
+      $"The job '{this}' names an organization other than the one its scope has entered."
+    );
+
+    return named;
+  }
+
+  /// <inheritdoc />
+  public override string ToString() => $"{Type} (lock: {LockKey ?? "-"}, dedup: {DedupKey ?? "-"})";
+
+  /// <summary>Checks the arguments of a request and builds it.</summary>
+  /// <param name="isInstance">Whether the job stays out of any organization.</param>
+  /// <param name="organizationId">The organization the request names, or <see langword="null" />.</param>
+  /// <param name="type">The type of the job, one of <see cref="JobTypes" />.</param>
+  /// <param name="payloadJson">The payload of the job, as JSON.</param>
+  /// <param name="lockKey">The key that serializes the job, or <see langword="null" />.</param>
+  /// <param name="dedupKey">The key that merges the job with its queued twin, or <see langword="null" />.</param>
+  /// <param name="runAfter">When the job may run, converted to UTC, or <see langword="null" /> for at once.</param>
+  /// <param name="coalesce">Whether the request is dropped when a twin is queued.</param>
+  /// <param name="maxDelay">How long a debounced job may wait since first queued, or <see langword="null" />.</param>
+  /// <returns>The request.</returns>
+  private static JobRequest Build(
+    bool isInstance,
+    long? organizationId,
+    string type,
+    string payloadJson,
+    string? lockKey,
+    string? dedupKey,
+    DateTimeOffset? runAfter,
+    bool coalesce,
+    TimeSpan? maxDelay)
   {
     ThrowIfInvalid(type, TypeMaxLength);
     ArgumentException.ThrowIfNullOrWhiteSpace(payloadJson);
@@ -170,11 +328,18 @@ public sealed class JobRequest
       );
     }
 
-    return new JobRequest(type, payloadJson, lockKey, dedupKey, runAfter?.ToUniversalTime(), coalesce, maxDelay);
+    return new JobRequest(
+      isInstance,
+      organizationId,
+      type,
+      payloadJson,
+      lockKey,
+      dedupKey,
+      runAfter?.ToUniversalTime(),
+      coalesce,
+      maxDelay
+    );
   }
-
-  /// <inheritdoc />
-  public override string ToString() => $"{Type} (lock: {LockKey ?? "-"}, dedup: {DedupKey ?? "-"})";
 
   /// <summary>Checks an optional key against its maximum length.</summary>
   /// <param name="key">The key, or <see langword="null" />.</param>

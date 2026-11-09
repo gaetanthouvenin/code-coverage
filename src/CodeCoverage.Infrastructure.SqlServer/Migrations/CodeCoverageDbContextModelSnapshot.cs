@@ -178,6 +178,9 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.Property<int>("MaxAttempts")
                         .HasColumnType("int");
 
+                    b.Property<long?>("OrganizationId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

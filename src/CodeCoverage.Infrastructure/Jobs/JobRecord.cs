@@ -19,10 +19,17 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///     Two unique indexes, filtered by state, carry the rules of the queue: one queued job at most per
 ///     <see cref="DedupKey" />, one running job at most per <see cref="LockKey" />.
 ///   </para>
+///   <para>
+///     An operational table, without query filter or foreign key: the workers claim the jobs before they
+///     enter an organization.
+///   </para>
 /// </remarks>
 internal sealed class JobRecord
 {
   #region Fields
+
+  /// <summary>The maximum length of <see cref="LockKey" /> and <see cref="DedupKey" />, their prefix included.</summary>
+  public const int KeyMaxLength = 200;
 
   /// <summary>The maximum length of <see cref="LockedBy" />.</summary>
   public const int LockedByMaxLength = 128;
@@ -37,16 +44,24 @@ internal sealed class JobRecord
   /// <summary>Gets or sets the identifier of the job, assigned when it is saved.</summary>
   public long Id { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the organization the job runs in, or <see langword="null" /> when it stays out of any.
+  /// </summary>
+  public long? OrganizationId { get; set; }
+
   /// <summary>Gets or sets the type of the job, one of <see cref="JobTypes" />.</summary>
   public required string Type { get; set; }
 
   /// <summary>Gets or sets the payload of the job, as JSON.</summary>
   public required string PayloadJson { get; set; }
 
-  /// <summary>Gets or sets the key that serializes the job, or <see langword="null" />.</summary>
+  /// <summary>Gets or sets the key that serializes the job, prefixed by its lane, or <see langword="null" />.</summary>
   public string? LockKey { get; set; }
 
-  /// <summary>Gets or sets the key that merges the job with its queued twin, or <see langword="null" />.</summary>
+  /// <summary>
+  ///   Gets or sets the key that merges the job with its queued twin, prefixed by its lane, or
+  ///   <see langword="null" />.
+  /// </summary>
   public string? DedupKey { get; set; }
 
   /// <summary>Gets or sets where the job stands.</summary>
