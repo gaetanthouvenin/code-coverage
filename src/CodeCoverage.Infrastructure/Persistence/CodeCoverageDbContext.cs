@@ -20,6 +20,7 @@ using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
+using CodeCoverage.Domain.Users;
 using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
@@ -154,6 +155,12 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();
+
+  /// <summary>Gets the users who signed in (<c>Users</c>).</summary>
+  public DbSet<AppUser> Users => Set<AppUser>();
+
+  /// <summary>Gets the accesses of the users to the repositories (<c>UserRepositoryAccess</c>).</summary>
+  public DbSet<RepositoryAccess> UserRepositoryAccess => Set<RepositoryAccess>();
 
   /// <summary>Gets the webhook deliveries (<c>WebhookDeliveries</c>).</summary>
   internal DbSet<WebhookDeliveryRecord> WebhookDeliveries => Set<WebhookDeliveryRecord>();
