@@ -337,12 +337,17 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<long?>("OrganizationId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Target")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "At");
 
                     b.ToTable("AuditEntries", (string)null);
                 });
