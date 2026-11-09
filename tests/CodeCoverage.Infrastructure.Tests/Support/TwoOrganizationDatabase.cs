@@ -10,7 +10,6 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
-using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Settings;
 
@@ -83,10 +82,8 @@ public sealed class TwoOrganizationDatabase
   public async Task AddSettingAsync(long organizationId, string key, string value, CancellationToken cancellationToken)
   {
     await using var context = ContextOf(organizationId);
-    var row = new StoredOrganizationSetting { Key = key, Value = value, UpdatedAt = Now, UpdatedBy = "test" };
 
-    context.OrganizationSettings.Add(row);
-    context.Entry(row).Property<long>(OrganizationOwnedExtensions.ColumnName).CurrentValue = organizationId;
+    context.OrganizationSettings.Add(new StoredOrganizationSetting { Key = key, Value = value, UpdatedAt = Now, UpdatedBy = "test" });
 
     await context.SaveChangesAsync(cancellationToken);
   }
