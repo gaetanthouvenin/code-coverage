@@ -1,0 +1,58 @@
+SF:D:\a\sample\sample\src\Sample\Calculator.cs
+FN:5,System.Int32 Sample.Calculator::Divide(System.Int32,System.Int32)
+FNDA:1,System.Int32 Sample.Calculator::Divide(System.Int32,System.Int32)
+DA:6,1
+DA:7,1
+DA:8,0
+DA:9,0
+DA:12,1
+DA:13,1
+BRDA:7,7,0,0
+BRDA:7,7,1,1
+BRDA:12,16,0,1
+BRDA:12,16,1,0
+BRDA:12,20,0,0
+BRDA:12,20,1,1
+FN:14,System.String Sample.Calculator::Unused(System.Int32)
+FNDA:0,System.String Sample.Calculator::Unused(System.Int32)
+DA:15,0
+BRDA:15,5,0,0
+BRDA:15,5,1,0
+BRDA:15,11,1,0
+BRDA:15,11,0,0
+LF:7
+LH:4
+BRF:10
+BRH:3
+FNF:2
+FNH:1
+end_of_record
+SF:D:\a\sample\sample\src\Sample\Worker.cs
+FN:5,System.Void Sample.Worker/<RunAsync>d__0::MoveNext()
+FNDA:1,System.Void Sample.Worker/<RunAsync>d__0::MoveNext()
+DA:6,1
+DA:7,1
+DA:8,1
+DA:9,1
+DA:10,1
+DA:12,5
+DA:13,1
+DA:14,1
+DA:15,0
+DA:16,0
+DA:18,1
+DA:20,1
+DA:21,1
+BRDA:7,23,0,1
+BRDA:7,23,1,1
+BRDA:12,215,1,1
+BRDA:14,191,0,0
+BRDA:14,191,1,1
+BRDA:12,215,0,1
+LF:13
+LH:11
+BRF:6
+BRH:5
+FNF:1
+FNH:1
+end_of_record
