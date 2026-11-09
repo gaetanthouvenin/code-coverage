@@ -15,7 +15,7 @@
 - L'uploader `coverage-upload` est publié en **binaires autonomes mono-fichier** (`--self-contained`, `PublishSingleFile`, `PublishTrimmed`) pour `linux-x64`, `linux-musl-x64`, `win-x64` et `osx-arm64`.
 - Ces binaires sont **embarqués dans l'image Api** et servis anonymement par `GET /api/v1/uploader/{rid}`, avec leur somme par `GET /api/v1/uploader/{rid}.sha256`. Les mêmes binaires et sommes sont joints aux releases GitHub.
 - Les templates CI **épinglent une version et vérifient la somme SHA-256** avant l'exécution.
-- L'**outil dotnet** (`PackAsTool`, `net8.0;net10.0`, `RollForward=Major`) est publié **en complément** sous le package `CodeCoverage.Uploader`, sur un flux NuGet choisi en M5 (nuget.org public ou flux privé, PLAN §11-11).
+- L'**outil dotnet** (`PackAsTool`, `net10.0` seul, `RollForward=Major`) est publié **en complément** sous le package `CodeCoverage.Uploader`, sur un flux NuGet choisi en M5 (nuget.org public ou flux privé, PLAN §11-11). Il est réservé aux agents disposant de .NET 10 ou ultérieur : les agents sans .NET 10 utilisent les binaires autonomes.
 - Une recette `curl` reste documentée pour les cas sans binaire.
 
 ## Conséquences
@@ -25,6 +25,7 @@
   - la version de l'uploader suit celle du serveur qui la sert ;
   - intégrité vérifiable par la somme épinglée.
 - **Négatives :**
+  - l'outil dotnet n'est pas utilisable sur un agent sans .NET 10, qui doit passer par les binaires autonomes ;
   - l'image Api grossit des quatre binaires ;
   - la publication multi-RID et le trimming ajoutent une étape au build de l'image et de la release ;
   - l'Uploader ne référence aucun projet de la solution : son seul couplage avec le serveur est le contrat HTTP, qui doit rester rétrocompatible.
