@@ -609,7 +609,7 @@ En-tête facultatif `Idempotency-Key` (128 caractères au plus). L'uploader en e
 |---|---|
 | `202 Accepted` | `UploadAcceptedResponse(Guid UploadId, string State, string CommitUrl, string StatusUrl)` |
 | `200 OK` | rejeu idempotent : même corps, upload existant |
-| `400` | validation, `Upload.MetadataMustPrecedeFiles`, ou `Upload.InvalidPart` (nom de partie trop long, gzip corrompu, plus d'une partie `network`) |
+| `400` | validation, `Upload.MetadataMustPrecedeFiles`, ou `Upload.InvalidPart` (nom de partie trop long, gzip corrompu, plus d'une partie `network`, corps multipart mal formé) |
 | `401` | `Upload.TokenInvalid`, y compris pour un jeton présenté à un owner qui n'est pas une organisation `Active` |
 | `403` | `Upload.TokenNotForRepository`, ou `Upload.OidcMismatch` |
 | `404` | `Repository.NotFound` : JWT valide présenté à un owner qui n'est pas une organisation `Active`, ou dépôt inconnu dont l'installation n'appartient pas à l'organisation |

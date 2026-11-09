@@ -53,6 +53,7 @@
   <data name="Upload.NoReport" xml:space="preserve"><value>This upload holds no report.</value></data>
   <data name="Upload.TooManyFiles" xml:space="preserve"><value>This upload holds too many reports.</value></data>
   <data name="Upload.InvalidPart" xml:space="preserve"><value>A part of this upload is not valid: a name too long, a corrupted gzip, or more than one file list.</value></data>
+  <data name="Upload.RateLimited" xml:space="preserve"><value>Too many uploads for this repository: try again in a moment.</value></data>
   <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>This value is already a token of this organization.</value></data>
   <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>The expiry must be in the future.</value></data>
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>An imported token must be a Codecov token (a UUID).</value></data>

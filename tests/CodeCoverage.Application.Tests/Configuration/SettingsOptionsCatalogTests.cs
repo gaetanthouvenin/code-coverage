@@ -27,6 +27,7 @@ public sealed class SettingsOptionsCatalogTests
     typeof(AccessOptions),
     typeof(BadgeOptions),
     typeof(RetentionOptions),
+    typeof(UrlOptions),
   ];
 
   #endregion

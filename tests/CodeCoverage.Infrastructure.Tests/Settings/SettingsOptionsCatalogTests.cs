@@ -28,6 +28,7 @@ public sealed class SettingsOptionsCatalogTests
     typeof(BadgeOptions),
     typeof(RetentionOptions),
     typeof(GitHubOptions),
+    typeof(UrlOptions),
   ];
 
   // Instance keys read straight from the configuration, or not read yet: no options class holds them.
@@ -36,8 +37,6 @@ public sealed class SettingsOptionsCatalogTests
     SettingDefinitions.GitHubAppId,
     SettingDefinitions.GitHubAppSlug,
     SettingDefinitions.GitHubClientSecret,
-    SettingDefinitions.UrlsApiPublicUrl,
-    SettingDefinitions.UrlsWebPublicUrl,
   ];
 
   #endregion
