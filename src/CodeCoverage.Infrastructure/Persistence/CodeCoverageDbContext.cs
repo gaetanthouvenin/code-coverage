@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
@@ -88,6 +89,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the commits of the tracked repositories (<c>Commits</c>).</summary>
   public DbSet<Commit> Commits => Set<Commit>();
+
+  /// <summary>Gets what was found as the configuration of the commits (<c>CommitConfigs</c>).</summary>
+  public DbSet<CommitConfig> CommitConfigs => Set<CommitConfig>();
 
   /// <summary>Gets the totals of the commits by flag (<c>CommitFlagTotals</c>).</summary>
   public DbSet<CommitFlagTotals> CommitFlagTotals => Set<CommitFlagTotals>();
