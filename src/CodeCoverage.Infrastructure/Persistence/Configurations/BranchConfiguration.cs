@@ -7,6 +7,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
@@ -21,7 +22,10 @@ namespace CodeCoverage.Infrastructure.Persistence.Configurations;
 ///     does not hold the organization: a repository has one, so the repository of a new row is checked by
 ///     <see cref="Repositories.BranchRepository" />.
 ///   </para>
-///   <para><c>CoveredCommitId</c> has no constraint until the <c>Commits</c> table exists.</para>
+///   <para>
+///     The foreign key of <c>CoveredCommitId</c> takes no action on deletion: SQL Server refuses the several
+///     cascade paths that <c>Commits</c> and <c>Repositories</c> would otherwise open towards this table.
+///   </para>
 /// </remarks>
 internal sealed class BranchConfiguration : IEntityTypeConfiguration<Branch>
 {
@@ -54,6 +58,7 @@ internal sealed class BranchConfiguration : IEntityTypeConfiguration<Branch>
     builder.Property(static b => b.Version).IsRequired().IsConcurrencyToken();
 
     builder.HasOne<TrackedRepository>().WithMany().HasForeignKey(static b => b.RepositoryId).OnDelete(DeleteBehavior.Restrict);
+    builder.HasOne<Commit>().WithMany().HasForeignKey(static b => b.CoveredCommitId).OnDelete(DeleteBehavior.NoAction);
   }
 
   #endregion

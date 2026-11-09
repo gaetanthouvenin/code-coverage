@@ -1,0 +1,167 @@
+// ------------------------------------------------------------------------------------------------
+// <copyright file="CommitRepository.cs" company="Gaëtan Thouvenin">
+//   Copyright (c) Gaëtan Thouvenin. All rights reserved.
+// </copyright>
+// ------------------------------------------------------------------------------------------------
+
+using Microsoft.EntityFrameworkCore;
+
+using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Application.Features.Repositories;
+using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Persistence.Configurations;
+
+namespace CodeCoverage.Infrastructure.Persistence.Repositories;
+
+/// <summary>Reads and writes the <c>Commits</c> table, under the query filter of the organization.</summary>
+/// <param name="context">The database context of the scope.</param>
+/// <remarks>
+///   The <c>Find</c> methods and <see cref="GetOrCreateAsync" /> track what they return: the shadow column of the
+///   organization does not travel with an instance, so a row can only be written by the context that read it
+///   (ADR-013), and the original <c>Version</c> it holds is what detects a concurrent write.
+/// </remarks>
+internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitRepository
+{
+  #region Fields
+
+  /// <summary>The message of the refusal of a commit that this context did not read.</summary>
+  private const string NotReadMessage = "A commit must be read in this scope before it can be updated.";
+
+  /// <summary>The message of the refusal of an unknown repository; it is sent to the caller.</summary>
+  private const string RepositoryNotFoundMessage = "The repository does not exist or cannot be read.";
+
+  /// <summary>The message of the refusal of a commit that cannot be read; it is sent to the caller.</summary>
+  private const string CommitGoneMessage = "The commit was changed or removed in the meantime; reload it and try again.";
+
+  #endregion
+
+  #region Implementation of ICommitRepository
+
+  /// <inheritdoc />
+  public async Task<Commit?> FindAsync(long id, CancellationToken cancellationToken) =>
+    await context.Commits
+                 .SingleOrDefaultAsync(c => c.Id == id, cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<Commit?> FindByShaAsync(long repositoryId, GitSha sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sha);
+
+    return await context.Commits
+                        .SingleOrDefaultAsync(c => c.RepositoryId == repositoryId && c.Sha == sha, cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="NotFoundException">The repository is not one of the organization of the scope.</exception>
+  /// <exception cref="ConflictException">The row that refused the insertion can no longer be read.</exception>
+  /// <remarks>
+  ///   The insertion comes first so that every loser of a race takes the same path, on both engines: the
+  ///   database makes it wait for the winner, then refuses it, and the row is committed when it is read again.
+  ///   The unique index does not hold the organization, so the repository is read first, under the filter.
+  /// </remarks>
+  public async Task<Commit> GetOrCreateAsync(
+    long repositoryId,
+    GitSha sha,
+    DateTimeOffset at,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sha);
+
+    var known = await context.Repositories.AnyAsync(r => r.Id == repositoryId, cancellationToken).ConfigureAwait(false);
+
+    if (!known)
+    {
+      throw new NotFoundException(RepositoryErrors.NotFound, RepositoryNotFoundMessage);
+    }
+
+    var commit = Commit.Create(repositoryId, sha, at);
+    context.Commits.Add(commit);
+
+    try
+    {
+      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+      return commit;
+    }
+    catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, CommitConfiguration.ShaIndexName))
+    {
+      // Nothing is left for a later save of the scope, which would fail the same way.
+      context.Entry(commit).State = EntityState.Detached;
+
+      return await FindByShaAsync(repositoryId, sha, cancellationToken).ConfigureAwait(false)
+             ?? throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage, exception);
+    }
+  }
+
+  /// <inheritdoc />
+  public async Task UpdateAsync(Commit commit, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(commit);
+
+    InvalidOperationException.ThrowIf(context.Entry(commit).State is EntityState.Detached, NotReadMessage);
+
+    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ConflictException">The commit is not one of the organization of the scope.</exception>
+  /// <remarks>
+  ///   Portable equivalent of <c>UPDATE … RETURNING</c> / <c>OUTPUT</c>: the update holds the lock of the row until
+  ///   the transaction ends, on both engines, so the value read right after it is this call's own and a
+  ///   concurrent call waits for it. In a transaction of the caller, the row stays locked until that one ends.
+  /// </remarks>
+  public async Task<int> NextUploadSequenceAsync(long commitId, CancellationToken cancellationToken)
+  {
+    if (context.Database.CurrentTransaction is not null)
+    {
+      return await IncrementAsync(commitId, cancellationToken).ConfigureAwait(false);
+    }
+
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      var sequence = await IncrementAsync(commitId, cancellationToken).ConfigureAwait(false);
+      await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+      return sequence;
+    }
+  }
+
+  #endregion
+
+  #region Methods
+
+  /// <summary>Increments the session number of a commit and reads it back, within the current transaction.</summary>
+  /// <param name="commitId">The identifier of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The new session number.</returns>
+  /// <exception cref="ConflictException">The update affected no row.</exception>
+  private async Task<int> IncrementAsync(long commitId, CancellationToken cancellationToken)
+  {
+    var updated = await context.Commits
+                               .Where(c => c.Id == commitId)
+                               .ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UploadSequence, static c => c.UploadSequence + 1), cancellationToken)
+                               .ConfigureAwait(false);
+
+    if (updated == 0)
+    {
+      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage);
+    }
+
+    return await context.Commits
+                        .AsNoTracking()
+                        .Where(c => c.Id == commitId)
+                        .Select(static c => c.UploadSequence)
+                        .SingleAsync(cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  #endregion
+}
