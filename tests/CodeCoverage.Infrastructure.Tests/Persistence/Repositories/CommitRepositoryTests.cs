@@ -392,6 +392,66 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
     (await new CommitRepository(reader).FindAsync(id, Ct)).ShouldNotBeNull().State.ShouldBe(CommitState.Known);
   }
 
+  // An upload reads the commit, a finalization saves it, then the upload saves its reception: a matrix upload racing the
+  // finalization of the commit must not be refused.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SavePending_FinalizationSavedSinceTheRead_ShouldKeepBoth(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var first = seed.Organizations.FirstId;
+
+    await using (var setup = seed.Organizations.ContextOf(first))
+    {
+      var created = await new CommitRepository(setup).GetOrCreateAsync(seed.FirstRepository, Head, Now, Ct);
+      created.MarkPending(null, null, Now);
+      await setup.SaveChangesAsync(Ct);
+    }
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var repository = new CommitRepository(context);
+    var commit = await repository.GetOrCreateAsync(seed.FirstRepository, Head, Now, Ct);
+
+    await using (var finalizer = seed.Organizations.ContextOf(first))
+    {
+      var finalized = await new CommitRepository(finalizer).FindAsync(commit.Id, Ct);
+      finalized!.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.None, "source", Now);
+      await finalizer.SaveChangesAsync(Ct);
+    }
+
+    commit.MarkPending("feature", 12, Now.AddMinutes(1));
+    await repository.SavePendingAsync(commit, Ct);
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var stored = await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == commit.Id, Ct);
+    stored.State.ShouldBe(CommitState.Complete);
+    stored.ReportRevision.ShouldBe(1);
+    stored.LastUploadAt.ShouldBe(Now.AddMinutes(1));
+    stored.Branch.ShouldBe("feature");
+    stored.PullNumber.ShouldBe(12);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SavePending_InstanceReadByOtherOrganization_ShouldThrowAndWriteNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var id = await GetOrCreateAsync(seed, seed.Organizations.SecondId, seed.SecondRepository);
+
+    await using (var second = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      var foreign = (await new CommitRepository(second).FindAsync(id, Ct)).ShouldNotBeNull();
+      foreign.MarkPending("main", null, Now.AddHours(1));
+
+      await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+      await Should.ThrowAsync<InvalidOperationException>(() => new CommitRepository(first).SavePendingAsync(foreign, Ct));
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await new CommitRepository(reader).FindAsync(id, Ct)).ShouldNotBeNull().State.ShouldBe(CommitState.Known);
+  }
+
   // Raw on purpose: the Domain has nothing yet that sets the covered commit of a branch.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]

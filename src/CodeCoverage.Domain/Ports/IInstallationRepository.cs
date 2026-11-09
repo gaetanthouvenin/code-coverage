@@ -33,6 +33,7 @@ public interface IInstallationRepository
   /// <param name="installation">The installation.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>A task that completes when the installation is saved.</returns>
+  /// <remarks>Refused as a conflict (<c>General.ConcurrentChange</c>) when a concurrent save added it: reading again finds its row.</remarks>
   /// <exception cref="ArgumentNullException"><paramref name="installation" /> is <see langword="null" />.</exception>
   Task AddAsync(Installation installation, CancellationToken cancellationToken);
 

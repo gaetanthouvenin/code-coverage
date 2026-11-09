@@ -110,6 +110,43 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  /// <exception cref="ConflictException">The row disappeared.</exception>
+  public async Task SavePendingAsync(Commit commit, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(commit);
+
+    var entry = context.Entry(commit);
+
+    InvalidOperationException.ThrowIf(entry.State is EntityState.Detached, NotReadMessage);
+
+    var commitId = commit.Id;
+    var branch = commit.Branch;
+    var pullNumber = commit.PullNumber;
+    var lastUploadAt = commit.LastUploadAt;
+    var updatedAt = commit.UpdatedAt;
+
+    var affected = await context.Commits
+                                .Where(c => c.Id == commitId)
+                                .ExecuteUpdateAsync(
+                                  s => s.SetProperty(static c => c.State, static c => c.State == CommitState.Known ? CommitState.Pending : c.State)
+                                        .SetProperty(static c => c.Branch, c => c.Branch ?? branch)
+                                        .SetProperty(static c => c.PullNumber, c => c.PullNumber ?? pullNumber)
+                                        .SetProperty(static c => c.LastUploadAt, lastUploadAt)
+                                        .SetProperty(static c => c.UpdatedAt, updatedAt),
+                                  cancellationToken
+                                )
+                                .ConfigureAwait(false);
+
+    if (affected == 0)
+    {
+      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage);
+    }
+
+    // Written outside the tracker: a later save of this scope must not send the same change again.
+    entry.State = EntityState.Unchanged;
+  }
+
+  /// <inheritdoc />
   /// <exception cref="ConflictException">The commit is not one of the organization of the scope.</exception>
   /// <remarks>
   ///   Portable equivalent of <c>UPDATE … RETURNING</c> / <c>OUTPUT</c>: the update holds the lock of the row until

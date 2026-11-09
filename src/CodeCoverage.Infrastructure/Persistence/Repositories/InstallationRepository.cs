@@ -6,6 +6,8 @@
 
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 
@@ -15,6 +17,13 @@ namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 /// <param name="context">The database context of the scope.</param>
 internal sealed class InstallationRepository(CodeCoverageDbContext context) : IInstallationRepository
 {
+  #region Fields
+
+  /// <summary>The name of the primary key, which reports two installations added at once.</summary>
+  private const string PrimaryKeyName = "PK_Installations";
+
+  #endregion
+
   #region Implementation of IInstallationRepository
 
   /// <inheritdoc />
@@ -40,7 +49,17 @@ internal sealed class InstallationRepository(CodeCoverageDbContext context) : II
 
     context.Installations.Add(installation);
 
-    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    try
+    {
+      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, PrimaryKeyName))
+    {
+      // Nothing is left for a later save of the scope, which would fail the same way.
+      context.Entry(installation).State = EntityState.Detached;
+
+      throw new ConflictException(GeneralErrors.ConcurrentChange, "The installation was added in the meantime.", exception);
+    }
   }
 
   #endregion

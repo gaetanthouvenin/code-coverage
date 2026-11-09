@@ -27,6 +27,9 @@ internal sealed class TokenGenerator : ITokenGenerator
   #region Implementation of ITokenGenerator
 
   /// <inheritdoc />
+  public string NewBadgeToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
+
+  /// <inheritdoc />
   public string NewUploadToken() => UploadTokenPrefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
 
   #endregion

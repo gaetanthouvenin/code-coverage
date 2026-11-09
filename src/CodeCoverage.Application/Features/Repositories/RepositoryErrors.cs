@@ -17,5 +17,8 @@ public static class RepositoryErrors
   /// </summary>
   public const string NotFound = "Repository.NotFound";
 
+  /// <summary>The repository is known and its coverage is not tracked.</summary>
+  public const string Inactive = "Repository.Inactive";
+
   #endregion
 }

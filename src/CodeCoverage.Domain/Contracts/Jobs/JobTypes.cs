@@ -32,5 +32,8 @@ public static class JobTypes
   /// <summary>Handles a webhook delivery of GitHub that was stored at its reception.</summary>
   public const string HandleWebhook = "HandleWebhook";
 
+  /// <summary>Parses an upload that was stored at its reception.</summary>
+  public const string ProcessUpload = "ProcessUpload";
+
   #endregion
 }

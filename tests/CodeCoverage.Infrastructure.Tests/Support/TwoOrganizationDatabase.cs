@@ -42,6 +42,8 @@ public sealed class TwoOrganizationDatabase
 
   #region Properties
 
+  public string ConnectionString => _connectionString;
+
   public long FirstId { get; }
 
   public long SecondId { get; }

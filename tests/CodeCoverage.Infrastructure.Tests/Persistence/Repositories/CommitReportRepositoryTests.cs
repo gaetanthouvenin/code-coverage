@@ -84,6 +84,67 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryAddReceivedUpload_ShouldEnqueueInSameTransaction(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await using var context = seed.Organizations.ContextOf(first);
+    var repository = Repository(context, first);
+    var upload = Received(seed.FirstCommit, "key");
+
+    await Should.ThrowAsync<InvalidOperationException>(
+      () => repository.TryAddReceivedUploadAsync(upload, JobRequest.ForOrganization(seed.Organizations.SecondId, "ProcessUpload", "{}"), Ct)
+    );
+
+    await using (var empty = seed.Organizations.ContextOf(first))
+    {
+      (await empty.Uploads.CountAsync(Ct)).ShouldBe(0);
+    }
+
+    (await JobCountAsync(seed)).ShouldBe(0);
+
+    (await repository.TryAddReceivedUploadAsync(Received(seed.FirstCommit, "key"), JobRequest.Create("ProcessUpload", "{}"), Ct)).ShouldBeTrue();
+
+    (await JobCountAsync(seed)).ShouldBe(1);
+    (await _wakeUpSignal.WaitAsync(TimeSpan.Zero, Ct)).ShouldBeTrue();
+  }
+
+  // Each call inserts first, whatever the other does: the second to commit always meets the unique index.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryAddReceivedUpload_ConcurrentReplays_ShouldAddOneAndQueueOneJob(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+
+    var added = await Task.WhenAll(
+                  Enumerable.Range(0, 2).Select(async _ =>
+                    {
+                      await using var context = seed.Organizations.ContextOf(first);
+
+                      return await Repository(context, first).TryAddReceivedUploadAsync(Received(seed.FirstCommit, "same"), JobRequest.Create("ProcessUpload", "{}"), Ct);
+                    })
+                );
+
+    added.Count(static result => result).ShouldBe(1);
+    (await JobCountAsync(seed)).ShouldBe(1);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryAddReceivedUpload_CommitOfOtherOrganization_ShouldThrowConflict(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var second = seed.Organizations.SecondId;
+    await using var context = seed.Organizations.ContextOf(second);
+
+    await Should.ThrowAsync<ConflictException>(
+      () => Repository(context, second).TryAddReceivedUploadAsync(Received(seed.FirstCommit, "key"), JobRequest.Create("ProcessUpload", "{}"), Ct)
+    );
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task SaveProcessedUpload_Again_ShouldReplaceTheBlob(DatabaseProvider provider)
   {
     var seed = await SeededAsync(provider);
@@ -377,6 +438,9 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
     return upload.Id;
   }
+
+  private static Upload Received(long commitId, string key) =>
+    Upload.Receive(commitId, 1, key, [], null, null, null, null, null, null, null, null, PrincipalKind.OrganizationToken, Now);
 
   private CommitReportRepository Repository(CodeCoverageDbContext context, long organizationId)
   {

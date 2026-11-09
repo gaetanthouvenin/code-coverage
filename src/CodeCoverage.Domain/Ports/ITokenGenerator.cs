@@ -15,5 +15,9 @@ public interface ITokenGenerator
   /// <returns>The value in clear: <c>cvc_</c> followed by 43 base64url characters.</returns>
   string NewUploadToken();
 
+  /// <summary>Generates the value of a badge token.</summary>
+  /// <returns>The value in clear: 43 base64url characters.</returns>
+  string NewBadgeToken();
+
   #endregion
 }

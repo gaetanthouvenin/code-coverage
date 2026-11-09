@@ -35,6 +35,18 @@ public static class UploadErrors
   /// <summary>The content of the upload exceeds a limit.</summary>
   public const string TooLarge = "Upload.TooLarge";
 
+  /// <summary>A text field of the upload is not valid.</summary>
+  public const string InvalidMetadata = "Upload.InvalidMetadata";
+
+  /// <summary>The upload holds no report.</summary>
+  public const string NoReport = "Upload.NoReport";
+
+  /// <summary>The upload holds more reports than allowed.</summary>
+  public const string TooManyFiles = "Upload.TooManyFiles";
+
+  /// <summary>A part of the upload cannot be stored: a name too long, a corrupted gzip, or a second network part.</summary>
+  public const string InvalidPart = "Upload.InvalidPart";
+
   /// <summary>The repository is not written <c>owner/name</c>.</summary>
   public const string InvalidSlug = "Upload.InvalidSlug";
 

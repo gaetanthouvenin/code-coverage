@@ -13,6 +13,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Persistence.Configurations;
 using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Jobs;
 
@@ -103,6 +104,53 @@ internal sealed class CommitReportRepository(
 
     // Committed: a worker of this process may claim the job at once instead of at its next poll.
     wakeUpSignal.Notify(jobId);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ConflictException">The commit cannot be read.</exception>
+  public async Task<bool> TryAddReceivedUploadAsync(Upload upload, JobRequest job, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(upload);
+    ArgumentNullException.ThrowIfNull(job);
+
+    // The unique index does not hold the organization: a row for the commit of another organization would take its key.
+    var commitId = upload.CommitId;
+
+    if (!await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false))
+    {
+      throw new ConflictException(GeneralErrors.ConcurrentChange, "The commit was changed or removed in the meantime; reload it and try again.");
+    }
+
+    long jobId;
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      context.Uploads.Add(upload);
+
+      try
+      {
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        jobId = await jobQueue.EnqueueInTransactionAsync(context, job, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, UploadConfiguration.IdempotencyIndexName))
+      {
+        context.Entry(upload).State = EntityState.Detached;
+
+        return false;
+      }
+      catch
+      {
+        context.Entry(upload).State = EntityState.Detached;
+
+        throw;
+      }
+    }
+
+    wakeUpSignal.Notify(jobId);
+
+    return true;
   }
 
   /// <inheritdoc />

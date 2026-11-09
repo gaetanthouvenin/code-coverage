@@ -58,6 +58,20 @@ public interface ICommitRepository
   /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
   Task UpdateAsync(Commit commit, CancellationToken cancellationToken);
 
+  /// <summary>Saves the reception of an upload, set by <see cref="Commit.MarkPending" /> on a commit read in this scope.</summary>
+  /// <param name="commit">The commit.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the reception is saved.</returns>
+  /// <remarks>
+  ///   One atomic statement, with no concurrency check: a finalization saved since the read neither refuses it nor is
+  ///   undone by it. A <see cref="CommitState.Known" /> row becomes <see cref="CommitState.Pending" />, the branch and the
+  ///   pull request are kept when the row has none, and the dates of the upload are written. Refused as a conflict
+  ///   (<c>General.ConcurrentChange</c>) when the row disappeared.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="commit" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
+  Task SavePendingAsync(Commit commit, CancellationToken cancellationToken);
+
   /// <summary>Hands out the next session number of a commit, starting at 1.</summary>
   /// <param name="commitId">The identifier of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
