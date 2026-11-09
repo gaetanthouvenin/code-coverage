@@ -1,0 +1,431 @@
+// ------------------------------------------------------------------------------------------------
+// <copyright file="GitHubAppGateway.cs" company="Gaëtan Thouvenin">
+//   Copyright (c) Gaëtan Thouvenin. All rights reserved.
+// </copyright>
+// ------------------------------------------------------------------------------------------------
+
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+
+using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.GitHub.Models;
+
+namespace CodeCoverage.Infrastructure.GitHub;
+
+/// <summary>The readings of GitHub, through its REST API and the GitHub App.</summary>
+/// <param name="client">The <c>github</c> client, whose pipeline adds the API version and handles the rate limits.</param>
+/// <param name="tokens">The authentication of the server against GitHub.</param>
+/// <remarks>
+///   A tracked repository is read by its identifier, through <c>/repositories/{id}</c>, so a renaming never breaks a
+///   reading; only the search of a repository that is not tracked yet goes by owner and name. A refusal other than the
+///   absence of what was asked for is an answer no caller can use: it surfaces as a <see cref="BadGatewayException" />.
+/// </remarks>
+internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens) : IForgeGateway
+{
+  #region Fields
+
+  private const string RawMediaType = "application/vnd.github.raw+json";
+
+  /// <summary>The refusal of a resource that does not exist.</summary>
+  private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
+
+  /// <summary>
+  ///   The refusals of a git object that cannot be read: unknown (404 or 422), or in a repository that is still empty
+  ///   (409).
+  /// </summary>
+  private static readonly HttpStatusCode[] NoSuchGitObject =
+  [
+    HttpStatusCode.NotFound,
+    HttpStatusCode.Conflict,
+    HttpStatusCode.UnprocessableEntity,
+  ];
+
+  #endregion
+
+  #region Methods
+
+  /// <inheritdoc />
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  /// <remarks>GitHub reports the installation without the repository, hence a second reading with the installation token.</remarks>
+  public async Task<ForgeConnectionInfo?> GetRepositoryConnectionAsync(
+    string owner,
+    string name,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(owner);
+    ArgumentNullException.ThrowIfNull(name);
+
+    if (!IsPathSegment(owner) || !IsPathSegment(name))
+    {
+      return null;
+    }
+
+    var path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
+
+    var installation = await ReadAsAppAsync($"{path}/installation", cancellationToken).ConfigureAwait(false);
+
+    if (installation is null)
+    {
+      return null;
+    }
+
+    return await GetAsync(
+             installation.Id,
+             path,
+             GitHubJsonContext.Default.GitHubRepositoryResponse,
+             NotFound,
+             installation.ToForgeConnection,
+             cancellationToken
+           ).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public Task<ForgeRepositoryInfo?> GetRepositoryAsync(ForgeRepositoryRef repository, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+
+    var (installationId, root) = Locate(repository);
+
+    return GetAsync(
+      installationId,
+      root,
+      GitHubJsonContext.Default.GitHubRepositoryResponse,
+      NotFound,
+      GitHubGatewayMapper.ToForgeRepository,
+      cancellationToken
+    );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<IReadOnlyList<ForgeCommitInfo>> ListCommitsAsync(
+    ForgeRepositoryRef repository,
+    GitSha sha,
+    int perPage,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(sha);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(perPage);
+
+    var (installationId, root) = Locate(repository);
+
+    var commits = await GetAsync<IReadOnlyList<GitHubCommitResponse>, IReadOnlyList<ForgeCommitInfo>>(
+                    installationId,
+                    string.Create(CultureInfo.InvariantCulture, $"{root}/commits?sha={sha.Value}&per_page={perPage}"),
+                    GitHubJsonContext.Default.IReadOnlyListGitHubCommitResponse,
+                    NoSuchGitObject,
+                    static list => [.. list.Select(GitHubGatewayMapper.ToForgeCommit)],
+                    cancellationToken
+                  ).ConfigureAwait(false);
+
+    return commits ?? [];
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public Task<ForgeCommitInfo?> GetCommitAsync(ForgeRepositoryRef repository, GitSha sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(sha);
+
+    var (installationId, root) = Locate(repository);
+
+    return GetAsync(
+      installationId,
+      $"{root}/commits/{sha.Value}",
+      GitHubJsonContext.Default.GitHubCommitResponse,
+      NoSuchGitObject,
+      GitHubGatewayMapper.ToForgeCommit,
+      cancellationToken
+    );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public Task<ForgeCompareResult?> CompareAsync(
+    ForgeRepositoryRef repository,
+    GitSha baseSha,
+    GitSha headSha,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(baseSha);
+    ArgumentNullException.ThrowIfNull(headSha);
+
+    var (installationId, root) = Locate(repository);
+
+    return GetAsync(
+      installationId,
+      $"{root}/compare/{baseSha.Value}...{headSha.Value}",
+      GitHubJsonContext.Default.GitHubCompareResponse,
+      NoSuchGitObject,
+      GitHubGatewayMapper.ToForgeCompare,
+      cancellationToken
+    );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public Task<ForgePullInfo?> GetPullAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+
+    var (installationId, root) = Locate(repository);
+
+    return GetAsync(
+      installationId,
+      string.Create(CultureInfo.InvariantCulture, $"{root}/pulls/{number}"),
+      GitHubJsonContext.Default.GitHubPullResponse,
+      NotFound,
+      GitHubGatewayMapper.ToForgePull,
+      cancellationToken
+    );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public Task<ForgeTree?> GetTreeAsync(
+    ForgeRepositoryRef repository,
+    GitSha sha,
+    bool recursive,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(sha);
+
+    var (installationId, root) = Locate(repository);
+
+    return GetAsync(
+      installationId,
+      $"{root}/git/trees/{sha.Value}{(recursive ? "?recursive=1" : string.Empty)}",
+      GitHubJsonContext.Default.GitHubTreeResponse,
+      NoSuchGitObject,
+      tree => tree.ToForgeTree(sha),
+      cancellationToken
+    );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<string?> GetContentAsync(
+    ForgeRepositoryRef repository,
+    string path,
+    GitSha sha,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(path);
+    ArgumentNullException.ThrowIfNull(sha);
+
+    var (installationId, root) = Locate(repository);
+    var segments = path.Split('/');
+
+    if (!Array.TrueForAll(segments, IsPathSegment))
+    {
+      return null;
+    }
+
+    var address = $"{root}/contents/{string.Join('/', segments.Select(Uri.EscapeDataString))}?ref={sha.Value}";
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(RawMediaType));
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return IsAbsent(response, address, NotFound)
+             ? null
+             : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Tells whether a text can stand for one level of an address without moving to another one.</summary>
+  /// <param name="value">The text, which comes from outside.</param>
+  /// <returns>
+  ///   <see langword="false" /> when empty, or for <c>.</c> and <c>..</c>, which no git object or GitHub account is
+  ///   named and which would otherwise lead the request to another endpoint of the API.
+  /// </returns>
+  private static bool IsPathSegment(string value) => value is not ("" or "." or "..");
+
+  /// <summary>Reads the address of a repository.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <returns>The installation that serves it and the root of its routes.</returns>
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  private static (long InstallationId, string Root) Locate(ForgeRepositoryRef repository)
+  {
+    ArgumentException.ThrowIf(repository.Forge is not Forge.GitHub, "The repository is not on GitHub.", nameof(repository));
+
+    ArgumentException.ThrowIf(
+      !long.TryParse(repository.ConnectionId, NumberStyles.None, CultureInfo.InvariantCulture, out var installationId),
+      "The connection of a GitHub repository is the numeric identifier of an installation.",
+      nameof(repository)
+    );
+
+    ArgumentException.ThrowIf(
+      !long.TryParse(repository.ExternalId, NumberStyles.None, CultureInfo.InvariantCulture, out var repositoryId),
+      "The identifier of a GitHub repository is numeric.",
+      nameof(repository)
+    );
+
+    return (installationId, string.Create(CultureInfo.InvariantCulture, $"repositories/{repositoryId}"));
+  }
+
+  /// <summary>Tells whether a response says that what was asked for does not exist.</summary>
+  /// <param name="response">The response.</param>
+  /// <param name="address">The relative address that was read.</param>
+  /// <param name="absent">The refusals that mean the absence of the resource.</param>
+  /// <returns><see langword="true" /> for such a refusal; <see langword="false" /> for a success.</returns>
+  /// <exception cref="BadGatewayException">GitHub refused the reading for another reason.</exception>
+  private static bool IsAbsent(HttpResponseMessage response, string address, HttpStatusCode[] absent)
+  {
+    if (response.IsSuccessStatusCode)
+    {
+      return false;
+    }
+
+    if (Array.IndexOf(absent, response.StatusCode) >= 0)
+    {
+      return true;
+    }
+
+    throw new BadGatewayException(
+      GitHubErrors.Unavailable,
+      string.Create(CultureInfo.InvariantCulture, $"GitHub refused the reading of '{address}': HTTP {(int)response.StatusCode}.")
+    );
+  }
+
+  /// <summary>Reads and converts the payload of a response.</summary>
+  /// <typeparam name="TModel">The type of the payload.</typeparam>
+  /// <typeparam name="TResult">The type of the result.</typeparam>
+  /// <param name="response">The response.</param>
+  /// <param name="address">The relative address that was read.</param>
+  /// <param name="type">The serialization of the payload.</param>
+  /// <param name="absent">The refusals that mean the absence of the resource.</param>
+  /// <param name="map">The conversion of the payload.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The result, or <see langword="null" /> when the resource does not exist.</returns>
+  /// <exception cref="BadGatewayException">GitHub refused the reading or answered with an unreadable payload.</exception>
+  private static async Task<TResult?> ReadAsync<TModel, TResult>(
+    HttpResponseMessage response,
+    string address,
+    JsonTypeInfo<TModel> type,
+    HttpStatusCode[] absent,
+    Func<TModel, TResult> map,
+    CancellationToken cancellationToken)
+    where TModel : class
+    where TResult : class
+  {
+    if (IsAbsent(response, address, absent))
+    {
+      return null;
+    }
+
+    try
+    {
+      var model = await response.Content.ReadFromJsonAsync(type, cancellationToken).ConfigureAwait(false)
+                  ?? throw new JsonException("The payload is empty.");
+
+      return map(model);
+    }
+    catch (JsonException exception)
+    {
+      throw new BadGatewayException(
+        GitHubErrors.Unavailable,
+        $"GitHub answered the reading of '{address}' with an unreadable payload.",
+        exception
+      );
+    }
+  }
+
+  /// <summary>Creates a reading authenticated by the token of an installation.</summary>
+  /// <param name="installationId">The installation.</param>
+  /// <param name="address">The relative address to read.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>The request, which also names the installation whose quota it consumes.</returns>
+  private async Task<HttpRequestMessage> CreateRequestAsync(
+    long installationId,
+    string address,
+    CancellationToken cancellationToken)
+  {
+    var token = await tokens.GetInstallationTokenAsync(installationId, cancellationToken).ConfigureAwait(false);
+
+    var request = new HttpRequestMessage(HttpMethod.Get, new Uri(address, UriKind.Relative));
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    request.Options.Set(RateLimitHandler.InstallationId, installationId);
+
+    return request;
+  }
+
+  /// <summary>Reads a resource with the token of an installation.</summary>
+  /// <typeparam name="TModel">The type of the payload.</typeparam>
+  /// <typeparam name="TResult">The type of the result.</typeparam>
+  /// <param name="installationId">The installation.</param>
+  /// <param name="address">The relative address to read.</param>
+  /// <param name="type">The serialization of the payload.</param>
+  /// <param name="absent">The refusals that mean the absence of the resource.</param>
+  /// <param name="map">The conversion of the payload.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The result, or <see langword="null" /> when the resource does not exist.</returns>
+  private async Task<TResult?> GetAsync<TModel, TResult>(
+    long installationId,
+    string address,
+    JsonTypeInfo<TModel> type,
+    HttpStatusCode[] absent,
+    Func<TModel, TResult> map,
+    CancellationToken cancellationToken)
+    where TModel : class
+    where TResult : class
+  {
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(response, address, type, absent, map, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Finds the installation of a repository, authenticated as the App itself.</summary>
+  /// <param name="address">The relative address to read.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The installation, or <see langword="null" /> when the App is not installed on the repository.</returns>
+  private async Task<GitHubInstallationResponse?> ReadAsAppAsync(string address, CancellationToken cancellationToken)
+  {
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(address, UriKind.Relative));
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokens.CreateAppJwt());
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(
+             response,
+             address,
+             GitHubJsonContext.Default.GitHubInstallationResponse,
+             NotFound,
+             static installation => installation,
+             cancellationToken
+           ).ConfigureAwait(false);
+  }
+
+  #endregion
+}

@@ -11,6 +11,20 @@ using CodeCoverage.Infrastructure.GitHub.Models;
 namespace CodeCoverage.Infrastructure.GitHub;
 
 /// <summary>The source-generated serialization of the payloads of the GitHub API, in <c>snake_case</c>.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+/// <remarks>
+///   A missing or <see langword="null" /> field that a model declares as required makes the reading fail, so an
+///   unexpected payload surfaces as an unreadable answer and never as a half-filled record.
+/// </remarks>
+[JsonSourceGenerationOptions(
+  PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+  RespectNullableAnnotations = true,
+  RespectRequiredConstructorParameters = true)]
+[JsonSerializable(typeof(GitHubCommitResponse))]
+[JsonSerializable(typeof(GitHubCompareResponse))]
+[JsonSerializable(typeof(GitHubInstallationResponse))]
 [JsonSerializable(typeof(GitHubInstallationTokenResponse))]
+[JsonSerializable(typeof(GitHubPullResponse))]
+[JsonSerializable(typeof(GitHubRepositoryResponse))]
+[JsonSerializable(typeof(GitHubTreeResponse))]
+[JsonSerializable(typeof(IReadOnlyList<GitHubCommitResponse>))]
 internal sealed partial class GitHubJsonContext : JsonSerializerContext;

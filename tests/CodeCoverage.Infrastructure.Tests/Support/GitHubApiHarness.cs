@@ -85,6 +85,8 @@ internal sealed class GitHubApiHarness : IDisposable
 
   public GitHubAppTokenProvider TokenProvider => _services.GetRequiredService<GitHubAppTokenProvider>();
 
+  public GitHubAppGateway Gateway => _services.GetRequiredService<GitHubAppGateway>();
+
   #endregion
 
   #region Methods
