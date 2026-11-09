@@ -96,6 +96,9 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<ITokenGenerator>());
     services.AddScoped(_ => A.Fake<ITokenHasher>());
     services.AddScoped(_ => A.Fake<IClock>());
+    services.AddScoped(_ => A.Fake<IGitCommitRepository>());
+    services.AddScoped(_ => A.Fake<IRepositoryTreeRepository>());
+    services.AddScoped(_ => A.Fake<IForgeGatewayProvider>());
     services.AddApplication();
     services.AddScoped<IValidator<PingQuery>>(sp => new TracingPingQueryValidator(
                                                 sp.GetRequiredService<PipelineTrace>(),
