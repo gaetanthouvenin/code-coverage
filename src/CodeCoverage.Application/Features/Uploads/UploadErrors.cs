@@ -35,6 +35,9 @@ public static class UploadErrors
   /// <summary>The content of the upload exceeds a limit.</summary>
   public const string TooLarge = "Upload.TooLarge";
 
+  /// <summary>The upload does not exist, or this credential cannot read it: these cases are never told apart.</summary>
+  public const string NotFound = "Upload.NotFound";
+
   /// <summary>Too many uploads were sent for this repository with this credential.</summary>
   public const string RateLimited = "Upload.RateLimited";
 

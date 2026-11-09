@@ -116,6 +116,25 @@ public sealed record RepositorySlug
     return slug;
   }
 
+  /// <summary>Tries to read a slug from the two segments of an address (ADR-014).</summary>
+  /// <param name="owner">The owner segment: the account, then its levels separated by <c>:</c>.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="slug">The slug, when the segments name a repository.</param>
+  /// <returns><see langword="true" /> when the segments name a repository.</returns>
+  public static bool TryFromAddress(string? owner, string? name, [NotNullWhen(true)] out RepositorySlug? slug)
+  {
+    slug = null;
+
+    if (owner is null || name is null)
+    {
+      return false;
+    }
+
+    var levels = owner.Split(':', 2);
+
+    return TryCreate(levels[0], levels.Length == 1 ? string.Empty : levels[1].Replace(':', PathSeparator), name, out slug);
+  }
+
   /// <summary>Tries to read a slug in one of its written forms.</summary>
   /// <param name="value">The text to read, or <see langword="null" />.</param>
   /// <param name="slug">The slug, or <see langword="null" /> when the text is not one.</param>
