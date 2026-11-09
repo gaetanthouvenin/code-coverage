@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\CodeCoverage.Uploader\CodeCoverage.Uploader.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\fixtures\ci-env\**\*" LinkBase="fixtures\ci-env" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
