@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
@@ -82,8 +83,14 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the branches of the tracked repositories (<c>Branches</c>).</summary>
   public DbSet<Branch> Branches => Set<Branch>();
 
+  /// <summary>Gets the commits of the tracked repositories (<c>Commits</c>).</summary>
+  public DbSet<Commit> Commits => Set<Commit>();
+
   /// <inheritdoc />
   public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
+  /// <summary>Gets the cache of the commit metadata read from the forges (<c>GitCommits</c>).</summary>
+  public DbSet<GitCommit> GitCommits => Set<GitCommit>();
 
   /// <summary>Gets the installations of the GitHub App (<c>Installations</c>).</summary>
   public DbSet<Installation> Installations => Set<Installation>();
@@ -105,6 +112,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the single row of the settings revision (<c>SettingsRevision</c>).</summary>
   internal DbSet<SettingsRevisionRow> SettingsRevisions => Set<SettingsRevisionRow>();
+
+  /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
+  public DbSet<Upload> Uploads => Set<Upload>();
 
   /// <summary>Gets the identifier of the organization of the scope, read by the query filter and by the save.</summary>
   /// <exception cref="InvalidOperationException">The scope has not entered an organization.</exception>

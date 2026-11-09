@@ -56,5 +56,21 @@ public static class RepositorySeeder
     return repository.Id;
   }
 
+  public static async Task<BranchSeed> AddRepositoriesAsync(
+    DatabaseFixture database,
+    DatabaseProvider provider,
+    CancellationToken cancellationToken)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, cancellationToken);
+    await AddInstallationsAsync(organizations, cancellationToken);
+
+    await using var first = organizations.ContextOf(organizations.FirstId);
+    await using var second = organizations.ContextOf(organizations.SecondId);
+    var firstRepository = await AddRepositoryAsync(first, FirstInstallation, "1", "first-org/repo", cancellationToken);
+    var secondRepository = await AddRepositoryAsync(second, SecondInstallation, "2", "second-org/repo", cancellationToken);
+
+    return new BranchSeed(organizations, firstRepository, secondRepository);
+  }
+
   #endregion
 }
