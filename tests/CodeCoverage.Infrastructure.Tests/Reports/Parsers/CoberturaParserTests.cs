@@ -57,7 +57,7 @@ public sealed class CoberturaParserTests
   }
 
   [Fact]
-  public async Task Parse_ShouldIgnoreMethodsSubtrees()
+  public async Task Parse_MethodsSubtrees_ShouldCountTheirLines()
   {
     var lines = await ParseLinesAsync(
       """
@@ -74,7 +74,45 @@ public sealed class CoberturaParserTests
       </lines>
       """);
 
-    lines.ShouldBe([new LineCoverage(2, 1, 0, 0, false, null)]);
+    lines.ShouldBe(
+    [
+      new LineCoverage(1, 9, 0, 0, false, null),
+      new LineCoverage(2, 9, 0, 0, false, null),
+    ]);
+  }
+
+  // The shape of Istanbul: a function declaration, without branch data, in the methods element.
+  [Theory]
+  [InlineData(1, 2)]
+  [InlineData(0, 1)]
+  public async Task Parse_FunctionDeclarationOnBranchLine_ShouldFollowTheMerge(int functionHits, int expectedCovered)
+  {
+    var lines = await ParseLinesAsync(
+      $"""
+      <methods><method name="(anonymous_0)" hits="{functionHits}" signature="()V"><lines><line number="3" hits="{functionHits}" /></lines></method></methods>
+      <lines><line number="3" hits="1" branch="true" condition-coverage="50% (1/2)" /></lines>
+      """);
+
+    lines.ShouldBe([new LineCoverage(3, 1, expectedCovered, 2, false, null)]);
+  }
+
+  // Codecov reads such a line twice and recounts it from the branches it misses: 1/4 becomes 2/4.
+  [Fact]
+  public async Task Parse_LineRepeatedInMethods_ShouldRecountFromMissingBranches()
+  {
+    const string Line =
+      """
+      <line number="5" hits="1" branch="True" condition-coverage="25% (1/4)">
+        <conditions>
+          <condition number="0" type="jump" coverage="50%" />
+          <condition number="1" type="jump" coverage="0%" />
+        </conditions>
+      </line>
+      """;
+
+    var lines = await ParseLinesAsync($"<methods><method><lines>{Line}</lines></method></methods><lines>{Line}</lines>");
+
+    lines.ShouldBe([new LineCoverage(5, 1, 2, 4, false, ["0:jump", "1:jump"])]);
   }
 
   [Fact]
@@ -314,7 +352,7 @@ public sealed class CoberturaParserTests
   }
 
   [Fact]
-  public async Task Parse_MinifiedReport_ShouldNotMissTheNodeAfterSkippedElement()
+  public async Task Parse_MinifiedReport_ShouldReadEachLine()
   {
     var lines = await ParseLinesAsync("""<methods /><lines><line number="1" hits="1"><conditions /></line><line number="2" hits="1" /></lines>""");
 

@@ -19,10 +19,9 @@ namespace CodeCoverage.Infrastructure.Reports.Parsers;
 ///   valid number on a line or without valid hits on a plain line makes the parsing fail with a
 ///   <see cref="FormatException" />, and malformed XML with an <see cref="XmlException" />.
 ///   The <c>max_report_age</c> rule and the <c>parsers.cobertura</c> options are not applied here,
-///   the parser receiving only the content of the report. Difference with Codecov: only the lines
-///   of a class count, whereas Codecov also reads those of its <c>methods</c> element; the two
-///   agree on the reports of coverlet and ReportGenerator, not on those of Istanbul, whose function
-///   declarations are only listed there.
+///   the parser receiving only the content of the report. As in Codecov, every line of a class
+///   counts, those of its <c>methods</c> element included: coverlet repeats them in the class, which
+///   the merge absorbs, and Istanbul writes its function declarations nowhere else.
 /// </remarks>
 internal sealed partial class CoberturaParser : IReportParser
 {
@@ -71,11 +70,7 @@ internal sealed partial class CoberturaParser : IReportParser
     {
       cancellationToken.ThrowIfCancellationRequested();
 
-      if (reader is { NodeType: XmlNodeType.Element, LocalName: "methods" })
-      {
-        await reader.SkipAsync().ConfigureAwait(false);
-      }
-      else if (reader is { NodeType: XmlNodeType.Element, LocalName: "line" })
+      if (reader is { NodeType: XmlNodeType.Element, LocalName: "line" })
       {
         if (await ReadLineAsync(reader).ConfigureAwait(false) is { } line)
         {
