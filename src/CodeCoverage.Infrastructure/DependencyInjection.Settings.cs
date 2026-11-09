@@ -28,6 +28,7 @@ public static partial class DependencyInjection
   {
     services.AddOptions<CoverageOptions>().BindConfiguration(CoverageOptions.SectionName).ValidateOnStart();
     services.AddOptions<UploadOptions>().BindConfiguration(UploadOptions.SectionName).ValidateOnStart();
+    services.AddOptions<UrlOptions>().BindConfiguration(UrlOptions.SectionName).ValidateOnStart();
     services.AddOptions<ProcessingOptions>().BindConfiguration(ProcessingOptions.SectionName).ValidateOnStart();
     services.AddOptions<NotificationOptions>().BindConfiguration(NotificationOptions.SectionName).ValidateOnStart();
     services.AddOptions<AccessOptions>().BindConfiguration(AccessOptions.SectionName).ValidateOnStart();

@@ -10,6 +10,7 @@ using CodeCoverage.Api.Configuration;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.Identity;
 using CodeCoverage.Api.Configuration.RateLimiting;
+using CodeCoverage.Api.Configuration.Uploads;
 using CodeCoverage.Api.Configuration.Security;
 using CodeCoverage.Application;
 using CodeCoverage.Infrastructure;
@@ -54,6 +55,7 @@ try
   builder.Services.AddForwardedHeaders(builder.Configuration);
   builder.Services.AddHealthProbes();
   builder.Services.AddValidateRateLimiter();
+  builder.Services.AddUploadRateLimiter();
   builder.Services.AddProblemDetails();
   builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
@@ -65,6 +67,7 @@ try
 
   // The refusals of the Application become problem details; a bug becomes a 500 without detail.
   app.UseExceptionHandler();
+  app.UseMiddleware<RequestBodyLimitMiddleware>();
 
   // The documentation is disabled in Production unless Features:EnableApiDocs is true.
   var enableDocs = app.IsApiDocumentationEnabled();

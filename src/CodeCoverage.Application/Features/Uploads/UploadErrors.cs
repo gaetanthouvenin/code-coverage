@@ -35,6 +35,9 @@ public static class UploadErrors
   /// <summary>The content of the upload exceeds a limit.</summary>
   public const string TooLarge = "Upload.TooLarge";
 
+  /// <summary>Too many uploads were sent for this repository with this credential.</summary>
+  public const string RateLimited = "Upload.RateLimited";
+
   /// <summary>A text field of the upload is not valid.</summary>
   public const string InvalidMetadata = "Upload.InvalidMetadata";
 
