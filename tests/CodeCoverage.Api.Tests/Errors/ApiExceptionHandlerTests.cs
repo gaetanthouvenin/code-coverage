@@ -50,6 +50,16 @@ public sealed class ApiExceptionHandlerTests(CodeCoverageApiFactory factory)
   }
 
   [Fact]
+  public async Task Get_WhenTheServerRefusesTheBody_ShouldReturnItsStatus()
+  {
+    var (response, problem) = await GetProblemAsync("body-too-large");
+
+    response.StatusCode.ShouldBe(HttpStatusCode.RequestEntityTooLarge);
+    problem.GetProperty("status").GetInt32().ShouldBe(413);
+    problem.TryGetProperty("detail", out _).ShouldBeFalse();
+  }
+
+  [Fact]
   public async Task Get_WhenBug_ShouldReturn500WithoutDetail()
   {
     using var client = factory.CreateClient();

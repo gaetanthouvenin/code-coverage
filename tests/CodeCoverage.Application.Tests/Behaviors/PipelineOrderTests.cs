@@ -90,6 +90,7 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<IAuditLog>());
     services.AddScoped(_ => A.Fake<ISecretProtector>());
     services.AddScoped(_ => A.Fake<ISettingsStore>());
+    services.AddScoped(_ => A.Fake<ICoverageConfigParser>());
     services.AddApplication();
     services.AddScoped<IValidator<PingQuery>>(sp => new TracingPingQueryValidator(
                                                 sp.GetRequiredService<PipelineTrace>(),

@@ -6,6 +6,7 @@
 
 using FluentValidation.Results;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 using CodeCoverage.Application.Exceptions;
@@ -47,6 +48,7 @@ public sealed class ThrowingController : ControllerBase
       "unprocessable" => new UnprocessableEntityException("Test.Unprocessable", "The rule refuses it."),
       "bad-gateway" => new BadGatewayException("GitHub.Unavailable", "GitHub cannot answer."),
       "retry-later" => new RetryLaterException(TimeSpan.FromSeconds(30), "Internal to the worker."),
+      "body-too-large" => new BadHttpRequestException("Too large.", StatusCodes.Status413PayloadTooLarge),
       var _ => new InvalidOperationException(BugMessage),
     };
   }

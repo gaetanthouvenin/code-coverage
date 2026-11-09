@@ -58,6 +58,9 @@ internal sealed class ApiExceptionHandler(
       UnprocessableEntityException => (StatusCodes.Status422UnprocessableEntity, "Unprocessable entity"),
       BadGatewayException => (StatusCodes.Status502BadGateway, "External service unavailable"),
       ApplicationException => (StatusCodes.Status400BadRequest, "Bad request"),
+
+      // Refused by the server while the body is read, such as 413 beyond its size limit.
+      BadHttpRequestException refused => (refused.StatusCode, "Bad request"),
       var _ => (StatusCodes.Status500InternalServerError, "Internal server error"),
     };
 

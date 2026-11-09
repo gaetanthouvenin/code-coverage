@@ -9,6 +9,7 @@ using Serilog;
 using CodeCoverage.Api.Configuration;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.Identity;
+using CodeCoverage.Api.Configuration.RateLimiting;
 using CodeCoverage.Api.Configuration.Security;
 using CodeCoverage.Application;
 using CodeCoverage.Infrastructure;
@@ -52,6 +53,7 @@ try
   builder.Services.AddApiDocumentation();
   builder.Services.AddForwardedHeaders(builder.Configuration);
   builder.Services.AddHealthProbes();
+  builder.Services.AddValidateRateLimiter();
   builder.Services.AddProblemDetails();
   builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
@@ -73,6 +75,7 @@ try
   }
 
   app.UseRouting();
+  app.UseRateLimiter();
 
   // Anonymous until the ApiToken scheme authenticates the request.
   app.UseMiddleware<HttpCurrentUserMiddleware>();
