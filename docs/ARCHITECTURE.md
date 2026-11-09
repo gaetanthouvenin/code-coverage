@@ -797,7 +797,7 @@ steps:
 **Organisation d'un job (ADR-013)** : chaque job appartient à une voie, choisie par la fabrique de son `JobRequest`.
 - `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle.
 - `JobRequest.ForInstance` reste hors de toute organisation : `Jobs.OrganizationId` est nul, et une lecture d'une table d'organisation y lève.
-- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée, vide à ce jour (`OrganizationIsolationTests`).
+- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`), qui ne contient à ce jour que la réception d'un webhook (`ReceiveWebhookCommandHandler`).
 - `SqlJobQueue` préfixe `LockKey` et `DedupKey` par la voie, `o{id}:` ou `i:`, en tête d'`EnqueueInTransactionAsync`. Une même clé métier dans deux voies ne fusionne ni ne sérialise. `KeyMaxLength` vaut 178 pour que la clé préfixée tienne dans la colonne de 200 caractères.
 - **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SweepPendingCommits`, `PurgeExpiredData`).
 

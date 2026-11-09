@@ -38,6 +38,14 @@ public sealed class GitHubOptions
   /// <value>The protected value, or <see langword="null" /> while the App is not created.</value>
   public string? PrivateKeyPem { get; set; }
 
+  /// <summary>Gets or sets the protected secret that signs the webhooks, never the plain text.</summary>
+  /// <value>The protected value, or <see langword="null" /> while the App is not created.</value>
+  public string? WebhookSecret { get; set; }
+
+  /// <summary>Gets or sets the protected secret that still signs the webhooks during a rotation.</summary>
+  /// <value>The protected value, or <see langword="null" /> outside a rotation.</value>
+  public string? WebhookSecretPrevious { get; set; }
+
   #endregion
 
   #region Methods

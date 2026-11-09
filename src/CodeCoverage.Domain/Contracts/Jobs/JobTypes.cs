@@ -29,5 +29,8 @@ public static class JobTypes
   /// </summary>
   public const string Ping = "Ping";
 
+  /// <summary>Handles a webhook delivery of GitHub that was stored at its reception.</summary>
+  public const string HandleWebhook = "HandleWebhook";
+
   #endregion
 }

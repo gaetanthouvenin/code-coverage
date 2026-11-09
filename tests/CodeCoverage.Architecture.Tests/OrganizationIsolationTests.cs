@@ -41,6 +41,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string AdminCommandLine = "src/CodeCoverage.Api/Configuration/Administration/AdminCommandLine.cs";
 
+  private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
+
   private const string SamplePath = Infrastructure + "Sample.cs";
 
   private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Preview);
@@ -89,6 +91,12 @@ public sealed partial class OrganizationIsolationTests
     (Registration, "OrganizationScope"),
   ];
 
+  private static readonly (string File, string Name)[] CrossOrganizationEnqueueAllowList =
+  [
+    // Runs before any scope enters an organization: the installation of the signed body names it (ADR-013).
+    (WebhookReception, "ForOrganization"),
+  ];
+
   // A key that omits the organization would serve one organization's value to another: each user is reviewed.
   private static readonly (string File, string Name)[] MemoryCacheAllowList =
   [
@@ -103,6 +111,7 @@ public sealed partial class OrganizationIsolationTests
   [
     (RawSql, RawSqlAllowList),
     (OrganizationEntry, OrganizationEntryAllowList),
+    (CrossOrganizationEnqueue, CrossOrganizationEnqueueAllowList),
     (ProcessWideCache, MemoryCacheAllowList),
   ];
 
@@ -150,7 +159,7 @@ public sealed partial class OrganizationIsolationTests
   [Fact]
   public void Source_ForOrganization_ShouldStayOnTheAllowList()
   {
-    ViolationsInSource(CrossOrganizationEnqueue, [])
+    ViolationsInSource(CrossOrganizationEnqueue, CrossOrganizationEnqueueAllowList)
       .ShouldBeEmpty("queuing for another organization by identifier is limited to named sources (ADR-013)");
   }
 

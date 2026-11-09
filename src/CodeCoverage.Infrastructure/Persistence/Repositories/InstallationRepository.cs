@@ -25,6 +25,15 @@ internal sealed class InstallationRepository(CodeCoverageDbContext context) : II
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<InstallationOwner?> FindOwnerAsync(long id, CancellationToken cancellationToken) =>
+    await context.Installations
+                 .AsNoTracking()
+                 .Where(i => i.Id == id)
+                 .Join(context.Organizations, static i => i.OrganizationId, static o => o.Id, static (_, o) => new InstallationOwner(o.Id, o.State))
+                 .SingleOrDefaultAsync(cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
   public async Task AddAsync(Installation installation, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(installation);
