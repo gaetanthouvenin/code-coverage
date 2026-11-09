@@ -17,7 +17,7 @@ public sealed record PathFixContext
   /// <summary>Gets the root directory sent by the uploader, if any.</summary>
   public string? Root { get; init; }
 
-  /// <summary>Gets the source directories declared by a Cobertura report.</summary>
+  /// <summary>Gets the source directories of the report (Cobertura, JaCoCo).</summary>
   public IReadOnlyList<string> SourceRoots { get; init; } = [];
 
   /// <summary>Gets the path of the report file in the upload, if known.</summary>
