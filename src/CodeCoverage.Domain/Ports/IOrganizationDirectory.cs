@@ -72,5 +72,21 @@ public interface IOrganizationDirectory
     OrganizationAccountType accountType,
     CancellationToken cancellationToken);
 
+  /// <summary>Applies a change to the organization of a forge account, saved at once.</summary>
+  /// <param name="forge">The forge of the account.</param>
+  /// <param name="externalAccountId">The identifier of the account, whatever its case.</param>
+  /// <param name="change">What changes in the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The organization as saved, or <see langword="null" /> when no such account exists.</returns>
+  /// <remarks>The change runs again on a fresh row when another save won the race.</remarks>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="externalAccountId" /> or <paramref name="change" /> is <see langword="null" />.
+  /// </exception>
+  Task<Organization?> ChangeAsync(
+    Forge forge,
+    string externalAccountId,
+    Action<Organization> change,
+    CancellationToken cancellationToken);
+
   #endregion
 }

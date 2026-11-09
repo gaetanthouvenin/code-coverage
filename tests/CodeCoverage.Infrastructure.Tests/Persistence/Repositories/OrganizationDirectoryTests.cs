@@ -56,6 +56,66 @@ public sealed class OrganizationDirectoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task Change_ShouldSaveAndStopTracking(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var directory = Directory(context);
+    await directory.UpsertFromForgeAsync(Forge.GitHub, FirstAccount, "octo", OrganizationAccountType.Organization, Ct);
+
+    var admitted = await directory.ChangeAsync(Forge.GitHub, FirstAccount, organization => organization.Admit("root", Now), Ct);
+
+    admitted.ShouldNotBeNull().State.ShouldBe(OrganizationState.Active);
+    context.ChangeTracker.Entries<Organization>().ShouldBeEmpty();
+    await using var reader = DatabaseFixture.CreateContext(provider, connection);
+    (await Directory(reader).FindByAccountIdAsync(Forge.GitHub, FirstAccount, Ct)).ShouldNotBeNull().AdmittedBy.ShouldBe("root");
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Change_UnknownAccount_ShouldReturnNull(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+
+    (await Directory(context).ChangeAsync(Forge.GitHub, FirstAccount, static _ => throw new InvalidOperationException(), Ct)).ShouldBeNull();
+  }
+
+  // The first attempt reads the row, then a concurrent save moves its version: the deterministic collision.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Change_LostRace_ShouldRunAgainOnTheFreshRow(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var directory = Directory(context);
+    await directory.UpsertFromForgeAsync(Forge.GitHub, FirstAccount, "octo", OrganizationAccountType.Organization, Ct);
+    var attempts = 0;
+
+    var suspended = await directory.ChangeAsync(
+                      Forge.GitHub,
+                      FirstAccount,
+                      organization =>
+                      {
+                        if (++attempts == 1)
+                        {
+                          using var rival = DatabaseFixture.CreateContext(provider, connection);
+                          rival.Organizations.Single().Rename("renamed", Now);
+                          rival.SaveChanges();
+                        }
+
+                        organization.Suspend(SuspensionReason.Administrator, Now);
+                      },
+                      Ct
+                    );
+
+    attempts.ShouldBe(2);
+    suspended.ShouldNotBeNull().Login.ShouldBe("renamed");
+    suspended.State.ShouldBe(OrganizationState.Suspended);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task FindByLogin_UnknownLogin_ShouldReturnNull(DatabaseProvider provider)
   {
     var connection = await MigratedDatabaseAsync(provider);

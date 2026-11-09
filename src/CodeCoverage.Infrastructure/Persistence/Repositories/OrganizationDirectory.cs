@@ -206,5 +206,49 @@ internal sealed class OrganizationDirectory(
     }
   }
 
+  /// <inheritdoc />
+  public async Task<Organization?> ChangeAsync(
+    Forge forge,
+    string externalAccountId,
+    Action<Organization> change,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(externalAccountId);
+    ArgumentNullException.ThrowIfNull(change);
+
+    var normalizedId = Organization.NormalizeExternalAccountId(externalAccountId);
+
+    for (var attempt = 1; ; attempt++)
+    {
+      try
+      {
+        var organization = await context.Organizations
+                                        .SingleOrDefaultAsync(
+                                          o => o.Forge == forge && o.ExternalAccountId == normalizedId,
+                                          cancellationToken
+                                        )
+                                        .ConfigureAwait(false);
+
+        if (organization is null)
+        {
+          return null;
+        }
+
+        change(organization);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return organization;
+      }
+      catch (DbUpdateConcurrencyException) when (attempt < MaxUpsertAttempts)
+      {
+        // Another save won: the next attempt reads what it wrote.
+      }
+      finally
+      {
+        DetachOrganizations();
+      }
+    }
+  }
+
   #endregion
 }
