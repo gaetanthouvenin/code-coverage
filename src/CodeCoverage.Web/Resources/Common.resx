@@ -32,7 +32,11 @@
   <data name="Nav_Repositories" xml:space="preserve"><value>Repositories</value></data>
   <data name="NotFound_Description" xml:space="preserve"><value>The address matches no page. Check the link, or start again from the repositories.</value></data>
   <data name="NotFound_Title" xml:space="preserve"><value>Page not found</value></data>
+  <data name="Organization.InvalidAccountId" xml:space="preserve"><value>The account identifier is required, and cannot be that long.</value></data>
+  <data name="Organization.InvalidLogin" xml:space="preserve"><value>This login is not one a forge can give.</value></data>
   <data name="Organization.NotFound" xml:space="preserve"><value>This organization does not exist, or you do not have access to it.</value></data>
+  <data name="Organization.NotPending" xml:space="preserve"><value>This organization was already admitted or is suspended.</value></data>
+  <data name="Organization.ReservedLogin" xml:space="preserve"><value>This login is a segment of the product's addresses: this account cannot be admitted.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
   <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>This value is already a token of this organization.</value></data>

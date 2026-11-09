@@ -88,6 +88,7 @@ public sealed class PipelineOrderTests
     // The ports the handlers need, provided by the Infrastructure in the hosts: ValidateOnBuild
     // resolves every handler.
     services.AddScoped(_ => A.Fake<IAuditLog>());
+    services.AddScoped(_ => A.Fake<IOrganizationDirectory>());
     services.AddScoped(_ => A.Fake<ISecretProtector>());
     services.AddScoped(_ => A.Fake<ISettingsStore>());
     services.AddScoped(_ => A.Fake<ICoverageConfigParser>());

@@ -104,7 +104,7 @@ public sealed partial class OrganizationIsolationTests
     (TokenProvider, "IMemoryCache"),
   ];
 
-  // Not in AllowLists: AdminCommandLine (M1.23) and SystemCommandRunner (M1.22a) do not exist yet.
+  // Not in AllowLists: AdminCommandLine (M1.23), which holds the only use, does not exist yet.
   private static readonly (string File, string Name)[] SystemRunnerAllowList = [(AdminCommandLine, "SystemCommandRunner")];
 
   private static readonly (string[] Names, (string File, string Name)[] Allowed)[] AllowLists =
