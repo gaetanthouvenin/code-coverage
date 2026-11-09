@@ -24,7 +24,8 @@ internal sealed class RepositoryAccessConfiguration : IEntityTypeConfiguration<R
   #region Fields
 
   /// <summary>The unique index of the accesses of an organization by user and repository.</summary>
-  public const string AccessIndexName = "UX_UserRepositoryAccess_OrganizationId_UserId_RepositoryExternalId";
+  /// <remarks>At most 63 characters: PostgreSQL cuts a longer name, and <see cref="UniqueIndexViolation" /> would no longer recognize it.</remarks>
+  public const string AccessIndexName = "UX_UserRepositoryAccess_OrganizationId_UserId_ExternalId";
 
   #endregion
 
