@@ -1,0 +1,21 @@
+{
+  "environment": {
+    "TF_BUILD": "True",
+    "BUILD_REASON": "PullRequest",
+    "BUILD_REPOSITORY_PROVIDER": "GitHub",
+    "BUILD_REPOSITORY_NAME": "octo-org/octo-repo",
+    "BUILD_SOURCEVERSION": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "BUILD_SOURCEBRANCH": "refs/pull/12/merge",
+    "BUILD_BUILDID": "4321",
+    "BUILD_SOURCESDIRECTORY": "/home/vsts/work/1/s",
+    "SYSTEM_JOBID": "12f1170f-54f2-53f3-20dd-22fc7dff55f9",
+    "SYSTEM_PULLREQUEST_SOURCECOMMITID": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "SYSTEM_PULLREQUEST_PULLREQUESTID": "987654321",
+    "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER": "12",
+    "SYSTEM_PULLREQUEST_SOURCEBRANCH": "feature/login",
+    "SYSTEM_PULLREQUEST_TARGETBRANCH": "main",
+    "SYSTEM_PULLREQUEST_ISFORK": "False",
+    "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI": "https://dev.azure.com/fabrikam/",
+    "SYSTEM_TEAMPROJECT": "Octo Project"
+  }
+}
