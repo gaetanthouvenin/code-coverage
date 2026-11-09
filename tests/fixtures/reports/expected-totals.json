@@ -1,0 +1,108 @@
+{
+  "oracle": "ReportGenerator.Core 5.5.12",
+  "codecov": "codecov/umbrella @005cc3a12f34cd1d4d78a08cef13b90a012c313e",
+  "notes": "One entry per report of tests/fixtures/reports/{cobertura,opencover,lcov,jacoco,clover}. `parser` holds the totals of the parsers, which follow Codecov; `oracle` those of ReportGenerator, read with its own parsers. `differences` lists every line where the two disagree, on the state or on the branches (`covered/total`); an empty list means they agree on every line. A difference is never fixed in the parser to please the oracle: each one names a rule of `rules`, which says what each tool does and why the parser follows Codecov. Paths are compared without their prefix: a path is not a coverage difference, PathFixer resolves it later.",
+  "rules": {
+    "lcov-branches-ignored-in-js": {
+      "codecov": "services/report/languages/lcov.py, lines 87 and 146: a file whose name ends with `.js` drops its `BRDA` entries (and `FN`), so the line keeps its `DA` hits and has no branch data.",
+      "reportGenerator": "Parser/LCovParser.cs (v5.5.12), lines 149 and 226-231: `BRDA` is read for every file, and an executed line with a branch never taken is `PartiallyCovered`.",
+      "parserFollows": "Codecov, see docs/ARCHITECTURE.md §6.3.",
+      "configurable": false
+    },
+    "jacoco-partial-from-branches": {
+      "codecov": "services/report/languages/jacoco.py, lines 115-117: a line with `mb` > 0 is the branch `cb/(mb+cb)`, so one missed branch out of two is a partial, whatever the instructions say.",
+      "reportGenerator": "Parser/JaCoCoParser.cs (v5.5.12), lines 212-214: the status of a line only reads the instructions, `partiallyCovered` being `mi` > 0. A line with `mi=0` and a missed branch is `Covered`; its branches are kept apart, here `1/2`.",
+      "parserFollows": "Codecov, see docs/ARCHITECTURE.md §6.3.",
+      "configurable": false
+    },
+    "clover-cond-is-a-line": {
+      "codecov": "services/report/languages/clover.py, lines 84-92: a `type=\"cond\"` line is a coverable branch line, `0/2`, `1/2` or `2/2`.",
+      "reportGenerator": "Parser/CloverParser.cs (v5.5.12), line 150: only `type=\"stmt\"` lines are coverable; a `cond` only gives branch data to a `stmt` of the same number. Istanbul writes `cond` instead of `stmt`, so these lines do not exist for ReportGenerator.",
+      "parserFollows": "Codecov, see docs/ARCHITECTURE.md §6.3.",
+      "configurable": false
+    }
+  },
+  "fixtures": {
+    "cobertura/coverlet-async.xml": {
+      "parser": { "lines": 38, "hits": 22, "misses": 11, "partials": 5, "branches": 12, "methods": 0 },
+      "oracle": { "lines": 38, "hits": 22, "misses": 11, "partials": 5 },
+      "differences": []
+    },
+    "cobertura/coverlet-multitarget.xml": {
+      "parser": { "lines": 39, "hits": 23, "misses": 11, "partials": 5, "branches": 12, "methods": 0 },
+      "oracle": { "lines": 39, "hits": 23, "misses": 11, "partials": 5 },
+      "differences": []
+    },
+    "cobertura/reportgenerator-merged.xml": {
+      "parser": { "lines": 39, "hits": 23, "misses": 11, "partials": 5, "branches": 12, "methods": 0 },
+      "oracle": { "lines": 39, "hits": 23, "misses": 11, "partials": 5 },
+      "differences": []
+    },
+    "cobertura/windows-paths.xml": {
+      "parser": { "lines": 39, "hits": 23, "misses": 11, "partials": 5, "branches": 12, "methods": 0 },
+      "oracle": { "lines": 39, "hits": 23, "misses": 11, "partials": 5 },
+      "differences": []
+    },
+    "opencover/coverlet-async.xml": {
+      "parser": { "lines": 43, "hits": 24, "misses": 11, "partials": 8, "branches": 14, "methods": 0 },
+      "oracle": { "lines": 43, "hits": 24, "misses": 11, "partials": 8 },
+      "differences": []
+    },
+    "opencover/coverlet-multitarget.xml": {
+      "parser": { "lines": 70, "hits": 43, "misses": 18, "partials": 9, "branches": 15, "methods": 0 },
+      "oracle": { "lines": 70, "hits": 43, "misses": 18, "partials": 9 },
+      "differences": []
+    },
+    "opencover/windows-paths.xml": {
+      "parser": { "lines": 69, "hits": 42, "misses": 18, "partials": 9, "branches": 15, "methods": 0 },
+      "oracle": { "lines": 69, "hits": 42, "misses": 18, "partials": 9 },
+      "differences": []
+    },
+    "lcov/coverlet.info": {
+      "parser": { "lines": 20, "hits": 12, "misses": 5, "partials": 3, "branches": 6, "methods": 0 },
+      "oracle": { "lines": 20, "hits": 12, "misses": 5, "partials": 3 },
+      "differences": []
+    },
+    "lcov/jest-absolute.info": {
+      "parser": { "lines": 12, "hits": 6, "misses": 4, "partials": 2, "branches": 3, "methods": 0 },
+      "oracle": { "lines": 12, "hits": 5, "misses": 4, "partials": 3 },
+      "differences": [
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 2, "parser": "Hit 0/0", "oracle": "Partial 1/2", "rule": "lcov-branches-ignored-in-js" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 5, "parser": "Hit 0/0", "oracle": "Hit 2/2", "rule": "lcov-branches-ignored-in-js" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 9, "parser": "Miss 0/0", "oracle": "Miss 0/2", "rule": "lcov-branches-ignored-in-js" }
+      ]
+    },
+    "lcov/vitest-relative.info": {
+      "parser": { "lines": 7, "hits": 2, "misses": 3, "partials": 2, "branches": 3, "methods": 0 },
+      "oracle": { "lines": 7, "hits": 1, "misses": 3, "partials": 3 },
+      "differences": [
+        { "file": "src\\legacy.js", "line": 2, "parser": "Hit 0/0", "oracle": "Partial 1/2", "rule": "lcov-branches-ignored-in-js" }
+      ]
+    },
+    "jacoco/with-doctype.xml": {
+      "parser": { "lines": 30, "hits": 16, "misses": 10, "partials": 4, "branches": 2, "methods": 6 },
+      "oracle": { "lines": 30, "hits": 18, "misses": 10, "partials": 2 },
+      "differences": [
+        { "file": "Main.java", "line": 15, "parser": "Partial 1/2", "oracle": "Hit 1/2", "rule": "jacoco-partial-from-branches" },
+        { "file": "com/example/calc/Calculator.java", "line": 5, "parser": "Partial 1/2", "oracle": "Hit 1/2", "rule": "jacoco-partial-from-branches" }
+      ]
+    },
+    "clover/istanbul.xml": {
+      "parser": { "lines": 28, "hits": 14, "misses": 8, "partials": 6, "branches": 11, "methods": 0 },
+      "oracle": { "lines": 17, "hits": 9, "misses": 8, "partials": 0 },
+      "differences": [
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 8, "parser": "Hit 2/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 15, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 18, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 22, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 24, "parser": "Hit 2/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/math.js", "line": 32, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/shapes/area.js", "line": 4, "parser": "Hit 2/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/shapes/area.js", "line": 17, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/shapes/area.js", "line": 18, "parser": "Hit 2/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/shapes/area.js", "line": 21, "parser": "Hit 2/2", "oracle": "absent", "rule": "clover-cond-is-a-line" },
+        { "file": "/home/runner/work/sample/sample/src/unused.js", "line": 4, "parser": "Partial 1/2", "oracle": "absent", "rule": "clover-cond-is-a-line" }
+      ]
+    }
+  }
+}
