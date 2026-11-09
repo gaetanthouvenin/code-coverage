@@ -15,6 +15,7 @@ using CodeCoverage.Infrastructure.SqlServer;
 using CodeCoverage.Web.Components;
 using CodeCoverage.Web.Configuration;
 using CodeCoverage.Web.Configuration.Security;
+using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Extensions;
 
 Log.Logger = SerilogConfiguration.CreateBootstrapLogger();
@@ -58,6 +59,9 @@ try
   // so scoped state (renderer, services) from the failed request cannot leak into the error page.
   app.UseExceptionHandler("/error", true);
   app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
+  // Until the GitHub App exists, every page leads to the first-start wizard.
+  app.UseMiddleware<SetupRedirectMiddleware>();
 
   // The interface speaks English and French, from the language of the browser.
   app.UseRequestLocalization(o => o.AddSupportedCultures("en", "fr")

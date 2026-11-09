@@ -16,6 +16,7 @@ using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Diagnostics;
@@ -633,6 +634,35 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
   private static JsonNode FixtureNode(string name) => JsonNode.Parse(Fixture(name))!;
 
   private static JsonNode FirstCommit() => FixtureNode("commits.json")[0]!.DeepClone();
+
+  [Fact]
+  public async Task ConvertManifest_ShouldGiveTheAppAndSendNoCredential()
+  {
+    _github.Server
+           .Given(Request.Create().WithPath("/app-manifests/the-code/conversions").UsingPost())
+           .RespondWith(
+             Response.Create()
+                     .WithStatusCode(201)
+                     .WithBody("""{"id":12345,"slug":"code-coverage","client_id":"Iv1.abc","client_secret":"cs","webhook_secret":"ws","pem":"key"}""")
+           );
+
+    var app = (await _github.Gateway.ConvertManifestAsync("the-code", Cancellation)).ShouldNotBeNull();
+
+    app.ShouldBe(new GitHubAppCredentials("12345", "code-coverage", "Iv1.abc", "cs", "ws", "key"));
+    _github.Server.LogEntries.ShouldHaveSingleItem().RequestMessage!.Headers!.ShouldNotContainKey("Authorization");
+  }
+
+  [Theory]
+  [InlineData(404)]
+  [InlineData(422)]
+  public async Task ConvertManifest_CodeRefused_ShouldReturnNull(int status)
+  {
+    _github.Server
+           .Given(Request.Create().WithPath("/app-manifests/the-code/conversions").UsingPost())
+           .RespondWith(Response.Create().WithStatusCode(status));
+
+    (await _github.Gateway.ConvertManifestAsync("the-code", Cancellation)).ShouldBeNull();
+  }
 
   [Fact]
   public async Task ListPullFiles_ShouldReadEveryPage()

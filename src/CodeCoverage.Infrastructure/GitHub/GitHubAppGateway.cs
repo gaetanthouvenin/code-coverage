@@ -13,6 +13,7 @@ using System.Text.Json.Serialization.Metadata;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Organizations;
@@ -29,7 +30,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 ///   reading; only the search of a repository that is not tracked yet goes by owner and name. A refusal other than the
 ///   absence of what was asked for is an answer no caller can use: it surfaces as a <see cref="BadGatewayException" />.
 /// </remarks>
-internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens) : IForgeGateway
+internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens) : IForgeGateway, IGitHubAppGateway
 {
   #region Fields
 
@@ -43,6 +44,9 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   private const int PullFilesMaxPages = 60;
 
   private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
+
+  /// <summary>The refusals of the code of a manifest that is unknown, expired or already used.</summary>
+  private static readonly HttpStatusCode[] ManifestCodeRefused = [HttpStatusCode.NotFound, HttpStatusCode.UnprocessableEntity];
 
   /// <summary>
   ///   The refusals of a git object that cannot be read: unknown (404 or 422), or in a repository that is still empty
@@ -208,6 +212,36 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
       GitHubGatewayMapper.ToForgePull,
       cancellationToken
     );
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="BadGatewayException">GitHub refused the conversion, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  /// <remarks>The conversion needs no authentication: the code, valid one hour and once, is the proof.</remarks>
+  public async Task<GitHubAppCredentials?> ConvertManifestAsync(string code, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(code);
+
+    var address = $"app-manifests/{Uri.EscapeDataString(code)}/conversions";
+
+    using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(address, UriKind.Relative));
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(
+             response,
+             "app-manifests/{code}/conversions",
+             GitHubJsonContext.Default.GitHubManifestConversionResponse,
+             ManifestCodeRefused,
+             static app => new GitHubAppCredentials(
+               app.Id.ToString(CultureInfo.InvariantCulture),
+               app.Slug,
+               app.ClientId,
+               app.ClientSecret,
+               app.WebhookSecret,
+               app.Pem
+             ),
+             cancellationToken
+           ).ConfigureAwait(false);
   }
 
   /// <inheritdoc />

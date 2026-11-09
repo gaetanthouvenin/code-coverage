@@ -35,5 +35,20 @@ public static class SettingErrors
   /// <summary>The value does not match the type of the setting (number, boolean or URL).</summary>
   public const string InvalidValue = "Setting.InvalidValue";
 
+  /// <summary>The setup token is missing, wrong or already used.</summary>
+  public const string InvalidSetupToken = "Setting.InvalidSetupToken";
+
+  /// <summary>GitHub does not know the code of the manifest, or it has expired.</summary>
+  public const string InvalidManifestCode = "Setting.InvalidManifestCode";
+
+  /// <summary>The GitHub App already exists on this instance.</summary>
+  public const string GitHubAppAlreadyCreated = "Setting.GitHubAppAlreadyCreated";
+
+  /// <summary>The setup cannot end before the GitHub App exists.</summary>
+  public const string GitHubAppNotCreated = "Setting.GitHubAppNotCreated";
+
+  /// <summary>The list of administrators is empty or holds something other than numeric identifiers.</summary>
+  public const string InvalidAdministrators = "Setting.InvalidAdministrators";
+
   #endregion
 }
