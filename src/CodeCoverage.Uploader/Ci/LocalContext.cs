@@ -4,10 +4,9 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text;
 using System.Text.RegularExpressions;
+
+using CodeCoverage.Uploader.Git;
 
 namespace CodeCoverage.Uploader.Ci;
 
@@ -18,7 +17,6 @@ internal static partial class LocalContext
 
   private const string LocalService = "local";
   private const string OtherService = "other";
-  private const int GitTimeoutMilliseconds = 10_000;
 
   #endregion
 
@@ -56,59 +54,7 @@ internal static partial class LocalContext
   /// <param name="workingDirectory">The directory to run in; <see langword="null" /> for the current one.</param>
   /// <returns>The trimmed output, or <see langword="null" /> when git failed or timed out.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="arguments" /> is <see langword="null" />.</exception>
-  public static string? RunGit(string[] arguments, string? workingDirectory)
-  {
-    ArgumentNullException.ThrowIfNull(arguments);
-
-    var startInfo = new ProcessStartInfo("git")
-    {
-      WorkingDirectory = workingDirectory ?? string.Empty,
-      RedirectStandardOutput = true,
-      RedirectStandardError = true,
-      StandardOutputEncoding = Encoding.UTF8,
-      UseShellExecute = false,
-      CreateNoWindow = true,
-    };
-
-    foreach (var argument in arguments)
-    {
-      startInfo.ArgumentList.Add(argument);
-    }
-
-    using var process = new Process { StartInfo = startInfo };
-    var output = new StringBuilder();
-
-    process.OutputDataReceived += (_, line) => output.AppendLine(line.Data);
-
-    // Read and dropped: a full pipe would block git.
-    process.ErrorDataReceived += static (_, _) => { };
-
-    try
-    {
-      process.Start();
-      process.BeginOutputReadLine();
-      process.BeginErrorReadLine();
-
-      if (!process.WaitForExit(GitTimeoutMilliseconds))
-      {
-        process.Kill(entireProcessTree: true);
-
-        return null;
-      }
-
-      // The overload with a timeout returns before the last output line is delivered.
-      process.WaitForExit();
-
-      return process.ExitCode == 0 ? output.ToString().Trim() : null;
-    }
-    catch (Exception exception) when (exception is Win32Exception
-                                        or InvalidOperationException
-                                        or IOException
-                                        or UnauthorizedAccessException)
-    {
-      return null;
-    }
-  }
+  public static string? RunGit(string[] arguments, string? workingDirectory) => GitRunner.Run(arguments, workingDirectory);
 
   // Exactly two segments, like the parse_slug of the Codecov CLI. The address is never printed: it
   // can hold a credential.
