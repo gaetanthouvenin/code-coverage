@@ -32,6 +32,11 @@
   <data name="Organization.NotFound" xml:space="preserve"><value>Cette organisation n’existe pas, ou vous n’y avez pas accès.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>Ce dépôt n’existe pas, ou vous n’y avez pas accès.</value></data>
+  <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>Cette valeur est déjà un jeton de cette organisation.</value></data>
+  <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>La date d’expiration doit être dans le futur.</value></data>
+  <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un jeton importé doit être un jeton Codecov (un UUID).</value></data>
+  <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Donnez au jeton un nom de 128 caractères au plus.</value></data>
+  <data name="UploadToken.NotFound" xml:space="preserve"><value>Ce jeton n’existe pas.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>La valeur ne correspond pas au type du paramètre.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>Ce paramètre est un secret : remplacez-le au lieu de le modifier.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>Ce paramètre n’est pas un secret : modifiez plutôt sa valeur.</value></data>

@@ -6,6 +6,8 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Application.Services;
+
 namespace CodeCoverage.Application;
 
 /// <content>Registers the services of the uploads area.</content>
@@ -22,6 +24,8 @@ public static partial class DependencyInjection
   /// </remarks>
   private static IServiceCollection AddUploadServices(this IServiceCollection services)
   {
+    services.AddScoped<UploadTokenService>();
+
     return services;
   }
 

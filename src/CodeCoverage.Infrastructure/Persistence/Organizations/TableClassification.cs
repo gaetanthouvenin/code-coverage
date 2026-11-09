@@ -26,7 +26,7 @@ internal static class TableClassification
     new[]
     {
       "Branches", "CommitFlagTotals", "CommitReports", "CommitSessions", "Commits", "GitCommits", "OrganizationSettings", "Repositories",
-      "UploadCoverages", "UploadRawChunks", "UploadRawFiles", "Uploads",
+      "UploadCoverages", "UploadRawChunks", "UploadRawFiles", "UploadTokens", "Uploads",
     }.ToFrozenSet(StringComparer.Ordinal);
 
   /// <summary>Gets the operational tables, which are never filtered.</summary>

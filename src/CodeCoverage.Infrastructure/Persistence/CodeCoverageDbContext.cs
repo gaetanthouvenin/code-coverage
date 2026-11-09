@@ -17,6 +17,7 @@ using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
@@ -132,6 +133,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the stored parts of the uploads (<c>UploadRawFiles</c>).</summary>
   internal DbSet<UploadRawFileRecord> UploadRawFiles => Set<UploadRawFileRecord>();
+
+  /// <summary>Gets the upload tokens (<c>UploadTokens</c>).</summary>
+  public DbSet<UploadToken> UploadTokens => Set<UploadToken>();
 
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();
