@@ -108,13 +108,13 @@ public sealed class PathFixer
   /// <param name="path">The path, as written in a report.</param>
   /// <returns>
   ///   The path itself; then, for a relative path and with a list of files, the path under the
-  ///   report directory and under each Cobertura source; then the path without its CI prefix. With
+  ///   report directory and under each source root; then the path without its CI prefix. With
   ///   a list of files and <c>disable_default_path_fixes</c>, only the path itself.
   /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="path" /> is null.</exception>
   /// <remarks>
   ///   Like Codecov, a base directory is joined before the normalization and the <c>fixes</c>, and
-  ///   the report directory comes before the Cobertura sources.
+  ///   the report directory comes before the source roots.
   /// </remarks>
   public IReadOnlyList<string> Candidates(string path)
   {
