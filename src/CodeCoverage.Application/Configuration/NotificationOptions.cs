@@ -8,8 +8,11 @@ using CodeCoverage.Domain.Settings;
 
 namespace CodeCoverage.Application.Configuration;
 
-/// <summary>The <c>Notifications</c> settings group: the commit statuses and pull request comments.</summary>
-/// <remarks>Read through <c>IOptionsMonitor&lt;T&gt;</c>: a change in the settings store applies without a restart.</remarks>
+/// <summary>The instance-level settings of the <c>Notifications</c> group: the commit statuses and pull request comments.</summary>
+/// <remarks>
+///   Read through <c>IOptionsMonitor&lt;T&gt;</c>: a change in the settings store applies without a restart. The
+///   settings of the group set per organization are read through <c>IOrganizationSettingsProvider</c>.
+/// </remarks>
 public sealed class NotificationOptions
 {
   #region Fields
@@ -20,18 +23,6 @@ public sealed class NotificationOptions
   #endregion
 
   #region Properties
-
-  /// <summary>Gets or sets the prefix of the commit status contexts.</summary>
-  /// <value><c>coverage</c> by default.</value>
-  public string StatusContextPrefix { get; set; } = "coverage";
-
-  /// <summary>Gets or sets a value indicating whether the commit statuses are sent.</summary>
-  /// <value><see langword="true" /> by default.</value>
-  public bool StatusesEnabled { get; set; } = true;
-
-  /// <summary>Gets or sets a value indicating whether the pull request comments are sent.</summary>
-  /// <value><see langword="true" /> by default.</value>
-  public bool CommentsEnabled { get; set; } = true;
 
   /// <summary>Gets or sets the time waited for further uploads before notifying, in seconds.</summary>
   /// <value>20 by default.</value>

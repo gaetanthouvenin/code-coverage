@@ -75,7 +75,7 @@ public sealed class SettingsOptionsCatalogTests
 
   private static List<SettingDefinition> Definitions(string group)
   {
-    return SettingDefinitions.All.Where(d => d.Group == group).ToList();
+    return SettingDefinitions.All.Where(d => d.Group == group && d.Scope is SettingScope.Instance).ToList();
   }
 
   private static string? Invariant(object? value)
