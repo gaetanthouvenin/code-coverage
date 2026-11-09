@@ -21,6 +21,14 @@ public interface ICommitReportRepository
   /// <returns>The blob, or <see langword="null" /> when the upload has none or cannot be read.</returns>
   Task<byte[]?> GetUploadCoverageAsync(long uploadId, CancellationToken cancellationToken);
 
+  /// <summary>Adds an upload just received and queues its job, in one transaction.</summary>
+  /// <param name="upload">The upload.</param>
+  /// <param name="job">The job to queue.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns><see langword="true" /> when it was added; <see langword="false" /> when its idempotency key is already used on the commit.</returns>
+  /// <remarks>Refused as a conflict (<c>General.ConcurrentChange</c>) when the commit is not one of the organization of the scope.</remarks>
+  Task<bool> TryAddReceivedUploadAsync(Upload upload, JobRequest job, CancellationToken cancellationToken);
+
   /// <summary>Saves the result of the processing of an upload and queues its job, in one transaction.</summary>
   /// <param name="upload">The upload, read in this scope.</param>
   /// <param name="blob">The blob of the upload, or <see langword="null" /> when it failed and has none.</param>

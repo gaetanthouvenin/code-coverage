@@ -14,7 +14,7 @@ namespace CodeCoverage.Api.Configuration.Errors;
 
 /// <summary>
 ///   Maps the Application's refusals to problem details: 400 for an invalid request, 401 without
-///   an identity, 403 without the permission, 404 for an unknown entity, 409 for a conflict, 422
+///   an identity, 403 without the permission, 404 for an unknown entity, 409 for a conflict, 413 for a request too large, 422
 ///   for a refused business rule, 502 when an external service cannot answer, 500 otherwise.
 /// </summary>
 /// <remarks>
@@ -55,6 +55,7 @@ internal sealed class ApiExceptionHandler(
       ForbiddenException => (StatusCodes.Status403Forbidden, "Permission denied"),
       NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
       ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+      PayloadTooLargeException => (StatusCodes.Status413PayloadTooLarge, "Payload too large"),
       UnprocessableEntityException => (StatusCodes.Status422UnprocessableEntity, "Unprocessable entity"),
       BadGatewayException => (StatusCodes.Status502BadGateway, "External service unavailable"),
       ApplicationException => (StatusCodes.Status400BadRequest, "Bad request"),

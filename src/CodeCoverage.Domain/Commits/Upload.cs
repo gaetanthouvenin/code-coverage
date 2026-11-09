@@ -177,6 +177,7 @@ public sealed class Upload
   /// <param name="tokenId">The identifier of the upload token, or <see langword="null" />.</param>
   /// <param name="principalKind">The kind of credential that sent the upload.</param>
   /// <param name="at">The current time; converted to UTC.</param>
+  /// <param name="publicId">Its public identifier when its parts are already stored under it; otherwise a new one.</param>
   /// <returns>The upload, not saved yet.</returns>
   /// <exception cref="ArgumentOutOfRangeException">
   ///   <paramref name="commitId" /> or <paramref name="sequence" /> is not positive, or
@@ -200,7 +201,8 @@ public sealed class Upload
     string? uploaderVersion,
     long? tokenId,
     PrincipalKind principalKind,
-    DateTimeOffset at)
+    DateTimeOffset at,
+    Guid? publicId = null)
   {
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commitId);
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequence);
@@ -217,7 +219,7 @@ public sealed class Upload
     ThrowIfTooLong(repoRoot, RepoRootMaxLength, nameof(repoRoot));
     ThrowIfTooLong(uploaderVersion, UploaderVersionMaxLength, nameof(uploaderVersion));
 
-    return new Upload(Guid.NewGuid(), commitId, sequence, idempotencyKey, principalKind, at.ToUniversalTime())
+    return new Upload(publicId ?? Guid.NewGuid(), commitId, sequence, idempotencyKey, principalKind, at.ToUniversalTime())
     {
       Flags = [.. flags],
       Name = name,

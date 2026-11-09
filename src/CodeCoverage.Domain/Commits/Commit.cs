@@ -149,7 +149,8 @@ public sealed class Commit
   ///   <para>Only a <see cref="CommitState.Known" /> commit becomes <see cref="CommitState.Pending" />.</para>
   ///   <para>
   ///     <see cref="Version" /> does not change, on purpose: the parallel uploads of a matrix all come through
-  ///     here and must not refuse one another, whereas a save still detects a finalization that changed it.
+  ///     here and must not refuse one another. The reception is saved by one atomic statement
+  ///     (<c>ICommitRepository.SavePendingAsync</c>), which a finalization saved meanwhile does not refuse either.
   ///   </para>
   /// </remarks>
   /// <exception cref="ArgumentException"><paramref name="branch" /> is empty, white space or too long.</exception>

@@ -39,6 +39,7 @@
   <data name="Organization.ReservedLogin" xml:space="preserve"><value>Ce login est un segment des adresses du produit : ce compte ne peut pas être admis.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>Ce dépôt n’existe pas, ou vous n’y avez pas accès.</value></data>
+  <data name="Repository.Inactive" xml:space="preserve"><value>Ce dépôt est connu, mais sa couverture n’est pas suivie.</value></data>
   <data name="Upload.InvalidSlug" xml:space="preserve"><value>Le dépôt doit s’écrire propriétaire/nom.</value></data>
   <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>L’upload désignait un commit de merge : il a été rattaché à la tête de la pull request.</value></data>
   <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>Les champs texte doivent précéder les fichiers.</value></data>
@@ -48,6 +49,10 @@
   <data name="Upload.TokenNotForRepository" xml:space="preserve"><value>Ce jeton d’upload appartient à un autre dépôt.</value></data>
   <data name="Upload.TooLarge" xml:space="preserve"><value>Le contenu de cet upload est trop volumineux.</value></data>
   <data name="Upload.UnsupportedFormat" xml:space="preserve"><value>Ce format de rapport n’est pas pris en charge.</value></data>
+  <data name="Upload.InvalidMetadata" xml:space="preserve"><value>Un champ texte de cet upload n’est pas valide.</value></data>
+  <data name="Upload.NoReport" xml:space="preserve"><value>Cet upload ne contient aucun rapport.</value></data>
+  <data name="Upload.TooManyFiles" xml:space="preserve"><value>Cet upload contient trop de rapports.</value></data>
+  <data name="Upload.InvalidPart" xml:space="preserve"><value>Une partie de cet upload n’est pas valide : un nom trop long, un gzip corrompu, ou plus d’une liste de fichiers.</value></data>
   <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>Cette valeur est déjà un jeton de cette organisation.</value></data>
   <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>La date d’expiration doit être dans le futur.</value></data>
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un jeton importé doit être un jeton Codecov (un UUID).</value></data>
