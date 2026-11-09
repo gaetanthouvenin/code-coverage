@@ -41,6 +41,7 @@
   <data name="Repository.NotFound" xml:space="preserve"><value>Ce dépôt n’existe pas, ou vous n’y avez pas accès.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>Ce dépôt est connu, mais sa couverture n’est pas suivie.</value></data>
   <data name="Upload.InvalidSlug" xml:space="preserve"><value>Le dépôt doit s’écrire propriétaire/nom.</value></data>
+  <data name="Upload.Duplicate" xml:space="preserve"><value>Cet upload a déjà été reçu pour la tête de la pull request : cette copie n’a pas été traitée.</value></data>
   <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>L’upload désignait un commit de merge : il a été rattaché à la tête de la pull request.</value></data>
   <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>Les champs texte doivent précéder les fichiers.</value></data>
   <data name="Upload.NoFileMapped" xml:space="preserve"><value>Aucun fichier des rapports n’a été trouvé dans le dépôt.</value></data>

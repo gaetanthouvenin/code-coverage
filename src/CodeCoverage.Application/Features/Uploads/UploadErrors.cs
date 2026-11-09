@@ -59,5 +59,8 @@ public static class UploadErrors
   /// <summary>The repository is not written <c>owner/name</c>.</summary>
   public const string InvalidSlug = "Upload.InvalidSlug";
 
+  /// <summary>The same upload was already received for the head of the pull request its merge commit names.</summary>
+  public const string Duplicate = "Upload.Duplicate";
+
   #endregion
 }

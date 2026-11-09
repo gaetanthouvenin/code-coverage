@@ -37,6 +37,7 @@ internal sealed class UploadProcessor(
   /// <param name="upload">The upload.</param>
   /// <param name="config">The effective configuration of its commit.</param>
   /// <param name="readTree">Reads the files of the repository, when the upload did not send its list.</param>
+  /// <param name="log">The log so far.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>What the processing gave.</returns>
   /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
@@ -44,13 +45,14 @@ internal sealed class UploadProcessor(
     Upload upload,
     CoverageConfig config,
     Func<CancellationToken, Task<ForgeTree?>> readTree,
+    ProcessingLog log,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(upload);
     ArgumentNullException.ThrowIfNull(config);
     ArgumentNullException.ThrowIfNull(readTree);
+    ArgumentNullException.ThrowIfNull(log);
 
-    var log = ProcessingLog.Empty;
     var parsed = new List<(string FileName, ParsedReport Report)>();
     var reportCount = 0;
     IReadOnlyList<string>? network = null;

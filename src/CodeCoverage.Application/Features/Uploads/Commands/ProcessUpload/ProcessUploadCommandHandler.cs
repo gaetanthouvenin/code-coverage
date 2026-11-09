@@ -26,6 +26,7 @@ namespace CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 /// <param name="configResolver">The effective configuration of a commit.</param>
 /// <param name="trees">The files of a repository at a SHA.</param>
 /// <param name="processor">Turns the stored parts into a coverage.</param>
+/// <param name="mergeCommitDetector">Finds the head of a pull request behind a merge commit.</param>
 /// <param name="codec">The encoding of the coverage.</param>
 /// <param name="reports">The saving of the result with the finalization.</param>
 /// <param name="clock">The clock.</param>
@@ -38,6 +39,7 @@ internal sealed class ProcessUploadCommandHandler(
   ConfigResolver configResolver,
   RepositoryTreeProvider trees,
   UploadProcessor processor,
+  MergeCommitDetector mergeCommitDetector,
   ICoverageReportCodec codec,
   ICommitReportRepository reports,
   IClock clock) : ICommandHandler<ProcessUploadCommand>
@@ -95,12 +97,35 @@ internal sealed class ProcessUploadCommandHandler(
     var repository = await repositories.FindAsync(commit.RepositoryId, cancellationToken).ConfigureAwait(false) ?? throw Gone();
     var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false) ?? throw Gone();
     var address = repository.ToForgeRef(organization.Forge);
-    var config = await configResolver.ResolveAsync(repository, address, commit.Sha, cancellationToken).ConfigureAwait(false);
+
+    if (commit.PullNumber is { } pullNumber
+        && await mergeCommitDetector.DetectAsync(repository.Id, address, commit.Sha, pullNumber, cancellationToken).ConfigureAwait(false) is { } head)
+    {
+      // Saved with the move, so that a processing run again after it still reports the rewrite.
+      upload.AddToLog($"{UploadErrors.MergeCommitRewritten}: {commit.Sha.Value} -> {head.Value}");
+
+      try
+      {
+        commit = await uploads.MoveToCommitAsync(upload, head, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+      }
+      catch (ConflictException exception) when (exception.ErrorCode == UploadErrors.Duplicate)
+      {
+        upload.MarkFailed(UploadErrors.Duplicate, $"The head {head.Value} already holds this upload.", 0, 0, 0, ProcessingLog.Empty, clock.UtcNow);
+        await reports.SaveProcessedUploadAsync(upload, null, FinalizeJob(commit.Id), cancellationToken).ConfigureAwait(false);
+
+        return Unit.Value;
+      }
+    }
+
+    var log = upload.ProcessingLog;
+    var sha = commit.Sha;
+    var config = await configResolver.ResolveAsync(repository, address, sha, cancellationToken).ConfigureAwait(false);
 
     var outcome = await processor.ProcessAsync(
                     upload,
                     config.Config,
-                    token => trees.GetAsync(repository.Id, address, commit.Sha, token),
+                    token => trees.GetAsync(repository.Id, address, sha, token),
+                    log,
                     cancellationToken
                   ).ConfigureAwait(false);
 

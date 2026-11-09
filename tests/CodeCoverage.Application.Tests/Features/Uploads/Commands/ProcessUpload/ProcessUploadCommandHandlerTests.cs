@@ -7,6 +7,7 @@
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
+using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Application.Services;
@@ -61,6 +62,8 @@ public sealed class ProcessUploadCommandHandlerTests
   private readonly IReportParserCatalog _catalog = A.Fake<IReportParserCatalog>();
 
   private readonly IReportParser _parser = A.Fake<IReportParser>();
+
+  private readonly IGitCommitRepository _gitCommits = A.Fake<IGitCommitRepository>();
 
   private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
 
@@ -136,6 +139,109 @@ public sealed class ProcessUploadCommandHandlerTests
                A<CancellationToken>._
              ))
      .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_MergeCommit_ShouldMoveToTheHeadAndLogIt()
+  {
+    var head = GitSha.Parse(new string('b', GitSha.Length));
+    var target = Commit.Create(5, head, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(target, 11L);
+    var merge = Commit.Create(5, Sha, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(merge, 9L);
+    merge.MarkPending("feature", 12, Now);
+    A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(merge);
+    A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "title", null, head, "feature", "main", Sha, Sha));
+    A.CallTo(() => _uploads.MoveToCommitAsync(_upload, head, A<DateTimeOffset>._, A<CancellationToken>._)).Returns(target);
+    Report("report.xml");
+    Parses(File("src/A.cs"));
+    A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, head, true, A<CancellationToken>._))
+     .Returns(new ForgeTree(head, [new ForgeTreeEntry("src/A.cs", head, false)], false));
+
+    await Handler().Handle(Command(), Ct);
+
+    _upload.ProcessingLog.Messages.ShouldHaveSingleItem().ShouldStartWith(UploadErrors.MergeCommitRewritten);
+    _upload.State.ShouldBe(UploadState.Processed);
+    A.CallTo(() => _reports.SaveProcessedUploadAsync(_upload, A<byte[]>._, A<JobRequest>.That.Matches(static j => j.DedupKey == "finalize:11"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  // The move is saved at once: a job that fails after it and runs again finds the upload on the head, and must still
+  // report the rewrite.
+  [Fact]
+  public async Task Handle_RetryAfterTheMove_ShouldKeepTheRewriteInTheLog()
+  {
+    var head = GitSha.Parse(new string('b', GitSha.Length));
+    var merge = Commit.Create(5, Sha, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(merge, 9L);
+    merge.MarkPending("feature", 12, Now);
+    var target = Commit.Create(5, head, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(target, 11L);
+    target.MarkPending("feature", 12, Now);
+    A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(merge);
+    A.CallTo(() => _commits.FindAsync(11, A<CancellationToken>._)).Returns(target);
+    A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "title", null, head, "feature", "main", Sha, Sha));
+    A.CallTo(() => _uploads.MoveToCommitAsync(_upload, head, A<DateTimeOffset>._, A<CancellationToken>._))
+     .Invokes(() => _upload.MoveToCommit(11, 1))
+     .Returns(target);
+    Report("report.xml");
+    Parses(File("src/A.cs"));
+    A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, head, true, A<CancellationToken>._))
+     .Returns(new ForgeTree(head, [new ForgeTreeEntry("src/A.cs", head, false)], false));
+    A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, head, true, A<CancellationToken>._))
+     .Throws(new BadGatewayException("GitHub.Unavailable", "down"))
+     .Once();
+
+    await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(Command(), Ct));
+    await Handler().Handle(Command(), Ct);
+
+    _upload.State.ShouldBe(UploadState.Processed);
+    _upload.ProcessingLog.Messages.ShouldHaveSingleItem().ShouldStartWith(UploadErrors.MergeCommitRewritten);
+    A.CallTo(() => _uploads.MoveToCommitAsync(A<Upload>._, A<GitSha>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // A replay of an upload already moved to the head: the head holds its idempotency key, so the copy ends for good.
+  [Fact]
+  public async Task Handle_HeadAlreadyHoldsTheSameUpload_ShouldFailAsDuplicate()
+  {
+    var head = GitSha.Parse(new string('b', GitSha.Length));
+    var merge = Commit.Create(5, Sha, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(merge, 9L);
+    merge.MarkPending("feature", 12, Now);
+    A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(merge);
+    A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "title", null, head, "feature", "main", Sha, Sha));
+    A.CallTo(() => _uploads.MoveToCommitAsync(_upload, head, A<DateTimeOffset>._, A<CancellationToken>._))
+     .ThrowsAsync(new ConflictException("Upload.Duplicate", "The head already holds this idempotency key."));
+    Report("report.xml");
+
+    await Handler().Handle(Command(), Ct);
+
+    _upload.State.ShouldBe(UploadState.Failed);
+    _upload.ErrorCode.ShouldBe("Upload.Duplicate");
+    A.CallTo(_raw).MustNotHaveHappened();
+    A.CallTo(() => _reports.SaveProcessedUploadAsync(_upload, null, A<JobRequest>.That.Matches(static j => j.DedupKey == "finalize:9"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_PullRequestHead_ShouldStayOnItsCommit()
+  {
+    var head = Commit.Create(5, Sha, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(head, 9L);
+    head.MarkPending("feature", 12, Now);
+    A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(head);
+    A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "title", null, Sha, "feature", "main", Sha, null));
+    Report("report.xml");
+    Parses(File("src/A.cs"));
+    Tree("src/A.cs");
+
+    await Handler().Handle(Command(), Ct);
+
+    A.CallTo(() => _uploads.MoveToCommitAsync(A<Upload>._, A<GitSha>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -329,8 +435,9 @@ public sealed class ProcessUploadCommandHandlerTests
     var resolver = new ConfigResolver(_configs, _gateways, _configParser, _organizationSettings, _clock);
     var trees = new RepositoryTreeProvider(_trees, _gateways, _clock);
     var processor = new UploadProcessor(_raw, _catalog, new ParseGate(processing), coverage);
+    var detector = new MergeCommitDetector(_gateways, new CommitAncestry(_gitCommits, _gateways, _clock));
 
-    return new ProcessUploadCommandHandler(_uploads, _commits, _repositories, _directory, resolver, trees, processor, _codec, _reports, _clock);
+    return new ProcessUploadCommandHandler(_uploads, _commits, _repositories, _directory, resolver, trees, processor, detector, _codec, _reports, _clock);
   }
 
   private async IAsyncEnumerable<UploadPart> Parts()

@@ -629,7 +629,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
    3. **commit** : `INSERT` puis relecture en cas de violation d'unicité (course entre uploads parallèles absorbée). Il passe à `Pending` s'il était `Known` ou nouveau, renseigne `Branch` et `PullNumber` s'ils sont vides, et met à jour `LastUploadAt` ;
    4. **numéro de session** : `UPDATE Commits SET UploadSequence = UploadSequence + 1 … RETURNING/OUTPUT`, atomique, sans conflit de `Version` ;
    5. **stockage brut** : chaque partie est écrite en flux dans `IRawUploadStore` (`UploadRawFiles` plus des morceaux de 1 Mo). Le SHA-256 est calculé à la volée. Le volume décompressé est contrôlé par `BoundedDecompressionStream` (2 Go par upload, 100 000 fichiers réseau) ;
-   6. dans une transaction : `Upload(Received)` et job `ProcessUpload` (lock `commit:{id}:upload:{uploadId}`, sans clé de dédoublonnage). Un doublon sur `(CommitId, IdempotencyKey)` est un rejeu : le handler renvoie l'upload existant et supprime le brut orphelin ;
+   6. dans une transaction : `Upload(Received)` et job `ProcessUpload` (lock `commit:{id}:upload:{uploadId}`, sans clé de dédoublonnage). Un doublon sur `(CommitId, IdempotencyKey)` est un rejeu : le handler renvoie l'upload existant (200) et supprime le brut orphelin. Exception : un upload déjà déplacé du commit de merge vers la tête de la pull request (§6.2, étape 2) n'est plus sur le commit nommé ; son rejeu est reçu comme un nouvel upload (202), puis son traitement le termine `Failed` avec le code `Upload.Duplicate`, sans le compter deux fois ;
    7. il réveille le worker via le canal en process.
 
 **`UploadAuthenticator`**, contrôles dans l'ordre (ADR-013 : avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de l'organisation) :
@@ -856,7 +856,7 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
 2. **Correction du commit de merge**, filet de sécurité côté serveur quel que soit l'uploader.
    - Condition : `PullNumber` est connu et le SHA reçu n'est pas `pr.head.sha`.
    - Le serveur lit le commit (cache `GitCommits`). Si `sha == pr.merge_commit_sha`, ou si le commit a deux parents avec `ParentShas[1] == pr.head.sha`, l'upload est rattaché au commit `pr.head.sha` et `Upload.MergeCommitRewritten` est journalisé.
-   - Le rattachement se fait par une méthode de repository unique qui déplace l'upload vers le commit cible, créé au besoin.
+   - Le rattachement se fait par une méthode de repository unique qui déplace l'upload vers le commit cible, créé au besoin, et lui donne le numéro de session suivant de ce commit.
 3. Chargement du brut et de la **configuration effective** au SHA (§9, cache `CommitConfigs`).
 4. **Liste réseau** : la partie `network` de l'upload ; vide (git a échoué sur l'agent), elle compte comme absente. À défaut, `RepositoryTrees` au SHA (`GET /git/trees/{sha}?recursive=1`). Si l'arbre est tronqué, la liste partielle est utilisée et un avertissement est journalisé.
 5. **Parsing** : pour chaque rapport, `IReportParserCatalog.Detect(4 premiers Ko, nom)` donne le format, et `Find(format)` son parseur, qui parse en flux. Un format inconnu, par exemple le JSON coverlet ou `coverage-final.json`, est journalisé `Upload.UnsupportedFormat` et ignoré, sans faire échouer l'upload. Au plus `Processing:MaxParallelParses` (2) parsings tournent en même temps (`SemaphoreSlim`).
@@ -1044,7 +1044,7 @@ Dans tous les cas, les hits du résultat sont le maximum des deux côtés et le 
 
 | Risque | Parade |
 |---|---|
-| Requête d'upload rejouée | `Idempotency-Key` et `UX(CommitId, IdempotencyKey)` |
+| Requête d'upload rejouée | `Idempotency-Key` et `UX(CommitId, IdempotencyKey)` ; après le déplacement d'un upload vers la tête d'une pull request, le rejeu est reçu (202) puis terminé `Failed` / `Upload.Duplicate` au traitement |
 | Uploads parallèles d'une matrice | Création du commit par insertion puis relecture, `Sequence` par `UPDATE` atomique, `ProcessUpload` sans verrou, chaque upload écrit sa propre ligne |
 | Finalisations concurrentes | `LockKey commit:{id}` (index filtré `Running`), fusion des jobs en file, `Commit.Version` |
 | Ordre d'arrivée | Reconstruction déterministe depuis tous les uploads, test de propriété « sessions mélangées donnent un rapport identique » |

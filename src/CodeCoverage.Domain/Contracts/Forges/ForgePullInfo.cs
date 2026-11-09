@@ -19,6 +19,7 @@ namespace CodeCoverage.Domain.Contracts.Forges;
 /// <param name="HeadBranch">The branch of its head.</param>
 /// <param name="BaseBranch">The branch it targets.</param>
 /// <param name="BaseSha">The SHA of the base that the forge reports.</param>
+/// <param name="MergeCommitSha">The SHA of its synthetic merge commit, or <see langword="null" /> when the forge has none.</param>
 public sealed record ForgePullInfo(
   int Number,
   ForgePullState State,
@@ -27,4 +28,5 @@ public sealed record ForgePullInfo(
   GitSha HeadSha,
   string HeadBranch,
   string BaseBranch,
-  GitSha BaseSha);
+  GitSha BaseSha,
+  GitSha? MergeCommitSha = null);

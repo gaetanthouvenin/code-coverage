@@ -120,7 +120,8 @@ internal static class GitHubGatewayMapper
       ToSha(pull.Head.Sha),
       pull.Head.Ref,
       pull.Base.Ref,
-      ToSha(pull.Base.Sha)
+      ToSha(pull.Base.Sha),
+      pull.MergeCommitSha is { } merge ? ToSha(merge) : null
     );
   }
 

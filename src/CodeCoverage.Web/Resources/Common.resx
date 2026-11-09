@@ -41,6 +41,7 @@
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>This repository is known and its coverage is not tracked.</value></data>
   <data name="Upload.InvalidSlug" xml:space="preserve"><value>The repository must be written owner/name.</value></data>
+  <data name="Upload.Duplicate" xml:space="preserve"><value>This upload was already received for the head of the pull request: this copy was not processed.</value></data>
   <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>The upload named a merge commit: it was attached to the head of the pull request.</value></data>
   <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>The text fields must come before the files.</value></data>
   <data name="Upload.NoFileMapped" xml:space="preserve"><value>No file of the reports was found in the repository.</value></data>
