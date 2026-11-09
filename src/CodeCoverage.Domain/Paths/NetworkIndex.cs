@@ -76,7 +76,10 @@ public sealed class NetworkIndex
     return _pathsByFileName.TryGetValue(fileName, out var sameName) ? sameName : [];
   }
 
-  private static string GetFileName(string path) => path[(path.LastIndexOf('/') + 1)..];
+  /// <summary>Gets the last segment of a path.</summary>
+  /// <param name="path">The path, with forward slashes.</param>
+  /// <returns>The file name.</returns>
+  internal static string GetFileName(string path) => path[(path.LastIndexOf('/') + 1)..];
 
   #endregion
 }

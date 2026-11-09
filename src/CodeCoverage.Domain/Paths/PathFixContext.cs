@@ -29,5 +29,11 @@ public sealed record PathFixContext
   /// <summary>Gets a value indicating whether <c>codecov.disable_default_path_fixes</c> is set.</summary>
   public bool DisableDefaultPathFixes { get; init; }
 
+  /// <summary>Gets the <c>paths</c> of the flags of the upload, which break a tie between files.</summary>
+  public PathPatternSet FlagPaths { get; init; } = new([]);
+
+  /// <summary>Gets a value indicating whether <c>Coverage:AllowFilenameOnlyMatch</c> is set.</summary>
+  public bool AllowFilenameOnlyMatch { get; init; }
+
   #endregion
 }
