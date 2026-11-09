@@ -21,6 +21,9 @@ public static partial class DependencyInjection
   private static IServiceCollection AddRepositories(this IServiceCollection services)
   {
     services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
+    services.AddScoped<IRepositoryRepository, RepositoryRepository>();
+    services.AddScoped<IInstallationRepository, InstallationRepository>();
+    services.AddScoped<IBranchRepository, BranchRepository>();
 
     return services;
   }

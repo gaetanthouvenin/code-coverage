@@ -15,6 +15,7 @@ using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
@@ -78,8 +79,14 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the audit trail (<c>AuditEntries</c>).</summary>
   public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+  /// <summary>Gets the branches of the tracked repositories (<c>Branches</c>).</summary>
+  public DbSet<Branch> Branches => Set<Branch>();
+
   /// <inheritdoc />
   public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
+  /// <summary>Gets the installations of the GitHub App (<c>Installations</c>).</summary>
+  public DbSet<Installation> Installations => Set<Installation>();
 
   /// <summary>Gets the background jobs (<c>Jobs</c>).</summary>
   internal DbSet<JobRecord> Jobs => Set<JobRecord>();
@@ -89,6 +96,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the values saved by the organizations (<c>OrganizationSettings</c>).</summary>
   internal DbSet<StoredOrganizationSetting> OrganizationSettings => Set<StoredOrganizationSetting>();
+
+  /// <summary>Gets the tracked repositories (<c>Repositories</c>).</summary>
+  public DbSet<TrackedRepository> Repositories => Set<TrackedRepository>();
 
   /// <summary>Gets the values saved in the settings store (<c>Settings</c>).</summary>
   internal DbSet<StoredSetting> Settings => Set<StoredSetting>();
