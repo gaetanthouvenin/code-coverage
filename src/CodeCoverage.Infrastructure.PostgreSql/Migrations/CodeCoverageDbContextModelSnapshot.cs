@@ -239,6 +239,7 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
                         .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("UpdatedAt")

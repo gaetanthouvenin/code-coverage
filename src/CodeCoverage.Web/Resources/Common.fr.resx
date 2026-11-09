@@ -20,6 +20,7 @@
   <data name="Error_Description" xml:space="preserve"><value>La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identifiant de requête</value></data>
   <data name="Error_Title" xml:space="preserve"><value>Une erreur est survenue</value></data>
+  <data name="General.ConcurrentChange" xml:space="preserve"><value>Ces données ont été modifiées ou supprimées entre-temps. Rechargez-les, puis réessayez.</value></data>
   <data name="General.Unexpected" xml:space="preserve"><value>Une erreur inattendue s’est produite. Réessayez dans un instant ; si le problème persiste, contactez un administrateur.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Certaines valeurs ne sont pas valides. Corrigez-les, puis réessayez.</value></data>
   <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub est indisponible. Réessayez dans quelques minutes.</value></data>

@@ -39,7 +39,7 @@ Quatre mécanismes tiennent l'isolation par construction.
 1. **Filtre EF sur les tables d'organisation.** Chaque table d'organisation porte une colonne fantôme `OrganizationId` non nulle, marquée par `IsOrganizationOwned`, et un unique filtre nommé `Organization` installé par une boucle dans `OnModelCreating`. Le filtre lit `ICurrentOrganization`, dont l'accesseur lève si le contexte n'est pas posé. Il n'y a **aucune clause pour le principal système**.
 2. **Aucun contournement.** `IgnoreQueryFilters` est interdit dans `src`, avec une liste d'exceptions vide. Ce qui précède l'entrée dans une organisation ne lit que des tables globales sans donnée métier : owner dans `Organizations`, `installation.id` dans `Installations`, hash de jeton API dans `ApiTokens`, utilisateur dans `OrganizationMemberships`. Le travail inter-organisations est un job coordinateur qui lit `Organizations` et met en file un enfant par organisation.
 3. **Une seule porte.** Une portée DI n'entre dans une organisation que par `AuthorizationBehavior` (à partir du login de l'owner, à chaque envoi, avant les validateurs), par `JobWorker` (à partir de la ligne `Jobs`) ou par `SystemCommandRunner` (CLI d'administration). L'entrée n'a lieu qu'une fois par portée. Chaque message déclare exactement un marqueur d'accès et sert une seule audience ; `IOrganizationScoped.RequiredRole` n'a pas de valeur par défaut. La mise en file pour une autre organisation par identifiant est limitée à une liste de sources nommées.
-4. **Écritures, adresses et clés.** `SaveChanges` estampille les lignes ajoutées et lève sur une ligne modifiée ou supprimée d'une autre organisation. Toute adresse routée contient l'owner. `SqlJobQueue` préfixe `LockKey` et `DedupKey` par l'organisation.
+4. **Écritures, adresses et clés.** `SaveChanges` estampille les lignes ajoutées et lève sur une ligne modifiée ou supprimée d'une autre organisation. La colonne `OrganizationId` est aussi un jeton de concurrence, posé une seule fois dans `IsOrganizationOwned` : chaque `UPDATE` et chaque `DELETE` d'une sauvegarde la porte dans son `WHERE`, à côté de la clé primaire. Toute adresse routée contient l'owner. `SqlJobQueue` préfixe `LockKey` et `DedupKey` par l'organisation.
 
 ### Classement des 32 tables
 
@@ -59,6 +59,7 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 
 - Upload, dans l'ordre : valider un JWT s'il y en a un ; comparer son dépôt au slug (403 `Upload.OidcMismatch`) ; si la porte n'a pas été franchie, un jeton reçoit 401 `Upload.TokenInvalid` et un JWT valide 404 `Repository.NotFound` ; vérifier `repository_owner_id` ; chercher le jeton sous le filtre (401 s'il est absent).
 - API de gestion : `IRepositoryScoped` répond `Repository.NotFound` pour un owner inconnu, une organisation non active ou un dépôt illisible ; `IOrganizationScoped` répond `Organization.NotFound` dans les cas équivalents.
+- Écriture : un `UPDATE` ou un `DELETE` d'une table d'organisation qui n'affecte aucune ligne donne 409 `General.ConcurrentChange` (`ConflictException`, rejouée par le worker), avec le même message pour une ligne supprimée entre-temps, une clé inconnue et une clé d'une autre organisation, que la base ne distingue pas. `Organizations`, table globale, garde `DbUpdateConcurrencyException` pour la reprise de son upsert.
 
 ### Résolution, GitHub et adresses
 
@@ -106,13 +107,15 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - `Architecture.Tests` référence déjà Roslyn ; `SettingsOptionsBindingTests` n'emploie que des clés qui restent au niveau de l'instance.
 - Une valeur de niveau instance pour une clé `Organization` ne serait modifiable nulle part, ce que la règle 7 interdit : la précédence est donc la ligne de l'organisation, puis le défaut du catalogue.
 
-**Prouvé par exécution** sur PostgreSQL 17 et SQL Server 2022 (M1.16d1 et M1.16d2, `Infrastructure.Tests/Persistence/Organizations`) :
+**Prouvé par exécution** sur PostgreSQL 17 et SQL Server 2022 (M1.16d1, M1.16d2 et le jeton de concurrence, `Infrastructure.Tests/Persistence/Organizations`) :
 
 - Le filtre nommé couvre les requêtes, `ExecuteUpdate` et `ExecuteDelete`, et lève sans organisation ; chaque contexte lit sa propre organisation bien que le modèle soit construit une seule fois (`OrganizationFilterTests`).
 - L'index unique qui commence par `OrganizationId` sert la clé étrangère : la convention n'en crée pas d'autre (`ModelClassificationTests`).
 - `SaveChanges` et `SaveChangesAsync` estampillent une ligne ajoutée et lèvent sans organisation. La colonne fantôme comprise dans l'index unique reçoit bien la valeur estampillée : une même clé coexiste dans deux organisations, un doublon dans une organisation est refusé par la base, et une clé supprimée puis ajoutée dans une même sauvegarde passe (`OrganizationWriteGuardTests`).
 - La garde lève, sans rien écrire, sur une ligne modifiée ou supprimée d'une autre organisation, sur une ligne déplacée vers une autre organisation et sur une ligne ajoutée au nom d'une autre (`OrganizationWriteGuardTests`). Sauvegarder les seules tables globales et opérationnelles ne demande pas d'organisation.
 - La colonne fantôme ne voyage pas avec une instance : `Update` ou `Remove` d'une instance détachée la laisse à zéro et la garde refuse la ligne. Une ligne d'organisation doit donc être lue par le contexte qui l'écrit, ce qui s'impose aux repositories à partir de M1.17.
+- Une instance dont la colonne fantôme reçoit à la main l'organisation courante passe la garde, que la valeur soit écrite avant l'attachement ou après, avec ou sans sa valeur d'origine. Sans le jeton de concurrence, `Remove` supprime la ligne de l'autre organisation et `Update` la réécrit : les 18 cas d'attaque échouent sur les deux fournisseurs une fois le jeton retiré. Avec le jeton, le `WHERE` porte l'organisation courante, aucune ligne n'est touchée et la ligne de l'autre organisation reste intacte en base (`OrganizationConcurrencyTokenTests`). Le refus est identique pour une clé d'une autre organisation et pour une clé inconnue, et un échec n'écrit rien, y compris les lignes ajoutées dans la même sauvegarde.
+- Les deux migrations `AddOrganizationConcurrencyToken` sont vides : le jeton ne change que l'instantané du modèle. Une ligne lue par le contexte se modifie et se supprime comme avant, et `ExecuteUpdate` et `ExecuteDelete` ne sont pas affectés (`OrganizationWriteGuardTests`, `OrganizationFilterTests`).
 
 **Probable**, non exécuté à la date de cette décision :
 
@@ -124,7 +127,6 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 - Entre un transfert et la réconciliation de l'origine, un jeton de dépôt resté dans les secrets du dépôt transféré peut encore écrire sur l'ancienne ligne. La fenêtre est bornée par l'événement du destinataire, ou par la synchronisation quotidienne s'il est perdu.
 - Un jeton d'organisation présent dans les secrets d'un dépôt transféré reste valide jusqu'à sa rotation manuelle ; la conception ne pose qu'un bandeau audité (`RotationAdvisedAt`), car une révocation aveugle casserait les autres dépôts de l'origine.
 - Sans clé étrangère composite, un bogue écrivant l'identifiant d'un parent d'une autre organisation n'est pas refusé par la base. La ligne reste dans l'organisation qui écrit et se lit vide sous le filtre.
-- La garde de `SaveChanges` se fie à la valeur que suit le contexte, et le `WHERE` d'un `UPDATE` ou d'un `DELETE` ne porte que sur la clé primaire. Un code qui écrit lui-même l'organisation courante dans la colonne fantôme d'une instance détachée atteint donc la ligne d'une autre organisation (constaté sur les deux fournisseurs). Il faut pour cela écrire explicitement la colonne fantôme hors de `CodeCoverageDbContext`.
 - Qui exploite la base, les sauvegardes et les journaux voit toutes les organisations ; `docs/ARCHITECTURE.md` §12.5 et §12.6 le diront (M1.16a2). La console d'instance n'expose aucune donnée métier.
 - Le retard de jobs d'une organisation peut retarder les statuts d'une autre tant que la réclamation équitable n'existe pas ; seule une mesure pendant le pilote dira si cela compte.
 - Les données d'une organisation suspendue sont conservées sans limite tant que l'effacement n'est pas construit, ce qui peut compter face à une demande légale.

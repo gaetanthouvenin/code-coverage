@@ -20,6 +20,7 @@
   <data name="Error_Description" xml:space="preserve"><value>The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Request identifier</value></data>
   <data name="Error_Title" xml:space="preserve"><value>An error occurred</value></data>
+  <data name="General.ConcurrentChange" xml:space="preserve"><value>The data was changed or removed in the meantime. Reload it and try again.</value></data>
   <data name="General.Unexpected" xml:space="preserve"><value>An unexpected error occurred. Try again in a moment; if the problem persists, contact an administrator.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Some values are not valid. Correct them, then try again.</value></data>
   <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub is unavailable. Try again in a few minutes.</value></data>

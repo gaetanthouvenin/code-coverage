@@ -11,6 +11,9 @@ public static class GeneralErrors
 {
   #region Fields
 
+  /// <summary>A save affected no row: the row is no longer there, or is not visible to the organization of the scope.</summary>
+  public const string ConcurrentChange = "General.ConcurrentChange";
+
   /// <summary>One or more validation rules have failed.</summary>
   public const string ValidationFailed = "General.ValidationFailed";
 
