@@ -1031,7 +1031,7 @@ Dans tous les cas, les hits du résultat sont le maximum des deux côtés et le 
       - fichier renommé : chemin déplacé ;
       - fichier supprimé : abandonné ;
       - **diff indisponible pour ce fichier, ou comparaison tronquée** : le fichier est conservé seulement si son SHA de blob est identique dans les arbres de A et du commit (`RepositoryTrees`). Sinon il est **abandonné** et journalisé. Des lignes mal alignées ne sont jamais conservées.
-   6. Insertion avec `Kind=CarriedForward`, `Name = "CF[n] - " + S.Name`, `CarriedForwardFromSha = S.CarriedForwardFromSha ?? A.Sha` et `SourceSessionId`. Si aucun fichier n'a été décalé, `DataUploadId` pointe vers le blob d'origine au lieu d'une copie.
+   6. Insertion avec `Kind=CarriedForward`, `Name` comme `carriedforward_session_name` de Codecov (`Carriedforward` sans nom, `CF[1] - nom`, puis `CF[n+1] - nom` à chaque copie), `CarriedForwardFromSha = S.CarriedForwardFromSha ?? A.Sha` et `SourceSessionId`. Si aucun fichier n'a été décalé, `DataUploadId` pointe vers le blob d'origine au lieu d'une copie.
 5. **Fusion** de toutes les sessions (règle ci-dessus), puis `ignore`. Les sessions des flags `joined: false` sont stockées mais exclues de la fusion.
 6. **Totaux :** `CommitReports` (Revision + 1, `FileIndex`), totaux du commit, `SessionCount`, `UploadedSessionCount`, `State=Complete`. **L'état `Error` n'est posé que si tous les uploads ont échoué.**
 7. **`CommitFlagTotals`** : la ligne `''` reprend le rapport fusionné. Pour chaque flag F vu dans les sessions ou déclaré dans la configuration, la ligne reprend `Merge(sessions portant F).Filter(paths(F))`. `IsCarriedForward` vaut vrai si toutes les sessions de F sont reportées.
