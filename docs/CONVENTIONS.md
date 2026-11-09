@@ -970,8 +970,8 @@ l'hôte Api ne sert pas de pages).
 - Fin de fichier : `public partial class Program;` documentée, exposée pour
   `WebApplicationFactory`.
 - Ordre du pipeline de l'Api : `UseForwardedHeaders` → `SecurityHeadersMiddleware` →
-  `UseExceptionHandler` → documentation (si activée) → `UseRouting` → identité de la requête →
-  `MapControllers` → `MapHealthProbes` → `MapScalarDocumentation` (si activée).
+  `UseExceptionHandler` → documentation (si activée) → `UseRouting` → `UseRateLimiter` → identité de
+  la requête → `MapControllers` → `MapHealthProbes` → `MapScalarDocumentation` (si activée).
 
 ### 10.5 OpenAPI : Swagger + Scalar
 
