@@ -39,6 +39,41 @@ public static class StatusEvaluator
 
   #region Methods
 
+  /// <summary>Evaluates a rule for a commit: its filters first, then its result.</summary>
+  /// <param name="rule">The rule: one of <c>coverage.status</c>, or the status of a flag.</param>
+  /// <param name="subject">What the rule is evaluated on.</param>
+  /// <param name="facts">The facts of the commit the filters read.</param>
+  /// <param name="format">How the status is named and its numbers written.</param>
+  /// <returns>The status, or <see langword="null" /> when the rule posts nothing for this commit.</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <remarks>
+  ///   A rule whose flags were not uploaded on the commit follows its
+  ///   <c>flag_coverage_not_uploaded_behavior</c>: <c>exclude</c> posts nothing, <c>pass</c> sends a success
+  ///   that says the coverage was carried forward or is missing, and <c>include</c> evaluates the rule on
+  ///   what was carried forward.
+  /// </remarks>
+  public static CommitStatus? Evaluate(StatusRule rule, StatusSubject subject, StatusRuleFacts facts, StatusFormat format)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+    ArgumentNullException.ThrowIfNull(facts);
+
+    if (StatusRuleFilter.Skip(rule, facts))
+    {
+      return null;
+    }
+
+    var notUploaded = StatusRuleFilter.NotUploaded(rule, facts);
+
+    if (notUploaded is NotUploadedBehavior.Exclude || Evaluate(rule, subject, format) is not { } status)
+    {
+      return null;
+    }
+
+    return notUploaded is NotUploadedBehavior.Pass
+             ? new CommitStatus(status.Context, StatusState.Success, status.Description + StatusRuleFilter.AutoPassedSuffix)
+             : status;
+  }
+
   /// <summary>Evaluates a rule, whatever its type, and applies <c>informational</c>.</summary>
   /// <param name="rule">The rule.</param>
   /// <param name="subject">What the rule is evaluated on.</param>

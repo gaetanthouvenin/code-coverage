@@ -1203,7 +1203,9 @@ Pour chaque règle (entrées `project`, `patch` et `changes`, plus les statuts d
 
 ```text
 skip si : rule.enabled == false ; (rule.only_pulls || rule.base == pr) && pr == null (branches de merge queue acceptées) ;
-          rule.branches défini && !match(commit.Branch) ; après_n_builds du flag non atteint
+          rule.branches défini && !match(commit.Branch), où match est celui d'un ensemble de motifs (§6.4 : aucun motif
+          négatif ne correspond, et un positif correspond ou il n'y en a aucun) ; après_n_builds d'un flag de la règle
+          non atteint, que ce flag ait une session, une entrée propre ou seulement `default_rules`
 flag_coverage_not_uploaded_behavior (règle, sinon default_rules, défaut include) :
    si rule.flags non vide et aucun de ces flags n'a de session Uploaded sur ce commit :
       exclude → pas de statut ; pass → success + " [Auto passed due to carriedforward or missing coverage]"
