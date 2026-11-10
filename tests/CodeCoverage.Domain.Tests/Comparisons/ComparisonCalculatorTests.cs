@@ -346,7 +346,7 @@ public sealed class ComparisonCalculatorTests
   [Fact]
   public void Comparison_Delta_ShouldCompareTheTwoTotals()
   {
-    var comparison = new Comparison(new CoverageTotals(3, 1, 0, 0, 0), new CoverageTotals(1, 1, 0, 0, 0), PatchCoverage.Empty, [], [], false);
+    var comparison = new Comparison(new CoverageTotals(3, 1, 0, 0, 0), new CoverageTotals(1, 1, 0, 0, 0), PatchCoverage.Empty, [], [], [], false);
 
     comparison.Delta.ShouldBe(25m);
     (comparison with { Base = null }).Delta.ShouldBeNull();

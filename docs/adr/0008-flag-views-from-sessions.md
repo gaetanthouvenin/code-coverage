@@ -13,7 +13,7 @@
 ## Décision
 
 - Le rapport fusionné du commit (`CommitReport`) et les sessions (blobs par upload) sont les seules données détaillées stockées.
-- Une vue par flag (`ReportView`) est **calculée à la demande** : fusion des seules sessions qui portent un des flags, puis application de l'union des `paths` des flags et des `paths` du statut. Le résultat est mis en cache en mémoire par `(commitId, revision, flagsKey, pathsKey)` pendant 10 minutes.
+- Une vue par flag (`ReportView`) est **calculée à la demande** : fusion des seules sessions qui portent un des flags, puis application de l'union des `paths` des flags et des `paths` du statut. Le résultat est mis en cache en mémoire par `(commitId, revision, joinedKey, flagsKey, pathsKey)` pendant 10 minutes, `joinedKey` nommant les sessions que `joined: false` écarte d'une vue sans flag.
 - **Seuls les totaux sont matérialisés** par flag (`CommitFlagTotals`), écrits par `FinalizeCommit`, pour les badges, l'historique et les listes.
 
 ## Conséquences

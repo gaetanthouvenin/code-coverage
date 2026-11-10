@@ -22,6 +22,7 @@ using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Domain.Users;
 using CodeCoverage.Infrastructure.Commits;
+using CodeCoverage.Infrastructure.Comparisons;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
@@ -105,6 +106,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the merged reports of the commits (<c>CommitReports</c>).</summary>
   internal DbSet<CommitReportRecord> CommitReports => Set<CommitReportRecord>();
+
+  /// <summary>Gets the comparisons computed for the commits (<c>Comparisons</c>).</summary>
+  internal DbSet<ComparisonRecord> Comparisons => Set<ComparisonRecord>();
 
   /// <summary>Gets the cached diffs (<c>DiffCache</c>).</summary>
   internal DbSet<DiffCacheRecord> DiffCache => Set<DiffCacheRecord>();
