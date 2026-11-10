@@ -1357,6 +1357,45 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.ToTable("Jobs", (string)null);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Notifications.PostedStatusRecord", b =>
+                {
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Context")
+                        .HasMaxLength(446)
+                        .HasColumnType("nvarchar(446)")
+                        .UseCollation("Latin1_General_100_BIN2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("PostedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("TargetUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("CommitId", "Context")
+                        .HasName("PK_PostedStatuses");
+
+                    b.ToTable("PostedStatuses", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Settings.SettingsRevisionRow", b =>
                 {
                     b.Property<int>("Id")
@@ -1708,6 +1747,15 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                 });
 
             modelBuilder.Entity("CodeCoverage.Infrastructure.Comparisons.ComparisonRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Notifications.PostedStatusRecord", b =>
                 {
                     b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
                         .WithMany()

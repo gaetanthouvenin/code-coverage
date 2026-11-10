@@ -25,6 +25,7 @@ using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Comparisons;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
+using CodeCoverage.Infrastructure.Notifications;
 using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Settings;
@@ -109,6 +110,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the comparisons computed for the commits (<c>Comparisons</c>).</summary>
   internal DbSet<ComparisonRecord> Comparisons => Set<ComparisonRecord>();
+
+  /// <summary>Gets the statuses published for the commits (<c>PostedStatuses</c>).</summary>
+  internal DbSet<PostedStatusRecord> PostedStatuses => Set<PostedStatusRecord>();
 
   /// <summary>Gets the cached diffs (<c>DiffCache</c>).</summary>
   internal DbSet<DiffCacheRecord> DiffCache => Set<DiffCacheRecord>();
@@ -242,6 +246,9 @@ public sealed class CodeCoverageDbContext(
     if (Database.IsSqlServer())
     {
       modelBuilder.Entity<CommitFlagTotals>().Property(static t => t.Flag).UseCollation(SqlServerOrdinalCollation);
+
+      // The context of a status can end with a flag.
+      modelBuilder.Entity<PostedStatusRecord>().Property(static s => s.Context).UseCollation(SqlServerOrdinalCollation);
     }
 
     foreach (var entityType in modelBuilder.Model.GetEntityTypes().Where(static e => e.IsMarkedOrganizationOwned()))
