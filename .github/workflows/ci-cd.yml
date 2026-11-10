@@ -100,6 +100,12 @@ jobs:
             --logger "trx" \
             --results-directory TestResults
 
+      # The parity tool of the M1 pilot (tools/parity), on its frozen sample: neither network nor
+      # database, and the Codecov API is never called.
+      - name: Parity tool on its frozen sample
+        shell: pwsh
+        run: ./tools/parity/Test-CompareTotals.ps1
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v7
