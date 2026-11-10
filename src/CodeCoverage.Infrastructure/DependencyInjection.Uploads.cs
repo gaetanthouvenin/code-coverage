@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Caching;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Security;
 using CodeCoverage.Infrastructure.Uploads;
@@ -41,6 +42,7 @@ public static partial class DependencyInjection
 
     services.AddScoped<IRawUploadStore, SqlRawUploadStore>();
     services.AddScoped<IUploadCredentialCache, MemoryUploadCredentialCache>();
+    services.AddScoped<IReportViewCache, MemoryReportViewCache>();
     services.AddSingleton<ITokenGenerator, TokenGenerator>();
 
     return services;

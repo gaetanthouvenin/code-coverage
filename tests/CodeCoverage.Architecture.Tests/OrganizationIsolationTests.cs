@@ -43,6 +43,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string AdminCommandLine = "src/CodeCoverage.Api/Configuration/Administration/AdminCommandLine.cs";
 
+  private const string ReportViewCache = "src/CodeCoverage.Infrastructure/Caching/MemoryReportViewCache.cs";
+
   private const string InstallationCoordinator = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/SyncInstallations/SyncInstallationsCommandHandler.cs";
 
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
@@ -112,6 +114,9 @@ public sealed partial class OrganizationIsolationTests
     (TokenProvider, "IMemoryCache"),
     // Remembers the identity of an upload token, under a key that starts with the organization of the scope.
     (UploadCredentialCache, "IMemoryCache"),
+
+    // Keeps the views of a report, under a key that starts with the organization of the scope.
+    (ReportViewCache, "IMemoryCache"),
   ];
 
   // The administration command line (M1.23) holds the only use.
