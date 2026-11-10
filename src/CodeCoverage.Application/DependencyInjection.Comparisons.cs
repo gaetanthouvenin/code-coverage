@@ -6,6 +6,8 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Application.Services;
+
 namespace CodeCoverage.Application;
 
 /// <content>Registers the services of the comparisons area.</content>
@@ -18,6 +20,8 @@ public static partial class DependencyInjection
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddComparisonServices(this IServiceCollection services)
   {
+    services.AddScoped<BaseResolver>();
+
     return services;
   }
 
