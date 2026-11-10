@@ -120,6 +120,29 @@ internal sealed class SqlRawUploadStore(
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<Guid>> ListExpiredAsync(IReadOnlyCollection<Guid> uploadIds, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(uploadIds);
+
+    if (uploadIds.Count == 0)
+    {
+      return [];
+    }
+
+    Guid[] ids = [.. uploadIds.Distinct()];
+    var now = clock.UtcNow;
+    var kept = await context.UploadRawFiles
+                            .AsNoTracking()
+                            .Where(f => ids.Contains(f.UploadPublicId) && f.Kind == UploadPartKind.Report && f.ExpiresAt > now)
+                            .Select(static f => f.UploadPublicId)
+                            .Distinct()
+                            .ToListAsync(cancellationToken)
+                            .ConfigureAwait(false);
+
+    return [.. ids.Except(kept)];
+  }
+
+  /// <inheritdoc />
   public async Task DeleteAsync(Guid uploadId, CancellationToken cancellationToken)
   {
     var files = context.UploadRawFiles.Where(f => f.UploadPublicId == uploadId);

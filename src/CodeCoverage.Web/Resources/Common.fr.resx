@@ -17,9 +17,11 @@
   <data name="AccessDenied_Description" xml:space="preserve"><value>Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin.</value></data>
   <data name="AccessDenied_Title" xml:space="preserve"><value>Accès refusé</value></data>
   <data name="BackHome" xml:space="preserve"><value>Retour aux dépôts</value></data>
+  <data name="Commit.NoUpload" xml:space="preserve"><value>Ce commit n’a aucun upload à retraiter.</value></data>
   <data name="Commit.NotFound" xml:space="preserve"><value>Ce commit n’existe pas.</value></data>
   <data name="Commit.Compacted" xml:space="preserve"><value>La couverture d’un upload de ce commit n’existe plus.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Ce commit a été finalisé entre-temps. Relancez sa finalisation.</value></data>
+  <data name="Commit.RawExpired" xml:space="preserve"><value>Les fichiers bruts d’un upload de ce commit ne sont plus conservés : il ne peut plus être retraité.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identifiant de requête</value></data>
   <data name="Error_Title" xml:space="preserve"><value>Une erreur est survenue</value></data>
@@ -47,7 +49,9 @@
   <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>L’upload désignait un commit de merge : il a été rattaché à la tête de la pull request.</value></data>
   <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>Les champs texte doivent précéder les fichiers.</value></data>
   <data name="Upload.NoFileMapped" xml:space="preserve"><value>Aucun fichier des rapports n’a été trouvé dans le dépôt.</value></data>
+  <data name="Upload.NotFailed" xml:space="preserve"><value>Seul un upload en échec peut être relancé.</value></data>
   <data name="Upload.OidcMismatch" xml:space="preserve"><value>Le jeton OIDC a été émis pour un autre dépôt.</value></data>
+  <data name="Upload.RawExpired" xml:space="preserve"><value>Les fichiers bruts de cet upload ne sont plus conservés : il ne peut plus être retraité.</value></data>
   <data name="Upload.TokenInvalid" xml:space="preserve"><value>Le jeton d’upload n’est pas valide.</value></data>
   <data name="Upload.TokenNotForRepository" xml:space="preserve"><value>Ce jeton d’upload appartient à un autre dépôt.</value></data>
   <data name="Upload.TooLarge" xml:space="preserve"><value>Le contenu de cet upload est trop volumineux.</value></data>

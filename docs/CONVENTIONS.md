@@ -597,6 +597,20 @@ de la sécurité dans `Security/SecurityErrors.cs`.
 Tout nouveau code est traduit dans `Web/Resources/Common.resx` **et** `Common.fr.resx`, sous son
 propre nom (§11.5). Un code publié n'est jamais renommé.
 
+**Gardes de refus.** Un refus qui revient dans plusieurs handlers s'écrit comme les gardes du framework
+(`ArgumentNullException.ThrowIfNull`) : un membre statique d'extension sur l'exception, dans
+`Features/{Feature}/{Feature}Guards.cs` (`internal static class`, blocs `extension(NotFoundException)`…). Le code et le
+message n'existent alors qu'à un endroit, et l'exception générique ne connaît aucune feature.
+
+```csharp
+NotFoundException.ThrowIfRepositoryNotFound(repository);          // [NotNull] : repository n'est plus nul ensuite
+UnprocessableEntityException.ThrowIfCommitNoUpload(uploads);
+ConflictException.ThrowIfUploadNotFailed(upload.State);
+```
+
+Le paramètre porte `[NotNull]` (objet recherché) ou `[DoesNotReturnIf]` (condition), pour que le compilateur suive la
+nullabilité après l'appel.
+
 ### 5.5 Médiateur : martinothamar `Mediator` 3.x
 
 Exigence utilisateur : remplacer MediatR. Décision : **martinothamar `Mediator` 3.x** (licence

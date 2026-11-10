@@ -12,8 +12,10 @@ using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
@@ -695,6 +697,250 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var secondCommit = await new CommitRepository(second).GetOrCreateAsync(repositories.SecondRepository, Head, Now, Ct);
 
     return new CommitSeed(repositories.Organizations, repositories.FirstRepository, firstCommit.Id, secondCommit.Id);
+  }
+
+  // The ended uploads go back to received, each with its job, and what the previous processing wrote is forgotten.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_EndedUploads_ShouldResetThemAndQueueOneJobEach(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var processed = await AddEndedUploadAsync(seed, 1, "processed", failed: false);
+    var failed = await AddEndedUploadAsync(seed, 2, "failed", failed: true);
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var read = await new UploadRepository(context).ListByCommitAsync(seed.FirstCommit, Ct);
+    var startingLog = ProcessingLog.Empty.Add("kept");
+
+    var taken = await Repository(context, first).RequeueUploadsAsync([.. read.Select(upload => new UploadRequeue(upload, startingLog))], Ct);
+
+    taken.Select(static upload => upload.Id).ShouldBe([processed, failed]);
+
+    await using var check = seed.Organizations.ContextOf(first);
+    var stored = await check.Uploads.AsNoTracking().OrderBy(static u => u.Sequence).ToListAsync(Ct);
+
+    stored.ShouldAllBe(static upload => upload.State == UploadState.Received);
+    stored.ShouldAllBe(static upload => upload.ErrorCode == null && upload.Error == null && upload.ProcessedAt == null && upload.LockedBy == null);
+    stored.ShouldAllBe(static upload => upload.Lines == 0 && upload.Hits == 0 && upload.ReportFileCount == 0 && upload.ResolvedFileCount == 0);
+    stored.ShouldAllBe(static upload => upload.ProcessingLog.Messages.Count == 1 && upload.ProcessingLog.Messages[0] == "kept");
+    stored.Select(static upload => upload.IdempotencyKey).ShouldBe(["processed", "failed"], "what the uploader sent is kept");
+    stored.Select(static upload => upload.Sequence).ShouldBe([1, 2]);
+
+    // The blob stays until the next processing replaces it: no finalization reads it while the upload is received.
+    (await ReadCoverageAsync(seed, processed)).ShouldBe(Blob);
+
+    await using var jobs = seed.Organizations.ContextWithoutOrganization();
+    var queued = await jobs.Jobs.AsNoTracking().Where(static j => j.Type == JobTypes.ProcessUpload).ToListAsync(Ct);
+
+    queued.Count.ShouldBe(2);
+    queued.ShouldAllBe(job => job.OrganizationId == first && job.LockKey == null && job.DedupKey == null && job.State == JobState.Queued);
+    queued.Select(static job => job.PayloadJson).ShouldBe(stored.Select(static upload => $"{{\"UploadId\":\"{upload.PublicId:D}\"}}"), ignoreOrder: true);
+    (await _wakeUpSignal.WaitAsync(TimeSpan.Zero, Ct)).ShouldBeTrue();
+  }
+
+  // An upload that still waits for its job, or that a worker holds, is not queued a second time.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_UploadNotEnded_ShouldLeaveIt(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var received = await AddUploadAsync(seed);
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var uploads = new UploadRepository(context);
+    var asReceived = await uploads.ListByCommitAsync(seed.FirstCommit, Ct);
+
+    (await Repository(context, first).RequeueUploadsAsync([new UploadRequeue(asReceived[0], ProcessingLog.Empty)], Ct)).ShouldBeEmpty();
+
+    (await uploads.TryStartProcessingAsync(asReceived[0].PublicId, "worker-1", Ct)).ShouldBeTrue();
+    var asProcessing = await uploads.ListByCommitAsync(seed.FirstCommit, Ct);
+
+    (await Repository(context, first).RequeueUploadsAsync([new UploadRequeue(asProcessing[0], ProcessingLog.Empty)], Ct)).ShouldBeEmpty();
+
+    await using var check = seed.Organizations.ContextOf(first);
+    var stored = await check.Uploads.AsNoTracking().SingleAsync(u => u.Id == received, Ct);
+
+    stored.State.ShouldBe(UploadState.Processing);
+    stored.LockedBy.ShouldBe("worker-1");
+    (await JobCountAsync(seed)).ShouldBe(0);
+  }
+
+  // The guard: read as failed, the upload was taken by another request before this one writes.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_UploadChangedSinceItWasRead_ShouldLeaveIt(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddEndedUploadAsync(seed, 1, "failed", failed: true);
+
+    await using var stale = seed.Organizations.ContextOf(first);
+    var readBefore = await new UploadRepository(stale).ListByCommitAsync(seed.FirstCommit, Ct);
+
+    await using (var other = seed.Organizations.ContextOf(first))
+    {
+      var read = await new UploadRepository(other).ListByCommitAsync(seed.FirstCommit, Ct);
+
+      (await Repository(other, first).RequeueUploadsAsync([new UploadRequeue(read[0], ProcessingLog.Empty)], Ct)).Count.ShouldBe(1);
+    }
+
+    (await Repository(stale, first).RequeueUploadsAsync([new UploadRequeue(readBefore[0], ProcessingLog.Empty)], Ct)).ShouldBeEmpty();
+
+    readBefore[0].State.ShouldBe(UploadState.Failed, "an upload that is not taken is left as it was read");
+    (await JobCountAsync(seed)).ShouldBe(1);
+  }
+
+  // Two requests read the same failed upload and write at the same time: the first one holds the row, the second one
+  // waits for it, then finds the upload received. One job, never two.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_TwoRequestsAtTheSameTime_ShouldTakeTheUploadOnce(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var uploadId = await AddEndedUploadAsync(seed, 1, "failed", failed: true);
+
+    // Held after its guarded update, before it queues its job: its transaction keeps the row.
+    var holding = new HoldingCommandInterceptor(static sql => sql.Contains("INSERT", StringComparison.OrdinalIgnoreCase)
+                                                             && sql.Contains("Jobs", StringComparison.Ordinal));
+
+    var holder = RequeueInItsOwnContextAsync(seed, provider, holding);
+    await holding.Reached.Task.WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    var waiter = RequeueInItsOwnContextAsync(seed, provider, null);
+    (await Task.WhenAny(waiter, Task.Delay(TimeSpan.FromSeconds(1), Ct))).ShouldNotBe(waiter, "the second request must wait for the row the first one holds");
+
+    holding.Gate.SetResult();
+    var taken = await Task.WhenAll(holder, waiter).WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    taken.ShouldBe([1, 0]);
+
+    await using var check = seed.Organizations.ContextOf(first);
+    (await check.Uploads.AsNoTracking().SingleAsync(u => u.Id == uploadId, Ct)).State.ShouldBe(UploadState.Received);
+    (await JobCountAsync(seed)).ShouldBe(1);
+  }
+
+  // A job that cannot be queued takes the transition back with it.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_JobNotQueued_ShouldRollTheUploadsBack(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var uploadId = await AddEndedUploadAsync(seed, 1, "failed", failed: true);
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var read = await new UploadRepository(context).ListByCommitAsync(seed.FirstCommit, Ct);
+
+    // A queue that runs outside any organization cannot place the job of an organization.
+    var repository = new CommitReportRepository(context, Queue(context, new OrganizationContext()), _wakeUpSignal);
+
+    await Should.ThrowAsync<InvalidOperationException>(() => repository.RequeueUploadsAsync([new UploadRequeue(read[0], ProcessingLog.Empty)], Ct));
+
+    await using var check = seed.Organizations.ContextOf(first);
+    var stored = await check.Uploads.AsNoTracking().SingleAsync(u => u.Id == uploadId, Ct);
+
+    stored.State.ShouldBe(UploadState.Failed);
+    stored.ErrorCode.ShouldBe("Upload.ParseFailed");
+    (await JobCountAsync(seed)).ShouldBe(0);
+    context.ChangeTracker.Entries<Upload>().ShouldBeEmpty("nothing is left for a later save of the scope");
+  }
+
+  // The filter of the organization guards the update too: the upload of another organization is never taken.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RequeueUploads_UploadOfOtherOrganization_ShouldLeaveIt(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var second = seed.Organizations.SecondId;
+    var uploadId = await AddEndedUploadAsync(seed, 1, "failed", failed: true);
+
+    Upload foreign;
+
+    await using (var owner = seed.Organizations.ContextOf(first))
+    {
+      foreign = await owner.Uploads.AsNoTracking().SingleAsync(u => u.Id == uploadId, Ct);
+    }
+
+    await using var context = seed.Organizations.ContextOf(second);
+
+    (await Repository(context, second).RequeueUploadsAsync([new UploadRequeue(foreign, ProcessingLog.Empty)], Ct)).ShouldBeEmpty();
+
+    await using var check = seed.Organizations.ContextOf(first);
+    (await check.Uploads.AsNoTracking().SingleAsync(u => u.Id == uploadId, Ct)).State.ShouldBe(UploadState.Failed);
+    (await JobCountAsync(seed)).ShouldBe(0);
+  }
+
+  private async Task<int> RequeueInItsOwnContextAsync(CommitSeed seed, DatabaseProvider provider, HoldingCommandInterceptor? interceptor)
+  {
+    var first = seed.Organizations.FirstId;
+    var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
+    options.UseCodeCoverageDatabase(provider, seed.Organizations.ConnectionString);
+
+    if (interceptor is not null)
+    {
+      options.AddInterceptors(interceptor);
+    }
+
+    var organization = new OrganizationContext();
+    organization.Enter(first);
+
+    await using var context = new CodeCoverageDbContext(options.Options, organization);
+    var read = await new UploadRepository(context).ListByCommitAsync(seed.FirstCommit, Ct);
+
+    read[0].State.ShouldBe(UploadState.Failed, "both requests must read the upload before either one writes");
+
+    var taken = await Repository(context, first).RequeueUploadsAsync([new UploadRequeue(read[0], ProcessingLog.Empty)], Ct);
+
+    return taken.Count;
+  }
+
+  private async Task<long> AddEndedUploadAsync(CommitSeed seed, int sequence, string key, bool failed)
+  {
+    var first = seed.Organizations.FirstId;
+    await using var context = seed.Organizations.ContextOf(first);
+    var upload = Upload.Receive(seed.FirstCommit, sequence, key, ["back"], "name", null, null, null, null, null, null, null, PrincipalKind.OrganizationToken, Now);
+
+    await new UploadRepository(context).AddAsync(upload, Ct);
+
+    var log = ProcessingLog.Empty.Add("written by the processing").AddPath("src/unresolved.cs");
+
+    if (failed)
+    {
+      upload.MarkFailed("Upload.ParseFailed", "The report could not be read.", 1, 0, 0, log, Now);
+    }
+    else
+    {
+      upload.MarkProcessed(1, 3, 1, Totals, log, Now);
+    }
+
+    await Repository(context, first).SaveProcessedUploadAsync(upload, failed ? null : Blob, Job(), Ct);
+
+    // Only the jobs of the requeue are counted afterwards.
+    await using var jobs = seed.Organizations.ContextWithoutOrganization();
+    await jobs.Jobs.ExecuteDeleteAsync(Ct);
+    await _wakeUpSignal.WaitAsync(TimeSpan.Zero, Ct);
+
+    return upload.Id;
+  }
+
+  private SqlJobQueue Queue(CodeCoverageDbContext context, OrganizationContext organization)
+  {
+    var clock = A.Fake<IClock>();
+    A.CallTo(() => clock.UtcNow).Returns(Now);
+
+    return new SqlJobQueue(
+      context,
+      organization,
+      clock,
+      new ConfigurationBuilder().Build(),
+      JobClaimDialects.For(context),
+      _wakeUpSignal,
+      new CodeCoverageMeter(_meterFactory)
+    );
   }
 
   #endregion

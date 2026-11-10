@@ -51,6 +51,77 @@ public sealed class UploadProcessingTests
     upload.UnresolvedFileCount.ShouldBe(2);
   }
 
+  [Theory]
+  [InlineData(true)]
+  [InlineData(false)]
+  public void Requeue_EndedUpload_ShouldForgetTheResultAndKeepWhatWasSent(bool failed)
+  {
+    var upload = Received();
+    var publicId = upload.PublicId;
+
+    if (failed)
+    {
+      upload.MarkFailed("Upload.ParseFailed", "Unreadable.", 1, 0, 2, ProcessingLog.Empty.Add("previous").AddPath("a.cs"), Now);
+    }
+    else
+    {
+      upload.MarkProcessed(2, 3, 1, new CoverageTotals(4, 5, 6, 0, 0), ProcessingLog.Empty.Add("previous").AddPath("a.cs"), Now);
+    }
+
+    upload.Requeue(ProcessingLog.Empty.Add("kept"));
+
+    upload.State.ShouldBe(UploadState.Received);
+    upload.ReportFileCount.ShouldBe(0);
+    upload.ResolvedFileCount.ShouldBe(0);
+    upload.UnresolvedFileCount.ShouldBe(0);
+    upload.Lines.ShouldBe(0);
+    upload.Hits.ShouldBe(0);
+    upload.Misses.ShouldBe(0);
+    upload.Partials.ShouldBe(0);
+    upload.ErrorCode.ShouldBeNull();
+    upload.Error.ShouldBeNull();
+    upload.ProcessedAt.ShouldBeNull();
+    upload.LockedBy.ShouldBeNull();
+    upload.ProcessingLog.Messages.ShouldBe(["kept"]);
+    upload.ProcessingLog.Paths.ShouldBeEmpty();
+
+    upload.PublicId.ShouldBe(publicId);
+    upload.ReceivedAt.ShouldBe(Now);
+  }
+
+  [Fact]
+  public void Requeue_ThenProcessedAgain_ShouldRecordTheNewResult()
+  {
+    var upload = Received();
+    upload.MarkFailed("Upload.ParseFailed", "Unreadable.", 1, 0, 0, ProcessingLog.Empty, Now);
+
+    upload.Requeue(ProcessingLog.Empty);
+    upload.MarkProcessed(1, 1, 0, new CoverageTotals(1, 0, 0, 0, 0), ProcessingLog.Empty, Now.AddMinutes(1));
+
+    upload.State.ShouldBe(UploadState.Processed);
+    upload.ErrorCode.ShouldBeNull();
+    upload.ProcessedAt.ShouldBe(Now.AddMinutes(1));
+  }
+
+  [Fact]
+  public void Requeue_UploadNotEnded_ShouldThrow()
+  {
+    var upload = Received();
+
+    Should.Throw<InvalidOperationException>(() => upload.Requeue(ProcessingLog.Empty));
+    upload.State.ShouldBe(UploadState.Received);
+  }
+
+  [Fact]
+  public void Requeue_WithoutLog_ShouldThrow()
+  {
+    var upload = Received();
+    upload.MarkFailed("Code.A", "text", 1, 0, 0, ProcessingLog.Empty, Now);
+
+    Should.Throw<ArgumentNullException>(() => upload.Requeue(null!));
+    upload.State.ShouldBe(UploadState.Failed);
+  }
+
   [Fact]
   public void MarkProcessed_AlreadyProcessed_ShouldThrow()
   {

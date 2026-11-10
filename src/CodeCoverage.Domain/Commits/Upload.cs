@@ -278,6 +278,35 @@ public sealed class Upload
     Partials = totals.Partials;
   }
 
+  /// <summary>Puts an ended upload back to its received state, so that it is processed again from its raw files.</summary>
+  /// <param name="startingLog">The log the next processing starts from: what must survive the previous one.</param>
+  /// <exception cref="ArgumentNullException"><paramref name="startingLog" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">The upload is neither processed nor failed: its processing is still to come.</exception>
+  /// <remarks>Its identity, its commit, its sequence and what its uploader sent are kept: only the result of the processing is forgotten.</remarks>
+  public void Requeue(ProcessingLog startingLog)
+  {
+    ArgumentNullException.ThrowIfNull(startingLog);
+
+    InvalidOperationException.ThrowIf(
+      State is not (UploadState.Processed or UploadState.Failed),
+      $"The upload is {State}: only an ended upload is processed again."
+    );
+
+    State = UploadState.Received;
+    ReportFileCount = 0;
+    ResolvedFileCount = 0;
+    UnresolvedFileCount = 0;
+    Lines = 0;
+    Hits = 0;
+    Misses = 0;
+    Partials = 0;
+    ErrorCode = null;
+    Error = null;
+    ProcessingLog = startingLog;
+    ProcessedAt = null;
+    LockedBy = null;
+  }
+
   /// <summary>Records a processing that gave no coverage.</summary>
   /// <param name="errorCode">The code of the failure.</param>
   /// <param name="error">Its description.</param>

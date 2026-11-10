@@ -17,9 +17,11 @@
   <data name="AccessDenied_Description" xml:space="preserve"><value>You do not have the permission to open this page. Ask an administrator if you need it.</value></data>
   <data name="AccessDenied_Title" xml:space="preserve"><value>Access denied</value></data>
   <data name="BackHome" xml:space="preserve"><value>Back to the repositories</value></data>
+  <data name="Commit.NoUpload" xml:space="preserve"><value>This commit has no upload to process again.</value></data>
   <data name="Commit.NotFound" xml:space="preserve"><value>This commit does not exist.</value></data>
   <data name="Commit.Compacted" xml:space="preserve"><value>The coverage of an upload of this commit no longer exists.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>This commit was finalized in the meantime. Finalize it again.</value></data>
+  <data name="Commit.RawExpired" xml:space="preserve"><value>The raw files of an upload of this commit are no longer kept: it cannot be processed again.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Request identifier</value></data>
   <data name="Error_Title" xml:space="preserve"><value>An error occurred</value></data>
@@ -47,7 +49,9 @@
   <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>The upload named a merge commit: it was attached to the head of the pull request.</value></data>
   <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>The text fields must come before the files.</value></data>
   <data name="Upload.NoFileMapped" xml:space="preserve"><value>No file of the reports was found in the repository.</value></data>
+  <data name="Upload.NotFailed" xml:space="preserve"><value>Only a failed upload can be retried.</value></data>
   <data name="Upload.OidcMismatch" xml:space="preserve"><value>The OIDC token was issued for another repository.</value></data>
+  <data name="Upload.RawExpired" xml:space="preserve"><value>The raw files of this upload are no longer kept: it cannot be processed again.</value></data>
   <data name="Upload.TokenInvalid" xml:space="preserve"><value>The upload token is not valid.</value></data>
   <data name="Upload.TokenNotForRepository" xml:space="preserve"><value>This upload token belongs to another repository.</value></data>
   <data name="Upload.TooLarge" xml:space="preserve"><value>The content of this upload is too large.</value></data>

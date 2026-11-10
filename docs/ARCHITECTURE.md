@@ -842,7 +842,7 @@ OUTPUT inserted.*;
 | `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) | `NotifyCommitCommand(commitId, force)` |
 | `HandleWebhook` | `repo:{githubRepoId}` | — | `HandleWebhookDeliveryCommand(deliveryId)` |
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
-| `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` | `ReprocessCommitCommand` |
+| `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
 | `SyncInstallations` | `installations` | `installations` | quotidien et sur webhook d'installation |
 | `SweepPendingCommits` | `sweep` | `sweep` | toutes les 5 minutes |
@@ -867,6 +867,37 @@ Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `Dedup
    - mise en file de `FinalizeCommit` (fusion).
    - Si aucun fichier n'a été résolu : `State=Failed`, `ErrorCode=Upload.NoFileMapped`, et `FinalizeCommit` est quand même mis en file pour que le commit puisse notifier l'erreur.
    - Sur exception de parsing : `Failed` avec le code `Upload.ParseFailed`, et `FinalizeCommit` est mis en file. Une panne du stockage pendant la lecture d'un rapport (`DbException` ou `TimeoutException`, même enveloppée par la stratégie d'exécution du fournisseur) n'en est pas une : elle remonte au job, qui est retenté.
+
+### 6.2bis Retraitement d'un commit et relance d'un upload
+
+Les deux remettent des uploads terminés en file, pour qu'ils soient parsés de nouveau depuis leur brut. Ils sont réservés à
+l'administrateur du dépôt et audités (`Commits.Reprocess`, `Uploads.Retry`).
+
+- **`ReprocessCommitCommand`** (`IRepositoryScoped(Admin)`) ne traite rien dans la requête. Il refuse un commit inconnu (404
+  `Commit.NotFound`), sans upload (422 `Commit.NoUpload`) ou dont le brut d'un upload n'est plus conservé (422
+  `Commit.RawExpired`), puis met en file le job `ReprocessCommit` (`LockKey commit:{id}`, `DedupKey reprocess:{id}`, fusion) :
+  deux demandes en attente donnent un seul retraitement.
+- **Le job** envoie `RequeueCommitUploadsCommand` (`ISystemOnly`). Il tient le verrou du commit : aucune finalisation ne lit
+  les uploads pendant qu'ils repassent à `Received`. Il revérifie le brut des uploads terminés (la rétention a pu passer
+  entre-temps) : s'il en manque un, il échoue sans rien toucher (`Failed`, `Commit.RawExpired`). Sinon il remet en file
+  **tous** les uploads `Processed` ou `Failed`, en une transaction, avec un job `ProcessUpload` chacun. Un upload `Received`
+  ou `Processing` a déjà son job et n'est pas touché.
+- **`RetryUploadCommand`** (`IRepositoryScoped(Admin)`) remet en file un upload `Failed` du dépôt adressé. Un upload d'une
+  autre organisation ou d'un autre dépôt est introuvable (404 `Upload.NotFound`) ; un upload qui n'est pas `Failed` est
+  refusé (409 `Upload.NotFailed`) ; un brut expiré aussi (422 `Upload.RawExpired`).
+- **Transition gardée** (`ICommitReportRepository.RequeueUploadsAsync`) : la ligne n'est prise que dans l'état où elle a été
+  lue, par un `UPDATE ... WHERE Id=@id AND State=@lu` qui la verrouille jusqu'à la fin de la transaction. De deux demandes
+  qui lisent le même upload, la seconde attend, le trouve `Received` et le laisse : un seul job. La remise à zéro (compteurs,
+  totaux, erreur, journal, `ProcessedAt`) et les jobs sont écrits dans la même transaction.
+- **Ce qui est gardé.** L'identité de l'upload, son commit, sa séquence et ce que l'uploader a envoyé. Du journal, seul le
+  message `Upload.MergeCommitRewritten` survit : le déplacement n'est pas refait. La ligne `UploadCoverages` reste jusqu'à
+  ce que le nouveau traitement la remplace ; aucune finalisation ne la lit entre-temps, puisqu'elle s'arrête tant qu'un
+  upload du commit n'est pas terminé.
+- **Résultat.** Le dernier upload retraité met en file `FinalizeCommit`, qui reconstruit le rapport dans une nouvelle
+  révision. Si les parseurs n'ont pas changé, le rapport, l'index des fichiers, les sessions et les totaux sont identiques
+  à l'octet près (`Worker_ReprocessedCommit_ShouldRebuildTheSameReport`).
+- **Brut expiré** : un upload sans aucun rapport brut dont `ExpiresAt` est encore à venir. La date compte, même si la purge
+  n'a pas encore supprimé les lignes.
 
 ### 6.3 Parseurs (`Infrastructure/Reports/Parsers/*Parser`, `internal sealed`, `IReportParser`)
 
@@ -1044,6 +1075,7 @@ Dans tous les cas, les hits du résultat sont le maximum des deux côtés et le 
 
 | Risque | Parade |
 |---|---|
+| Relance ou retraitement demandés deux fois | Transition gardée sur l'état lu de l'upload (§6.2bis), `DedupKey reprocess:{id}` pour le job du commit |
 | Requête d'upload rejouée | `Idempotency-Key` et `UX(CommitId, IdempotencyKey)` ; après le déplacement d'un upload vers la tête d'une pull request, le rejeu est reçu (202) puis terminé `Failed` / `Upload.Duplicate` au traitement |
 | Uploads parallèles d'une matrice | Création du commit par insertion puis relecture, `Sequence` par `UPDATE` atomique, `ProcessUpload` sans verrou, chaque upload écrit sa propre ligne |
 | Finalisations concurrentes | `LockKey commit:{id}` (index filtré `Running`), fusion des jobs en file, `Commit.Version` |

@@ -409,10 +409,10 @@ public sealed class SqlRawUploadStoreTests(DatabaseFixture database)
     return parts;
   }
 
-  private static SqlRawUploadStore Store(CodeCoverageDbContext context, int maxMegabytes = 2048)
+  private static SqlRawUploadStore Store(CodeCoverageDbContext context, int maxMegabytes = 2048, DateTimeOffset? now = null)
   {
     var clock = A.Fake<IClock>();
-    A.CallTo(() => clock.UtcNow).Returns(Now);
+    A.CallTo(() => clock.UtcNow).Returns(now ?? Now);
 
     var uploads = A.Fake<IOptionsMonitor<UploadOptions>>();
     A.CallTo(() => uploads.CurrentValue).Returns(new UploadOptions { MaxDecompressedMegabytes = maxMegabytes });
@@ -421,6 +421,61 @@ public sealed class SqlRawUploadStoreTests(DatabaseFixture database)
     A.CallTo(() => retention.CurrentValue).Returns(new RetentionOptions { RawDays = 30 });
 
     return new SqlRawUploadStore(context, clock, uploads, retention);
+  }
+
+  // What can still be parsed again: an upload with a report at least, within its retention.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListExpired_ShouldNameTheUploadsWithoutAKeptReport(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await using var context = organizations.ContextOf(organizations.FirstId);
+    var store = Store(context);
+    var kept = Guid.NewGuid();
+    var networkOnly = Guid.NewGuid();
+    var neverStored = Guid.NewGuid();
+
+    await store.WriteAsync(kept, Part(UploadPartKind.Network, Lines(2)), Ct);
+    await store.WriteAsync(kept, Part(UploadPartKind.Report, [1, 2]), Ct);
+    await store.WriteAsync(networkOnly, Part(UploadPartKind.Network, Lines(2)), Ct);
+
+    (await store.ListExpiredAsync([kept, networkOnly, neverStored, kept], Ct)).ShouldBe([networkOnly, neverStored], ignoreOrder: true);
+    (await store.ListExpiredAsync([kept], Ct)).ShouldBeEmpty();
+    (await store.ListExpiredAsync([], Ct)).ShouldBeEmpty();
+  }
+
+  // The retention of 30 days: kept until the last instant before it ends, expired from that instant on,
+  // even though the purge has not removed the rows yet.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListExpired_AtTheEndOfTheRetention_ShouldNameTheUpload(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await using var context = organizations.ContextOf(organizations.FirstId);
+    var uploadId = Guid.NewGuid();
+
+    await Store(context).WriteAsync(uploadId, Part(UploadPartKind.Report, [1, 2]), Ct);
+
+    (await Store(context, now: Now.AddDays(30).AddSeconds(-1)).ListExpiredAsync([uploadId], Ct)).ShouldBeEmpty();
+    (await Store(context, now: Now.AddDays(30)).ListExpiredAsync([uploadId], Ct)).ShouldBe([uploadId]);
+    (await Store(context, now: Now.AddDays(31)).ListExpiredAsync([uploadId], Ct)).ShouldBe([uploadId]);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListExpired_OtherOrganization_ShouldSeeNoRawFile(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    var uploadId = Guid.NewGuid();
+
+    await using (var first = organizations.ContextOf(organizations.FirstId))
+    {
+      await Store(first).WriteAsync(uploadId, Part(UploadPartKind.Report, [1, 2]), Ct);
+    }
+
+    await using var second = organizations.ContextOf(organizations.SecondId);
+
+    (await Store(second).ListExpiredAsync([uploadId], Ct)).ShouldBe([uploadId]);
   }
 
   #endregion
