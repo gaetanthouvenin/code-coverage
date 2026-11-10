@@ -28,6 +28,17 @@ internal sealed class OidcTokenFetcher(HttpClient client, Func<string, string?> 
 
   #region Methods
 
+  /// <summary>Tells whether GitHub Actions can be asked for an OIDC token.</summary>
+  /// <param name="environment">Reads an environment variable.</param>
+  /// <returns><see langword="true" /> when the job was granted <c>id-token: write</c>.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="environment" /> is <see langword="null" />.</exception>
+  public static bool IsAvailable(Func<string, string?> environment)
+  {
+    ArgumentNullException.ThrowIfNull(environment);
+
+    return !string.IsNullOrWhiteSpace(environment(RequestUrlVariable)) && !string.IsNullOrWhiteSpace(environment(RequestTokenVariable));
+  }
+
   /// <summary>Asks GitHub Actions for a token.</summary>
   /// <param name="audience">The audience, the address of the server.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>

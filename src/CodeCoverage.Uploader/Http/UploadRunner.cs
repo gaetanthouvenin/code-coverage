@@ -4,7 +4,10 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using CodeCoverage.Uploader.Ci;
+using CodeCoverage.Uploader.Commands;
 using CodeCoverage.Uploader.Discovery;
 using CodeCoverage.Uploader.Git;
 using CodeCoverage.Uploader.Output;
@@ -13,16 +16,20 @@ namespace CodeCoverage.Uploader.Http;
 
 /// <summary>Runs one upload: finds the reports, detects the context and sends everything (§5.3).</summary>
 /// <param name="client">The sender of the upload.</param>
+/// <param name="poller">Waits for the processing of the upload, with <c>--wait</c>.</param>
 /// <param name="environment">Reads an environment variable.</param>
 /// <param name="reporter">Prints the messages.</param>
-internal sealed class UploadRunner(UploadClient client, Func<string, string?> environment, ConsoleReporter reporter)
+internal sealed class UploadRunner(UploadClient client, UploadStatusPoller poller, Func<string, string?> environment, ConsoleReporter reporter)
 {
   #region Methods
 
   /// <summary>Runs the upload.</summary>
   /// <param name="settings">The options of the run.</param>
   /// <param name="cancellationToken">A token to cancel the run.</param>
-  /// <returns><see langword="true" /> when the server accepted the upload.</returns>
+  /// <returns>
+  ///   <see langword="true" /> when the server accepted the upload and, with <c>--wait</c>, processed it;
+  ///   <see langword="true" /> as well for a dry run, which sends nothing.
+  /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="settings" /> is <see langword="null" />.</exception>
   public async Task<bool> RunAsync(UploaderSettings settings, CancellationToken cancellationToken)
   {
@@ -50,6 +57,11 @@ internal sealed class UploadRunner(UploadClient client, Func<string, string?> en
       return false;
     }
 
+    reporter.Detail(
+      $"Context: {context.Service ?? "no CI service"}, slug {context.Slug}, sha {context.Sha}, branch {context.Branch ?? "(none)"}, "
+      + $"pull request {context.PullRequest?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, root {root}"
+    );
+
     string? Git(string[] arguments) => GitRunner.Run(arguments, root);
 
     ConsistencyChecker.Check(context, Git, reporter);
@@ -73,14 +85,55 @@ internal sealed class UploadRunner(UploadClient client, Func<string, string?> en
       Reports = reports,
     };
 
+    reporter.Detail(
+      request.Network is null
+        ? "The file list of the repository is not sent."
+        : $"The file list of the repository holds {request.Network.Count.ToString(CultureInfo.InvariantCulture)} paths."
+    );
+
     if (settings.DryRun)
     {
-      reporter.Info($"Dry run: nothing was sent to {settings.Url}.");
+      DryRunPrinter.Print(reporter, settings, request, OidcTokenFetcher.IsAvailable(environment), SizeOf);
 
       return true;
     }
 
-    return await client.SendAsync(settings.Url, settings.Token, request, cancellationToken).ConfigureAwait(false);
+    var receipt = await client.SendAsync(settings.Url, settings.Token, request, cancellationToken).ConfigureAwait(false);
+
+    if (receipt is null)
+    {
+      return false;
+    }
+
+    if (!settings.Wait)
+    {
+      return true;
+    }
+
+    if (receipt.StatusUrl is null)
+    {
+      // The upload is accepted. No address is built in its place: the routes belong to the server.
+      reporter.Warning("The server gave no address to follow the processing: --wait is ignored.");
+
+      return true;
+    }
+
+    return await poller.PollAsync(receipt.StatusUrl, receipt.Credential, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Reads the size of a report.</summary>
+  /// <param name="path">The path of the report.</param>
+  /// <returns>Its size in bytes, or <see langword="null" /> when it cannot be read.</returns>
+  private static long? SizeOf(string path)
+  {
+    try
+    {
+      return new FileInfo(path).Length;
+    }
+    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+    {
+      return null;
+    }
   }
 
   #endregion

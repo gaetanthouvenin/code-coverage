@@ -30,6 +30,8 @@ public sealed class UploadClientTests : IDisposable
 
   private readonly StringWriter _output = new();
 
+  private UploadReceipt? _receipt;
+
   #endregion
 
   #region Properties
@@ -51,6 +53,45 @@ public sealed class UploadClientTests : IDisposable
 
     names.ShouldBe(["slug", "sha", "branch", "pr", "parentSha", "flags", "name", "ciService", "buildUrl", "buildId", "jobId", "root", "network", "file"]);
     names.IndexOf("file").ShouldBeGreaterThan(names.IndexOf("network"));
+  }
+
+  // The address is the one the server wrote, on its own public host: nothing of it is rebuilt.
+  [Fact]
+  public async Task Send_Accepted_ShouldKeepTheStatusUrlOfTheAnswerAndTheCredential()
+  {
+    const string statusUrl = "https://api.coverage.example.com/api/v1/repos/github/octo-org/app/uploads/0f8a4c1e-7d2b-4e6f-9a3c-5b1d2e3f4a5b";
+    _handler.Then(HttpStatusCode.Accepted, $$"""{"uploadId":"0f8a4c1e-7d2b-4e6f-9a3c-5b1d2e3f4a5b","state":"Received","commitUrl":"https://coverage.example.com/c","statusUrl":"{{statusUrl}}"}""");
+
+    (await SendAsync(Request())).ShouldBeTrue();
+
+    _receipt.ShouldNotBeNull();
+    _receipt.StatusUrl.ShouldNotBeNull().AbsoluteUri.ShouldBe(statusUrl);
+    _receipt.Credential.ShouldBe("cvc_token");
+    _receipt.ToString().ShouldNotContain("cvc_token");
+  }
+
+  [Theory]
+  [InlineData("{}", null)]
+  [InlineData("""{"statusUrl":null}""", null)]
+  [InlineData("""{"statusUrl":"/api/v1/uploads/1"}""", "not an absolute HTTP address")]
+  [InlineData("""{"statusUrl":"file:///etc/passwd"}""", "not an absolute HTTP address")]
+  [InlineData("""{"statusUrl":"http://coverage.example.com/api/v1/uploads/1"}""", "leaves HTTPS")]
+  public async Task Send_Accepted_StatusUrlMissingOrUnsafe_ShouldKeepNone(string body, string? warning)
+  {
+    _handler.Then(HttpStatusCode.Accepted, body);
+
+    (await SendAsync(Request())).ShouldBeTrue();
+
+    _receipt.ShouldNotBeNull().StatusUrl.ShouldBeNull();
+
+    if (warning is null)
+    {
+      _output.ToString().ShouldNotContain("warning:");
+    }
+    else
+    {
+      _output.ToString().ShouldContain(warning);
+    }
   }
 
   [Fact]
@@ -260,14 +301,16 @@ public sealed class UploadClientTests : IDisposable
     return MultipartBody.Parse(body, boundary);
   }
 
-  private Task<bool> SendAsync(UploadRequest request, string? token = "cvc_token")
+  private async Task<bool> SendAsync(UploadRequest request, string? token = "cvc_token")
   {
     var client = new HttpClient(_handler, disposeHandler: false);
     var reporter = new ConsoleReporter(_output);
     var retry = new RetryPolicy((wait, _) => { _waits.Add(wait); return Task.CompletedTask; }, reporter);
     var oidc = new OidcTokenFetcher(client, name => _environment.GetValueOrDefault(name), reporter);
 
-    return new UploadClient(client, retry, oidc, reporter).SendAsync(Server, token, request, Ct);
+    _receipt = await new UploadClient(client, retry, oidc, reporter).SendAsync(Server, token, request, Ct);
+
+    return _receipt is not null;
   }
 
   #endregion
