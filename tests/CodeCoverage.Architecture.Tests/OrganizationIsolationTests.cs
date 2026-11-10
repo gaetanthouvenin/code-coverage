@@ -108,7 +108,7 @@ public sealed partial class OrganizationIsolationTests
     (UploadCredentialCache, "IMemoryCache"),
   ];
 
-  // Not in AllowLists: AdminCommandLine (M1.23), which holds the only use, does not exist yet.
+  // The administration command line (M1.23) holds the only use.
   private static readonly (string File, string Name)[] SystemRunnerAllowList = [(AdminCommandLine, "SystemCommandRunner")];
 
   private static readonly (string[] Names, (string File, string Name)[] Allowed)[] AllowLists =
@@ -117,6 +117,7 @@ public sealed partial class OrganizationIsolationTests
     (OrganizationEntry, OrganizationEntryAllowList),
     (CrossOrganizationEnqueue, CrossOrganizationEnqueueAllowList),
     (ProcessWideCache, MemoryCacheAllowList),
+    (SystemRunner, SystemRunnerAllowList),
   ];
 
   private static readonly Lazy<List<(string Path, string Text)>> Sources = new(

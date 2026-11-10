@@ -12,6 +12,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Organizations.Commands.SuspendOrganization;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Administration;
@@ -34,6 +35,8 @@ public sealed class SystemCommandRunnerTests
   private readonly ISender _sender = A.Fake<ISender>();
 
   private (long? Organization, bool IsSystem) _observed;
+
+  private string? _observedActor;
 
   #endregion
 
@@ -65,6 +68,15 @@ public sealed class SystemCommandRunnerTests
 
     observed.Organization.ShouldBe(OrganizationId);
     observed.IsSystem.ShouldBeTrue();
+  }
+
+  [Fact]
+  public async Task Run_ShouldBeAuditedUnderTheCommandLineActor()
+  {
+    await RunObservingAsync(null);
+
+    _observedActor.ShouldBe(AuditEntry.CommandLineActor);
+    _observedActor.ShouldNotBe(AuditEntry.SystemActor, "the jobs and the command line are told apart in the audit trail");
   }
 
   [Fact]
@@ -126,7 +138,11 @@ public sealed class SystemCommandRunnerTests
         var organization = sp.GetRequiredService<ICurrentOrganization>();
 
         A.CallTo(() => _sender.Send(A<ICommand<Unit>>._, A<CancellationToken>._))
-         .Invokes(() => _observed = (organization.IsKnown ? organization.Id : null, user.IsSystem))
+         .Invokes(() =>
+           {
+             _observed = (organization.IsKnown ? organization.Id : null, user.IsSystem);
+             _observedActor = user.GetActorName();
+           })
          .Returns(ValueTask.FromResult(Unit.Value));
 
         return _sender;

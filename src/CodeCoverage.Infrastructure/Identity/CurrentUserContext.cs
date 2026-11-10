@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Infrastructure.Identity;
@@ -16,8 +17,9 @@ namespace CodeCoverage.Infrastructure.Identity;
 /// <remarks>
 ///   <para>
 ///     The hosts set a signed-in user with <see cref="SetUser" />. Only the Infrastructure (the
-///     job worker) can set the system principal, through the <see langword="internal" />
-///     <see cref="SetSystem" />: the compiler keeps the Api and the Web from ever producing it.
+///     job worker and the runner of the administration command line) can set the system principal,
+///     through the <see langword="internal" /> <see cref="SetSystem" /> and
+///     <see cref="SetCommandLine" />: the compiler keeps the Api and the Web from ever producing it.
 ///   </para>
 ///   <para>
 ///     A scope runs for one principal: once a user or the system is set, the context refuses to
@@ -78,6 +80,19 @@ public sealed class CurrentUserContext : ICurrentUser
     );
 
     IsSystem = true;
+  }
+
+  /// <summary>Sets the system principal of the administration command line, which names itself in the audit trail.</summary>
+  /// <exception cref="InvalidOperationException">The scope already runs for a user.</exception>
+  /// <remarks>
+  ///   Called by <c>SystemCommandRunner</c> only. <see cref="Login" /> then holds
+  ///   <see cref="AuditEntry.CommandLineActor" />, which no forge login can be.
+  /// </remarks>
+  internal void SetCommandLine()
+  {
+    SetSystem();
+
+    Login = AuditEntry.CommandLineActor;
   }
 
   #endregion

@@ -28,6 +28,10 @@ public interface ICurrentUser
   ///   Gets the GitHub login of the signed-in user, or <see langword="null" /> when nobody is
   ///   signed in or when the work runs for the system.
   /// </summary>
+  /// <remarks>
+  ///   The administration command line is the one system principal with a value here: the bracketed
+  ///   marker it leaves in the audit trail, which no forge login can be.
+  /// </remarks>
   string? Login { get; }
 
   /// <summary>Gets a value indicating whether a user is signed in.</summary>

@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
 
@@ -81,6 +82,59 @@ public sealed class CurrentUserContextTests
     context.IsAdmin.ShouldBeFalse();
     context.UserId.ShouldBeNull();
     context.Login.ShouldBeNull();
+  }
+
+  [Fact]
+  public void SetCommandLine_OnAnonymousScope_ShouldRunForTheSystemUnderItsOwnActor()
+  {
+    var context = new CurrentUserContext();
+
+    context.SetCommandLine();
+
+    context.IsSystem.ShouldBeTrue();
+    context.IsAuthenticated.ShouldBeFalse();
+    context.IsAdmin.ShouldBeFalse();
+    context.UserId.ShouldBeNull();
+    context.Login.ShouldBe(AuditEntry.CommandLineActor);
+    context.GetActorName().ShouldBe(AuditEntry.CommandLineActor);
+  }
+
+  [Fact]
+  public void SetCommandLine_OnUserScope_ShouldThrowInvalidOperationException()
+  {
+    var context = new CurrentUserContext();
+    context.SetUser(42, "octocat", isAdmin: true);
+
+    Should.Throw<InvalidOperationException>(context.SetCommandLine);
+    context.IsSystem.ShouldBeFalse();
+    context.Login.ShouldBe("octocat");
+  }
+
+  [Fact]
+  public void SetCommandLine_ShouldNeverBeVisibleFromTheHosts()
+  {
+    var setCommandLine = typeof(CurrentUserContext).GetMethod(
+                           nameof(CurrentUserContext.SetCommandLine),
+                           BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    setCommandLine.ShouldNotBeNull();
+    setCommandLine.IsAssembly.ShouldBeTrue("SetCommandLine stays internal: the hosts reach it through SystemCommandRunner only");
+  }
+
+  [Theory]
+  [InlineData(false, null, AuditEntry.AnonymousActor)]
+  [InlineData(false, "", AuditEntry.AnonymousActor)]
+  [InlineData(false, "octocat", "octocat")]
+  [InlineData(true, null, AuditEntry.SystemActor)]
+  [InlineData(true, "", AuditEntry.SystemActor)]
+  [InlineData(true, AuditEntry.CommandLineActor, AuditEntry.CommandLineActor)]
+  public void GetActorName_ShouldNameThePrincipal(bool isSystem, string? login, string expected)
+  {
+    var user = A.Fake<ICurrentUser>();
+    A.CallTo(() => user.IsSystem).Returns(isSystem);
+    A.CallTo(() => user.Login).Returns(login);
+
+    user.GetActorName().ShouldBe(expected);
   }
 
   [Fact]
