@@ -148,3 +148,6 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Host 'All checks passed.'
+
+# The last child process was a refusal, checked above: its exit code is not the one of this script.
+exit 0
