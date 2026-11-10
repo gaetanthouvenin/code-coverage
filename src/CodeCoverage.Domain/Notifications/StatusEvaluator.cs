@@ -39,6 +39,127 @@ public static class StatusEvaluator
 
   #region Methods
 
+  /// <summary>Evaluates a rule, whatever its type, and applies <c>informational</c>.</summary>
+  /// <param name="rule">The rule.</param>
+  /// <param name="subject">What the rule is evaluated on.</param>
+  /// <param name="format">How the status is named and its numbers written.</param>
+  /// <returns>The status, or <see langword="null" /> when the rule asks to post nothing (<c>if_not_found: ignore</c>).</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <remarks>An informational rule never blocks: its state is sent as a success, and its description says what was found.</remarks>
+  public static CommitStatus? Evaluate(StatusRule rule, StatusSubject subject, StatusFormat format)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+
+    var status = rule.Type switch
+    {
+      StatusType.Project => EvaluateProject(rule, subject, format),
+      StatusType.Patch => EvaluatePatch(rule, subject, format),
+      var _ => EvaluateChanges(rule, subject, format),
+    };
+
+    return status is not null && rule.Informational && status.State is not StatusState.Success
+             ? new CommitStatus(status.Context, StatusState.Success, status.Description)
+             : status;
+  }
+
+  /// <summary>Evaluates a <c>patch</c> rule: the coverage of the lines the diff adds against a target.</summary>
+  /// <param name="rule">The rule.</param>
+  /// <param name="subject">What the rule is evaluated on.</param>
+  /// <param name="format">How the status is named and its numbers written.</param>
+  /// <returns>The status, or <see langword="null" /> when the rule asks to post nothing (<c>if_not_found: ignore</c>).</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="rule" /> is not a patch rule.</exception>
+  /// <remarks>
+  ///   A diff that adds no line the head report can cover does not affect the coverage: the status passes.
+  ///   The target <c>auto</c> is the coverage of the base report.
+  /// </remarks>
+  public static CommitStatus? EvaluatePatch(StatusRule rule, StatusSubject subject, StatusFormat format)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+    ArgumentNullException.ThrowIfNull(subject);
+    ArgumentNullException.ThrowIfNull(format);
+    ArgumentException.ThrowIf(rule.Type is not StatusType.Patch, "The rule is not a patch rule.", nameof(rule));
+
+    var context = StatusContext.Build(format.Prefix, rule.Type, rule.Name);
+    var patch = subject.Patch.Totals;
+
+    if (patch.Coverage is not { } coverage)
+    {
+      var from = subject.ForkPointSha ?? subject.ComparedToSha;
+
+      return new CommitStatus(
+        context,
+        StatusState.Success,
+        from is null ? "Coverage not affected" : $"Coverage not affected when comparing {Short(from)}...{Short(subject.HeadSha)}"
+      );
+    }
+
+    decimal target;
+    decimal shownTarget;
+
+    if (rule.Target.Percentage is { } custom)
+    {
+      target = shownTarget = custom;
+    }
+    else if (subject.Base?.Totals is { Coverage: { } baseCoverage } @base)
+    {
+      target = Exact(@base);
+      shownTarget = baseCoverage;
+    }
+    else
+    {
+      return NotFound(context, rule, NoBaseMessage);
+    }
+
+    var exact = Exact(patch);
+    var hit = $"{StatusNumber.Text(coverage, format)}% of diff hit";
+
+    if (exact >= target)
+    {
+      return new CommitStatus(context, StatusState.Success, $"{hit} (target {StatusNumber.Text(shownTarget, format)}%)");
+    }
+
+    return exact >= target - rule.Threshold
+             ? new CommitStatus(
+               context,
+               StatusState.Success,
+               $"{hit} (within {StatusNumber.Text(rule.Threshold, format)}% threshold of {StatusNumber.Text(shownTarget, format)}%)"
+             )
+             : new CommitStatus(context, StatusState.Failure, $"{hit} (target {StatusNumber.Text(shownTarget, format)}%)");
+  }
+
+  /// <summary>Evaluates a <c>changes</c> rule: no file outside the diff may get more lines missed or partially hit.</summary>
+  /// <param name="rule">The rule.</param>
+  /// <param name="subject">What the rule is evaluated on.</param>
+  /// <param name="format">How the status is named.</param>
+  /// <returns>The status.</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="rule" /> is not a changes rule.</exception>
+  public static CommitStatus EvaluateChanges(StatusRule rule, StatusSubject subject, StatusFormat format)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+    ArgumentNullException.ThrowIfNull(subject);
+    ArgumentNullException.ThrowIfNull(format);
+    ArgumentException.ThrowIf(rule.Type is not StatusType.Changes, "The rule is not a changes rule.", nameof(rule));
+
+    var context = StatusContext.Build(format.Prefix, rule.Type, rule.Name);
+
+    if (subject.Base is null && subject.ForkPointSha is not null && rule.Base is not StatusBase.Parent)
+    {
+      return new CommitStatus(context, StatusState.Success, "Unable to determine changes, no report found at pull request base");
+    }
+
+    var failing = subject.IndirectChanges.Count(static change => change.IsFailing);
+
+    return failing == 0
+             ? new CommitStatus(context, StatusState.Success, "No indirect coverage changes found")
+             : new CommitStatus(
+               context,
+               StatusState.Failure,
+               $"{failing} {(failing > 1 ? "files have" : "file has")} indirect coverage changes not visible in diff"
+             );
+  }
+
   /// <summary>Evaluates a <c>project</c> rule: the coverage of the head against a target.</summary>
   /// <param name="rule">The rule.</param>
   /// <param name="subject">What the rule is evaluated on.</param>
