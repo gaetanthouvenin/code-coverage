@@ -366,6 +366,35 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     (await reader.CommitFlagTotals.AsNoTracking().SingleAsync(Ct)).Flag.ShouldBe(flag);
   }
 
+  // Codecov flags are case-sensitive: Backend and backend are two flags on both engines.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_FlagsDifferingByCase_ShouldStoreBoth(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      Finalize(commit);
+
+      await Repository(context, first).SaveFinalizedAsync(
+        commit,
+        Blob,
+        Index,
+        [],
+        [CommitFlagTotals.Create(commit, "Backend", Totals, false, null), CommitFlagTotals.Create(commit, "backend", Totals, false, null)],
+        Ct
+      );
+    }
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var flags = await reader.CommitFlagTotals.AsNoTracking().Select(static t => t.Flag).ToListAsync(Ct);
+    flags.Order(StringComparer.Ordinal).ShouldBe(["Backend", "backend"]);
+    (await reader.CommitFlagTotals.AsNoTracking().CountAsync(static t => t.Flag == "backend", Ct)).ShouldBe(1);
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task GetReport_OtherOrganization_ShouldReturnNull(DatabaseProvider provider)

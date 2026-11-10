@@ -6,6 +6,7 @@
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -60,6 +61,29 @@ public sealed class JobDispatcherTests
   public async Task Dispatch_ProcessUploadWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
   {
     var job = Job(JobTypes.ProcessUpload, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
+  }
+
+  [Fact]
+  public async Task Dispatch_FinalizeCommit_ShouldSendTheCommandOfTheCommit()
+  {
+    var job = Job(JobTypes.FinalizeCommit, 42);
+    job.PayloadJson = """{"CommitId":9}""";
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new FinalizeCommitCommand(9), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("{}")]
+  [InlineData("not json")]
+  [InlineData("""{"CommitId":"abc"}""")]
+  public async Task Dispatch_FinalizeCommitWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
+  {
+    var job = Job(JobTypes.FinalizeCommit, 42);
     job.PayloadJson = payload;
 
     await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));

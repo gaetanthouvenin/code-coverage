@@ -147,7 +147,8 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
 
                     b.Property<string>("Flag")
                         .HasMaxLength(446)
-                        .HasColumnType("nvarchar(446)");
+                        .HasColumnType("nvarchar(446)")
+                        .UseCollation("Latin1_General_100_BIN2");
 
                     b.Property<string>("Branch")
                         .HasMaxLength(255)

@@ -137,6 +137,16 @@ public sealed class CoverageConfig
   /// <exception cref="ArgumentNullException"><paramref name="flag" /> is null.</exception>
   public FlagRule ResolveFlag(string flag) => FlagRule.Resolve(Root, flag);
 
+  /// <summary>Gives the flags the configuration declares, in <c>flags</c> and in <c>flag_management.individual_flags</c>.</summary>
+  /// <returns>Their names, distinct and in ordinal order.</returns>
+  public IReadOnlyList<string> ListDeclaredFlags()
+  {
+    var legacy = (Root.Find("flags")?.Entries ?? []).Select(static entry => entry.Key);
+    var individual = (Root.Find("flag_management", "individual_flags")?.Items ?? []).Select(static item => item.Find("name")?.AsText() ?? string.Empty);
+
+    return [.. legacy.Concat(individual).Where(static flag => flag.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+  }
+
   /// <summary>Builds the set that decides which paths an upload keeps.</summary>
   /// <param name="flags">The flags of the upload.</param>
   /// <returns>

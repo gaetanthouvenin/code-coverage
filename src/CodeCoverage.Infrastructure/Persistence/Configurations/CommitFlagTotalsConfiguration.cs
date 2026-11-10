@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using CodeCoverage.Domain.Commits;
@@ -23,6 +24,13 @@ internal sealed class CommitFlagTotalsConfiguration : IEntityTypeConfiguration<C
   /// <summary>The index of the history of a flag on a branch.</summary>
   private const string HistoryIndexName = "IX_CommitFlagTotals_RepositoryId_Branch_Flag_CompletedAt";
 
+  /// <summary>The comparison of the flags by the change tracker: by code point, whatever the engine.</summary>
+  private static readonly ValueComparer<string> OrdinalComparer = new(
+    static (left, right) => string.Equals(left, right, StringComparison.Ordinal),
+    static value => StringComparer.Ordinal.GetHashCode(value),
+    static value => value
+  );
+
   #endregion
 
   #region Implementation of IEntityTypeConfiguration<CommitFlagTotals>
@@ -36,7 +44,13 @@ internal sealed class CommitFlagTotalsConfiguration : IEntityTypeConfiguration<C
     builder.HasKey(static t => new { t.CommitId, t.Flag });
     builder.IsOrganizationOwned();
 
-    builder.Property(static t => t.Flag).IsRequired().HasMaxLength(CommitFlagTotals.FlagMaxLength);
+    // A flag is case-sensitive, as on Codecov. With the SQL Server provider, the key of the change tracker does not
+    // tell Backend from backend without this comparer, binary collation or not (SaveFinalized_FlagsDifferingByCase
+    // fails in the identity map); CodeCoverageDbContext gives the column that collation for the database itself.
+    builder.Property(static t => t.Flag)
+           .IsRequired()
+           .HasMaxLength(CommitFlagTotals.FlagMaxLength)
+           .Metadata.SetValueComparer(OrdinalComparer);
     builder.Property(static t => t.RepositoryId).IsRequired();
     builder.Property(static t => t.Branch).HasMaxLength(Commit.BranchMaxLength);
     builder.Property(static t => t.CompletedAt).IsRequired();

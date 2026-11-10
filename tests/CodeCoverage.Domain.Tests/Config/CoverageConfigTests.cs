@@ -22,6 +22,17 @@ public sealed class CoverageConfigTests
   #region Methods
 
   [Fact]
+  public void ListDeclaredFlags_ShouldReadBothPlacesOnce()
+  {
+    var root = ConfigNode.FromMap(
+      ("flags", ConfigNode.FromMap(("b", ConfigNode.FromMap()), ("a", ConfigNode.FromMap()))),
+      ("flag_management", ConfigNode.FromMap(("individual_flags", ConfigNode.FromList(ConfigNode.FromMap(("name", ConfigNode.FromText("a"))), ConfigNode.FromMap(("name", ConfigNode.FromText("c")))))))
+    );
+
+    CoverageConfig.Create(root).ListDeclaredFlags().ShouldBe(["a", "b", "c"]);
+  }
+
+  [Fact]
   public void Create_OnDefaults_ShouldExposeTheBuiltInValues()
   {
     var config = CoverageConfig.Create(CoverageConfigDefaults.Root);
