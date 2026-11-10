@@ -17,9 +17,10 @@ namespace CodeCoverage.Uploader.Http;
 /// <summary>Runs one upload: finds the reports, detects the context and sends everything (§5.3).</summary>
 /// <param name="client">The sender of the upload.</param>
 /// <param name="poller">Waits for the processing of the upload, with <c>--wait</c>.</param>
+/// <param name="finalizer">Declares the uploads of the commit complete, with <c>--finalize</c>.</param>
 /// <param name="environment">Reads an environment variable.</param>
 /// <param name="reporter">Prints the messages.</param>
-internal sealed class UploadRunner(UploadClient client, UploadStatusPoller poller, Func<string, string?> environment, ConsoleReporter reporter)
+internal sealed class UploadRunner(UploadClient client, UploadStatusPoller poller, FinalizeClient finalizer, Func<string, string?> environment, ConsoleReporter reporter)
 {
   #region Methods
 
@@ -105,20 +106,28 @@ internal sealed class UploadRunner(UploadClient client, UploadStatusPoller polle
       return false;
     }
 
-    if (!settings.Wait)
+    var succeeded = true;
+
+    if (settings.Wait)
     {
-      return true;
+      if (receipt.StatusUrl is null)
+      {
+        // The upload is accepted. No address is built in its place: the routes belong to the server.
+        reporter.Warning("The server gave no address to follow the processing: --wait is ignored.");
+      }
+      else
+      {
+        succeeded = await poller.PollAsync(receipt.StatusUrl, receipt.Credential, cancellationToken).ConfigureAwait(false);
+      }
     }
 
-    if (receipt.StatusUrl is null)
+    // After the wait, and whatever it gave: the commit is notified with what the server could process.
+    if (settings.Finalize)
     {
-      // The upload is accepted. No address is built in its place: the routes belong to the server.
-      reporter.Warning("The server gave no address to follow the processing: --wait is ignored.");
-
-      return true;
+      succeeded &= await finalizer.CompleteAsync(settings.Url, context.Slug, context.Sha, receipt.Credential, cancellationToken).ConfigureAwait(false);
     }
 
-    return await poller.PollAsync(receipt.StatusUrl, receipt.Credential, cancellationToken).ConfigureAwait(false);
+    return succeeded;
   }
 
   /// <summary>Reads the size of a report.</summary>

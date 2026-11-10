@@ -47,6 +47,9 @@ public static class JobTypes
   /// <summary>Rebuilds the report of a commit from its uploads.</summary>
   public const string FinalizeCommit = "FinalizeCommit";
 
+  /// <summary>Publishes the statuses of a commit, then its comment.</summary>
+  public const string NotifyCommit = "NotifyCommit";
+
   /// <summary>Puts the ended uploads of a commit back in the queue, so that they are parsed again from their raw files.</summary>
   public const string ReprocessCommit = "ReprocessCommit";
 

@@ -70,6 +70,60 @@ public sealed class UploadRunnerTests : IDisposable
   }
 
   [Fact]
+  public async Task Run_WithFinalize_ShouldDeclareTheUploadsCompleteAfterTheUpload()
+  {
+    _handler.Then(HttpStatusCode.Accepted, Accepted).Then(HttpStatusCode.OK, """{"total":1,"processed":0,"processing":1,"failed":0}""");
+
+    (await RunAsync(Settings(finalize: true))).ShouldBeTrue();
+
+    _handler.Received.Count.ShouldBe(2);
+    _handler.Received[1].Request.Method.ShouldBe(HttpMethod.Post);
+    _handler.Received[1].Request.RequestUri!.AbsoluteUri.ShouldBe($"https://coverage.example.com/api/v1/repos/github/octo-org/app/commits/{new string('a', 40)}/uploads-complete");
+    _handler.Received[1].Request.Headers.Authorization!.Parameter.ShouldBe(Token);
+    _output.ToString().ShouldNotContain(Token);
+  }
+
+  // The wait comes first: the announcement is made once the server said what it could process.
+  [Fact]
+  public async Task Run_WithWaitAndFinalize_ShouldWaitThenDeclareComplete()
+  {
+    _handler.Then(HttpStatusCode.Accepted, Accepted).Then(HttpStatusCode.OK, Processed).Then(HttpStatusCode.OK, "{}");
+
+    (await RunAsync(Settings(wait: true, finalize: true))).ShouldBeTrue();
+
+    _handler.Received.Select(static r => r.Request.Method).ShouldBe([HttpMethod.Post, HttpMethod.Get, HttpMethod.Post]);
+  }
+
+  // A refused announcement is a failure of the run, which exits 0 without --fail-on-error like any other.
+  [Fact]
+  public async Task Run_FinalizeRefused_ShouldReturnFalse()
+  {
+    _handler.Then(HttpStatusCode.Accepted, Accepted).Then(HttpStatusCode.NotFound, """{"errorCode":"Commit.NotFound"}""");
+
+    (await RunAsync(Settings(finalize: true))).ShouldBeFalse();
+  }
+
+  [Fact]
+  public async Task Run_UploadRefused_ShouldNotDeclareComplete()
+  {
+    _handler.Then(HttpStatusCode.Unauthorized, """{"errorCode":"Upload.TokenInvalid"}""");
+
+    (await RunAsync(Settings(finalize: true))).ShouldBeFalse();
+
+    _handler.Received.Count.ShouldBe(1);
+  }
+
+  [Fact]
+  public async Task Run_WithoutFinalize_ShouldNotDeclareComplete()
+  {
+    _handler.Then(HttpStatusCode.Accepted, Accepted);
+
+    (await RunAsync(Settings())).ShouldBeTrue();
+
+    _handler.Received.Count.ShouldBe(1);
+  }
+
+  [Fact]
   public async Task Run_WithoutWait_ShouldNotAskTheState()
   {
     _handler.Then(HttpStatusCode.Accepted, Accepted);
@@ -164,7 +218,7 @@ public sealed class UploadRunnerTests : IDisposable
     _output.ToString().ShouldNotContain("Context: ");
   }
 
-  private UploaderSettings Settings(bool wait = false, bool dryRun = false)
+  private UploaderSettings Settings(bool wait = false, bool dryRun = false, bool finalize = false)
   {
     var report = Path.Combine(_directory, "coverage.cobertura.xml");
     File.WriteAllText(report, "<coverage/>");
@@ -182,6 +236,7 @@ public sealed class UploadRunnerTests : IDisposable
       NoNetwork = true,
       Wait = wait,
       DryRun = dryRun,
+      Finalize = finalize,
     };
   }
 
@@ -200,6 +255,7 @@ public sealed class UploadRunnerTests : IDisposable
     var runner = new UploadRunner(
       new UploadClient(client, new RetryPolicy(Delay, reporter), new OidcTokenFetcher(client, Environment, reporter), reporter),
       new UploadStatusPoller(client, Delay, _time, reporter),
+      new FinalizeClient(client, new RetryPolicy(Delay, reporter), reporter),
       Environment,
       reporter
     );

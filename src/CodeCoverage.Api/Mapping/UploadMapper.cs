@@ -14,7 +14,9 @@ using CodeCoverage.Api.Contracts.Uploads;
 using CodeCoverage.Api.Uploads;
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Application.Features.Uploads;
+using CodeCoverage.Application.Features.Uploads.Commands.CompleteUploads;
 using CodeCoverage.Application.Features.Uploads.Commands.ReceiveUpload;
 using CodeCoverage.Application.Features.Uploads.Queries.AuthorizeUpload;
 using CodeCoverage.Application.Features.Uploads.Queries.GetUploadByCredential;
@@ -114,6 +116,38 @@ internal static partial class UploadMapper
     var statusUrl = $"{(urls.ApiPublicUrl ?? apiBase).TrimEnd('/')}{CodeCoverageApi.Prefix}/repos/{address}/uploads/{received.Upload.PublicId}";
 
     return (new UploadAcceptedResponse(received.Upload.PublicId, received.Upload.State.ToString(), commitUrl, statusUrl), received.IsReplay);
+  }
+
+  /// <summary>Announces the end of the uploads of a commit, with the credential that sends the uploads of its repository.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="credential">The credential.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="sha">The SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>Where the uploads of the commit stand.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  /// <exception cref="NotFoundException">The forge segment names no forge.</exception>
+  public static async Task<UploadsCompleteResponse> CompleteUploadsResponseAsync(
+    this ISender sender,
+    string credential,
+    string forge,
+    string owner,
+    string repo,
+    string sha,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!ForgeSegments.TryParse(forge, out var parsed))
+    {
+      throw new NotFoundException(CommitErrors.NotFound, "The commit does not exist.");
+    }
+
+    var completion = await sender.Send(new CompleteUploadsCommand(ToCredential(credential), parsed, owner, repo, sha), cancellationToken).ConfigureAwait(false);
+
+    return new UploadsCompleteResponse(completion.Total, completion.Processed, completion.Processing, completion.Failed);
   }
 
   /// <summary>Reads an upload with the credential that sends the uploads of its repository.</summary>

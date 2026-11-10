@@ -6,10 +6,16 @@
 
 using Mediator;
 
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Commits;
+using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
@@ -24,6 +30,7 @@ namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 /// <param name="codec">The encoding of the coverage.</param>
 /// <param name="merger">Rebuilds the report from the sessions.</param>
 /// <param name="carryforward">Finds what the commit inherits from its ancestors.</param>
+/// <param name="notifications">The notification options.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>The job is serialized by its lock key. The rebuild is complete and deterministic, whatever the order of arrival.</remarks>
 internal sealed class FinalizeCommitCommandHandler(
@@ -36,6 +43,7 @@ internal sealed class FinalizeCommitCommandHandler(
   ICoverageReportCodec codec,
   CommitMerger merger,
   CarryforwardResolver carryforward,
+  IOptionsMonitor<NotificationOptions> notifications,
   IClock clock) : ICommandHandler<FinalizeCommitCommand>
 {
   #region Methods
@@ -58,6 +66,29 @@ internal sealed class FinalizeCommitCommandHandler(
       !wasComplete && commit.State is CommitState.Complete,
       carried.Status is CarryforwardStatus.AncestorPending ? carried.PendingAncestorIds : []
     );
+
+  /// <summary>Builds the notification of a commit that was just finalized, when the gate lets it through (ARCHITECTURE §7.6).</summary>
+  /// <param name="commit">The commit, carrying its finalization: no upload is in progress.</param>
+  /// <param name="config">The effective configuration of the commit.</param>
+  /// <returns>The debounced job, queued in the transaction of the finalization, or <see langword="null" />.</returns>
+  private JobRequest? Notification(Commit commit, CoverageConfig config)
+  {
+    var options = notifications.CurrentValue;
+
+    // The finalization just merged every upload that was processed.
+    if (NotificationGate.Decide(commit, 0, commit.UploadedSessionCount, config.Notify, options.AfterNBuildsCountsCarryforward, forced: false)
+        is not NotificationDecision.Notify)
+    {
+      return null;
+    }
+
+    return NotifyCommitJobs.Create(
+      commit.Id,
+      clock.UtcNow,
+      TimeSpan.FromSeconds(Math.Max(0, options.DebounceSeconds)),
+      TimeSpan.FromSeconds(Math.Max(1, options.MaxDelaySeconds))
+    );
+  }
 
   /// <summary>Reads the sessions of the uploads that were processed.</summary>
   /// <param name="commit">The commit.</param>
@@ -131,7 +162,7 @@ internal sealed class FinalizeCommitCommandHandler(
       codec.EncodeFileIndex(merged),
       [.. sessions.Select(static session => session.Session)],
       merger.BuildFlagTotals(commit, resolved.Config, sessions, merged),
-      WakeUps(commit, wasComplete, carried),
+      WakeUps(commit, wasComplete, carried) with { Notification = Notification(commit, resolved.Config) },
       cancellationToken
     ).ConfigureAwait(false);
 

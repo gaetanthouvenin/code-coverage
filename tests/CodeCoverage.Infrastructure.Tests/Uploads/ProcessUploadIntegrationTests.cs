@@ -212,7 +212,10 @@ public sealed class ProcessUploadIntegrationTests(DatabaseFixture database)
     after.Uploads.Select(Describe).ShouldBe(before.Uploads.Select(Describe));
 
     await using var ended = seed.ContextWithoutOrganization();
-    (await ended.Jobs.CountAsync(static j => j.State != JobState.Succeeded, Ct)).ShouldBe(0);
+    (await ended.Jobs.CountAsync(static j => j.State != JobState.Succeeded && j.Type != JobTypes.NotifyCommit, Ct)).ShouldBe(0);
+
+    // The two finalizations of the commit left one notification, which waits for the end of its debounce.
+    (await ended.Jobs.AsNoTracking().Where(static j => j.Type == JobTypes.NotifyCommit).ToListAsync(Ct)).ShouldHaveSingleItem().State.ShouldBe(JobState.Queued);
   }
 
   // The raw files went past their retention between the request and the job: the job fails for good and no upload is touched.
