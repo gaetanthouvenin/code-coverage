@@ -86,9 +86,15 @@ public static class StatusEvaluator
       description = $"{StatusNumber.Text(headCoverage, format)}% ({StatusNumber.Signed(headCoverage - baseCoverage, format)}%) compared to {Short(subject.ComparedToSha)}";
     }
 
-    var state = Exact(head) >= target - rule.Threshold ? StatusState.Success : StatusState.Failure;
+    if (Exact(head) >= target - rule.Threshold)
+    {
+      return new CommitStatus(context, StatusState.Success, description);
+    }
 
-    return new CommitStatus(context, state, description);
+    // The drop may come from removed code: the behaviour of the rule can still pass the status.
+    return RemovedCodeAdjuster.Adjust(rule, subject, format) is { } passed
+             ? new CommitStatus(context, StatusState.Success, description + passed)
+             : new CommitStatus(context, StatusState.Failure, description);
   }
 
   /// <summary>Computes a coverage from its integers, with every digit a decimal holds.</summary>

@@ -214,11 +214,22 @@ public sealed class StatusEvaluatorProjectTests
   [InlineData(RoundingMode.Nearest, 4, "66.6667% (-0.0033%) compared to bbbbbbb")]
   public void Evaluate_ShouldWriteItsNumbersAsCodecovRoundsThem(RoundingMode rounding, int precision, string description)
   {
-    // 66.66667 against 66.67000: a drop of 0.00333.
-    var status = StatusEvaluator.EvaluateProject(Rule(StatusType.Project), Subject(View(2, 1), View(6667, 3333)), new StatusFormat("coverage", precision, rounding)).ShouldNotBeNull();
+    // 66.66667 against 66.67000: a drop of 0.00333. Without the adjusted base, whose tolerance would pass it.
+    var rule = Rule(StatusType.Project, ("removed_code_behavior", Text("off")));
+    var status = StatusEvaluator.EvaluateProject(rule, Subject(View(2, 1), View(6667, 3333)), new StatusFormat("coverage", precision, rounding)).ShouldNotBeNull();
 
     status.Description.ShouldBe(description);
     status.State.ShouldBe(StatusState.Failure);
+  }
+
+  // The tolerance of the adjusted base of Codecov: a drop of less than 0.005 point passes, and says so.
+  [Fact]
+  public void Evaluate_AutoDropUnderTheTolerance_ShouldPassThroughTheAdjustedBase()
+  {
+    var status = StatusEvaluator.EvaluateProject(Rule(StatusType.Project), Subject(View(2, 1), View(6667, 3333)), Format).ShouldNotBeNull();
+
+    status.State.ShouldBe(StatusState.Success);
+    status.Description.ShouldBe("66.66% (-0.01%) compared to bbbbbbb, passed because coverage increased by 0% when compared to adjusted base (66.67%)");
   }
 
   [Fact]
