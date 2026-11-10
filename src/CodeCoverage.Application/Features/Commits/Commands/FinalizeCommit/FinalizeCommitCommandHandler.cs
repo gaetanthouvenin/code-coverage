@@ -9,6 +9,7 @@ using Mediator;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
@@ -22,6 +23,7 @@ namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 /// <param name="reports">The blobs and the saving of the finalization.</param>
 /// <param name="codec">The encoding of the coverage.</param>
 /// <param name="merger">Rebuilds the report from the sessions.</param>
+/// <param name="carryforward">Finds what the commit inherits from its ancestors.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>The job is serialized by its lock key. The rebuild is complete and deterministic, whatever the order of arrival.</remarks>
 internal sealed class FinalizeCommitCommandHandler(
@@ -33,6 +35,7 @@ internal sealed class FinalizeCommitCommandHandler(
   ICommitReportRepository reports,
   ICoverageReportCodec codec,
   CommitMerger merger,
+  CarryforwardResolver carryforward,
   IClock clock) : ICommandHandler<FinalizeCommitCommand>
 {
   #region Methods
@@ -40,6 +43,21 @@ internal sealed class FinalizeCommitCommandHandler(
   /// <summary>Builds the refusal of a commit that cannot be read.</summary>
   /// <returns>The exception.</returns>
   private static NotFoundException NotFound() => new(CommitErrors.NotFound, "The commit no longer exists.");
+
+  /// <summary>Gives the finalizations this one wakes, queued in its transaction (ARCHITECTURE §6.5, step 4.3).</summary>
+  /// <param name="commit">The commit, carrying its finalization.</param>
+  /// <param name="wasComplete">Whether the commit was complete before this finalization.</param>
+  /// <param name="carried">What it inherited.</param>
+  /// <returns>
+  ///   The wake-ups: a commit that becomes complete wakes the waiting commits, but one that was already complete wakes
+  ///   none, or two waiting commits would requeue each other without end; a commit left waiting looks again at the
+  ///   pending ancestors it passed.
+  /// </returns>
+  private static FinalizationWakeUps WakeUps(Commit commit, bool wasComplete, CarryforwardResolution carried) =>
+    new(
+      !wasComplete && commit.State is CommitState.Complete,
+      carried.Status is CarryforwardStatus.AncestorPending ? carried.PendingAncestorIds : []
+    );
 
   /// <summary>Reads the sessions of the uploads that were processed.</summary>
   /// <param name="commit">The commit.</param>
@@ -70,6 +88,7 @@ internal sealed class FinalizeCommitCommandHandler(
   /// <inheritdoc />
   /// <exception cref="NotFoundException">The commit no longer exists.</exception>
   /// <exception cref="UnprocessableEntityException">The coverage of a processed upload no longer exists.</exception>
+  /// <exception cref="RetryLaterException">A closer ancestor is pending and the wait is not over.</exception>
   public async ValueTask<Unit> Handle(FinalizeCommitCommand command, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(command);
@@ -85,18 +104,23 @@ internal sealed class FinalizeCommitCommandHandler(
 
     var repository = await repositories.FindAsync(commit.RepositoryId, cancellationToken).ConfigureAwait(false) ?? throw NotFound();
     var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false) ?? throw NotFound();
-    var resolved = await configResolver.ResolveAsync(repository, repository.ToForgeRef(organization.Forge), commit.Sha, cancellationToken).ConfigureAwait(false);
+    var address = repository.ToForgeRef(organization.Forge);
+    var resolved = await configResolver.ResolveAsync(repository, address, commit.Sha, cancellationToken).ConfigureAwait(false);
     Upload[] processed = [.. all.Where(static upload => upload.State is UploadState.Processed).OrderBy(static upload => upload.Sequence)];
-    var sessions = await ReadSessionsAsync(commit, processed, cancellationToken).ConfigureAwait(false);
+    var uploaded = await ReadSessionsAsync(commit, processed, cancellationToken).ConfigureAwait(false);
+    var uploadedFlags = uploaded.SelectMany(static session => session.Session.Flags).ToHashSet(StringComparer.Ordinal);
+    var carried = await carryforward.ResolveAsync(commit, address, resolved.Config, uploadedFlags, cancellationToken).ConfigureAwait(false);
+    SessionCoverage[] sessions = [.. uploaded, .. carried.Sessions];
     var merged = merger.MergeProject(resolved.Config, sessions);
+    var wasComplete = commit.State is CommitState.Complete;
 
     commit.RecordFinalization(
       processed.Length == 0 ? CommitState.Error : CommitState.Complete,
       merged.Files.Count,
       merged.Totals,
-      sessions.Count,
+      sessions.Length,
       processed.Length,
-      CarryforwardStatus.None,
+      carried.Status,
       resolved.Source.ToString(),
       clock.UtcNow
     );
@@ -107,6 +131,7 @@ internal sealed class FinalizeCommitCommandHandler(
       codec.EncodeFileIndex(merged),
       [.. sessions.Select(static session => session.Session)],
       merger.BuildFlagTotals(commit, resolved.Config, sessions, merged),
+      WakeUps(commit, wasComplete, carried),
       cancellationToken
     ).ConfigureAwait(false);
 

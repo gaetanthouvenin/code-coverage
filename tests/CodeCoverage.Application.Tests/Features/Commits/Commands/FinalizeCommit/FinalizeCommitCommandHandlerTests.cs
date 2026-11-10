@@ -4,13 +4,19 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Config;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
@@ -58,6 +64,8 @@ public sealed class FinalizeCommitCommandHandlerTests
 
   private IReadOnlyList<CommitFlagTotals> _savedTotals = [];
 
+  private FinalizationWakeUps? _savedWakeUps;
+
   private CoverageReport? _encoded;
 
   #endregion
@@ -84,11 +92,12 @@ public sealed class FinalizeCommitCommandHandlerTests
     A.CallTo(() => _codec.Decode(A<ReadOnlyMemory<byte>>._)).ReturnsLazily((ReadOnlyMemory<byte> blob) => _coverage[blob.Span[0]]);
     A.CallTo(() => _codec.Encode(A<CoverageReport>._)).Invokes((CoverageReport report) => _encoded = report).Returns([1]);
     A.CallTo(() => _codec.EncodeFileIndex(A<CoverageReport>._)).Returns([2]);
-    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<CancellationToken>._))
-     .Invokes((Commit _, byte[] _, byte[] _, IReadOnlyList<Session> sessions, IReadOnlyList<CommitFlagTotals> totals, CancellationToken _) =>
+    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
+     .Invokes((Commit _, byte[] _, byte[] _, IReadOnlyList<Session> sessions, IReadOnlyList<CommitFlagTotals> totals, FinalizationWakeUps wakeUps, CancellationToken _) =>
        {
          _savedSessions = sessions;
          _savedTotals = totals;
+         _savedWakeUps = wakeUps;
        });
   }
 
@@ -257,11 +266,91 @@ public sealed class FinalizeCommitCommandHandlerTests
     A.CallTo(() => _configParser.Parse(yaml)).Returns(new ConfigParseResult(ConfigNode.FromMap(("flags", ConfigNode.FromMap((name, rule)))), null, []));
   }
 
+  // The waiting commits are woken by the save itself, in its transaction.
+  [Fact]
+  public async Task Handle_CompleteCommit_ShouldWakeTheWaitingCommitsInTheSave()
+  {
+    _commit.MarkPending(null, null, Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Completed.ShouldBeTrue();
+    _savedWakeUps.PendingAncestorIds.ShouldBeEmpty();
+  }
+
+  // (a) The wake-ups are saved with the finalization or not at all: a save that fails leaves the commit pending, and
+  // the job that runs again still wakes the waiting commits.
+  [Fact]
+  public async Task Handle_SaveFailsThenRunsAgain_ShouldStillWakeTheWaitingCommits()
+  {
+    var retried = Commit.Create(5, Sha, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(retried, 9L);
+    retried.MarkPending(null, null, Now);
+    _commit.MarkPending(null, null, Now);
+    A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(_commit).Once().Then.Returns(retried);
+    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
+     .Throws(new TimeoutException("lost"))
+     .Once();
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Should.ThrowAsync<TimeoutException>(async () => await Handler().Handle(new FinalizeCommitCommand(9), Ct));
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Completed.ShouldBeTrue();
+  }
+
+  // (b) A commit in error that completes is a completion: its waiting commits are woken.
+  [Fact]
+  public async Task Handle_CommitInErrorThatCompletes_ShouldWakeTheWaitingCommits()
+  {
+    _commit.RecordFinalization(CommitState.Error, 0, default, 0, 0, CarryforwardStatus.None, "source", Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Completed.ShouldBeTrue();
+  }
+
+  // A commit that was already complete (woken because it waits for an ancestor) does not wake the others again:
+  // two waiting commits would otherwise requeue each other without end.
+  [Fact]
+  public async Task Handle_ReFinalizationOfACompleteCommit_ShouldWakeNoWaitingCommit()
+  {
+    _commit.RecordFinalization(CommitState.Complete, 1, default, 1, 1, CarryforwardStatus.AncestorPending, "source", Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _commit.ReportRevision.ShouldBe(2);
+    _savedWakeUps!.Completed.ShouldBeFalse();
+    _savedWakeUps.PendingAncestorIds.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_AllUploadsFailed_ShouldWakeNoWaitingCommit()
+  {
+    var failed = Upload.Receive(9, 1, "k", [], null, null, null, null, null, null, null, 3, PrincipalKind.OrganizationToken, Now);
+    failed.MarkFailed("Upload.NoFileMapped", "none", 1, 0, 1, ProcessingLog.Empty, Now);
+    _commit.MarkPending(null, null, Now);
+    Uploads(failed);
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Completed.ShouldBeFalse();
+  }
+
   private FinalizeCommitCommandHandler Handler()
   {
     var resolver = new ConfigResolver(_configs, _gateways, _configParser, _organizationSettings, _clock);
+    var options = A.Fake<IOptionsMonitor<ProcessingOptions>>();
+    A.CallTo(() => options.CurrentValue).Returns(new ProcessingOptions());
+    var trees = new RepositoryTreeProvider(A.Fake<IRepositoryTreeRepository>(), _gateways, _clock);
+    var diffs = new DiffProvider(A.Fake<IDiffCacheRepository>(), _gateways, _clock);
+    var ancestry = new CommitAncestry(A.Fake<IGitCommitRepository>(), _gateways, _clock);
+    var carryforward = new CarryforwardResolver(ancestry, _commits, _reports, diffs, trees, _codec, options, _clock, NullLogger<CarryforwardResolver>.Instance);
 
-    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), _clock);
+    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, _clock);
   }
 
   #endregion

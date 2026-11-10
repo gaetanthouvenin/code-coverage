@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 
 namespace CodeCoverage.Domain.Ports;
@@ -37,21 +38,44 @@ public interface ICommitReportRepository
   /// <returns>A task that completes when the transaction is committed.</returns>
   Task SaveProcessedUploadAsync(Upload upload, byte[]? blob, JobRequest job, CancellationToken cancellationToken);
 
-  /// <summary>Saves a finalization, in one transaction: the commit, its report, its sessions and its flag totals.</summary>
+  /// <summary>
+  ///   Saves a finalization, in one transaction: the commit, its report, its sessions, its flag totals and the
+  ///   finalizations it wakes.
+  /// </summary>
   /// <param name="commit">The commit, read in this scope and carrying its <see cref="Commit.RecordFinalization" />.</param>
   /// <param name="report">The blob of the merged report.</param>
   /// <param name="fileIndex">The blob of the counters of its files.</param>
   /// <param name="sessions">The sessions of the commit, which replace the previous ones.</param>
   /// <param name="flagTotals">The totals of the commit, which replace the previous ones.</param>
+  /// <param name="wakeUps">The finalizations to queue in the same transaction.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>A task that completes when the transaction is committed.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     A commit that completes queues the finalization of the <see cref="CarryforwardStatus.AncestorPending" />
+  ///     commits of its repository, 10 at most, read after its own row is written. Their ancestry is not known here: a
+  ///     finalization is deterministic, so running one that did not depend on the commit gives the same report again.
+  ///   </para>
+  ///   <para>
+  ///     A commit that passed pending ancestors locks their rows, reads their state, and queues its own finalization
+  ///     when one of them has ended. Whatever the order of the two transactions, either the ancestor lists the waiting
+  ///     commit, or the waiting commit sees the ancestor ended: no wake-up is lost.
+  ///   </para>
+  /// </remarks>
   Task SaveFinalizedAsync(
     Commit commit,
     byte[] report,
     byte[] fileIndex,
     IReadOnlyList<Session> sessions,
     IReadOnlyList<CommitFlagTotals> flagTotals,
+    FinalizationWakeUps wakeUps,
     CancellationToken cancellationToken);
+
+  /// <summary>Lists the sessions of a commit, for reading only.</summary>
+  /// <param name="commitId">The identifier of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The sessions, by number.</returns>
+  Task<IReadOnlyList<Session>> ListSessionsAsync(long commitId, CancellationToken cancellationToken);
 
   /// <summary>Gets the blob of the merged report of a commit.</summary>
   /// <param name="commitId">The identifier of the commit.</param>

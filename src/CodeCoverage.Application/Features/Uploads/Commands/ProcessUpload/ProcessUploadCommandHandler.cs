@@ -4,9 +4,6 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.Globalization;
-using System.Text.Json;
-
 using Mediator;
 
 using CodeCoverage.Application.Exceptions;
@@ -45,16 +42,6 @@ internal sealed class ProcessUploadCommandHandler(
   IClock clock) : ICommandHandler<ProcessUploadCommand>
 {
   #region Methods
-
-  /// <summary>Builds the finalization of a commit, merged with the one already waiting.</summary>
-  /// <param name="commitId">The identifier of the commit.</param>
-  /// <returns>The job.</returns>
-  private static JobRequest FinalizeJob(long commitId)
-  {
-    var id = commitId.ToString(CultureInfo.InvariantCulture);
-
-    return JobRequest.Create(JobTypes.FinalizeCommit, JsonSerializer.Serialize(new { CommitId = commitId }), $"commit:{id}", $"finalize:{id}", coalesce: true);
-  }
 
   /// <summary>Builds the refusal of a row that disappeared.</summary>
   /// <returns>The exception.</returns>
@@ -111,7 +98,7 @@ internal sealed class ProcessUploadCommandHandler(
       catch (ConflictException exception) when (exception.ErrorCode == UploadErrors.Duplicate)
       {
         upload.MarkFailed(UploadErrors.Duplicate, $"The head {head.Value} already holds this upload.", 0, 0, 0, ProcessingLog.Empty, clock.UtcNow);
-        await reports.SaveProcessedUploadAsync(upload, null, FinalizeJob(commit.Id), cancellationToken).ConfigureAwait(false);
+        await reports.SaveProcessedUploadAsync(upload, null, FinalizeCommitJobs.Create(commit.Id), cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
       }
@@ -131,7 +118,7 @@ internal sealed class ProcessUploadCommandHandler(
 
     var blob = Record(upload, outcome);
 
-    await reports.SaveProcessedUploadAsync(upload, blob, FinalizeJob(commit.Id), cancellationToken).ConfigureAwait(false);
+    await reports.SaveProcessedUploadAsync(upload, blob, FinalizeCommitJobs.Create(commit.Id), cancellationToken).ConfigureAwait(false);
 
     return Unit.Value;
   }

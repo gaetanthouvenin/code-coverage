@@ -26,6 +26,7 @@ public static partial class DependencyInjection
     services.AddScoped<DiffProvider>();
     services.AddScoped<MergeCommitDetector>();
     services.AddSingleton<CommitMerger>();
+    services.AddScoped<CarryforwardResolver>();
 
     return services;
   }
