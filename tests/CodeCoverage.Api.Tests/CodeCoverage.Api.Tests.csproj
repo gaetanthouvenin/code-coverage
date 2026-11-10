@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\fixtures\uploads\**\*" LinkBase="fixtures\uploads" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CodeCoverage.Api\CodeCoverage.Api.csproj" />
   </ItemGroup>
 
