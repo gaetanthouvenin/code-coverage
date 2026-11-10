@@ -56,11 +56,15 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
 
     // Both replicas tick at the same time, then each one ticks again: the deduplication key alone keeps one job.
     var scheduled = await Task.WhenAll(Scheduler(first).ScheduleAsync(Ct), Scheduler(second).ScheduleAsync(Ct));
-    (await Scheduler(first).ScheduleAsync(Ct)).ShouldBe(1);
-    (await Scheduler(second).ScheduleAsync(Ct)).ShouldBe(1);
+    (await Scheduler(first).ScheduleAsync(Ct)).ShouldBe(Definitions);
+    (await Scheduler(second).ScheduleAsync(Ct)).ShouldBe(Definitions);
 
-    scheduled.ShouldAllBe(static count => count == 1);
-    var job = (await JobsAsync(provider, connectionString)).ShouldHaveSingleItem();
+    scheduled.ShouldAllBe(static count => count == Definitions);
+    var jobs = await JobsAsync(provider, connectionString);
+    // One job per definition, whatever the number of replicas and of ticks.
+    jobs.Count.ShouldBe(Definitions);
+    jobs.Select(static j => j.DedupKey).ShouldBeUnique();
+    var job = jobs.Where(static j => j.Type == JobType).ShouldHaveSingleItem();
     job.Type.ShouldBe(JobType);
     job.State.ShouldBe(JobState.Queued);
     job.OrganizationId.ShouldBeNull();
@@ -83,9 +87,9 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
       await context.Jobs.ExecuteUpdateAsync(static s => s.SetProperty(j => j.State, JobState.Running).SetProperty(j => j.LockedBy, "worker-1"), Ct);
     }
 
-    (await Scheduler(services).ScheduleAsync(Ct)).ShouldBe(1);
+    (await Scheduler(services).ScheduleAsync(Ct)).ShouldBe(Definitions);
 
-    var jobs = await JobsAsync(provider, connectionString);
+    var jobs = (await JobsAsync(provider, connectionString)).Where(static j => j.Type == JobType).ToList();
     jobs.Count.ShouldBe(2);
     jobs.Count(static j => j.State == JobState.Queued).ShouldBe(1);
   }
@@ -218,6 +222,9 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
       .AddSingleton(FixedClock())
       .AddScoped(_ => queue)
       .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+  // What a replica schedules: the catalog of the application, and the sweep definition of these tests.
+  private static int Definitions => RecurringJobCatalog.All.Count + 1;
 
   private static RecurringJobScheduler CreateScheduler(IServiceProvider services, RecurringJobDefinition[] definitions) =>
     new(

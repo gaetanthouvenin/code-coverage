@@ -362,7 +362,7 @@ Les codes d'erreur suivent le format `Feature.Reason` et sont rangés dans `Feat
 | Notifications | `NotifyCommit`, `TriggerNotify` (re-notification manuelle), `SweepPendingCommits` | — |
 | PullRequests | `SyncPullRequest` | `ListPullRequests`, `GetPullRequestComparison` |
 | Comparisons | — | `CompareCommits` (base/head arbitraires) |
-| GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` | — |
+| GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `SyncInstallationRepositories`, `ReconcileRepositoryTransfer` | — |
 | Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken` | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
 | Configuration | — | `ValidateCoverageYaml` |
 | UploadTokens | `CreateUploadToken` (génération ou import d'une valeur `CODECOV_TOKEN`), `RevokeUploadToken` | `ListUploadTokens` |
@@ -430,7 +430,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **OrganizationMemberships** | **Id**, UserId, OrganizationId, Role (`Participant`, `Admin`), RefreshedAt | UX(UserId, OrganizationId). Une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien. |
 | **OrganizationSettings** | **Id**, Key, Value, UpdatedAt, UpdatedBy | UX(OrganizationId, Key). Valeurs des 4 clés de portée `Organization` (§4bis.1). |
 | **Installations** | **Id** (id d'installation GitHub, bigint), OrganizationId FK, AccountType, SuspendedAt?, CreatedAt, UpdatedAt | Table propre à GitHub (ADR-014). Le login du compte est dans `Organizations`. |
-| **Repositories** | **Id**, ExternalId (texte), InstallationId FK, Namespace (≤ 512, chaîne vide hors projet Azure DevOps et sous-groupes GitLab), NormalizedNamespace, Owner, Name, NormalizedName, DefaultBranch, IsPrivate, IsActive, BadgeTokenProtected (Data Protection, affichable dans le snippet README), DefaultBranchYaml?, DefaultBranchYamlSha?, CreatedAt, UpdatedAt, Version | UX(OrganizationId, ExternalId) ; UX(OrganizationId, NormalizedNamespace, NormalizedName). Owner et Name sont mis à jour lors d'un renommage ; ExternalId reste l'identité stable. Owner n'est qu'une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler la forge. |
+| **Repositories** | **Id**, ExternalId (texte), InstallationId FK, Namespace (≤ 512, chaîne vide hors projet Azure DevOps et sous-groupes GitLab), NormalizedNamespace, Owner, Name, NormalizedName, DefaultBranch, IsPrivate, IsActive, TransferredAt? (ligne close par un transfert, §8.3), BadgeTokenProtected (Data Protection, affichable dans le snippet README), DefaultBranchYaml?, DefaultBranchYamlSha?, CreatedAt, UpdatedAt, Version | UX(OrganizationId, ExternalId) ; UX(OrganizationId, NormalizedNamespace, NormalizedName). Owner et Name sont mis à jour lors d'un renommage ; ExternalId reste l'identité stable. Owner n'est qu'une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler la forge. |
 | **Branches** | **RepositoryId, Name**, HeadSha, HeadUpdatedAt, CoveredCommitId? (FK Commits), CoveredAt?, Version | Source des badges et de la vue « dernier état ». La FK de `CoveredCommitId` est posée par la migration qui crée `Commits`. |
 | **GitCommits** | **RepositoryId, Sha** char(40), ParentShas (json), Message (≤ 1000), AuthorLogin, CommittedAt (date committer GitHub), FetchedAt | Cache immuable des métadonnées GitHub, rempli par `GET /commits?sha=X&per_page=50` (une chaîne d'ancêtres par appel). |
 | **Commits** | **Id**, RepositoryId, Sha, Branch?, PullNumber?, State (`Known`, `Pending`, `Complete`, `Error`, `Compacted`), UploadSequence int, Files, Lines, Hits, Misses, Partials, Branches, Methods, Coverage decimal(9,5)?, SessionCount, UploadedSessionCount, ReportRevision, CarryforwardStatus (`None`, `Applied`, `AncestorPending`, `NotFound`), ConfigSource (chaîne libre : `Source` de `CommitConfigs`, ou `codecov-import`), LastUploadAt?, CompletedAt?, NotifiedAt?, CreatedAt, UpdatedAt, Version | UX(RepositoryId, Sha) ; IX(RepositoryId, Branch, CompletedAt). `Known` désigne un commit vu par webhook, sans upload. |
@@ -848,7 +848,9 @@ OUTPUT inserted.*;
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
-| `SyncInstallations` | `installations` | `installations` | quotidien et sur webhook d'installation |
+| `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
+| `SyncInstallationRepositories` | `installation:{installationId}` | `sync:installation:{installationId}` (fusion) | `SyncInstallationRepositoriesCommand(installationId)`, dans l'organisation |
+| `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
 | `SweepPendingCommits` | `sweep` | `sweep` | toutes les 5 minutes |
 | `PurgeExpiredData` | `purge` | `purge` | quotidien |
 
@@ -1312,7 +1314,7 @@ L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayP
    - **`organization`, `member`, `membership`** : `RefreshUserMemberships`.
    - **`installation_target`** renommé : met à jour le login par identifiant de compte.
    - **`repository`** (`renamed`, `deleted`, `privatized`, `publicized`) : mise à jour d'Owner, Name, IsPrivate et IsActive, avec ExternalId comme clé.
-   - **`repository.transferred`** : **aucune donnée n'est déplacée.** Le destinataire reçoit une nouvelle ligne. Une réconciliation de la voie d'instance désactive l'ancienne ligne, révoque ses jetons de dépôt, fait tourner son jeton de badge, marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces actions.
+   - **`repository.transferred`** : **aucune donnée n'est déplacée.** Le destinataire reçoit une nouvelle ligne. Une réconciliation de la voie d'instance désactive l'ancienne ligne, révoque ses jetons de dépôt, fait tourner son jeton de badge, marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces actions. Elle ferme la ligne une seule fois, et le note dans `TransferredAt` : une ligne seulement inactive, parce que l'installation de l'origine a cessé de servir le dépôt avant que le transfert ne soit connu, n'a perdu aucun jeton et est fermée comme une ligne active. Un dépôt qui revient rouvre sa ligne (`TransferredAt` est effacé).
 4. **Réconciliation** : `SyncInstallations` quotidien. L'écran Opérations affiche la dernière livraison par événement. Une redélivrance depuis GitHub est absorbée par l'idempotence.
 
 ### 8.4 Commentaire de PR (`CommentComposer` et `NotificationService`)

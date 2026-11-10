@@ -4,12 +4,14 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Jobs;
+
 namespace CodeCoverage.Infrastructure.Jobs;
 
 /// <summary>The recurring jobs of the application, queued by the <see cref="RecurringJobScheduler" />.</summary>
 /// <remarks>
 ///   <para>
-///     Empty at first: each feature that runs a job at a fixed period adds its definition here, next to its
+///     Each feature that runs a job at a fixed period adds its definition here, next to its
 ///     constant in <c>JobTypes</c> and its case in the <see cref="JobDispatcher" /> (ARCHITECTURE §6.1):
 ///   </para>
 ///   <list type="bullet">
@@ -27,7 +29,10 @@ internal static class RecurringJobCatalog
   #region Properties
 
   /// <summary>Gets every recurring job of the application.</summary>
-  public static IReadOnlyList<RecurringJobDefinition> All { get; } = [];
+  public static IReadOnlyList<RecurringJobDefinition> All { get; } =
+  [
+    new(JobTypes.SyncInstallations, TimeSpan.FromDays(1), SyncInstallationsJobs.Key, SyncInstallationsJobs.Key),
+  ];
 
   #endregion
 }

@@ -43,6 +43,11 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   /// <summary>The number of pages that reach the 3000 files GitHub lists at most for a pull request.</summary>
   private const int PullFilesMaxPages = 60;
 
+  private const int ListPerPage = 100;
+
+  // 100 000 installations or repositories: far beyond what one instance serves, and an end to a listing that never shrinks.
+  private const int ListMaxPages = 1000;
+
   private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
 
   /// <summary>The refusals of the code of a manifest that is unknown, expired or already used.</summary>
@@ -242,6 +247,96 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
              ),
              cancellationToken
            ).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken)
+  {
+    var installations = new List<GitHubInstallationInfo>();
+
+    for (var page = 1; page <= ListMaxPages; page++)
+    {
+      var address = string.Create(CultureInfo.InvariantCulture, $"app/installations?per_page={ListPerPage}&page={page}");
+
+      using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(address, UriKind.Relative));
+
+      request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokens.CreateAppJwt());
+
+      using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+      var read = await ReadAsync<IReadOnlyList<GitHubInstallationListItem>, IReadOnlyList<GitHubInstallationInfo>>(
+                   response,
+                   address,
+                   GitHubJsonContext.Default.IReadOnlyListGitHubInstallationListItem,
+                   [],
+                   static list =>
+                   [
+                     .. list.Select(static i => new GitHubInstallationInfo(
+                                      i.Id,
+                                      i.Account.Id.ToString(CultureInfo.InvariantCulture),
+                                      i.Account.Login,
+                                      i.SuspendedAt is not null
+                                    )
+                     ),
+                   ],
+                   cancellationToken
+                 ).ConfigureAwait(false);
+
+      installations.AddRange(read!);
+
+      if (read!.Count < ListPerPage)
+      {
+        return installations;
+      }
+    }
+
+    throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub lists more installations than this instance reads.");
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<IReadOnlyList<ForgeRepositoryInfo>> ListInstallationRepositoriesAsync(long installationId, CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+
+    var repositories = new List<ForgeRepositoryInfo>();
+
+    for (var page = 1; page <= ListMaxPages; page++)
+    {
+      var read = await GetAsync(
+                   installationId,
+                   string.Create(CultureInfo.InvariantCulture, $"installation/repositories?per_page={ListPerPage}&page={page}"),
+                   GitHubJsonContext.Default.GitHubInstallationRepositoriesResponse,
+                   [],
+                   static body => body,
+                   cancellationToken
+                 ).ConfigureAwait(false);
+
+      repositories.AddRange(read!.Repositories.Select(GitHubGatewayMapper.ToForgeRepository));
+
+      if (read.Repositories.Count < ListPerPage)
+      {
+        // The pages are numbered: a repository added or removed between two readings shifts them, and one is
+        // then read twice or not at all. A list that does not hold what GitHub counted is read again later.
+        if (repositories.Count != read.TotalCount || repositories.DistinctBy(static r => r.ExternalId).Count() != repositories.Count)
+        {
+          throw new BadGatewayException(
+            GitHubErrors.Unavailable,
+            string.Create(
+              CultureInfo.InvariantCulture,
+              $"The repositories of installation {installationId} changed while they were listed: {repositories.Count} read, {read.TotalCount} counted."
+            )
+          );
+        }
+
+        return repositories;
+      }
+    }
+
+    throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub lists more repositories than this instance reads for one installation.");
   }
 
   /// <inheritdoc />

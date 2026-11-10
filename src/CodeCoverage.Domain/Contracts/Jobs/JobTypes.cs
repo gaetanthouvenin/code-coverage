@@ -32,6 +32,15 @@ public static class JobTypes
   /// <summary>Handles a webhook delivery of GitHub that was stored at its reception.</summary>
   public const string HandleWebhook = "HandleWebhook";
 
+  /// <summary>Lists the installations of the App and queues the reconciliation of each one, in its organization.</summary>
+  public const string SyncInstallations = "SyncInstallations";
+
+  /// <summary>Reconciles the repositories of an organization with those its installation serves.</summary>
+  public const string SyncInstallationRepositories = "SyncInstallationRepositories";
+
+  /// <summary>Closes, in the organization it left, the row of a repository transferred to another account.</summary>
+  public const string ReconcileRepositoryTransfer = "ReconcileRepositoryTransfer";
+
   /// <summary>Parses an upload that was stored at its reception.</summary>
   public const string ProcessUpload = "ProcessUpload";
 

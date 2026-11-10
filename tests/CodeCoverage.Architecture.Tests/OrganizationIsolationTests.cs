@@ -43,6 +43,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string AdminCommandLine = "src/CodeCoverage.Api/Configuration/Administration/AdminCommandLine.cs";
 
+  private const string InstallationCoordinator = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/SyncInstallations/SyncInstallationsCommandHandler.cs";
+
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
 
   private const string SamplePath = Infrastructure + "Sample.cs";
@@ -97,6 +99,10 @@ public sealed partial class OrganizationIsolationTests
   [
     // Runs before any scope enters an organization: the installation of the signed body names it (ADR-013).
     (WebhookReception, "ForOrganization"),
+
+    // The coordinator of the installations (ADR-013): on the lane of the instance, it reads Installations and
+    // Organizations only and queues one job per active organization.
+    (InstallationCoordinator, "ForOrganization"),
   ];
 
   // A key that omits the organization would serve one organization's value to another: each user is reviewed.

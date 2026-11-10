@@ -196,6 +196,67 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
     listed[0].OrganizationId.ShouldBeNull();
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MarkProcessed_SameOrganization_ShouldKeepTheFirstDate(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreAsync(organizations, Delivery("d-1"), ForOrganization(organizations.FirstId));
+
+    await MarkAsync(organizations, "d-1", organizations.FirstId, Now.AddMinutes(1));
+    await MarkAsync(organizations, "d-1", organizations.FirstId, Now.AddMinutes(5));
+
+    (await ProcessedAtAsync(organizations, "d-1")).ShouldBe(Now.AddMinutes(1));
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MarkProcessed_OtherOrganizationOrNoScope_ShouldLeaveTheRow(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreAsync(organizations, Delivery("d-1"), ForOrganization(organizations.FirstId));
+
+    await MarkAsync(organizations, "d-1", organizations.SecondId, Now.AddMinutes(1));
+    await MarkAsync(organizations, "d-1", null, Now.AddMinutes(1));
+
+    (await ProcessedAtAsync(organizations, "d-1")).ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MarkProcessed_RowOfTheInstance_ShouldBeMarkedFromTheLaneOfTheInstance(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreAsync(organizations, Delivery("d-1"), JobRequest.ForInstance(JobTypes.HandleWebhook, "{}"));
+    await StoreAsync(organizations, Delivery("d-2"), JobRequest.ForInstance(JobTypes.HandleWebhook, "{}"));
+
+    await MarkAsync(organizations, "d-1", null, Now.AddMinutes(1));
+
+    (await ProcessedAtAsync(organizations, "d-1")).ShouldBe(Now.AddMinutes(1));
+    (await ProcessedAtAsync(organizations, "d-2")).ShouldBeNull();
+  }
+
+  private static async Task<DateTimeOffset?> ProcessedAtAsync(TwoOrganizationDatabase organizations, string id)
+  {
+    await using var context = organizations.ContextWithoutOrganization();
+
+    return await context.WebhookDeliveries.AsNoTracking().Where(d => d.DeliveryId == id).Select(static d => d.ProcessedAt).SingleAsync(Ct);
+  }
+
+  private async Task MarkAsync(TwoOrganizationDatabase organizations, string id, long? organizationId, DateTimeOffset at)
+  {
+    var organization = new OrganizationContext();
+
+    if (organizationId is { } value)
+    {
+      organization.Enter(value);
+    }
+
+    await using var context = organizationId is { } entered ? organizations.ContextOf(entered) : organizations.ContextWithoutOrganization();
+
+    await Repository(context, organization).MarkProcessedAsync(id, at, Ct);
+  }
+
   private static GitHubWebhookEvent Delivery(string id) =>
     GitHubWebhookEvent.TryParse(id, "push", Encoding.UTF8.GetBytes("""{"action":"created","installation":{"id":42},"repository":{"id":7},"padding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"""))!;
 

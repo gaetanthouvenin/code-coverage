@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 
 namespace CodeCoverage.Domain.Ports;
@@ -19,6 +20,18 @@ public interface IGitHubAppGateway
   /// <returns>The App, or <see langword="null" /> when GitHub does not know this code or it has expired.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="code" /> is <see langword="null" />.</exception>
   Task<GitHubAppCredentials?> ConvertManifestAsync(string code, CancellationToken cancellationToken);
+
+  /// <summary>Lists every installation of the App, whichever account holds it.</summary>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>The installations.</returns>
+  Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken);
+
+  /// <summary>Lists the repositories an installation serves.</summary>
+  /// <param name="installationId">The identifier of the installation.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>The repositories.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  Task<IReadOnlyList<ForgeRepositoryInfo>> ListInstallationRepositoriesAsync(long installationId, CancellationToken cancellationToken);
 
   #endregion
 }

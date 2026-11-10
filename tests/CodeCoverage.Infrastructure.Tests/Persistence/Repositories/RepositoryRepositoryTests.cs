@@ -47,7 +47,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var context = organizations.ContextOf(organizations.FirstId);
     var id = await AddRepositoryAsync(context, FirstInstallation, "1", "Octo-Org/Hello-World", Ct);
 
-    var found = await new RepositoryRepository(context).FindBySlugAsync(RepositorySlug.Parse("OCTO-org/hello-WORLD"), Ct);
+    var found = await TestRepositories.Repositories(context).FindBySlugAsync(RepositorySlug.Parse("OCTO-org/hello-WORLD"), Ct);
 
     found.ShouldNotBeNull().Id.ShouldBe(id);
     found.Name.ShouldBe("Hello-World");
@@ -61,7 +61,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var context = organizations.ContextOf(organizations.FirstId);
     var id = await AddRepositoryAsync(context, FirstInstallation, "1", "old-owner/repo", Ct);
 
-    var found = await new RepositoryRepository(context).FindBySlugAsync(RepositorySlug.Parse("new-owner/repo"), Ct);
+    var found = await TestRepositories.Repositories(context).FindBySlugAsync(RepositorySlug.Parse("new-owner/repo"), Ct);
 
     found.ShouldNotBeNull().Id.ShouldBe(id);
   }
@@ -77,8 +77,8 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var second = organizations.ContextOf(organizations.SecondId);
     var slug = RepositorySlug.Parse(SharedSlug);
 
-    (await new RepositoryRepository(first).FindBySlugAsync(slug, Ct)).ShouldNotBeNull().Id.ShouldBe(firstId);
-    (await new RepositoryRepository(second).FindBySlugAsync(slug, Ct)).ShouldNotBeNull().Id.ShouldBe(secondId);
+    (await TestRepositories.Repositories(first).FindBySlugAsync(slug, Ct)).ShouldNotBeNull().Id.ShouldBe(firstId);
+    (await TestRepositories.Repositories(second).FindBySlugAsync(slug, Ct)).ShouldNotBeNull().Id.ShouldBe(secondId);
   }
 
   [Theory]
@@ -94,7 +94,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var first = organizations.ContextOf(organizations.FirstId);
 
-    (await new RepositoryRepository(first).FindBySlugAsync(RepositorySlug.Parse(SharedSlug), Ct)).ShouldBeNull();
+    (await TestRepositories.Repositories(first).FindBySlugAsync(RepositorySlug.Parse(SharedSlug), Ct)).ShouldBeNull();
   }
 
   [Theory]
@@ -105,7 +105,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var context = organizations.ContextOf(organizations.FirstId);
     var inA = await AddRepositoryAsync(context, FirstInstallation, "1", "group/team-a/repo", Ct);
     var inB = await AddRepositoryAsync(context, FirstInstallation, "2", "group/team-b/repo", Ct);
-    var repositories = new RepositoryRepository(context);
+    var repositories = TestRepositories.Repositories(context);
 
     (await repositories.FindBySlugAsync(RepositorySlug.Parse("group/team-a/repo"), Ct)).ShouldNotBeNull().Id.ShouldBe(inA);
     (await repositories.FindBySlugAsync(RepositorySlug.Parse("group/team-b/repo"), Ct)).ShouldNotBeNull().Id.ShouldBe(inB);
@@ -120,7 +120,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     var (firstId, secondId) = await AddToBothAsync(organizations);
 
     await using var first = organizations.ContextOf(organizations.FirstId);
-    var repositories = new RepositoryRepository(first);
+    var repositories = TestRepositories.Repositories(first);
 
     (await repositories.FindAsync(firstId, Ct)).ShouldNotBeNull();
     (await repositories.FindAsync(secondId, Ct)).ShouldBeNull();
@@ -134,7 +134,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var context = organizations.ContextOf(organizations.FirstId);
     var id = await AddRepositoryAsync(context, FirstInstallation, "{ABC-123}", "owner/repo", Ct);
 
-    var found = await new RepositoryRepository(context).FindByExternalIdAsync("{abc-123}", Ct);
+    var found = await TestRepositories.Repositories(context).FindByExternalIdAsync("{abc-123}", Ct);
 
     found.ShouldNotBeNull().Id.ShouldBe(id);
   }
@@ -152,7 +152,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var first = organizations.ContextOf(organizations.FirstId);
 
-    (await new RepositoryRepository(first).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldBeNull();
+    (await TestRepositories.Repositories(first).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldBeNull();
   }
 
   [Theory]
@@ -164,7 +164,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var first = organizations.ContextOf(organizations.FirstId);
 
-    var listed = await new RepositoryRepository(first).ListAsync(Ct);
+    var listed = await TestRepositories.Repositories(first).ListAsync(Ct);
 
     listed.ShouldHaveSingleItem().Id.ShouldBe(firstId);
   }
@@ -177,7 +177,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await AddToBothAsync(organizations);
 
     await using var first = organizations.ContextOf(organizations.FirstId);
-    var repositories = new RepositoryRepository(first);
+    var repositories = TestRepositories.Repositories(first);
     var listed = (await repositories.ListAsync(Ct)).Single();
 
     await Should.ThrowAsync<InvalidOperationException>(() => repositories.UpdateAsync(listed, Ct));
@@ -194,8 +194,8 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     firstId.ShouldNotBe(secondId);
     await using var first = organizations.ContextOf(organizations.FirstId);
     await using var second = organizations.ContextOf(organizations.SecondId);
-    (await new RepositoryRepository(first).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldNotBeNull().Id.ShouldBe(firstId);
-    (await new RepositoryRepository(second).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldNotBeNull().Id.ShouldBe(secondId);
+    (await TestRepositories.Repositories(first).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldNotBeNull().Id.ShouldBe(firstId);
+    (await TestRepositories.Repositories(second).FindByExternalIdAsync(SharedExternalId, Ct)).ShouldNotBeNull().Id.ShouldBe(secondId);
   }
 
   [Theory]
@@ -209,7 +209,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
       var repository = NewRepository(FirstInstallation, SharedExternalId, SharedSlug);
 
       var exception = await Should.ThrowAsync<InvalidOperationException>(
-        () => new RepositoryRepository(context).AddAsync(repository, Ct));
+        () => TestRepositories.Repositories(context).AddAsync(repository, Ct));
 
       exception.Message.ShouldContain(NoOrganization);
     }
@@ -226,7 +226,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     var organizations = await SeededAsync(provider);
     await using var context = organizations.ContextOf(organizations.FirstId);
     await AddRepositoryAsync(context, FirstInstallation, "1", "Owner/Repo", Ct);
-    var repositories = new RepositoryRepository(context);
+    var repositories = TestRepositories.Repositories(context);
     var duplicate = NewRepository(FirstInstallation, "2", "owner/repo");
 
     var exception = await Should.ThrowAsync<ConflictException>(() => repositories.AddAsync(duplicate, Ct));
@@ -245,7 +245,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await AddRepositoryAsync(context, FirstInstallation, "ABC", "owner/first", Ct);
     var duplicate = NewRepository(FirstInstallation, "abc", "owner/second");
 
-    var exception = await Should.ThrowAsync<ConflictException>(() => new RepositoryRepository(context).AddAsync(duplicate, Ct));
+    var exception = await Should.ThrowAsync<ConflictException>(() => TestRepositories.Repositories(context).AddAsync(duplicate, Ct));
 
     exception.ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
   }
@@ -259,7 +259,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using (var context = organizations.ContextOf(organizations.FirstId))
     {
-      var repositories = new RepositoryRepository(context);
+      var repositories = TestRepositories.Repositories(context);
       var repository = (await repositories.FindAsync(firstId, Ct)).ShouldNotBeNull();
       repository.Rename(RepositorySlug.Parse("shared-org/renamed"), Now.AddHours(1));
 
@@ -267,7 +267,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     }
 
     await using var reader = organizations.ContextOf(organizations.FirstId);
-    var saved = (await new RepositoryRepository(reader).FindAsync(firstId, Ct)).ShouldNotBeNull();
+    var saved = (await TestRepositories.Repositories(reader).FindAsync(firstId, Ct)).ShouldNotBeNull();
     saved.Name.ShouldBe("renamed");
     saved.ExternalId.ShouldBe(SharedExternalId);
     saved.Version.ShouldBe(1);
@@ -283,8 +283,8 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var winner = organizations.ContextOf(organizations.FirstId);
     await using var loser = organizations.ContextOf(organizations.FirstId);
-    var winnerRepositories = new RepositoryRepository(winner);
-    var loserRepositories = new RepositoryRepository(loser);
+    var winnerRepositories = TestRepositories.Repositories(winner);
+    var loserRepositories = TestRepositories.Repositories(loser);
     var winnerRow = (await winnerRepositories.FindAsync(firstId, Ct)).ShouldNotBeNull();
     var loserRow = (await loserRepositories.FindAsync(firstId, Ct)).ShouldNotBeNull();
     winnerRow.Rename(RepositorySlug.Parse("shared-org/winner"), Now.AddHours(1));
@@ -295,7 +295,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     exception.ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
     await using var reader = organizations.ContextOf(organizations.FirstId);
-    (await new RepositoryRepository(reader).FindAsync(firstId, Ct)).ShouldNotBeNull().Name.ShouldBe("winner");
+    (await TestRepositories.Repositories(reader).FindAsync(firstId, Ct)).ShouldNotBeNull().Name.ShouldBe("winner");
   }
 
   [Theory]
@@ -306,7 +306,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     var (firstId, _) = await AddToBothAsync(organizations);
 
     await using var context = organizations.ContextOf(organizations.FirstId);
-    var repositories = new RepositoryRepository(context);
+    var repositories = TestRepositories.Repositories(context);
     var repository = (await repositories.FindAsync(firstId, Ct)).ShouldNotBeNull();
     repository.Rename(RepositorySlug.Parse("shared-org/renamed"), Now.AddHours(1));
 
@@ -329,16 +329,16 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using (var second = organizations.ContextOf(organizations.SecondId))
     {
-      var foreign = (await new RepositoryRepository(second).FindAsync(secondId, Ct)).ShouldNotBeNull();
+      var foreign = (await TestRepositories.Repositories(second).FindAsync(secondId, Ct)).ShouldNotBeNull();
       foreign.Rename(RepositorySlug.Parse("shared-org/stolen"), Now.AddHours(1));
 
       await using var first = organizations.ContextOf(organizations.FirstId);
 
-      await Should.ThrowAsync<InvalidOperationException>(() => new RepositoryRepository(first).UpdateAsync(foreign, Ct));
+      await Should.ThrowAsync<InvalidOperationException>(() => TestRepositories.Repositories(first).UpdateAsync(foreign, Ct));
     }
 
     await using var reader = organizations.ContextOf(organizations.SecondId);
-    var stored = (await new RepositoryRepository(reader).FindAsync(secondId, Ct)).ShouldNotBeNull();
+    var stored = (await TestRepositories.Repositories(reader).FindAsync(secondId, Ct)).ShouldNotBeNull();
     stored.Name.ShouldBe("shared-repo");
     stored.Version.ShouldBe(0);
   }
@@ -350,7 +350,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     var organizations = await SeededAsync(provider);
     await using var context = organizations.ContextWithoutOrganization();
 
-    var exception = await Should.ThrowAsync<InvalidOperationException>(() => new RepositoryRepository(context).FindAsync(1, Ct));
+    var exception = await Should.ThrowAsync<InvalidOperationException>(() => TestRepositories.Repositories(context).FindAsync(1, Ct));
 
     exception.Message.ShouldContain(NoOrganization);
   }
@@ -364,7 +364,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var context = organizations.ContextOf(organizations.FirstId);
 
-    (await new RepositoryRepository(context).FindAsync(firstId, Ct)).ShouldNotBeNull().DefaultBranchYamlSha.ShouldBeNull();
+    (await TestRepositories.Repositories(context).FindAsync(firstId, Ct)).ShouldNotBeNull().DefaultBranchYamlSha.ShouldBeNull();
   }
 
   [Theory]
@@ -377,7 +377,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var context = organizations.ContextOf(organizations.FirstId);
 
-    (await new RepositoryRepository(context).FindAsync(firstId, Ct)).ShouldNotBeNull().DefaultBranchYamlSha.ShouldBe(Head);
+    (await TestRepositories.Repositories(context).FindAsync(firstId, Ct)).ShouldNotBeNull().DefaultBranchYamlSha.ShouldBe(Head);
   }
 
   // The invariant of GitSha holds on the way back too: a corrupt column fails the read, it never yields a value.
@@ -391,7 +391,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
 
     await using var context = organizations.ContextOf(organizations.FirstId);
 
-    await Should.ThrowAsync<ArgumentException>(() => new RepositoryRepository(context).FindAsync(firstId, Ct));
+    await Should.ThrowAsync<ArgumentException>(() => TestRepositories.Repositories(context).FindAsync(firstId, Ct));
   }
 
   // Raw on purpose: the Domain has no setter yet, and the model cannot write a text that is not a SHA.
@@ -407,7 +407,7 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
   {
     await using var reader = organizations.ContextOf(organizationId);
 
-    (await new RepositoryRepository(reader).ListAsync(Ct)).ShouldBeEmpty();
+    (await TestRepositories.Repositories(reader).ListAsync(Ct)).ShouldBeEmpty();
   }
 
   private static async Task<(long FirstId, long SecondId)> AddToBothAsync(TwoOrganizationDatabase organizations)
