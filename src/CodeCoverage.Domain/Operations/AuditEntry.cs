@@ -18,8 +18,9 @@ namespace CodeCoverage.Domain.Operations;
 ///   </para>
 ///   <para>
 ///     The actor is the GitHub login of a user, <see cref="SystemActor" /> for the jobs and the
-///     webhooks, or <see cref="AnonymousActor" />. Both markers hold brackets, which a GitHub login
-///     cannot contain: they never collide with a real user.
+///     webhooks, <see cref="CommandLineActor" /> for the administration command line, or
+///     <see cref="AnonymousActor" />. The markers hold brackets, which a GitHub login cannot contain:
+///     they never collide with a real user.
 ///   </para>
 /// </remarks>
 public sealed class AuditEntry
@@ -28,6 +29,9 @@ public sealed class AuditEntry
 
   /// <summary>The actor of the actions done by the application itself (jobs, webhooks).</summary>
   public const string SystemActor = "[system]";
+
+  /// <summary>The actor of the actions done from the administration command line of the Api.</summary>
+  public const string CommandLineActor = "[command-line]";
 
   /// <summary>The actor of the actions done while nobody is signed in.</summary>
   public const string AnonymousActor = "[anonymous]";

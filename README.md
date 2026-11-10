@@ -55,6 +55,23 @@ Protection certificate). Every other setting — GitHub App, public URLs, upload
 notifications, retention — is stored in the database and edited in the web console, where it is
 reloaded without a restart.
 
+Until the web console manages them, an organization is admitted and its upload tokens are created
+from the Api container. The command runs next to the running Api and exits without starting a
+second server:
+
+```shell
+docker compose exec api dotnet CodeCoverage.Api.dll admin admit-organization --login my-org --account-id 123456
+docker compose exec -T api dotnet CodeCoverage.Api.dll admin create-upload-token --owner my-org --scope organization --label ci
+printf '%s' "$CODECOV_TOKEN" | docker compose exec -T api dotnet CodeCoverage.Api.dll admin create-upload-token \
+  --owner my-org --scope repository --repository my-repo --label codecov --import-value-stdin
+docker compose exec api dotnet CodeCoverage.Api.dll admin revoke-upload-token --owner my-org --id 12
+```
+
+A generated token is written once, alone, on the standard output; everything else goes to the
+standard error. An imported `CODECOV_TOKEN` is read from the standard input only, so that it never
+shows in the arguments of a process, and is never written back. `--forge` (default `github`) names
+the forge of the organization.
+
 ## Documentation
 
 | Document | Content |

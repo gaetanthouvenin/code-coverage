@@ -56,6 +56,21 @@ public sealed class AuditLogTests(DatabaseFixture database)
   }
 
   [Fact]
+  public async Task Record_AsTheCommandLine_ShouldStoreItsOwnActor()
+  {
+    var user = new CurrentUserContext();
+    user.SetCommandLine();
+    var interceptor = new CapturingSaveChangesInterceptor();
+    await using var context = CreateCapturingContext(interceptor);
+
+    await new AuditLog(context, user, new OrganizationContext(), Clock()).RecordAsync("UploadTokens.Create", "42", null, Ct);
+
+    var entry = interceptor.Added.ShouldHaveSingleItem().ShouldBeOfType<AuditEntry>();
+    entry.Actor.ShouldBe(AuditEntry.CommandLineActor);
+    entry.Actor.ShouldNotBe(AuditEntry.SystemActor);
+  }
+
+  [Fact]
   public async Task Record_AsUser_ShouldStoreTheLogin()
   {
     var user = new CurrentUserContext();

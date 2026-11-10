@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Identity;

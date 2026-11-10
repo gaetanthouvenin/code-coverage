@@ -51,7 +51,7 @@ internal sealed class AdmitOrganizationCommandHandler(
     var pending = await directory.UpsertFromForgeAsync(command.Forge, command.ExternalAccountId, command.Login, accountType, cancellationToken)
                                  .ConfigureAwait(false);
 
-    var actor = currentUser.IsSystem ? AuditEntry.SystemActor : currentUser.Login ?? AuditEntry.AnonymousActor;
+    var actor = currentUser.GetActorName();
     var now = clock.UtcNow;
 
     var admitted = await directory.ChangeAsync(command.Forge, pending.ExternalAccountId, organization => organization.Admit(actor, now), cancellationToken)

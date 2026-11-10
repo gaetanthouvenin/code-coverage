@@ -7,6 +7,7 @@
 using Serilog;
 
 using CodeCoverage.Api.Configuration;
+using CodeCoverage.Api.Configuration.Administration;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.Identity;
 using CodeCoverage.Api.Configuration.RateLimiting;
@@ -19,11 +20,20 @@ using CodeCoverage.Infrastructure.Security;
 using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.SqlServer;
 
-Log.Logger = SerilogConfiguration.CreateBootstrapLogger();
+// "admin ..." runs one administration command and exits: its arguments are not configuration.
+var administration = AdminCommandLine.IsRequested(args);
+
+Log.Logger = SerilogConfiguration.CreateBootstrapLogger(administration);
 
 try
 {
-  var builder = WebApplication.CreateBuilder(args);
+  var builder = WebApplication.CreateBuilder(administration ? [] : args);
+
+  if (administration)
+  {
+    // The standard output is kept for the result of the command: the events go to the standard error.
+    builder.Configuration.AddInMemoryCollection([new(SerilogConfiguration.ConsoleToStandardErrorKey, bool.TrueString)]);
+  }
 
   // The settings saved from the screen: the weakest source, after the command line, the environment and
   // appsettings.json. Secrets stay in their protected form in the configuration.
@@ -60,6 +70,17 @@ try
   builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
   var app = builder.Build();
+
+  if (administration)
+  {
+    // The host is never started: no Kestrel, no migration and no worker next to the running Api.
+    await using (app.ConfigureAwait(false))
+    {
+      var commandLine = new AdminCommandLine(app.Services.GetRequiredService<IServiceScopeFactory>(), Console.In, Console.Out, Console.Error);
+
+      return await commandLine.RunAsync(args, CancellationToken.None).ConfigureAwait(false);
+    }
+  }
 
   // The client address and scheme come from the known reverse proxies only.
   app.UseForwardedHeaders();

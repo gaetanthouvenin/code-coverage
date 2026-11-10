@@ -55,7 +55,7 @@ internal sealed class UploadTokenService(
   #region Properties
 
   /// <summary>Gets the name of the principal, as the audit trail writes it.</summary>
-  private string ActorName => currentUser.IsSystem ? AuditEntry.SystemActor : currentUser.Login ?? AuditEntry.AnonymousActor;
+  private string ActorName => currentUser.GetActorName();
 
   #endregion
 

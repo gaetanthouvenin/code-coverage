@@ -26,6 +26,12 @@ public static class SerilogConfiguration
   /// <summary>The configuration key of the rolling log file, relative to the content root.</summary>
   public const string FilePathKey = "Logging:FilePath";
 
+  /// <summary>
+  ///   The configuration key that sends the console events to the standard error, set by the
+  ///   administration command line, whose standard output holds the result of the command.
+  /// </summary>
+  public const string ConsoleToStandardErrorKey = "Logging:ConsoleToStandardError";
+
   private const string DefaultFilePath = "logs/codecoverage-api-.log";
 
   private const long FileSizeLimitBytes = 100L * 1024 * 1024;
@@ -37,11 +43,12 @@ public static class SerilogConfiguration
   #region Methods
 
   /// <summary>Creates the bootstrap logger used before the host is built.</summary>
+  /// <param name="toStandardError">Whether the events go to the standard error instead of the standard output.</param>
   /// <returns>The bootstrap logger.</returns>
-  public static ILogger CreateBootstrapLogger()
+  public static ILogger CreateBootstrapLogger(bool toStandardError = false)
   {
     return new LoggerConfiguration().MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-                                    .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
+                                    .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture, standardErrorFromLevel: StandardErrorFrom(toStandardError))
                                     .CreateBootstrapLogger();
   }
 
@@ -74,16 +81,19 @@ public static class SerilogConfiguration
                  .Enrich.WithThreadId()
                  .Enrich.WithProperty("Application", ApplicationName);
 
+    var standardErrorFrom = StandardErrorFrom(settings.GetValue<bool>(ConsoleToStandardErrorKey));
+
     if (context.HostingEnvironment.IsDevelopment())
     {
       configuration.WriteTo.Console(
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}",
-        formatProvider: CultureInfo.InvariantCulture
+        formatProvider: CultureInfo.InvariantCulture,
+        standardErrorFromLevel: standardErrorFrom
       );
     }
     else
     {
-      configuration.WriteTo.Console(new CompactJsonFormatter());
+      configuration.WriteTo.Console(new CompactJsonFormatter(), standardErrorFromLevel: standardErrorFrom);
     }
 
     // A relative path is resolved against the content root, not the working directory.
@@ -101,6 +111,8 @@ public static class SerilogConfiguration
       rollOnFileSizeLimit: true
     );
   }
+
+  private static LogEventLevel? StandardErrorFrom(bool toStandardError) => toStandardError ? LogEventLevel.Verbose : null;
 
   #endregion
 }

@@ -29,6 +29,8 @@ namespace CodeCoverage.Infrastructure.Administration;
 ///   <para>
 ///     One of the doors of ADR-013, and the reason <see cref="CurrentUserContext.SetSystem" /> can stay
 ///     <see langword="internal" />: the hosts get a list of commands to run, never a system principal.
+///     What it runs is audited under <see cref="Domain.Operations.AuditEntry.CommandLineActor" />, not
+///     under the actor of the jobs.
 ///   </para>
 ///   <para>Deliberately not registered in the container: a build rule keeps its use in the administration command line.</para>
 /// </remarks>
@@ -79,7 +81,7 @@ public sealed class SystemCommandRunner(IServiceScopeFactory scopeFactory)
     {
       var services = scope.ServiceProvider;
 
-      services.GetRequiredService<CurrentUserContext>().SetSystem();
+      services.GetRequiredService<CurrentUserContext>().SetCommandLine();
 
       if (login is not null)
       {
