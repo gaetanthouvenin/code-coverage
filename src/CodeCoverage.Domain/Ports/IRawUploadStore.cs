@@ -31,6 +31,15 @@ public interface IRawUploadStore
   /// <returns>The parts; their streams read the database of the scope, so read them one at a time.</returns>
   IAsyncEnumerable<UploadPart> OpenReadAsync(Guid uploadId, CancellationToken cancellationToken);
 
+  /// <summary>Lists, among uploads, those whose raw reports are no longer kept.</summary>
+  /// <param name="uploadIds">The public identifiers of the uploads.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The uploads without any report still within its retention: never stored, purged, or past the date
+  ///   after which the purge may remove them at any time.
+  /// </returns>
+  Task<IReadOnlyList<Guid>> ListExpiredAsync(IReadOnlyCollection<Guid> uploadIds, CancellationToken cancellationToken);
+
   /// <summary>Deletes the parts of an upload, if any.</summary>
   /// <param name="uploadId">The public identifier of the upload.</param>
   /// <param name="cancellationToken">A token to cancel the deletion.</param>

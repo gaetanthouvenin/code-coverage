@@ -7,6 +7,7 @@
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Contracts.Uploads;
 
 namespace CodeCoverage.Domain.Ports;
 
@@ -37,6 +38,23 @@ public interface ICommitReportRepository
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>A task that completes when the transaction is committed.</returns>
   Task SaveProcessedUploadAsync(Upload upload, byte[]? blob, JobRequest job, CancellationToken cancellationToken);
+
+  /// <summary>Puts ended uploads back to their received state and queues the processing of each, in one transaction.</summary>
+  /// <param name="requeues">The uploads, as they were read, and the log each one starts again from.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The uploads that were taken, now received; empty when none was.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     The transition is guarded: an upload is taken only while it is still in the state it was read in,
+  ///     processed or failed. An upload that is received or being processed already has its job, and one
+  ///     that another request took in the meantime is left to it: neither is queued twice.
+  ///   </para>
+  ///   <para>
+  ///     The blob of an upload is kept until its next processing replaces or removes it; a finalization
+  ///     never reads it meanwhile, since it stops while an upload of the commit is not ended.
+  ///   </para>
+  /// </remarks>
+  Task<IReadOnlyList<Upload>> RequeueUploadsAsync(IReadOnlyList<UploadRequeue> requeues, CancellationToken cancellationToken);
 
   /// <summary>
   ///   Saves a finalization, in one transaction: the commit, its report, its sessions, its flag totals and the

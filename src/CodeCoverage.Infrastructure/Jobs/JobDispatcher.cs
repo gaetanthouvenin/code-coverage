@@ -9,6 +9,7 @@ using System.Text.Json;
 using Mediator;
 
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
+using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -87,6 +88,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 
       case JobTypes.FinalizeCommit:
         await sender.Send(new FinalizeCommitCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.ReprocessCommit:
+        await sender.Send(new RequeueCommitUploadsCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
         break;
 
       default:

@@ -25,6 +25,7 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.PostgreSql;
@@ -143,6 +144,180 @@ public sealed class ProcessUploadIntegrationTests(DatabaseFixture database)
     (await check.CommitFlagTotals.SingleAsync(Ct)).Flag.ShouldBe(CommitFlagTotals.ProjectFlag);
   }
 
+  // The acceptance of the reprocessing: with the same parsers, every upload is parsed again from its raw files and the
+  // commit is rebuilt byte for byte, in a new revision. Two requests that wait give one reprocessing.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_ReprocessedCommit_ShouldRebuildTheSameReport(DatabaseProvider provider)
+  {
+    var seed = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await SeedTokenAsync(seed);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    var cobertura = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "reports", "cobertura", "coverlet-async.xml"), Ct);
+    var lcov = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "reports", "lcov", "vitest-relative.info"), Ct);
+
+    await SendAsync(services, cobertura, "back", ["back"]);
+    await SendAsync(services, lcov, "front", ["front"], "lcov.info");
+
+    var worker = Worker(services);
+    await RunUntilIdleAsync(worker);
+
+    var before = await SnapshotAsync(seed);
+
+    before.Commit.State.ShouldBe(CommitState.Complete);
+    before.Commit.ReportRevision.ShouldBe(1);
+    before.Uploads.ShouldAllBe(static upload => upload.State == UploadState.Processed);
+    before.FlagTotals.Select(static totals => totals.Flag).ShouldBe([CommitFlagTotals.ProjectFlag, "back", "front"], ignoreOrder: true);
+
+    await QueueReprocessAsync(services, seed, before.Commit.Id);
+    await QueueReprocessAsync(services, seed, before.Commit.Id);
+
+    await using (var jobs = seed.ContextWithoutOrganization())
+    {
+      var reprocess = await jobs.Jobs.AsNoTracking().SingleAsync(static j => j.Type == JobTypes.ReprocessCommit, Ct);
+
+      reprocess.State.ShouldBe(JobState.Queued);
+      reprocess.OrganizationId.ShouldBe(seed.FirstId);
+      reprocess.LockKey.ShouldBe($"o{seed.FirstId}:commit:{before.Commit.Id}", "the lock of the finalization of the commit");
+      reprocess.DedupKey.ShouldBe($"o{seed.FirstId}:reprocess:{before.Commit.Id}");
+    }
+
+    // The job of the reprocessing alone: every upload is back in the queue, and the report is not touched yet.
+    (await worker.RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    var during = await SnapshotAsync(seed);
+
+    during.Uploads.ShouldAllBe(static upload => upload.State == UploadState.Received && upload.ProcessedAt == null && upload.Lines == 0);
+    during.Report.ShouldBe(before.Report);
+    during.Commit.ReportRevision.ShouldBe(1);
+
+    await using (var jobs = seed.ContextWithoutOrganization())
+    {
+      (await jobs.Jobs.CountAsync(static j => j.Type == JobTypes.ProcessUpload && j.State == JobState.Queued, Ct)).ShouldBe(2);
+    }
+
+    await RunUntilIdleAsync(worker);
+
+    var after = await SnapshotAsync(seed);
+
+    after.Commit.State.ShouldBe(CommitState.Complete);
+    after.Commit.ReportRevision.ShouldBe(2, "the two uploads end before the one finalization they queue");
+    after.Report.ShouldBe(before.Report);
+    after.FileIndex.ShouldBe(before.FileIndex);
+    after.Coverages.ShouldBe(before.Coverages);
+    after.Sessions.ShouldBe(before.Sessions);
+    after.FlagTotals.Select(Describe).ShouldBe(before.FlagTotals.Select(Describe));
+    (after.Commit.Lines, after.Commit.Hits, after.Commit.Misses, after.Commit.Partials, after.Commit.Files, after.Commit.SessionCount)
+      .ShouldBe((before.Commit.Lines, before.Commit.Hits, before.Commit.Misses, before.Commit.Partials, before.Commit.Files, before.Commit.SessionCount));
+    after.Uploads.Select(Describe).ShouldBe(before.Uploads.Select(Describe));
+
+    await using var ended = seed.ContextWithoutOrganization();
+    (await ended.Jobs.CountAsync(static j => j.State != JobState.Succeeded, Ct)).ShouldBe(0);
+  }
+
+  // The raw files went past their retention between the request and the job: the job fails for good and no upload is touched.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_ReprocessWithExpiredRaw_ShouldFailTheJobAndKeepTheCommit(DatabaseProvider provider)
+  {
+    var seed = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await SeedTokenAsync(seed);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    var cobertura = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "reports", "cobertura", "coverlet-async.xml"), Ct);
+
+    await SendAsync(services, cobertura);
+
+    var worker = Worker(services);
+    await RunUntilIdleAsync(worker);
+
+    var before = await SnapshotAsync(seed);
+
+    await using (var raw = seed.ContextOf(seed.FirstId))
+    {
+      await raw.UploadRawFiles.ExecuteUpdateAsync(static s => s.SetProperty(static f => f.ExpiresAt, DateTimeOffset.UnixEpoch), Ct);
+    }
+
+    await QueueReprocessAsync(services, seed, before.Commit.Id);
+    await RunUntilIdleAsync(worker);
+
+    var after = await SnapshotAsync(seed);
+
+    after.Uploads.ShouldAllBe(static upload => upload.State == UploadState.Processed);
+    after.Report.ShouldBe(before.Report);
+    after.Commit.ReportRevision.ShouldBe(1);
+
+    await using var jobs = seed.ContextWithoutOrganization();
+    var reprocess = await jobs.Jobs.AsNoTracking().SingleAsync(static j => j.Type == JobTypes.ReprocessCommit, Ct);
+
+    reprocess.State.ShouldBe(JobState.Failed, "a refusal that no retry can lift");
+    reprocess.LastError.ShouldNotBeNull().ShouldContain("Commit.RawExpired");
+    (await jobs.Jobs.CountAsync(static j => j.Type == JobTypes.ProcessUpload && j.State == JobState.Queued, Ct)).ShouldBe(0);
+  }
+
+  private static string Describe(CommitFlagTotals totals) =>
+    $"{totals.Flag}|{totals.Lines}|{totals.Hits}|{totals.Misses}|{totals.Partials}|{totals.Coverage}|{totals.IsCarriedForward}";
+
+  private static string Describe(Upload upload) =>
+    string.Join(
+      '|',
+      upload.Sequence,
+      upload.State,
+      upload.ReportFileCount,
+      upload.ResolvedFileCount,
+      upload.UnresolvedFileCount,
+      upload.Lines,
+      upload.Hits,
+      upload.Misses,
+      upload.Partials,
+      upload.ErrorCode,
+      string.Join(';', upload.ProcessingLog.Messages),
+      string.Join(';', upload.ProcessingLog.Paths)
+    );
+
+  private static async Task RunUntilIdleAsync(JobWorker worker)
+  {
+    for (var round = 0; round < 50; round++)
+    {
+      if (!await worker.RunOnceAsync(WorkerId, Ct))
+      {
+        return;
+      }
+    }
+
+    throw new InvalidOperationException("The queue never emptied.");
+  }
+
+  // What an administrator of the repository triggers: the job of the reprocessing, queued in the organization of the commit.
+  private static async Task QueueReprocessAsync(ServiceProvider services, TwoOrganizationDatabase seed, long commitId)
+  {
+    await using var scope = services.CreateAsyncScope();
+
+    scope.ServiceProvider.GetRequiredService<OrganizationContext>().Enter(seed.FirstId);
+
+    await scope.ServiceProvider.GetRequiredService<IJobQueue>().EnqueueAsync(ReprocessCommitJobs.Create(commitId), Ct);
+  }
+
+  private static async Task<CommitSnapshot> SnapshotAsync(TwoOrganizationDatabase seed)
+  {
+    await using var context = seed.ContextOf(seed.FirstId);
+    var commit = await context.Commits.AsNoTracking().SingleAsync(Ct);
+    var report = await context.CommitReports.AsNoTracking().SingleAsync(Ct);
+    var uploads = await context.Uploads.AsNoTracking().OrderBy(static u => u.Sequence).ToListAsync(Ct);
+    var coverages = await context.UploadCoverages.AsNoTracking().OrderBy(static c => c.UploadId).ToListAsync(Ct);
+    var sessions = await context.CommitSessions.AsNoTracking().OrderBy(static s => s.Number).ToListAsync(Ct);
+    var flagTotals = await context.CommitFlagTotals.AsNoTracking().OrderBy(static t => t.Flag).ToListAsync(Ct);
+
+    return new CommitSnapshot(
+      commit,
+      Convert.ToHexString(report.Data),
+      Convert.ToHexString(report.FileIndex),
+      uploads,
+      [.. coverages.Select(static c => $"{c.UploadId}:{Convert.ToHexString(c.Data)}")],
+      [.. sessions.Select(static s => $"{s.Number}|{s.Kind}|{s.UploadId}|{string.Join(',', s.Flags)}|{s.Lines}|{s.Hits}|{s.Misses}|{s.Partials}|{s.Coverage}|{Convert.ToHexString(s.Data ?? [])}")],
+      flagTotals
+    );
+  }
+
   private static JobWorker Worker(IServiceProvider services) => services.GetServices<IHostedService>().OfType<JobWorker>().Single();
 
   private static async Task<CoverageReport> ParseAsync(IServiceProvider services, string path)
@@ -156,23 +331,28 @@ public sealed class ProcessUploadIntegrationTests(DatabaseFixture database)
 
   private static string PathNamed(string raw) => raw.TrimStart('/');
 
-  private static async Task<Guid> SendAsync(ServiceProvider services, byte[] report, string key = "only")
+  private static async Task<Guid> SendAsync(
+    ServiceProvider services,
+    byte[] report,
+    string key = "only",
+    IReadOnlyList<string>? flags = null,
+    string fileName = "coverage.cobertura.xml")
   {
     await using var scope = services.CreateAsyncScope();
 
-    var metadata = new UploadMetadata(RepositorySlug.Parse("first-org/app"), Sha, "main", null, [], key, null, null, new CiContext(null, null, null, key));
+    var metadata = new UploadMetadata(RepositorySlug.Parse("first-org/app"), Sha, "main", null, flags ?? [], key, null, null, new CiContext(null, null, null, key));
     var credential = new UploadCredential(UploadCredentialKind.UploadToken, TokenValue);
-    var command = new ReceiveUploadCommand(credential, metadata, Parts(report), key);
+    var command = new ReceiveUploadCommand(credential, metadata, Parts(report, fileName), key);
     var received = await scope.ServiceProvider.GetRequiredService<ISender>().Send(command, Ct);
 
     return received.Upload.PublicId;
   }
 
-  private static async IAsyncEnumerable<UploadPart> Parts(byte[] report)
+  private static async IAsyncEnumerable<UploadPart> Parts(byte[] report, string fileName)
   {
     await Task.CompletedTask;
 
-    yield return new UploadPart(UploadPartKind.Report, "coverage.cobertura.xml", new MemoryStream(report));
+    yield return new UploadPart(UploadPartKind.Report, fileName, new MemoryStream(report));
   }
 
   private static ServiceProvider BuildServices(DatabaseProvider provider, string connectionString)

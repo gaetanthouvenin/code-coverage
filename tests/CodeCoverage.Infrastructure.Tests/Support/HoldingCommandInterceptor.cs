@@ -30,6 +30,22 @@ public sealed class HoldingCommandInterceptor(Func<string, bool> matches) : DbCo
 
   #region Methods
 
+  // An insert of EF reads the generated key back: it runs as a reader.
+  public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+    DbCommand command,
+    CommandEventData eventData,
+    InterceptionResult<DbDataReader> result,
+    CancellationToken cancellationToken = default)
+  {
+    if (matches(command.CommandText) && Interlocked.Exchange(ref _held, 1) == 0)
+    {
+      Reached.TrySetResult();
+      await Gate.Task.WaitAsync(cancellationToken);
+    }
+
+    return result;
+  }
+
   public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
     DbCommand command,
     CommandEventData eventData,

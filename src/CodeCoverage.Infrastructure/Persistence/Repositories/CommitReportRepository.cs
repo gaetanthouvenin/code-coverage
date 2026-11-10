@@ -12,6 +12,7 @@ using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -108,6 +109,56 @@ internal sealed class CommitReportRepository(
 
     // Committed: a worker of this process may claim the job at once instead of at its next poll.
     wakeUpSignal.Notify(jobId);
+  }
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<Upload>> RequeueUploadsAsync(IReadOnlyList<UploadRequeue> requeues, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(requeues);
+
+    var taken = new List<Upload>(requeues.Count);
+    var jobIds = new List<long>(requeues.Count);
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      try
+      {
+        foreach (var requeue in requeues)
+        {
+          if (await TryTakeAsync(requeue, cancellationToken).ConfigureAwait(false) is { } upload)
+          {
+            taken.Add(upload);
+          }
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var upload in taken)
+        {
+          jobIds.Add(await jobQueue.EnqueueInTransactionAsync(context, ProcessUploadJobs.Create(upload.PublicId), cancellationToken).ConfigureAwait(false));
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch
+      {
+        // Nothing is left for a later save of the scope: the uploads no longer match their rows.
+        foreach (var upload in taken)
+        {
+          context.Entry(upload).State = EntityState.Detached;
+        }
+
+        throw;
+      }
+    }
+
+    foreach (var jobId in jobIds)
+    {
+      wakeUpSignal.Notify(jobId);
+    }
+
+    return taken;
   }
 
   /// <inheritdoc />
@@ -332,6 +383,50 @@ internal sealed class CommitReportRepository(
   #endregion
 
   #region Methods
+
+  /// <summary>Takes an ended upload back to its received state, if nobody changed it since it was read.</summary>
+  /// <param name="requeue">The upload and the log it starts again from.</param>
+  /// <param name="cancellationToken">A token to cancel the update.</param>
+  /// <returns>The upload of this scope, now received, or <see langword="null" /> when it was not taken.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     The row is locked by an update that only matches the state the upload was read in, and stays locked
+  ///     until the transaction ends: of two requests that read the same ended upload, the second one waits,
+  ///     then finds it received and leaves it.
+  ///   </para>
+  ///   <para>
+  ///     The update goes through the filter of the organization, and the change is then made on the row
+  ///     tracked by this scope, never on an upload read elsewhere: the write guard knows its organization.
+  ///   </para>
+  /// </remarks>
+  private async Task<Upload?> TryTakeAsync(UploadRequeue requeue, CancellationToken cancellationToken)
+  {
+    var id = requeue.Upload.Id;
+    var read = requeue.Upload.State;
+
+    if (read is not (UploadState.Processed or UploadState.Failed))
+    {
+      return null;
+    }
+
+    var locked = await context.Uploads
+                              .Where(u => u.Id == id && u.State == read)
+                              .ExecuteUpdateAsync(static setters => setters.SetProperty(static u => u.State, static u => u.State), cancellationToken)
+                              .ConfigureAwait(false);
+
+    if (locked == 0)
+    {
+      return null;
+    }
+
+    var upload = await context.Uploads.SingleAsync(u => u.Id == id, cancellationToken).ConfigureAwait(false);
+
+    // A row this scope already tracked may be older than the one just locked: the lock proved its state.
+    await context.Entry(upload).ReloadAsync(cancellationToken).ConfigureAwait(false);
+    upload.Requeue(requeue.StartingLog);
+
+    return upload;
+  }
 
   /// <summary>Applies the coverage of an upload to its row.</summary>
   /// <param name="uploadId">The identifier of the upload.</param>

@@ -38,5 +38,8 @@ public static class JobTypes
   /// <summary>Rebuilds the report of a commit from its uploads.</summary>
   public const string FinalizeCommit = "FinalizeCommit";
 
+  /// <summary>Puts the ended uploads of a commit back in the queue, so that they are parsed again from their raw files.</summary>
+  public const string ReprocessCommit = "ReprocessCommit";
+
   #endregion
 }

@@ -62,5 +62,11 @@ public static class UploadErrors
   /// <summary>The same upload was already received for the head of the pull request its merge commit names.</summary>
   public const string Duplicate = "Upload.Duplicate";
 
+  /// <summary>The upload is not failed: only a failed upload is retried.</summary>
+  public const string NotFailed = "Upload.NotFailed";
+
+  /// <summary>The raw files of the upload are no longer kept: it cannot be parsed again.</summary>
+  public const string RawExpired = "Upload.RawExpired";
+
   #endregion
 }

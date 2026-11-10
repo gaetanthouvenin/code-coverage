@@ -316,7 +316,7 @@ internal sealed class ReceiveUploadCommandHandler(
       publicId
     );
 
-    var job = JobRequest.Create(JobTypes.ProcessUpload, JsonSerializer.Serialize(new { UploadId = publicId }));
+    var job = ProcessUploadJobs.Create(publicId);
 
     if (await reports.TryAddReceivedUploadAsync(upload, job, cancellationToken).ConfigureAwait(false))
     {
