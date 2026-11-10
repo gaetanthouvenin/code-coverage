@@ -26,6 +26,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 [JsonSerializable(typeof(GitHubInstallationTokenResponse))]
 [JsonSerializable(typeof(GitHubPullResponse))]
 [JsonSerializable(typeof(GitHubRepositoryResponse))]
+[JsonSerializable(typeof(GitHubStatusRequest))]
 [JsonSerializable(typeof(GitHubTreeResponse))]
 [JsonSerializable(typeof(GitHubManifestConversionResponse))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubCommitResponse>))]

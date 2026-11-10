@@ -248,5 +248,16 @@ public sealed class Commit
     Version++;
   }
 
+  /// <summary>Records that the commit was notified: its statuses were published, or it had none to publish.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  public void MarkNotified(DateTimeOffset at)
+  {
+    var utc = at.ToUniversalTime();
+
+    NotifiedAt = utc;
+    UpdatedAt = utc;
+    Version++;
+  }
+
   #endregion
 }

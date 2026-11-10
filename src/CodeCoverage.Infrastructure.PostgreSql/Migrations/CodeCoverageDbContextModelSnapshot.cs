@@ -1394,6 +1394,30 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Notifications.RepositoryFlagRecord", b =>
+                {
+                    b.Property<long>("RepositoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Flag")
+                        .HasMaxLength(446)
+                        .HasColumnType("character varying(446)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("RepositoryId", "Flag")
+                        .HasName("PK_RepositoryFlags");
+
+                    b.ToTable("RepositoryFlags", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Settings.SettingsRevisionRow", b =>
                 {
                     b.Property<int>("Id")
@@ -1758,6 +1782,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
                         .WithMany()
                         .HasForeignKey("CommitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Notifications.RepositoryFlagRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

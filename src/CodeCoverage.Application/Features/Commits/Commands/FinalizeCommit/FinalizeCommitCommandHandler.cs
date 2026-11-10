@@ -30,6 +30,7 @@ namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 /// <param name="codec">The encoding of the coverage.</param>
 /// <param name="merger">Rebuilds the report from the sessions.</param>
 /// <param name="carryforward">Finds what the commit inherits from its ancestors.</param>
+/// <param name="repositoryFlags">The flags the repositories received coverage for.</param>
 /// <param name="notifications">The notification options.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>The job is serialized by its lock key. The rebuild is complete and deterministic, whatever the order of arrival.</remarks>
@@ -43,6 +44,7 @@ internal sealed class FinalizeCommitCommandHandler(
   ICoverageReportCodec codec,
   CommitMerger merger,
   CarryforwardResolver carryforward,
+  IRepositoryFlagRepository repositoryFlags,
   IOptionsMonitor<NotificationOptions> notifications,
   IClock clock) : ICommandHandler<FinalizeCommitCommand>
 {
@@ -144,6 +146,14 @@ internal sealed class FinalizeCommitCommandHandler(
     SessionCoverage[] sessions = [.. uploaded, .. carried.Sessions];
     var merged = merger.MergeProject(resolved.Config, sessions);
     var wasComplete = commit.State is CommitState.Complete;
+
+    // Before the save: the notification it queues builds the flag statuses from the flags known to the repository.
+    await repositoryFlags.AddMissingAsync(
+      commit.RepositoryId,
+      [.. sessions.SelectMany(static session => session.Session.Flags).Distinct(StringComparer.Ordinal)],
+      clock.UtcNow,
+      cancellationToken
+    ).ConfigureAwait(false);
 
     commit.RecordFinalization(
       processed.Length == 0 ? CommitState.Error : CommitState.Complete,

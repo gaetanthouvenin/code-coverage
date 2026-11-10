@@ -408,7 +408,7 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 
 | Classe | Tables |
 |---|---|
-| **D'organisation, filtrées (21)** | `Repositories`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06) |
+| **D'organisation, filtrées (22)** | `Repositories`, `RepositoryFlags`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06) |
 | **Opérationnelles, `OrganizationId` nullable, sans filtre (3)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` |
 | **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
 
@@ -444,6 +444,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **PullRequests** | **Id**, RepositoryId, Number, State (`Open`, `Closed`, `Merged`), Title, AuthorLogin, HeadSha, HeadBranch, BaseBranch, BaseShaGitHub, ForkPointSha?, ComparedToSha?, CommentId bigint?, CommentBodyHash binary(32)?, CommentedHeadSha?, UpdatedAt, Version | UX(RepositoryId, Number) ; IX(RepositoryId, HeadSha) ; IX(RepositoryId, ForkPointSha) |
 | **Comparisons** | **Id**, CommitId, PullNumber (0 pour un build de push : les deux moteurs ne traitent pas un null de la même façon dans un index unique), ForkPointSha?, ComparedToSha?, HeadRevision, BaseRevision?, HeadCoverage?, BaseCoverage?, PatchLines, PatchHits, PatchMisses, PatchPartials, IndirectChangeCount, DiffSource (`PullFiles`, `Compare`), DiffIncomplete, Data (blob : fichiers impactés, flags, changements indirects ; sérialiseur Infrastructure versionné), ComputedAt | UX(CommitId, PullNumber). Cache pour la page PR et pour éviter les re-notifications identiques. |
 | **PostedStatuses** | **CommitId, Context**, State, Description (≤ 140), TargetUrl, PostedAt | Évite de reposter un statut identique. |
+| **RepositoryFlags** | **RepositoryId, Flag** (sensible à la casse, comme `CommitFlagTotals.Flag`), CreatedAt | Les flags pour lesquels le dépôt a reçu de la couverture : ce sont eux qui reçoivent un statut de flag (§7.7). Alimentée par `FinalizeCommit`, avant l'enregistrement du rapport. La migration qui crée la table y reprend les flags des sessions déjà enregistrées (`CommitSessions.Flags`), pour qu'un dépôt garde les statuts des flags reçus avant elle ; elle ne lit pas `CommitFlagTotals`, qui contient aussi les flags seulement déclarés. |
 | **CommitConfigs** | **RepositoryId, Sha**, Source (`Commit`, `RepositoryDefault`, `Organization`, `Builtin`), Path?, RawYaml?, Warnings (json), Errors (json), FetchedAt | YAML immuable par SHA, donc cache définitif. |
 | **DiffCache** | **RepositoryId, BaseSha, HeadSha, Kind** (`Compare`, `PullFiles`), Data (gzip json des `FileDiff`), Incomplete, FetchedAt | Immuable ; purgé à 30 jours. |
 | **RepositoryTrees** | **RepositoryId, Sha**, Data (gzip : chemin et SHA de blob), Truncated, FetchedAt | Repli pour la liste réseau ; vérification « fichier inchangé » du carryforward. |
@@ -843,7 +844,7 @@ OUTPUT inserted.*;
 |---|---|---|---|
 | `ProcessUpload` | — | — | `ProcessUploadCommand(uploadId)` |
 | `FinalizeCommit` | `commit:{id}` | `finalize:{id}` (fusion) | `FinalizeCommitCommand(commitId)` |
-| `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) | `NotifyCommitCommand(commitId, force)` |
+| `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) ; `notify:{id}:forced` (fusion, sans délai) pour `uploads-complete` | `NotifyCommitCommand(commitId, force)` |
 | `HandleWebhook` | `repo:{githubRepoId}` | — | `HandleWebhookDeliveryCommand(deliveryId)` |
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
@@ -1145,8 +1146,10 @@ Les totaux de patch par fichier sont conservés pour la colonne `<patch%>` et la
 
 ```text
 Resolve(commit):
-  pr = PullRequests(open, HeadSha == commit.Sha)
-       ?? (commit.PullNumber → GetPullRequest(n), upsert)          -- l'API GitHub fait foi, les webhooks ne sont que des déclencheurs
+  pr = PullRequests(open, HeadSha == commit.Sha) ?? commit.PullNumber
+       → GetPullRequest(n), upsert                                  -- l'API GitHub fait foi, les webhooks ne sont que des déclencheurs :
+                                                                    -- la ligne trouvée est toujours relue (un appel), car les fichiers
+                                                                    -- d'une PR sont ceux de la tête que GitHub a maintenant
   if pr != null:
      cmp        = Compare(pr.BaseShaGitHub ... commit.Sha)          -- un appel ; merge_base_commit = point de fourche
      forkPoint  = cmp.MergeBaseSha                                  -- = pull.base de Codecov
@@ -1159,7 +1162,8 @@ Resolve(commit):
   comparedTo  = NearestReported(forkPoint ?? firstParent(commit), maxHops = Processing:BaseMaxAncestorWalk)
                 -- premier ancêtre (GitCommits, rempli par lots de 50) en état Complete ;
                 -- s'il est Pending : RetryLater jusqu'à Processing:BaseWaitMinutes, puis on continue la remontée ;
-                -- désactivé si codecov.allow_pseudo_compare: false et comparedTo != forkPoint
+                -- désactivé si codecov.allow_pseudo_compare: false et comparedTo != forkPoint (seule la base exacte est alors lue ;
+                -- la clé est absente des défauts intégrés et vaut vrai sans elle, comme chez Codecov)
   if pr == null: patchDiff = comparedTo != null ? Compare(comparedTo ... commit.Sha).Files : []
   comparisonDiff = comparedTo == forkPoint ? patchDiff : Compare(comparedTo ... commit.Sha).Files
   return BaseResolution(pr, forkPoint, comparedTo, patchDiff, comparisonDiff, behindBy, hops(forkPoint, comparedTo))
@@ -1212,34 +1216,48 @@ flag_coverage_not_uploaded_behavior (règle, sinon default_rules, défaut includ
 
 PROJECT (contexte {prefix}/project ou {prefix}/project/{name})
   head == null || head.Coverage == null → if_not_found, "No coverage information found on head"
-  target = rule.target numérique ? rule.target : base?.Coverage ;  threshold = rule.threshold ?? 0
-  target == null → if_not_found, "No report found to compare against"
+  base == null → if_not_found, "No report found to compare against" ; base sans ligne couvrable → if_not_found,
+     "No coverage information found on base report". La base est cherchée avant la lecture de la cible, comme dans
+     `_get_project_status` de Codecov : une cible numérique ne dispense pas d'un rapport de base.
+  target = rule.target numérique ? rule.target : base.Coverage ;  threshold = rule.threshold ?? 0
   state = head ≥ target − threshold ? success : failure
   desc  = auto ? $"{fmt(head)}% ({sign(head−base)}%) compared to {comparedTo7}" : $"{fmt(head)}% (target {fmt(target)}%)"
-  si failure && auto :
-     adjust_base (défaut) : removed = Σ fichiers de comparisonDiff : base.TotalsOf(previousPath ?? path, RemovedLines)
+  si failure, avec une base (comme `get_project_status` de Codecov) :
+     adjust_base (défaut, cible auto seulement) :
+                            removed = Σ fichiers de comparisonDiff : base.TotalsOf(previousPath ?? path, RemovedLines)
                             b' = base.Totals − removed ; adj = b'.Hits / b'.Lines × 100 − threshold
-                            adj − head < 0.005 → success, desc += $", passed because coverage increased by {fmt(head−adj)}% when compared to adjusted base ({fmt(adj)}%)"
-     removals_only        : success si le diff ne contient que des suppressions et aucun changement indirect
-     fully_covered_patch  : success si aucun changement indirect et (patch == null || patch == 100)
+                            round5(adj) − head < 0.005 → success, desc += $", passed because coverage increased by {max(0, fmt(head−adj))}% when compared to adjusted base ({fmt(adj)}%)"
+                            (une différence nulle ou négative s'écrit « 0 », sans décimale, comme le `max(0, …)` de Codecov)
+     removals_only        : success si le diff retire des lignes couvertes, n'ajoute aucune ligne couvrable et s'il n'y a aucun changement indirect ;
+                            desc += ", passed because this change only removed code"
+     fully_covered_patch  : success s'il n'y a aucun changement indirect et que le patch n'a aucune ligne couvrable
+                            (desc += ", passed because coverage was not affected by patch") ou vaut 100
+                            (desc += ", passed because patch was fully covered by tests, and no indirect coverage changes")
      off / false          : rien
+     removals_only et fully_covered_patch valent aussi avec une cible numérique ; adjust_base non.
 
 PATCH (contexte {prefix}/patch[/name])
-  patch.Lines == 0 → success, $"Coverage not affected when comparing {forkPoint7 ?? comparedTo7}...{head7}"
+  patch.Lines == 0 → success, $"Coverage not affected when comparing {forkPoint7 ?? comparedTo7}...{head7}" ("Coverage not affected" sans base)
   target = rule.target numérique ? rule.target : base?.Coverage (projet de la base)
   target == null → if_not_found, "No report found to compare against"
   cov ≥ target → success, $"{fmt(cov)}% of diff hit (target {fmt(target)}%)"
-  cov ≥ target − threshold → success, $"{fmt(cov)}% of diff hit (within {threshold}% threshold of {fmt(target)}%)"
+  cov ≥ target − threshold → success, $"{fmt(cov)}% of diff hit (within {fmt(threshold)}% threshold of {fmt(target)}%)"
   sinon failure, même texte
 
 CHANGES (contexte {prefix}/changes[/name], désactivé par défaut)
+  PR sans rapport de base (base ≠ parent) → success "Unable to determine changes, no report found at pull request base"
   aucun changement en échec → success "No indirect coverage changes found"
-  sinon failure $"{n} files have indirect coverage changes not visible in diff"
+  sinon failure $"{n} files have indirect coverage changes not visible in diff" ("1 file has …" pour un seul fichier)
+  un changement est en échec si le fichier est dans les deux rapports et que Δmisses + Δpartials > 0 ; un fichier
+  qui apparaît ou disparaît est listé sans faire échouer (`is_a_change_worth_noting` de Codecov)
 
 informational: true → état envoyé = success, description conservée
+
+fmt et sign dans une description de statut sont ceux de `round_number` de Codecov : le nombre arrondi selon
+`coverage.precision` et `coverage.round`, « 0.00 » compris, jamais `<0.01` ni `ø` (réservés au commentaire et aux pages).
 ```
 
-- **Statuts de flag :** chaque entrée `statuses[]` de `flag_management` devient une règle `flags=[F]`, de contexte `{prefix}/{type}/{name_prefix}{F}`.
+- **Statuts de flag :** chaque entrée `statuses[]` de `flag_management` devient une règle `flags=[F]`, de contexte `{prefix}/{type}/{name_prefix}{F}`. Les flags `F` sont ceux que le dépôt connaît (`RepositoryFlags`), comme `repository.flags` chez Codecov : un flag déjà envoyé garde son statut sur un commit qui ne le porte pas (success « No coverage information found on head » par défaut), et un flag seulement déclaré dans le fichier, jamais envoyé, n'en a pas. `FinalizeCommit` y ajoute les flags des sessions du commit avant d'enregistrer le rapport, donc avant de mettre la notification en file. Écart nommé, sans réglage : Codecov permet de supprimer un flag d'un dépôt (`deleted`), ce qui lui retire ses statuts ; ici un flag connu le reste.
 - **Publication :**
   - description tronquée à 140 caractères ;
   - `target_url` = page PR du Web, sinon page commit ;

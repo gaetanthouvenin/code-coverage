@@ -174,6 +174,7 @@ public static partial class DependencyInjection
 
     services.AddMetrics();
     services.TryAddSingleton<CodeCoverageMeter>();
+    services.TryAddSingleton<INotificationMetrics, NotificationMetrics>();
 
     services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.SectionName);
     services.AddDbContext<CodeCoverageDbContext>(static (sp, options) => ConfigureDatabase(sp, options));

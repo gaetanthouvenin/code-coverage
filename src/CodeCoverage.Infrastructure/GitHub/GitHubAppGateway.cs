@@ -16,6 +16,7 @@ using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.GitHub.Models;
@@ -247,6 +248,39 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
              ),
              cancellationToken
            ).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the status or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(sha);
+    ArgumentNullException.ThrowIfNull(status);
+
+    var (installationId, root) = Locate(repository);
+    var address = $"{root}/statuses/{sha.Value}";
+    var state = status.State switch
+    {
+      StatusState.Success => "success",
+      StatusState.Failure => "failure",
+      var _ => "error",
+    };
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Post;
+    request.Content = JsonContent.Create(
+      new GitHubStatusRequest(state, status.Context, status.Description, targetUrl),
+      GitHubJsonContext.Default.GitHubStatusRequest
+    );
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    // Nothing is absent here: a repository or a commit GitHub does not know is a failure of the publication.
+    _ = IsAbsent(response, address, []);
   }
 
   /// <inheritdoc />
