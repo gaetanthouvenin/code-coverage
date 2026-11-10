@@ -19,8 +19,9 @@
 
   Nothing is written anywhere but -OutputJson. The database is read by one SELECT, in a read-only
   transaction on PostgreSQL and with the ReadOnly application intent on SQL Server; use a login that
-  can only read (README.md). No password goes through this script: psql and sqlcmd run inside the
-  database container, with the credentials it already holds.
+  can only read (README.md). psql and sqlcmd run inside the database container, with the credentials
+  it already holds; only the password of a SQL Server login other than sa goes through this script,
+  from the SQLCMDPASSWORD variable or typed without echo, and never in an argument nor in the output.
 
 .PARAMETER Slug
   The repository, owner/name (owner:namespace/name on a forge with a level under the organization).
@@ -49,7 +50,8 @@
   The service of the repository at Codecov: github (default), bitbucket, gitlab…
 
 .PARAMETER Flags
-  Flags to ask Codecov for, besides those CodeCoverage holds for the commit.
+  Flags to ask Codecov for, besides those CodeCoverage holds for the commit. A flag that neither side
+  holds for a commit is not applicable to it: its line is not a gap.
 
 .PARAMETER TotalsPath
   The frozen output of sql/commit-flag-totals.{postgresql,sqlserver}.sql: a JSON array.
@@ -65,7 +67,9 @@
 
 .PARAMETER DatabaseUser
   The login of the query. Default: cc on PostgreSQL, sa on SQL Server (its password is read from the
-  MSSQL_SA_PASSWORD variable of the container).
+  MSSQL_SA_PASSWORD variable of the container). The password of another SQL Server login is read from
+  the SQLCMDPASSWORD variable, or asked without echo when it is not set; docker passes it to sqlcmd by
+  the name of the variable.
 
 .PARAMETER Tolerance
   The largest accepted difference of coverage, in percentage points. Default: 0.01.
@@ -77,7 +81,8 @@
   Writes the lines of the report and its summary to this file, as JSON.
 
 .PARAMETER FailOnGap
-  Exits with 1 when a line is not within the tolerance or misses one side.
+  Exits with 1 when a line is not within the tolerance or misses one side (a not applicable flag is
+  not a gap).
 
 .PARAMETER PassThru
   Returns the lines of the report as objects instead of printing them.
@@ -177,6 +182,8 @@ function Invoke-ReadOnlyQuery {
 
   $sqlFile = Join-Path $PSScriptRoot "sql/commit-flag-totals.$($Provider.ToLowerInvariant()).sql"
   $sql = Get-Content -LiteralPath $sqlFile -Raw
+  $restorePassword = $false
+  $passwordToRestore = $null
 
   if ($Provider -eq 'PostgreSql') {
     $user = if ($DatabaseUser) { $DatabaseUser } else { 'cc' }
@@ -187,13 +194,45 @@ function Invoke-ReadOnlyQuery {
   }
   else {
     $user = if ($DatabaseUser) { $DatabaseUser } else { 'sa' }
-    # -y 0: the JSON is not cut at 256 characters; -K ReadOnly: the read-only application intent.
-    $command = '/opt/mssql-tools18/bin/sqlcmd -S localhost -C -U "$1" -P "$MSSQL_SA_PASSWORD" -d "$2" -K ReadOnly -b -y 0 -i /dev/stdin'
-    $arguments = @('exec', '-i', $Container, 'bash', '-c', $command, 'sqlcmd', $user, $Database)
+    # sqlcmd reads the password from SQLCMDPASSWORD. -y 0: the JSON is not cut at 256 characters; -K ReadOnly:
+    # the read-only application intent.
+    $command = '/opt/mssql-tools18/bin/sqlcmd -S localhost -C -U "$1" -d "$2" -K ReadOnly -b -y 0 -i /dev/stdin'
+
+    if ($user -eq 'sa') {
+      # The password of sa is the MSSQL_SA_PASSWORD variable of the container, read inside it.
+      $arguments = @('exec', '-i', $Container, 'bash', '-c', "SQLCMDPASSWORD=`"`$MSSQL_SA_PASSWORD`" $command", 'sqlcmd', $user, $Database)
+    }
+    else {
+      # The password of another login comes from SQLCMDPASSWORD, or is typed without echo: docker passes the
+      # variable by its name only, so the password is neither in the arguments nor in the output.
+      $passwordToRestore = $env:SQLCMDPASSWORD
+      $restorePassword = $true
+
+      if (-not $env:SQLCMDPASSWORD) {
+        try {
+          $typed = Read-Host -AsSecureString -Prompt "Password of the SQL Server login '$user'"
+        }
+        catch {
+          throw "Give the password of the login '$user' in the SQLCMDPASSWORD variable, or run the script in a console to type it."
+        }
+
+        $env:SQLCMDPASSWORD = [System.Net.NetworkCredential]::new('', $typed).Password
+      }
+
+      $arguments = @('exec', '-i', '-e', 'SQLCMDPASSWORD', $Container, 'bash', '-c', $command, 'sqlcmd', $user, $Database)
+    }
+
     $sql = "SET NOCOUNT ON;`n$sql"
   }
 
-  $output = $sql | & docker @arguments
+  try {
+    $output = $sql | & docker @arguments
+  }
+  finally {
+    if ($restorePassword) {
+      $env:SQLCMDPASSWORD = $passwordToRestore
+    }
+  }
 
   if ($LASTEXITCODE -ne 0) {
     throw "The query failed in the container '$Container' (exit code $LASTEXITCODE)."
@@ -216,7 +255,8 @@ function Read-LocalTotals {
 
   $rows = @($json | ConvertFrom-Json)
   $forgeName = $Forge.Replace('-', '')
-  $totals = @{}
+  # Ordinal, unlike @{}: Backend and backend are two flags, as in CommitFlagTotals.
+  $totals = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
 
   foreach ($row in $rows) {
     $owner = if ($row.namespace) { "$($row.owner):$($row.namespace)" } else { "$($row.owner)" }
@@ -330,7 +370,8 @@ function Compare-Totals {
   $status = 'ok'
 
   if ($null -eq $Codecov -and $null -eq $Local) {
-    $status = 'missing-both'
+    # A flag neither side holds for the commit (asked with -Flags) is not one of its flags.
+    $status = if ($Flag -eq '') { 'missing-both' } else { 'not-applicable' }
   }
   elseif ($null -eq $Codecov) {
     $status = 'missing-codecov'
@@ -389,9 +430,10 @@ foreach ($commit in $commits) {
   }
 }
 
-$gaps = @($rows | Where-Object { $_.Status -ne 'ok' })
+$accepted = @('ok', 'not-applicable')
+$gaps = @($rows | Where-Object { $_.Status -notin $accepted })
 $compared = @($commits | Where-Object { $sha = $_; @($rows | Where-Object { $_.Sha -eq $sha -and $_.Flag -eq '' -and $_.Status -notlike 'missing-*' }).Count -gt 0 })
-$within = @($compared | Where-Object { $sha = $_; @($rows | Where-Object { $_.Sha -eq $sha -and $_.Status -ne 'ok' }).Count -eq 0 })
+$within = @($compared | Where-Object { $sha = $_; @($rows | Where-Object { $_.Sha -eq $sha -and $_.Status -notin $accepted }).Count -eq 0 })
 $met = $within.Count -ge $RequiredCommits
 
 $summary = [pscustomobject]@{
@@ -421,7 +463,7 @@ else {
       CodeCoverage = Format-Coverage $_.CodeCoverageCoverage
       Delta        = if ($null -eq $_.Delta) { '-' } else { ([decimal] $_.Delta).ToString('+0.00000;-0.00000;0.00000', $invariant) }
       Lines        = "$(if ($null -eq $_.CodecovLines) { '-' } else { $_.CodecovLines })/$(if ($null -eq $_.CodeCoverageLines) { '-' } else { $_.CodeCoverageLines })"
-      Counts       = if ($_.Status -like 'missing-*') { '-' } elseif ($_.SameCounts) { 'same' } else { 'differ' }
+      Counts       = if ($_.Status -like 'missing-*' -or $_.Status -eq 'not-applicable') { '-' } elseif ($_.SameCounts) { 'same' } else { 'differ' }
       Carried      = if ($_.IsCarriedForward) { 'yes' } else { '' }
       Status       = $_.Status
     }

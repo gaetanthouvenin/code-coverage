@@ -32,8 +32,16 @@ pwsh tools/parity/Compare-TotalsWithCodecov.ps1 -Slug my-org/my-repo -CommitsFil
   -Provider PostgreSql -Container code-coverage-db-1 -OutputJson parity.json
 ```
 
-`-Provider SqlServer` reads a SQL Server container the same way. The commits file holds one full SHA per
-line; blank lines and lines starting with `#` are skipped.
+`-Provider SqlServer` reads a SQL Server container the same way. With a login other than `sa`, give its
+password in the `SQLCMDPASSWORD` variable, or type it when the script asks (without echo):
+
+```shell
+$env:SQLCMDPASSWORD = Read-Host -AsSecureString 'Password of parity' | ConvertFrom-SecureString -AsPlainText
+pwsh tools/parity/Compare-TotalsWithCodecov.ps1 -Slug my-org/my-repo -CommitsFile pilot-commits.txt `
+  -Provider SqlServer -Container code-coverage-db-1 -DatabaseUser parity
+```
+
+The commits file holds one full SHA per line; blank lines and lines starting with `#` are skipped.
 
 The answers of Codecov can be frozen once and compared offline afterwards: save each answer as
 `{sha}.json` (project) and `{sha}.{flag}.json` (flag) in a folder, and pass it as `-CodecovSamplePath`.
@@ -49,7 +57,10 @@ b2b2b2b2b2 front     75.00000 75.02000     +0.02000 10000/10000 differ         g
 - One line per commit and per flag; the project comes first. `Delta` is CodeCoverage minus Codecov, in
   percentage points.
 - `Status` is `ok` within the tolerance (`-Tolerance`, 0.01 by default, bounds included), `gap` beyond it,
-  `missing-codecov` or `missing-codecoverage` when one side has no totals for the line.
+  `missing-codecov` or `missing-codecoverage` when one side has no totals for the line, `missing-both`
+  when neither side knows the commit. A flag asked with `-Flags` that neither side holds for the commit
+  is `not-applicable`: it is not one of its flags, so it is neither a gap nor a reason to leave the commit
+  out of the count.
 - `Counts` tells whether lines, hits, misses and partials are equal. They can differ with an equal
   percentage: it is shown, not counted as a gap, since the criterion is on the percentage.
 - `Carried` marks a flag CodeCoverage carried forward from an ancestor.
@@ -57,20 +68,30 @@ b2b2b2b2b2 front     75.00000 75.02000     +0.02000 10000/10000 differ         g
   criterion (`-RequiredCommits`, 20 by default) is met. A commit counts when its project and every one of
   its flags are `ok`.
 
-The exit code is 0, unless `-FailOnGap` is given and a line is not `ok`. `-OutputJson` writes the lines
-and the summary; `-PassThru` returns the lines as objects.
+The exit code is 0, unless `-FailOnGap` is given and a line is neither `ok` nor `not-applicable`.
+`-OutputJson` writes the lines and the summary; `-PassThru` returns the lines as objects.
 
 ## Read-only access to the database
 
 - The query is one `SELECT`, in `sql/commit-flag-totals.postgresql.sql` and
   `sql/commit-flag-totals.sqlserver.sql`. It takes no parameter and writes nothing.
 - It runs inside the database container, with the client the image ships (`psql`, `sqlcmd`): nothing is
-  installed on the host, and no password goes through the script.
+  installed on the host.
 - PostgreSQL: the session is opened with `default_transaction_read_only=on`, so a write would be refused
-  by the server.
+  by the server. No password goes through the script.
 - SQL Server: the connection declares the `ReadOnly` application intent, which the server does not
   enforce on a single instance. Use a login that can only read (`-DatabaseUser`, member of
-  `db_datareader`); the default `sa` of the compose overlay can write.
+  `db_datareader`); the default `sa` of the compose overlay can write. The password of `sa` is read inside
+  the container (`MSSQL_SA_PASSWORD`). The password of another login comes from `SQLCMDPASSWORD`, or is
+  asked without echo; `docker exec -e SQLCMDPASSWORD` passes it to `sqlcmd` by the name of the variable,
+  so it is neither in an argument nor in the output.
+
+  ```sql
+  CREATE LOGIN parity WITH PASSWORD = N'<password>';
+  USE codecoverage;
+  CREATE USER parity FOR LOGIN parity;
+  ALTER ROLE db_datareader ADD MEMBER parity;
+  ```
 - The query reads every organization: it is an operator reading the database, outside the application
   and its organization filter. The script keeps the rows of `-Slug` and `-Forge` only.
 - `Infrastructure.Tests/Parity/ParityQueryTests` runs both files against PostgreSQL and SQL Server.
@@ -89,8 +110,9 @@ docker exec -i -e PGOPTIONS="-c default_transaction_read_only=on" <db container>
 - **No coverable line.** Both sides give no coverage (`null`) for a report without line: the line is `ok`.
 - **Carried forward flags.** Both products carry a flag forward from an ancestor commit; the ancestor
   they pick can differ when uploads are still being processed. The `Carried` column tells where to look.
-- **Flag names.** A flag is compared by its exact name. A frozen answer is named after the flag, with
-  every character other than a letter, a digit, `.`, `-` and `_` replaced by `_`.
+- **Flag names.** A flag is compared by its exact name: `Backend` and `backend` are two flags, as in
+  `CommitFlagTotals`. A frozen answer is named after the flag, with every character other than a letter,
+  a digit, `.`, `-` and `_` replaced by `_`.
 
 ## The frozen sample
 
@@ -108,7 +130,9 @@ one real answer when the pilot starts.
 | `f6f6…` | no coverable line on either side |
 
 `samples/codecoverage/commit-flag-totals.json` also holds rows of another organization, another forge,
-another repository and a namespace: the report must leave them out.
+another repository and a namespace: the report must leave them out. It also holds commit `0707…`, outside
+`commits.txt`, with the flags `Backend` and `backend`: `Test-CompareTotals.ps1` checks that they stay two
+lines with their own totals.
 
 `pwsh tools/parity/Test-CompareTotals.ps1` runs the script on the sample and checks it against
 `samples/expected/report.txt` and `report.json`; `-Update` rewrites these references.

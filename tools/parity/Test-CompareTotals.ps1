@@ -52,10 +52,10 @@ function Assert-Equal {
 }
 
 function Invoke-Compare {
-  # In a child process: the exit code is part of what is checked.
+  # In a child process: the exit code is part of what is checked. Non-interactive: a prompt fails instead of waiting.
   param([string[]] $Arguments)
 
-  $output = & pwsh -NoProfile -File $script @Arguments 2>&1 | Out-String
+  $output = & pwsh -NoProfile -NonInteractive -File $script @Arguments 2>&1 | Out-String
 
   return [pscustomobject]@{ Output = $output; ExitCode = $LASTEXITCODE }
 }
@@ -116,6 +116,73 @@ try {
 
   $loose = @(& $script @sample -Tolerance 0.02 -PassThru | Where-Object { $_.Sha -eq ('b2' * 20) -and $_.Flag -eq 'front' })
   Assert-Equal 'the tolerance can be changed' $loose[0].Status 'ok'
+
+  Write-Host 'Flag names'
+  # Commit 0707… (outside commits.txt) holds the flags Backend and backend in CodeCoverage, and none at Codecov.
+  $cased = @(& $script -Slug $sample.Slug -Sha ('07' * 20) -CodecovSamplePath $sample.CodecovSamplePath -TotalsPath $sample.TotalsPath -Flags 'BACKEND' -PassThru)
+  $hitsOf = { param($Flag) @($cased | Where-Object { $_.Flag -ceq $Flag } | ForEach-Object { "$($_.CodeCoverageHits)" }) -join ',' }
+
+  Assert-Equal 'flags that differ only by case are two lines, each with its own totals' "$(& $hitsOf 'Backend')/$(& $hitsOf 'backend')" '1/9'
+  Assert-Equal 'a flag is looked up by its exact name' "[$(& $hitsOf 'BACKEND')]" '[]'
+
+  Write-Host 'Flags asked with -Flags'
+  $askedArguments = @('-Slug', $sample.Slug, '-Sha', ('a1' * 20), '-CodecovSamplePath', $sample.CodecovSamplePath, '-TotalsPath', $sample.TotalsPath, '-Flags', 'nowhere')
+  $nowhere = @(& $script -Slug $sample.Slug -Sha ('a1' * 20) -CodecovSamplePath $sample.CodecovSamplePath -TotalsPath $sample.TotalsPath -Flags 'nowhere' -PassThru | Where-Object { $_.Flag -eq 'nowhere' })
+  Assert-Equal 'a flag of -Flags that neither side holds is not applicable' $nowhere[0].Status 'not-applicable'
+
+  $asked = Invoke-Compare ($askedArguments + @('-FailOnGap'))
+  Assert-Equal 'a flag of -Flags that neither side holds is no gap' $asked.ExitCode 0
+  Assert-Equal 'a flag of -Flags that neither side holds keeps the commit within the tolerance' ($asked.Output -match '1 of 1 compared commits within the tolerance') $true
+
+  $oneSide = @(& $script -Slug $sample.Slug -Sha ('e5' * 20) -CodecovSamplePath $sample.CodecovSamplePath -TotalsPath $sample.TotalsPath -Flags 'e2e' -PassThru | Where-Object { $_.Flag -eq 'e2e' })
+  Assert-Equal 'a flag of -Flags that one side holds is still missing on the other' "$($oneSide.Count) $($oneSide[0].Status)" '1 missing-codecoverage'
+
+  Write-Host 'SQL Server login'
+  # docker is replaced by a script that records its call: neither container nor database.
+  $shim = Join-Path ([System.IO.Path]::GetTempPath()) "parity-docker-$([guid]::NewGuid().ToString('N'))"
+  $callFile = Join-Path $shim 'call.json'
+  New-Item -ItemType Directory -Path $shim | Out-Null
+  Set-Content -LiteralPath (Join-Path $shim 'docker.ps1') -Encoding utf8NoBOM -Value @'
+$query = @($input) -join "`n"
+[pscustomobject]@{ Arguments = @($args); Password = $env:SQLCMDPASSWORD; Query = $query } | ConvertTo-Json | Set-Content -LiteralPath $env:PARITY_DOCKER_CALL
+'[]'
+exit 0
+'@
+  $savedPath = $env:PATH
+  $savedPassword = $env:SQLCMDPASSWORD
+  $secret = "parity-$([guid]::NewGuid().ToString('N'))"
+  $sqlServer = @('-Slug', $sample.Slug, '-Sha', ('a1' * 20), '-CodecovSamplePath', $sample.CodecovSamplePath, '-Provider', 'SqlServer', '-Container', 'db')
+
+  try {
+    $env:PATH = "$shim$([System.IO.Path]::PathSeparator)$env:PATH"
+    $env:PARITY_DOCKER_CALL = $callFile
+
+    $env:SQLCMDPASSWORD = $secret
+    $reader = Invoke-Compare ($sqlServer + @('-DatabaseUser', 'parity'))
+    $call = Get-Content -LiteralPath $callFile -Raw | ConvertFrom-Json
+    $commandLine = @($call.Arguments) -join ' '
+    Assert-Equal 'the query of a login other than sa runs' $reader.ExitCode 0
+    Assert-Equal 'its password goes to the container by name, from SQLCMDPASSWORD' "$($commandLine -cmatch '(^| )-e SQLCMDPASSWORD ') $($call.Password -ceq $secret)" 'True True'
+    Assert-Equal 'its password is neither in the arguments nor in the output' ($commandLine + $reader.Output).Contains($secret) $false
+    Assert-Equal 'the password of sa is not sent for another login' ($commandLine -cmatch 'MSSQL_SA_PASSWORD') $false
+
+    Remove-Item -LiteralPath $callFile
+    $env:SQLCMDPASSWORD = $null
+    $noPassword = Invoke-Compare ($sqlServer + @('-DatabaseUser', 'parity'))
+    Assert-Equal 'a login other than sa without password nor console is refused' ($noPassword.ExitCode -ne 0 -and $noPassword.Output -match 'SQLCMDPASSWORD') $true
+    Assert-Equal 'a login other than sa without password does not reach the container' (Test-Path -LiteralPath $callFile) $false
+
+    $sa = Invoke-Compare $sqlServer
+    $saCall = Get-Content -LiteralPath $callFile -Raw | ConvertFrom-Json
+    $saLine = @($saCall.Arguments) -join ' '
+    Assert-Equal 'sa reads its password in the container' "$($sa.ExitCode) $($saLine -cmatch '\$MSSQL_SA_PASSWORD') $($saLine -cmatch '(^| )-e ')" '0 True False'
+  }
+  finally {
+    $env:PATH = $savedPath
+    $env:SQLCMDPASSWORD = $savedPassword
+    $env:PARITY_DOCKER_CALL = $null
+    Remove-Item -LiteralPath $shim -Recurse -Force -ErrorAction SilentlyContinue
+  }
 
   Write-Host 'Refusals'
   $badSha = Invoke-Compare @('-Slug', $sample.Slug, '-Sha', 'abc123', '-CodecovSamplePath', $sample.CodecovSamplePath, '-TotalsPath', $sample.TotalsPath)
