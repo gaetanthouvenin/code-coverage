@@ -15,6 +15,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDeliv
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
+using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 
@@ -145,6 +146,14 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.ReconcileRepositoryTransfer:
         await sender.Send(new ReconcileRepositoryTransferCommand(Read(job, static p => ReadText(p, "RepositoryExternalId"))), cancellationToken)
+                    .ConfigureAwait(false);
+
+        break;
+      case JobTypes.NotifyCommit:
+        await sender.Send(
+                      Read(job, static p => new NotifyCommitCommand(p.GetProperty("CommitId").GetInt64(), p.TryGetProperty("Force", out var force) && force.GetBoolean())),
+                      cancellationToken
+                    )
                     .ConfigureAwait(false);
 
         break;

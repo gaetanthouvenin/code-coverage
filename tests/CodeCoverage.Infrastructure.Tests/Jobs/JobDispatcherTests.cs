@@ -13,6 +13,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDeliv
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
+using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
@@ -181,6 +182,50 @@ public sealed class JobDispatcherTests
 
     await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
     A.CallTo(_sender).MustNotHaveHappened();
+  }
+
+  [Theory]
+  [InlineData("""{"CommitId":9,"Force":true}""", true)]
+  [InlineData("""{"CommitId":9,"Force":false}""", false)]
+  [InlineData("""{"CommitId":9}""", false)]
+  public async Task Dispatch_NotifyCommit_ShouldSendTheNotificationOfTheCommit(string payload, bool force)
+  {
+    var job = Job(JobTypes.NotifyCommit, 42);
+    job.PayloadJson = payload;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, force), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  // What the factories of the Domain write is what the dispatcher reads.
+  [Fact]
+  public async Task Dispatch_NotifyCommitPayloadsOfTheFactories_ShouldBeRead()
+  {
+    var debounced = Job(JobTypes.NotifyCommit, 1);
+    debounced.PayloadJson = NotifyCommitJobs.Create(9, DateTimeOffset.UnixEpoch, TimeSpan.Zero, TimeSpan.FromSeconds(1)).PayloadJson;
+    var forced = Job(JobTypes.NotifyCommit, 2);
+    forced.PayloadJson = NotifyCommitJobs.CreateForced(9).PayloadJson;
+    var dispatcher = new JobDispatcher(_sender);
+
+    await dispatcher.DispatchAsync(debounced, Ct);
+    await dispatcher.DispatchAsync(forced, Ct);
+
+    A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, false), Ct)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, true), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("{}")]
+  [InlineData("not json")]
+  [InlineData("""{"CommitId":"nine"}""")]
+  [InlineData("""{"CommitId":9,"Force":"yes"}""")]
+  public async Task Dispatch_NotifyCommitWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
+  {
+    var job = Job(JobTypes.NotifyCommit, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
   }
 
   [Fact]

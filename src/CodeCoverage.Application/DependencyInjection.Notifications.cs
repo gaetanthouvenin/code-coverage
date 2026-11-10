@@ -6,6 +6,8 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Application.Services;
+
 namespace CodeCoverage.Application;
 
 /// <content>Registers the services of the notifications area.</content>
@@ -18,6 +20,8 @@ public static partial class DependencyInjection
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddNotificationServices(this IServiceCollection services)
   {
+    services.AddScoped<NotificationService>();
+
     return services;
   }
 

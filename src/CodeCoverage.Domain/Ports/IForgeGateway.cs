@@ -6,6 +6,7 @@
 
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Notifications;
 
 namespace CodeCoverage.Domain.Ports;
 
@@ -115,6 +116,16 @@ public interface IForgeGateway
     GitSha sha,
     bool recursive,
     CancellationToken cancellationToken);
+
+  /// <summary>Publishes a commit status.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="sha">The commit that receives the status: the head of a pull request, never its merge commit.</param>
+  /// <param name="status">The status.</param>
+  /// <param name="targetUrl">The address the status links to, or <see langword="null" />.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>A task that completes when the forge took the status.</returns>
+  /// <exception cref="ArgumentNullException">An argument other than <paramref name="targetUrl" /> is <see langword="null" />.</exception>
+  Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken);
 
   /// <summary>Reads the text of a file at a commit.</summary>
   /// <param name="repository">The repository.</param>

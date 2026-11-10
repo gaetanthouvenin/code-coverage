@@ -114,6 +114,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the statuses published for the commits (<c>PostedStatuses</c>).</summary>
   internal DbSet<PostedStatusRecord> PostedStatuses => Set<PostedStatusRecord>();
 
+  /// <summary>Gets the flags the repositories received coverage for (<c>RepositoryFlags</c>).</summary>
+  internal DbSet<RepositoryFlagRecord> RepositoryFlags => Set<RepositoryFlagRecord>();
+
   /// <summary>Gets the cached diffs (<c>DiffCache</c>).</summary>
   internal DbSet<DiffCacheRecord> DiffCache => Set<DiffCacheRecord>();
 
@@ -249,6 +252,7 @@ public sealed class CodeCoverageDbContext(
 
       // The context of a status can end with a flag.
       modelBuilder.Entity<PostedStatusRecord>().Property(static s => s.Context).UseCollation(SqlServerOrdinalCollation);
+      modelBuilder.Entity<RepositoryFlagRecord>().Property(static f => f.Flag).UseCollation(SqlServerOrdinalCollation);
     }
 
     foreach (var entityType in modelBuilder.Model.GetEntityTypes().Where(static e => e.IsMarkedOrganizationOwned()))

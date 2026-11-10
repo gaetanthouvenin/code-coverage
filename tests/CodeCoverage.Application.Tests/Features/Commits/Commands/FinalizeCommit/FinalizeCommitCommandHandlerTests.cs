@@ -52,6 +52,8 @@ public sealed class FinalizeCommitCommandHandlerTests
 
   private readonly ICommitReportRepository _reports = A.Fake<ICommitReportRepository>();
 
+  private readonly IRepositoryFlagRepository _repositoryFlags = A.Fake<IRepositoryFlagRepository>();
+
   private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
 
   private readonly IClock _clock = A.Fake<IClock>();
@@ -136,6 +138,42 @@ public sealed class FinalizeCommitCommandHandlerTests
     _commit.UploadedSessionCount.ShouldBe(2);
     _commit.ReportRevision.ShouldBe(1);
     _commit.State.ShouldBe(CommitState.Complete);
+  }
+
+  // The flags of the sessions become flags of the repository, which decide the flag statuses of its commits. They are
+  // recorded before the report is saved: the notification that the save queues reads them.
+  [Fact]
+  public async Task Handle_ShouldRecordTheFlagsOfTheSessionsForTheRepositoryBeforeTheSave()
+  {
+    Uploads(Processed(1, ["unit", "Back"], Report("src/A.cs", 1)), Processed(2, ["unit"], Report("src/B.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    A.CallTo(
+       () => _repositoryFlags.AddMissingAsync(
+         _commit.RepositoryId,
+         A<IReadOnlyCollection<string>>.That.Matches(flags => flags.Order(StringComparer.Ordinal).SequenceEqual(new[] { "Back", "unit" })),
+         Now,
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly()
+     .Then(
+       A.CallTo(_reports)
+        .Where(call => call.Method.Name == nameof(ICommitReportRepository.SaveFinalizedAsync))
+        .MustHaveHappenedOnceExactly()
+     );
+  }
+
+  // Nothing was finalized: nothing is recorded.
+  [Fact]
+  public async Task Handle_WhenUploadStillProcessing_ShouldRecordNoFlag()
+  {
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)), Upload.Receive(9, 2, "k2", [], null, null, null, null, null, null, null, 3, PrincipalKind.OrganizationToken, Now));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    A.CallTo(_repositoryFlags).MustNotHaveHappened();
   }
 
   [Fact]
@@ -446,7 +484,7 @@ public sealed class FinalizeCommitCommandHandlerTests
     var notifications = A.Fake<IOptionsMonitor<NotificationOptions>>();
     A.CallTo(() => notifications.CurrentValue).Returns(_notificationOptions);
 
-    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, notifications, _clock);
+    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, _repositoryFlags, notifications, _clock);
   }
 
   #endregion
