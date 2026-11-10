@@ -1,0 +1,16 @@
+{
+  "comment": "The upload request both sides of the contract agree on (docs/ARCHITECTURE.md 5.1): the uploader produces it, the Api accepts it.",
+  "fields": [
+    [ "slug", "octo-org/app" ],
+    [ "sha", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ],
+    [ "branch", "feature/x" ],
+    [ "pr", "12" ],
+    [ "flags", "back,front" ],
+    [ "name", "backend-linux" ],
+    [ "ciService", "github-actions" ],
+    [ "buildId", "99" ],
+    [ "jobId", "test" ]
+  ],
+  "network": "src/A.cs\nsrc/B.cs",
+  "report": { "fileName": "coverage.xml", "content": "<coverage line-rate=\"1\"/>" }
+}

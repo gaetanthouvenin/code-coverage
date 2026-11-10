@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <None Include="..\fixtures\ci-env\**\*" LinkBase="fixtures\ci-env" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\uploads\**\*" LinkBase="fixtures\uploads" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
