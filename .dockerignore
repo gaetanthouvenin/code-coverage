@@ -40,6 +40,7 @@ connection.config
 docs/
 installer/
 tests/
+tools/
 *.md
 
 # Deployment files and local secrets (the Data Protection certificate never enters an image)

@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <None Include="..\fixtures\**\*" LinkBase="fixtures" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The read-only queries of tools/parity, run by ParityQueryTests against both engines. -->
+    <None Include="..\..\tools\parity\sql\*.sql" LinkBase="parity" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

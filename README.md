@@ -72,6 +72,13 @@ standard error. An imported `CODECOV_TOKEN` is read from the standard input only
 shows in the arguments of a process, and is never written back. `--forge` (default `github`) names
 the forge of the organization.
 
+## Parity with Codecov
+
+`tools/parity/Compare-TotalsWithCodecov.ps1` measures the exit criterion of the M1 pilot: for each
+commit and each flag, the totals of Codecov against those of CodeCoverage, with the gaps beyond
+±0.01 point. See `tools/parity/README.md`; `pwsh tools/parity/Test-CompareTotals.ps1` runs it on a
+frozen sample, without network nor database.
+
 ## Documentation
 
 | Document | Content |

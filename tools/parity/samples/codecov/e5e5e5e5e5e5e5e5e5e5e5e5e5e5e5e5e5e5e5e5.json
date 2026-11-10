@@ -1,0 +1,20 @@
+{
+  "totals": {
+    "files": 3,
+    "lines": 20,
+    "hits": 10,
+    "misses": 10,
+    "partials": 0,
+    "coverage": 50.0,
+    "branches": 0,
+    "methods": 0,
+    "messages": 0,
+    "sessions": 2,
+    "complexity": 0.0,
+    "complexity_total": 0.0,
+    "complexity_ratio": 0,
+    "diff": 0
+  },
+  "files": [],
+  "commit_file_url": "https://app.codecov.io/gh/octo-org/app/commit/e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5/tree"
+}
