@@ -41,9 +41,9 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
   /// <param name="token">The upload credential, or <see langword="null" /> to ask GitHub Actions for one.</param>
   /// <param name="request">What the upload sends.</param>
   /// <param name="cancellationToken">A token to cancel the run.</param>
-  /// <returns><see langword="true" /> when the server accepted the upload.</returns>
+  /// <returns>What the server answered when it accepted the upload; otherwise <see langword="null" />.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="server" /> or <paramref name="request" /> is <see langword="null" />.</exception>
-  public async Task<bool> SendAsync(Uri server, string? token, UploadRequest request, CancellationToken cancellationToken)
+  public async Task<UploadReceipt?> SendAsync(Uri server, string? token, UploadRequest request, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(server);
     ArgumentNullException.ThrowIfNull(request);
@@ -54,11 +54,13 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
     {
       reporter.Error("No credential: pass --token, set COVERAGE_TOKEN or CODECOV_TOKEN, or grant id-token: write on GitHub Actions.");
 
-      return false;
+      return null;
     }
 
     var key = await IdempotencyKeyFactory.CreateAsync(request, cancellationToken).ConfigureAwait(false);
     var uploads = new Uri(new Uri(server.ToString().TrimEnd('/') + "/"), UploadsPath);
+
+    reporter.Detail($"POST {uploads} (Idempotency-Key {key}, {(token is null ? "OIDC token of GitHub Actions" : "upload token")})");
 
     using var response = await retry.SendAsync(
                            async token2 =>
@@ -73,14 +75,18 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
                            cancellationToken
                          ).ConfigureAwait(false);
 
-    return await ReportAsync(response, cancellationToken).ConfigureAwait(false);
+    reporter.Detail($"The server answered {(int)response.StatusCode}.");
+
+    return await ReportAsync(response, server, credential, cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Prints the outcome of an upload.</summary>
   /// <param name="response">The answer of the server.</param>
+  /// <param name="server">The address of the server.</param>
+  /// <param name="credential">The credential the upload was sent with.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
-  /// <returns><see langword="true" /> when the server accepted the upload.</returns>
-  private async Task<bool> ReportAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+  /// <returns>What the server answered when it accepted the upload; otherwise <see langword="null" />.</returns>
+  private async Task<UploadReceipt?> ReportAsync(HttpResponseMessage response, Uri server, string credential, CancellationToken cancellationToken)
   {
     var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -95,14 +101,48 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
         reporter.Info($"Commit: {commitUrl}");
       }
 
-      return true;
+      return new UploadReceipt(ReadStatusUrl(server, body), credential);
     }
 
     var code = Read(body, "errorCode");
 
     reporter.Error($"The server refused the upload: {(int)response.StatusCode}{(code is null ? string.Empty : $" ({code})")}.");
 
-    return false;
+    return null;
+  }
+
+  /// <summary>Reads the address the server gives to follow the processing.</summary>
+  /// <param name="server">The address of the server.</param>
+  /// <param name="body">The answer of the server.</param>
+  /// <returns>The address, or <see langword="null" /> when the server gave none that can be asked safely.</returns>
+  /// <remarks>
+  ///   The address is taken as the server wrote it, never built here. It receives the credential: it must
+  ///   be an absolute HTTP address, and never leave HTTPS when the upload itself was sent over HTTPS.
+  /// </remarks>
+  private Uri? ReadStatusUrl(Uri server, string body)
+  {
+    var text = Read(body, "statusUrl");
+
+    if (text is null)
+    {
+      return null;
+    }
+
+    if (!Uri.TryCreate(text, UriKind.Absolute, out var statusUrl) || statusUrl.Scheme is not ("http" or "https"))
+    {
+      reporter.Warning("The server gave an address to follow the processing that is not an absolute HTTP address: it is not used.");
+
+      return null;
+    }
+
+    if (server.Scheme is "https" && statusUrl.Scheme is not "https")
+    {
+      reporter.Warning("The server gave an address to follow the processing that leaves HTTPS: it is not used.");
+
+      return null;
+    }
+
+    return statusUrl;
   }
 
   /// <summary>Reads a text property of a JSON body.</summary>

@@ -695,7 +695,11 @@ coverage-upload --url $COVERAGE_URL [--token $COVERAGE_TOKEN|$CODECOV_TOKEN] [-f
 4. **Réseau** : `git ls-files -z` (fonctionne en profondeur 1), sauf avec `--no-network`.
 5. **Envoi** : chaque rapport est compressé en gzip, puis envoyé en multipart (champs texte d'abord) avec un `Idempotency-Key`. Jusqu'à 5 tentatives sur erreur réseau, 5xx ou 429 (`Retry-After`, backoff exponentiel). L'URL du commit est affichée.
 6. **Authentification** : `--token`, `COVERAGE_TOKEN` ou `CODECOV_TOKEN`. Sinon, si `ACTIONS_ID_TOKEN_REQUEST_URL` est défini, l'uploader fait un `GET $ACTIONS_ID_TOKEN_REQUEST_URL&audience=$COVERAGE_URL` avec `Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN`.
-7. **`--wait`** : interroge `GET /uploads/{id}` jusqu'à `Processed` ou `Failed` (timeout de 120 s) et affiche le journal (« resolved 412/415 files; unresolved: … »).
+7. **`--wait`** : interroge l'adresse `statusUrl` renvoyée par le serveur avec l'upload, jusqu'à `Processed` ou `Failed` (timeout de 120 s), puis affiche le journal (« resolved 412/415 files; unresolved: … »).
+   - L'uploader **ne construit jamais cette adresse** : le serveur reste libre de ses routes et de son hôte public. Sans `statusUrl`, ou si elle n'est pas une adresse HTTP absolue, ou si elle quitte HTTPS alors que l'upload est parti en HTTPS (elle reçoit le credential), `--wait` est ignoré avec un avertissement.
+   - Intervalle de 1 s, doublé jusqu'à 5 s. Un 429, un 5xx, une erreur réseau ou une réponse illisible sont réessayés jusqu'au timeout ; un autre refus (401, 403, 404) arrête l'attente.
+   - Résultat : `Processed` réussit ; `Failed`, un refus ou le timeout échouent, donc code 1 seulement avec `--fail-on-error`. Sans `--verbose`, les 10 premiers chemins non résolus sont affichés, suivis du nombre des autres.
+   - **`--dry-run`** n'envoie rien : il affiche ce que l'upload contiendrait (champs, nombre de chemins de la liste réseau, rapports et leur taille, origine du credential, jamais sa valeur). **`--verbose`** ajoute le contexte détecté, la requête envoyée, le code de la réponse et chaque état lu pendant l'attente.
 8. **`--finalize`** : appelle `uploads-complete`.
 9. **Le build n'est jamais cassé** : code 0 sur toute erreur, sauf avec `--fail-on-error`.
 
