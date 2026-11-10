@@ -40,7 +40,8 @@ public sealed class CoverageConfig
     StrictYamlBranch = ReadText("codecov", "strict_yaml_branch");
     MaxReportAge = ReadMaxReportAge();
     DisableDefaultPathFixes = ReadBoolean("codecov", "disable_default_path_fixes");
-    AllowPseudoCompare = ReadBoolean("codecov", "allow_pseudo_compare");
+    // Allowed unless the repository forbids it, as in Codecov: the key is not among the built-in defaults.
+    AllowPseudoCompare = Root.Find("codecov", "allow_pseudo_compare")?.AsBoolean() is not false;
     RequireCiToPass = ReadBoolean("codecov", "require_ci_to_pass");
     Notify = new NotifyRule(
       ReadCount("codecov", "notify", "after_n_builds"),
@@ -95,7 +96,7 @@ public sealed class CoverageConfig
   /// <summary>Gets a value indicating whether the default path fixes are disabled.</summary>
   public bool DisableDefaultPathFixes { get; }
 
-  /// <summary>Gets a value indicating whether a pseudo base can be compared.</summary>
+  /// <summary>Gets a value indicating whether a pseudo base can be compared: <see langword="true" /> unless the configuration says otherwise.</summary>
   public bool AllowPseudoCompare { get; }
 
   /// <summary>Gets a value indicating whether the CI must pass (read, without effect).</summary>

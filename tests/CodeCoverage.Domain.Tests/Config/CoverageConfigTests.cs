@@ -78,6 +78,14 @@ public sealed class CoverageConfigTests
     config.Warnings.ShouldBeEmpty();
   }
 
+  // Codecov compares with a pseudo base unless the repository forbids it: the key has no built-in default.
+  [Fact]
+  public void Create_WithoutAllowPseudoCompare_ShouldAllowIt()
+  {
+    Effective().AllowPseudoCompare.ShouldBeTrue();
+    Effective(("codecov", Map(("allow_pseudo_compare", Bool(false))))).AllowPseudoCompare.ShouldBeFalse();
+  }
+
   [Fact]
   public void Create_ShouldReadTheCodecovSection()
   {
