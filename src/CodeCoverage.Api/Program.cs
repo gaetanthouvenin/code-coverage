@@ -11,6 +11,7 @@ using CodeCoverage.Api.Configuration.Administration;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.Identity;
 using CodeCoverage.Api.Configuration.RateLimiting;
+using CodeCoverage.Api.Configuration.Uploader;
 using CodeCoverage.Api.Configuration.Uploads;
 using CodeCoverage.Api.Configuration.Security;
 using CodeCoverage.Application;
@@ -64,6 +65,7 @@ try
   builder.Services.AddApiDocumentation();
   builder.Services.AddForwardedHeaders(builder.Configuration);
   builder.Services.AddHealthProbes();
+  builder.Services.AddUploaderFiles(builder.Configuration);
   builder.Services.AddValidateRateLimiter();
   builder.Services.AddUploadRateLimiter();
   builder.Services.AddProblemDetails();

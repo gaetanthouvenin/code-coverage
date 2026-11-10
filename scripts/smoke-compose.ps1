@@ -9,6 +9,9 @@
     - the Api and the Web both answer 200 on /health/ready (database reachable, migrations applied,
       RCSI on under SQL Server);
     - the Api serves Swagger UI (/swagger) and the OpenAPI document (/openapi/v1.json);
+    - the Api serves the standalone uploader of each runtime with a matching SHA-256, and the
+      linux-x64 binary downloaded from it runs;
+    - the administration command line of the Api admits an organization and creates an upload token;
     - both containers run as the non-root user 1001.
   The stack is always removed afterwards (volumes included), unless -KeepRunning is given.
 
@@ -172,6 +175,72 @@ function Assert-NonRoot {
   Write-Host "  $Service runs as uid $uid (non-root)."
 }
 
+function Assert-Uploader {
+  param([Parameter(Mandatory)] [string[]] $Compose)
+
+  foreach ($rid in @('linux-x64', 'linux-musl-x64', 'win-x64', 'osx-arm64')) {
+    $url = "http://127.0.0.1:$ApiPort/api/v1/uploader/$rid"
+    $file = Join-Path $workDirectory "coverage-upload-$rid"
+
+    Invoke-WebRequest -Uri $url -OutFile $file -TimeoutSec 120
+    $expected = "$(Invoke-RestMethod -Uri "$url.sha256" -TimeoutSec 15)".Trim()
+    $actual = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+
+    if ($expected -notmatch '^[0-9a-f]{64}$') {
+      throw "The sum of the uploader $rid is not a SHA-256 in lower-case hexadecimal: '$expected'."
+    }
+
+    if ($actual -ne $expected) {
+      throw "The uploader $rid does not match its sum: $actual instead of $expected."
+    }
+
+    Write-Host "  uploader $rid matches its sum ($((Get-Item -LiteralPath $file).Length) bytes)."
+  }
+
+  # The downloaded linux-x64 binary runs as it is: copied back into the Api container, a Linux without the SDK.
+  $binary = Join-Path $workDirectory 'coverage-upload-linux-x64'
+
+  if (-not $IsWindows) {
+    & chmod +x $binary
+  }
+
+  Invoke-Docker ($Compose + @('cp', $binary, 'api:/tmp/coverage-upload'))
+  $help = (& docker @Compose exec -T api /tmp/coverage-upload --help | Out-String)
+
+  if ($LASTEXITCODE -ne 0 -or -not $help.Contains('--fail-on-error')) {
+    throw "The downloaded linux-x64 uploader did not run (exit code $LASTEXITCODE)."
+  }
+
+  Write-Host '  the downloaded linux-x64 uploader runs.'
+}
+
+function Assert-AdminCommandLine {
+  param([Parameter(Mandatory)] [string[]] $Compose)
+
+  $admin = $Compose + @('exec', '-T', 'api', 'dotnet', 'CodeCoverage.Api.dll', 'admin')
+
+  & docker @admin admit-organization --login smoke-org --account-id 424242 2>$null | Out-Null
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "admin admit-organization failed with exit code $LASTEXITCODE."
+  }
+
+  # The standard output holds the generated value and nothing else.
+  $token = (& docker @admin create-upload-token --owner smoke-org --scope organization --label smoke 2>$null | Out-String).Trim()
+
+  if ($LASTEXITCODE -ne 0 -or $token -notmatch '^cvc_[A-Za-z0-9_-]{43}$') {
+    throw "admin create-upload-token did not print one upload token (exit code $LASTEXITCODE)."
+  }
+
+  & docker @admin create-upload-token --owner unknown-org --scope organization --label smoke *> $null
+
+  if ($LASTEXITCODE -ne 1) {
+    throw "admin create-upload-token for an unknown organization exited with $LASTEXITCODE instead of 1."
+  }
+
+  Write-Host '  the administration command line admits an organization and creates an upload token.'
+}
+
 function Test-Stack {
   param(
     [Parameter(Mandatory)] [string] $Name,
@@ -201,6 +270,9 @@ function Test-Stack {
 
     Assert-NonRoot -Compose $compose -Service 'api'
     Assert-NonRoot -Compose $compose -Service 'web'
+
+    Assert-Uploader -Compose $compose
+    Assert-AdminCommandLine -Compose $compose
 
     $succeeded = $true
     Write-Host "== $Name passed."
