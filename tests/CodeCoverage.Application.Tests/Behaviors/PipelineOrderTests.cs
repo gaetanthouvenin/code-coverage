@@ -121,6 +121,7 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<ICommitConfigRepository>());
     services.AddScoped(_ => A.Fake<IOrganizationSettingsProvider>());
     services.AddScoped(_ => A.Fake<IJobQueue>());
+    services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.NotificationOptions>>());
     services.AddScoped(_ => A.Fake<IPullRequestRepository>());
     services.AddScoped(_ => A.Fake<IReportViewCache>());
     services.AddScoped(_ => A.Fake<IComparisonRepository>());

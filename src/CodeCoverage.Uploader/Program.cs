@@ -20,6 +20,7 @@ var runner = new UploadRunner(
     new OidcTokenFetcher(client, Environment.GetEnvironmentVariable, reporter),
     reporter),
   new UploadStatusPoller(client, Task.Delay, TimeProvider.System, reporter),
+  new FinalizeClient(client, new RetryPolicy(Task.Delay, reporter), reporter),
   Environment.GetEnvironmentVariable,
   reporter);
 

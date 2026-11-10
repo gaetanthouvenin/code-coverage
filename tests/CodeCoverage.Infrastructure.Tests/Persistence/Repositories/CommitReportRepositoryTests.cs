@@ -420,6 +420,102 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
   private static JobRequest Job() => JobRequest.Create("FinalizeCommit", "{}");
 
+  // The acceptance of M2.18: a burst of uploads finalizes the commit several times and leaves one notification,
+  // pushed back at each finalization and never beyond the maximum delay after the first one.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_BurstOfFinalizations_ShouldLeaveOneNotificationWithinTheMaximumDelay(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var debounce = TimeSpan.FromSeconds(20);
+    var maxDelay = TimeSpan.FromSeconds(300);
+
+    await FinalizeWithAsync(seed, NotifyCommitJobs.Create(seed.FirstCommit, Now, debounce, maxDelay));
+    (await NotificationsAsync(seed)).ShouldHaveSingleItem().RunAfter.ShouldBe(Now + debounce);
+
+    await FinalizeWithAsync(seed, NotifyCommitJobs.Create(seed.FirstCommit, Now.AddSeconds(15), debounce, maxDelay));
+    (await NotificationsAsync(seed)).ShouldHaveSingleItem().RunAfter.ShouldBe(Now.AddSeconds(35));
+
+    await FinalizeWithAsync(seed, NotifyCommitJobs.Create(seed.FirstCommit, Now.AddSeconds(290), debounce, maxDelay));
+    var job = (await NotificationsAsync(seed)).ShouldHaveSingleItem();
+    job.RunAfter.ShouldBe(Now + maxDelay);
+    job.State.ShouldBe(JobState.Queued);
+    job.OrganizationId.ShouldBe(seed.Organizations.FirstId);
+    job.LockKey.ShouldBe($"o{seed.Organizations.FirstId}:commit:{seed.FirstCommit}");
+    job.DedupKey.ShouldBe($"o{seed.Organizations.FirstId}:notify:{seed.FirstCommit}");
+  }
+
+  // The same commit identifier in two organizations never shares a notification: the lane prefixes the keys.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_NotificationsOfTwoOrganizations_ShouldNotMerge(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var debounce = TimeSpan.FromSeconds(20);
+
+    await FinalizeWithAsync(seed, NotifyCommitJobs.Create(seed.FirstCommit, Now, debounce, TimeSpan.FromSeconds(300)));
+
+    await using (var context = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.SecondCommit, Ct);
+      Finalize(commit);
+
+      // The same keys as the first organization would give, on purpose.
+      var twin = JobRequest.Create(JobTypes.NotifyCommit, "{}", $"commit:{seed.FirstCommit}", $"notify:{seed.FirstCommit}", Now + debounce, maxDelay: TimeSpan.FromSeconds(300));
+
+      await Repository(context, seed.Organizations.SecondId).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None with { Notification = twin }, Ct);
+    }
+
+    var jobs = await NotificationsAsync(seed);
+    jobs.Count.ShouldBe(2);
+    jobs.Select(static j => j.OrganizationId).ShouldBe([seed.Organizations.FirstId, seed.Organizations.SecondId], ignoreOrder: true);
+  }
+
+  // A notification that cannot be queued takes the finalization back with it.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_NotificationRefused_ShouldSaveNothing(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var foreign = JobRequest.ForOrganization(seed.Organizations.SecondId, JobTypes.NotifyCommit, "{}");
+
+    await Should.ThrowAsync<InvalidOperationException>(() => FinalizeWithAsync(seed, foreign));
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    (await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == seed.FirstCommit, Ct)).State.ShouldNotBe(CommitState.Complete);
+    (await reader.CommitReports.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+    (await NotificationsAsync(seed)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_WithoutNotification_ShouldQueueNone(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+
+    await FinalizeWithAsync(seed, null);
+
+    (await NotificationsAsync(seed)).ShouldBeEmpty();
+  }
+
+  private static async Task<List<JobRecord>> NotificationsAsync(CommitSeed seed)
+  {
+    await using var context = seed.Organizations.ContextWithoutOrganization();
+
+    return await context.Jobs.AsNoTracking().Where(static j => j.Type == JobTypes.NotifyCommit).OrderBy(static j => j.Id).ToListAsync(Ct);
+  }
+
+  private async Task FinalizeWithAsync(CommitSeed seed, JobRequest? notification)
+  {
+    var first = seed.Organizations.FirstId;
+    await using var context = seed.Organizations.ContextOf(first);
+    var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+
+    Finalize(commit);
+
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None with { Notification = notification }, Ct);
+  }
+
   private static void Finalize(Commit commit) =>
     commit.RecordFinalization(CommitState.Complete, 1, Totals, 2, 1, CarryforwardStatus.None, "default", Now);
 

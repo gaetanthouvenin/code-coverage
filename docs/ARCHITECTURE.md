@@ -651,7 +651,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 
 | Endpoint | Rôle |
 |---|---|
-| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/uploads-complete` (même authentification) | Déclenchement manuel : notifie dès que tous les uploads sont traités, en ignorant `after_n_builds` et l'anti-rebond. Équivalent de `upload-complete` chez Codecov. |
+| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/uploads-complete` (même authentification) | Déclenchement manuel : notifie dès que tous les uploads sont traités et fusionnés dans le rapport, en ignorant `after_n_builds` et l'anti-rebond. Équivalent de `upload-complete` chez Codecov. Sur le SHA d'un commit de merge synthétique, dont les uploads ont été déplacés vers la tête de la PR (§1.4-2), la requête ne peut pas interroger la forge : elle répond avec les compteurs du commit nommé (zéro une fois les uploads déplacés) et met le job en file ; c'est le job qui retrouve la tête et lui remet la notification forcée. |
 | `GET /api/v1/uploads/{id}` (credential d'upload ou jeton API) | État et journal de traitement (chemins non résolus ou ambigus, formats inconnus). Interrogé par `coverage-upload --wait`. |
 | `GET /api/v1/uploader/{rid}` et `GET /api/v1/uploader/{rid}.sha256` (anonyme ; `linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`) | Uploader autonome mono-fichier embarqué dans l'image Api, avec sa somme SHA-256. Les mêmes binaires et sommes sont publiés dans la release GitHub du dépôt. Les templates CI épinglent une version et vérifient la somme. |
 | **M5, optionnel :** `POST /upload/github/{owner::::repo}/upload-coverage` plus `PUT /upload/raw/{id}?exp=&sig=` | Shim de compatibilité codecov-cli (mode appel unique seulement ; ni v4, ni mode pas à pas). Les étapes `codecov/codecov-action@v5` existantes fonctionnent alors en ajoutant `url:`. |
@@ -1187,7 +1187,7 @@ Comportement observable :
 
 Après `FinalizeCommit`, après un webhook PR, ou sur `uploads-complete`, `NotifyCommit` est mis en file (anti-rebond `DebounceSeconds`, plafonné à `MaxDelaySeconds` depuis la première mise en file) **si toutes ces conditions sont réunies** :
 
-1. le commit est `Complete` ou `Error` et `COUNT(uploads Received|Processing) = 0` ;
+1. le commit est `Complete` ou `Error`, `COUNT(uploads Received|Processing) = 0`, et son rapport contient tous les uploads traités : `COUNT(uploads Processed) = UploadedSessionCount`. Un commit déjà `Complete` le reste quand un nouvel upload arrive ; tant que la finalisation mise en file par cet upload n'a pas tourné, le rapport est celui d'une partie des uploads et rien n'est notifié, même de force (une notification forcée attend alors cette finalisation, comme elle attend les uploads en cours) ;
 2. `codecov.notify.manual_trigger` n'est pas vrai, sauf déclenchement forcé ;
 3. `sessions ≥ codecov.notify.after_n_builds`. Sauf forçage, **`sessions` compte toutes les sessions, y compris reportées**, comme `len(report.sessions)` chez Codecov (`Notifications:AfterNBuildsCountsCarryforward=true`). Une PR qui ne touche que le front, avec carryforward du back, notifie donc bien.
 

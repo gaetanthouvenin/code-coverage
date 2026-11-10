@@ -66,6 +66,8 @@ public sealed class FinalizeCommitCommandHandlerTests
 
   private FinalizationWakeUps? _savedWakeUps;
 
+  private readonly NotificationOptions _notificationOptions = new();
+
   private CoverageReport? _encoded;
 
   #endregion
@@ -231,6 +233,97 @@ public sealed class FinalizeCommitCommandHandlerTests
     exception.ErrorCode.ShouldBe(CommitErrors.Compacted);
   }
 
+  // The notification of a finalized commit is queued by the save itself, in its transaction, and debounced.
+  [Fact]
+  public async Task Handle_CompleteCommit_ShouldQueueTheDebouncedNotificationInTheSave()
+  {
+    _commit.MarkPending(null, null, Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    var job = _savedWakeUps!.Notification.ShouldNotBeNull();
+    job.Type.ShouldBe(JobTypes.NotifyCommit);
+    job.PayloadJson.ShouldBe("""{"CommitId":9,"Force":false}""");
+    job.LockKey.ShouldBe("commit:9");
+    job.DedupKey.ShouldBe("notify:9");
+    job.RunAfter.ShouldBe(Now.AddSeconds(20));
+    job.MaxDelay.ShouldBe(TimeSpan.FromSeconds(300));
+    job.Coalesce.ShouldBeFalse();
+    // The organization of the scope: the job names none.
+    job.OrganizationId.ShouldBeNull();
+    job.IsInstance.ShouldBeFalse();
+  }
+
+  [Fact]
+  public async Task Handle_CompleteCommit_ShouldDebounceWithTheSettings()
+  {
+    _notificationOptions.DebounceSeconds = 0;
+    _notificationOptions.MaxDelaySeconds = 45;
+    _commit.MarkPending(null, null, Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    var job = _savedWakeUps!.Notification.ShouldNotBeNull();
+    job.RunAfter.ShouldBe(Now);
+    job.MaxDelay.ShouldBe(TimeSpan.FromSeconds(45));
+  }
+
+  // Every upload failed: the commit is in error, and its notification says so on each expected status.
+  [Fact]
+  public async Task Handle_EveryUploadFailed_ShouldStillQueueTheNotification()
+  {
+    _commit.MarkPending(null, null, Now);
+    var failed = Upload.Receive(9, 1, "k1", [], null, null, null, null, null, null, null, 3, PrincipalKind.OrganizationToken, Now);
+    failed.MarkFailed("Upload.ParseFailed", "unreadable", 1, 0, 0, ProcessingLog.Empty, Now);
+    Uploads(failed);
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _commit.State.ShouldBe(CommitState.Error);
+    _savedWakeUps!.Notification.ShouldNotBeNull();
+  }
+
+  [Fact]
+  public async Task Handle_ManualTrigger_ShouldNotQueueTheNotification()
+  {
+    Notify(("manual_trigger", ConfigNode.FromBoolean(true)));
+    _commit.MarkPending(null, null, Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Notification.ShouldBeNull();
+    // The commit is finalized all the same: only its notification waits.
+    _commit.State.ShouldBe(CommitState.Complete);
+  }
+
+  [Theory]
+  [InlineData(1, false)]
+  [InlineData(2, true)]
+  [InlineData(3, true)]
+  public async Task Handle_AfterNBuilds_ShouldQueueTheNotificationOnceReached(int uploads, bool queued)
+  {
+    Notify(("after_n_builds", ConfigNode.FromNumber(2)));
+    _commit.MarkPending(null, null, Now);
+    Uploads([.. Enumerable.Range(1, uploads).Select(i => Processed(i, ["a"], Report("src/A.cs", 1)))]);
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    (_savedWakeUps!.Notification is not null).ShouldBe(queued);
+  }
+
+  private void Notify(params (string Key, ConfigNode Value)[] entries)
+  {
+    const string Yaml = "codecov: notify";
+
+    A.CallTo(() => _configs.FindAsync(A<long>._, A<GitSha>._, A<CancellationToken>._))
+     .Returns(CommitConfig.Create(5, Sha, ConfigSource.Commit, null, Yaml, [], [], Now));
+    A.CallTo(() => _configParser.Parse(Yaml))
+     .Returns(new ConfigParseResult(ConfigNode.FromMap(("codecov", ConfigNode.FromMap(("notify", ConfigNode.FromMap(entries))))), null, []));
+  }
+
   private static CoverageReport Report(string path, params int[] hits) =>
     CoverageReport.Create([FileCoverage.Create(path, hits.Select(static (hit, index) => new LineCoverage(index + 1, hit, 0, 0, false, null)))]);
 
@@ -350,7 +443,10 @@ public sealed class FinalizeCommitCommandHandlerTests
     var ancestry = new CommitAncestry(A.Fake<IGitCommitRepository>(), _gateways, _clock);
     var carryforward = new CarryforwardResolver(ancestry, _commits, _reports, diffs, trees, _codec, options, _clock, NullLogger<CarryforwardResolver>.Instance);
 
-    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, _clock);
+    var notifications = A.Fake<IOptionsMonitor<NotificationOptions>>();
+    A.CallTo(() => notifications.CurrentValue).Returns(_notificationOptions);
+
+    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, notifications, _clock);
   }
 
   #endregion
