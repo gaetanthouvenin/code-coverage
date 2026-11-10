@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
@@ -223,6 +224,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
           Session.CarriedForward(commit.Id, 2, Origin, 7, null, [8], ["e2e"], "CF[1] - e2e", null, null, Totals),
         ],
         [CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, Totals, false, null), CommitFlagTotals.Create(commit, "e2e", Totals, true, Origin)],
+        FinalizationWakeUps.None,
         Ct
       );
     }
@@ -285,7 +287,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     Finalize(loser);
 
     var exception = await Should.ThrowAsync<ConflictException>(
-      () => Repository(stale, first).SaveFinalizedAsync(loser, [9], [9], [Session.FromUpload(loser.Id, 5, 11, [], null, null, null, Totals)], [], Ct)
+      () => Repository(stale, first).SaveFinalizedAsync(loser, [9], [9], [Session.FromUpload(loser.Id, 5, 11, [], null, null, null, Totals)], [], FinalizationWakeUps.None, Ct)
     );
 
     exception.ErrorCode.ShouldBe(CommitErrors.ConcurrentSave);
@@ -306,7 +308,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     await using var context = seed.Organizations.ContextOf(first);
     var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
 
-    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], Ct));
+    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None, Ct));
   }
 
   [Theory]
@@ -325,7 +327,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     Finalize(commit);
     await using var context = seed.Organizations.ContextOf(first);
 
-    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], Ct));
+    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None, Ct));
   }
 
   [Theory]
@@ -340,7 +342,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var repository = Repository(context, first);
 
     await Should.ThrowAsync<ArgumentException>(
-      () => repository.SaveFinalizedAsync(commit, Blob, Index, [Session.FromUpload(commit.Id + 1000, 1, 11, [], null, null, null, Totals)], [], Ct)
+      () => repository.SaveFinalizedAsync(commit, Blob, Index, [Session.FromUpload(commit.Id + 1000, 1, 11, [], null, null, null, Totals)], [], FinalizationWakeUps.None, Ct)
     );
   }
 
@@ -359,7 +361,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
       commit.MarkPending(new string('b', Commit.BranchMaxLength), null, Now);
       Finalize(commit);
 
-      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [CommitFlagTotals.Create(commit, flag, Totals, false, null)], Ct);
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [CommitFlagTotals.Create(commit, flag, Totals, false, null)], FinalizationWakeUps.None, Ct);
     }
 
     await using var reader = seed.Organizations.ContextOf(first);
@@ -385,6 +387,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
         Index,
         [],
         [CommitFlagTotals.Create(commit, "Backend", Totals, false, null), CommitFlagTotals.Create(commit, "backend", Totals, false, null)],
+        FinalizationWakeUps.None,
         Ct
       );
     }
@@ -440,6 +443,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
       Index,
       [Session.FromUpload(commit.Id, sessionNumber, 11, [], null, null, null, Totals)],
       [CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, Totals, false, null)],
+      FinalizationWakeUps.None,
       Ct
     );
   }
@@ -466,6 +470,195 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     await new UploadRepository(context).AddAsync(upload, Ct);
 
     return upload.Id;
+  }
+
+  // A commit that completes queues, in its transaction, the waiting commits of its repository, its own organization only.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_Completed_ShouldQueueTheWaitingCommitsInTheTransaction(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var waiting = await AddCommitAsync(seed, first, 'e', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now));
+    await AddCommitAsync(seed, first, 'f', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.None, "source", Now));
+
+    await using (var second = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      var foreign = await second.Commits.SingleAsync(c => c.Id == seed.SecondCommit, Ct);
+      foreign.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now);
+      await second.SaveChangesAsync(Ct);
+    }
+
+    await SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(true, []));
+
+    (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{waiting}"]);
+    (await _wakeUpSignal.WaitAsync(TimeSpan.Zero, Ct)).ShouldBeTrue();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_PendingAncestorEnded_ShouldQueueItsOwnFinalization(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var ancestor = await AddCommitAsync(seed, first, 'e', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.None, "source", Now));
+
+    await SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(false, [ancestor]));
+
+    (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{seed.FirstCommit}"]);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_PendingAncestorStillPending_ShouldQueueNothingAndLeaveTheAncestor(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var ancestor = await AddCommitAsync(seed, first, 'e', static c => c.MarkPending(null, null, Now));
+
+    await SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(false, [ancestor]));
+
+    (await QueuedLockKeysAsync(seed)).ShouldBeEmpty();
+    await using var reader = seed.Organizations.ContextOf(first);
+    var stored = await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == ancestor, Ct);
+    stored.State.ShouldBe(CommitState.Pending);
+    stored.Version.ShouldBe(0);
+  }
+
+  // The ancestor is being finalized and holds its row: the waiting commit waits for it, then sees it ended.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_AncestorSavedAtTheSameTime_ShouldWaitForItAndQueueItself(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var ancestor = await AddCommitAsync(seed, first, 'e', static c => c.MarkPending(null, null, Now));
+
+    await using var holder = seed.Organizations.ContextOf(first);
+    await using var transaction = await holder.Database.BeginTransactionAsync(Ct);
+    var held = await holder.Commits.SingleAsync(c => c.Id == ancestor, Ct);
+    held.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.None, "source", Now);
+    await holder.SaveChangesAsync(Ct);
+
+    var save = SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(false, [ancestor]));
+    (await Task.WhenAny(save, Task.Delay(TimeSpan.FromSeconds(1), Ct))).ShouldNotBe(save, "the waiting commit must wait for the row of the ancestor");
+
+    await transaction.CommitAsync(Ct);
+    await save.WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{seed.FirstCommit}"]);
+  }
+
+  // The waiting commit holds the row of its ancestor: the ancestor that completes waits for it, then lists it.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_WaitingCommitSavedAtTheSameTime_ShouldWaitForItAndQueueIt(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var waiting = await AddCommitAsync(seed, first, 'e', static c => c.MarkPending(null, null, Now));
+
+    await using (var pending = seed.Organizations.ContextOf(first))
+    {
+      var commit = await pending.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      commit.MarkPending(null, null, Now);
+      await pending.SaveChangesAsync(Ct);
+    }
+
+    // What the save of the waiting commit does: it writes its state, then locks the row of its pending ancestor.
+    await using var holder = seed.Organizations.ContextOf(first);
+    await using var transaction = await holder.Database.BeginTransactionAsync(Ct);
+    var held = await holder.Commits.SingleAsync(c => c.Id == waiting, Ct);
+    held.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now);
+    await holder.SaveChangesAsync(Ct);
+    await holder.Commits.Where(c => c.Id == seed.FirstCommit).ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UpdatedAt, static c => c.UpdatedAt), Ct);
+
+    var save = SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(true, []));
+    (await Task.WhenAny(save, Task.Delay(TimeSpan.FromSeconds(1), Ct))).ShouldNotBe(save, "the ancestor must wait for the waiting commit");
+
+    await transaction.CommitAsync(Ct);
+    await save.WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{waiting}"]);
+  }
+
+  // Chain P <- A <- D, P and A pending: A finalizes while D does. A holds its row and is about to lock P; D, whose
+  // pending ancestors are A then P, must lock them in that order, or it holds P while waiting for A and the two
+  // transactions deadlock.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_TwoCommitsSharingAFartherAncestor_ShouldNotDeadlock(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var farther = await AddCommitAsync(seed, first, '1', static c => c.MarkPending(null, null, Now));
+    var closer = await AddCommitAsync(seed, first, '2', static c => c.MarkPending(null, null, Now));
+    var head = await AddCommitAsync(seed, first, '3', static c => c.MarkPending(null, null, Now));
+    var holding = new HoldingCommandInterceptor(static sql => sql.Replace("\"", string.Empty, StringComparison.Ordinal)
+                                                                 .Replace("[", string.Empty, StringComparison.Ordinal)
+                                                                 .Replace("]", string.Empty, StringComparison.Ordinal)
+                                                                 .Replace(" ", string.Empty, StringComparison.Ordinal)
+                                                                 .Contains("UpdatedAt=c.UpdatedAt", StringComparison.Ordinal));
+
+    var closerSave = SaveCommitAsync(seed, provider, closer, new FinalizationWakeUps(false, [farther]), holding);
+    await holding.Reached.Task.WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    var headSave = SaveCommitAsync(seed, provider, head, new FinalizationWakeUps(false, [closer, farther]), null);
+    (await Task.WhenAny(headSave, Task.Delay(TimeSpan.FromSeconds(1), Ct))).ShouldNotBe(headSave, "the head must wait for the row of its closer ancestor");
+
+    holding.Gate.SetResult();
+    await Task.WhenAll(closerSave, headSave).WaitAsync(TimeSpan.FromMinutes(1), Ct);
+
+    (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{head}"]);
+  }
+
+  private async Task SaveCommitAsync(CommitSeed seed, DatabaseProvider provider, long commitId, FinalizationWakeUps wakeUps, HoldingCommandInterceptor? interceptor)
+  {
+    var first = seed.Organizations.FirstId;
+    var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
+    options.UseCodeCoverageDatabase(provider, seed.Organizations.ConnectionString);
+
+    if (interceptor is not null)
+    {
+      options.AddInterceptors(interceptor);
+    }
+
+    var organization = new OrganizationContext();
+    organization.Enter(first);
+
+    await using var context = new CodeCoverageDbContext(options.Options, organization);
+    var commit = await context.Commits.SingleAsync(c => c.Id == commitId, Ct);
+    Finalize(commit);
+
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], wakeUps, Ct);
+  }
+
+  private static async Task<long> AddCommitAsync(CommitSeed seed, long organizationId, char sha, Action<Commit> state)
+  {
+    await using var context = seed.Organizations.ContextOf(organizationId);
+    var commit = await new CommitRepository(context).GetOrCreateAsync(seed.FirstRepository, GitSha.Parse(new string(sha, GitSha.Length)), Now, Ct);
+
+    state(commit);
+    await context.SaveChangesAsync(Ct);
+
+    return commit.Id;
+  }
+
+  private static async Task<List<string>> QueuedLockKeysAsync(CommitSeed seed)
+  {
+    await using var check = seed.Organizations.ContextWithoutOrganization();
+
+    return await check.Jobs.AsNoTracking().Where(static j => j.Type == JobTypes.FinalizeCommit).Select(static j => j.LockKey!).ToListAsync(Ct);
+  }
+
+  private async Task SaveWithWakeUpsAsync(CommitSeed seed, FinalizationWakeUps wakeUps)
+  {
+    var first = seed.Organizations.FirstId;
+    await using var context = seed.Organizations.ContextOf(first);
+    var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+    Finalize(commit);
+
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], wakeUps, Ct);
   }
 
   private static Upload Received(long commitId, string key) =>

@@ -12,6 +12,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;

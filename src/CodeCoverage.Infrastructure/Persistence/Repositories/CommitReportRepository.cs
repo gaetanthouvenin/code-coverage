@@ -10,6 +10,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
@@ -49,6 +50,9 @@ internal sealed class CommitReportRepository(
 
   /// <summary>The message of the refusal of a finalization that lost a race; it is sent to the caller.</summary>
   private const string ConcurrentSaveMessage = "The commit was finalized in the meantime; finalize it again.";
+
+  /// <summary>How many waiting commits a commit that completes wakes.</summary>
+  private const int MaxWokenCommits = 10;
 
   #endregion
 
@@ -164,6 +168,7 @@ internal sealed class CommitReportRepository(
     byte[] fileIndex,
     IReadOnlyList<Session> sessions,
     IReadOnlyList<CommitFlagTotals> flagTotals,
+    FinalizationWakeUps wakeUps,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(commit);
@@ -171,12 +176,14 @@ internal sealed class CommitReportRepository(
     ArgumentNullException.ThrowIfNull(fileIndex);
     ArgumentNullException.ThrowIfNull(sessions);
     ArgumentNullException.ThrowIfNull(flagTotals);
+    ArgumentNullException.ThrowIfNull(wakeUps);
 
     InvalidOperationException.ThrowIf(!context.Entry(commit).Property(static c => c.Version).IsModified, NotFinalizedMessage);
     ArgumentException.ThrowIf(sessions.Any(s => s.CommitId != commit.Id), ForeignCommitMessage, nameof(sessions));
     ArgumentException.ThrowIf(flagTotals.Any(t => t.CommitId != commit.Id), ForeignCommitMessage, nameof(flagTotals));
 
     var commitId = commit.Id;
+    IReadOnlyList<long> queued = [];
     var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
     await using (transaction.ConfigureAwait(false))
@@ -197,6 +204,10 @@ internal sealed class CommitReportRepository(
         context.CommitFlagTotals.AddRange(flagTotals);
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        // After the row of the commit is written: see the remarks of the port.
+        queued = await QueueWakeUpsAsync(commit, wakeUps, cancellationToken).ConfigureAwait(false);
+
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
       }
       catch (ConflictException exception) when (exception.ErrorCode == GeneralErrors.ConcurrentChange)
@@ -212,7 +223,93 @@ internal sealed class CommitReportRepository(
         throw;
       }
     }
+
+    foreach (var jobId in queued)
+    {
+      wakeUpSignal.Notify(jobId);
+    }
   }
+
+  /// <summary>Queues the finalizations a finalization wakes, in its transaction.</summary>
+  /// <param name="commit">The commit, whose row is already written in the transaction.</param>
+  /// <param name="wakeUps">What to wake.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>The identifiers of the queued jobs.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     The neutral update locks the rows of the pending ancestors until the end of the transaction: an ancestor whose
+  ///     finalization is being saved is waited for, then read ended; one saved later waits for this transaction, then
+  ///     lists this commit, already <see cref="CarryforwardStatus.AncestorPending" />.
+  ///   </para>
+  ///   <para>
+  ///     The ancestors are locked one at a time, the nearest first, as the chain gives them. Every transaction then
+  ///     takes the rows of a chain in the same order, its own row first: one statement for all of them would lock
+  ///     them in the order of its plan, and a commit holding a farther ancestor while it waits for a closer one that
+  ///     holds its own row and waits for that farther ancestor would deadlock.
+  ///   </para>
+  /// </remarks>
+  private async Task<IReadOnlyList<long>> QueueWakeUpsAsync(Commit commit, FinalizationWakeUps wakeUps, CancellationToken cancellationToken)
+  {
+    var commitId = commit.Id;
+    var repositoryId = commit.RepositoryId;
+    var jobs = new List<JobRequest>();
+
+    if (wakeUps.PendingAncestorIds.Count > 0)
+    {
+      var seen = new HashSet<long>();
+      long[] ancestors = [.. wakeUps.PendingAncestorIds.Where(seen.Add)];
+
+      foreach (var ancestorId in ancestors)
+      {
+        await context.Commits
+                     .Where(c => c.Id == ancestorId)
+                     .ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UpdatedAt, static c => c.UpdatedAt), cancellationToken)
+                     .ConfigureAwait(false);
+      }
+
+      var stillPending = await context.Commits
+                                      .AsNoTracking()
+                                      .CountAsync(c => ancestors.Contains(c.Id) && c.State == CommitState.Pending, cancellationToken)
+                                      .ConfigureAwait(false);
+
+      if (stillPending < ancestors.Length)
+      {
+        jobs.Add(FinalizeCommitJobs.Create(commitId));
+      }
+    }
+
+    if (wakeUps.Completed)
+    {
+      var waiting = await context.Commits
+                                 .AsNoTracking()
+                                 .Where(c => c.RepositoryId == repositoryId && c.Id != commitId && c.CarryforwardStatus == CarryforwardStatus.AncestorPending)
+                                 .OrderByDescending(static c => c.Id)
+                                 .Take(MaxWokenCommits)
+                                 .Select(static c => c.Id)
+                                 .ToListAsync(cancellationToken)
+                                 .ConfigureAwait(false);
+
+      jobs.AddRange(waiting.Select(FinalizeCommitJobs.Create));
+    }
+
+    var queued = new List<long>(jobs.Count);
+
+    foreach (var job in jobs)
+    {
+      queued.Add(await jobQueue.EnqueueInTransactionAsync(context, job, cancellationToken).ConfigureAwait(false));
+    }
+
+    return queued;
+  }
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<Session>> ListSessionsAsync(long commitId, CancellationToken cancellationToken) =>
+    await context.CommitSessions
+                 .AsNoTracking()
+                 .Where(s => s.CommitId == commitId)
+                 .OrderBy(static s => s.Number)
+                 .ToListAsync(cancellationToken)
+                 .ConfigureAwait(false);
 
   /// <inheritdoc />
   public async Task<byte[]?> GetReportAsync(long commitId, CancellationToken cancellationToken) =>

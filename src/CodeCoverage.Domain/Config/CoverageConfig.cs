@@ -147,6 +147,10 @@ public sealed class CoverageConfig
     return [.. legacy.Concat(individual).Where(static flag => flag.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
   }
 
+  /// <summary>Tells whether a flag that is not declared is carried forward, by <c>flag_management.default_rules</c>.</summary>
+  /// <returns><see langword="true" /> when any flag seen on an ancestor can be carried forward.</returns>
+  public bool CarriesForwardByDefault() => Root.Find("flag_management", "default_rules", "carryforward")?.AsBoolean() is true;
+
   /// <summary>Builds the set that decides which paths an upload keeps.</summary>
   /// <param name="flags">The flags of the upload.</param>
   /// <returns>
