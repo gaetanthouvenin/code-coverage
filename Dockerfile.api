@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Dockerfile.api — image of CodeCoverage.Api: the REST API (uploads, webhooks, badges)
-# and the background job worker. Multi-stage SDK -> aspnet, non-root user,
-# /app/data volume, port 8080.
+# Dockerfile.api — image of CodeCoverage.Api: the REST API (uploads, webhooks, badges),
+# the background job worker and the standalone binaries of the uploader. Multi-stage
+# SDK -> aspnet, non-root user, /app/data volume, port 8080.
 #
 #   docker build -f Dockerfile.api -t code-coverage-api:dev .
 #
@@ -23,6 +23,26 @@ RUN dotnet publish src/CodeCoverage.Api/CodeCoverage.Api.csproj \
       -p:AssemblySemVer="${ASSEMBLY_SEMVER}" \
       -p:MajorMinorPatch="${MAJOR_MINOR_PATCH}" \
       -p:InformationalVersion="${INFORMATIONAL_VERSION}"
+# The standalone uploader (ADR-012), served by GET /api/v1/uploader/{rid}: self-contained, single-file
+# and trimmed, for the agents without .NET. The runtimes and the file names are those of
+# UploaderFileCatalog (a test compares them); each binary comes with its SHA-256 in lower-case
+# hexadecimal. InvariantGlobalization: the binary needs no ICU library on the agent.
+RUN mkdir -p /app/uploader \
+    && for rid in linux-x64 linux-musl-x64 win-x64 osx-arm64; do \
+         ext=""; if [ "$rid" = "win-x64" ]; then ext=".exe"; fi; \
+         dotnet publish src/CodeCoverage.Uploader/CodeCoverage.Uploader.csproj \
+           -c Release -r "$rid" --self-contained true -o "/tmp/uploader/$rid" \
+           -p:PublishSingleFile=true -p:PublishTrimmed=true -p:InvariantGlobalization=true \
+           -p:NuGetVersion="${NUGET_VERSION}" \
+           -p:AssemblySemVer="${ASSEMBLY_SEMVER}" \
+           -p:MajorMinorPatch="${MAJOR_MINOR_PATCH}" \
+           -p:InformationalVersion="${INFORMATIONAL_VERSION}" \
+         && mv "/tmp/uploader/$rid/CodeCoverage.Uploader$ext" "/app/uploader/coverage-upload-$rid$ext" \
+         && (cd /app/uploader && sha256sum "coverage-upload-$rid$ext" | cut -d " " -f 1 > "coverage-upload-$rid$ext.sha256") \
+         || exit 1; \
+       done \
+    && chmod 0555 /app/uploader/coverage-upload-* \
+    && chmod 0444 /app/uploader/*.sha256
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 # The .NET 10 aspnet base image ships without `adduser`; use the always-present shadow utilities.
@@ -30,6 +50,8 @@ RUN groupadd --system --gid 1001 codecoverage \
     && useradd --system --uid 1001 --gid codecoverage --no-create-home codecoverage
 WORKDIR /app
 COPY --from=build /app/publish .
+# Read-only for the non-root user: the Api only serves these files.
+COPY --from=build /app/uploader ./uploader
 RUN mkdir -p /app/data/logs && chown -R codecoverage:codecoverage /app/data
 USER codecoverage
 # Only the bootstrap values come from the environment (ConnectionStrings__CodeCoverage,

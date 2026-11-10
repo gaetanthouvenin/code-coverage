@@ -1238,7 +1238,8 @@ fournis par ce dépôt, jalon M5).
 `aspnet:10.0`, restauration depuis nuget.org seul (ni secret BuildKit ni configuration NuGet
 privée), version injectée par `ARG`, publication en dossier, utilisateur et groupe non root
 `codecoverage` (uid/gid 1001, `groupadd`/`useradd`), volume `/app/data`, port 8080, configuration
-d'amorçage par variables `Section__Key`.
+d'amorçage par variables `Section__Key`. `Dockerfile.api` publie en plus l'uploader autonome de
+chaque RID de `UploaderFileCatalog` dans `/app/uploader`, avec sa somme `.sha256` (ADR-012).
 
 ### 14.4 docker-compose
 
