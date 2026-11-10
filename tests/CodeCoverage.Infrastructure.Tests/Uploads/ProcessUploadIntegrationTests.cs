@@ -115,6 +115,34 @@ public sealed class ProcessUploadIntegrationTests(DatabaseFixture database)
     (await jobs.Jobs.CountAsync(j => j.Type == JobTypes.FinalizeCommit && j.State == JobState.Queued, Ct)).ShouldBe(1, "the finalizations of a commit are merged");
   }
 
+  // The first upload processed end to end: reception, parsing, finalization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_UploadThenFinalization_ShouldCompleteTheCommit(DatabaseProvider provider)
+  {
+    var seed = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await SeedTokenAsync(seed);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    var fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "reports", "cobertura", "coverlet-async.xml"), Ct);
+
+    await SendAsync(services, fixture);
+
+    var worker = Worker(services);
+
+    (await worker.RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+    (await worker.RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    await using var check = seed.ContextOf(seed.FirstId);
+    var commit = await check.Commits.SingleAsync(Ct);
+
+    commit.State.ShouldBe(CommitState.Complete);
+    commit.ReportRevision.ShouldBe(1);
+    commit.SessionCount.ShouldBe(1);
+    commit.Lines.ShouldBeGreaterThan(0);
+    (await check.CommitSessions.CountAsync(Ct)).ShouldBe(1);
+    (await check.CommitFlagTotals.SingleAsync(Ct)).Flag.ShouldBe(CommitFlagTotals.ProjectFlag);
+  }
+
   private static JobWorker Worker(IServiceProvider services) => services.GetServices<IHostedService>().OfType<JobWorker>().Single();
 
   private static async Task<CoverageReport> ParseAsync(IServiceProvider services, string path)

@@ -25,6 +25,7 @@ public static partial class DependencyInjection
     services.AddScoped<RepositoryTreeProvider>();
     services.AddScoped<DiffProvider>();
     services.AddScoped<MergeCommitDetector>();
+    services.AddSingleton<CommitMerger>();
 
     return services;
   }

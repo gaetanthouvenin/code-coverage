@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -28,6 +29,24 @@ namespace CodeCoverage.Infrastructure.Jobs;
 internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 {
   #region Methods
+
+  /// <summary>Reads the commit of a job.</summary>
+  /// <param name="job">The job.</param>
+  /// <returns>The identifier of the commit.</returns>
+  /// <exception cref="InvalidJobException">The payload is not valid.</exception>
+  private static long ReadCommitId(JobRecord job)
+  {
+    try
+    {
+      using var payload = JsonDocument.Parse(job.PayloadJson);
+
+      return payload.RootElement.GetProperty("CommitId").GetInt64();
+    }
+    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+    {
+      throw new InvalidJobException($"The payload of the {job.Type} job {job.Id} is not valid.");
+    }
+  }
 
   /// <summary>Reads the upload of a job.</summary>
   /// <param name="job">The job.</param>
@@ -64,6 +83,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 
       case JobTypes.ProcessUpload:
         await sender.Send(new ProcessUploadCommand(ReadUploadId(job), job.LockedBy ?? job.Type), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.FinalizeCommit:
+        await sender.Send(new FinalizeCommitCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
         break;
 
       default:

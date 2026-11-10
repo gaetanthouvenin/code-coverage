@@ -17,6 +17,8 @@
   <data name="AccessDenied_Description" xml:space="preserve"><value>Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin.</value></data>
   <data name="AccessDenied_Title" xml:space="preserve"><value>Accès refusé</value></data>
   <data name="BackHome" xml:space="preserve"><value>Retour aux dépôts</value></data>
+  <data name="Commit.NotFound" xml:space="preserve"><value>Ce commit n’existe pas.</value></data>
+  <data name="Commit.Compacted" xml:space="preserve"><value>La couverture d’un upload de ce commit n’existe plus.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Ce commit a été finalisé entre-temps. Relancez sa finalisation.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identifiant de requête</value></data>
