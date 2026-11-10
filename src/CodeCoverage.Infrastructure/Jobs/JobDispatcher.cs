@@ -11,6 +11,10 @@ using Mediator;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 
@@ -30,6 +34,41 @@ namespace CodeCoverage.Infrastructure.Jobs;
 internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 {
   #region Methods
+
+  /// <summary>Reads a value of the payload of a job.</summary>
+  /// <typeparam name="T">The type of the value.</typeparam>
+  /// <param name="job">The job.</param>
+  /// <param name="read">What reads the value from the root of the payload.</param>
+  /// <returns>The value.</returns>
+  /// <exception cref="InvalidJobException">The payload is not valid.</exception>
+  private static T Read<T>(JobRecord job, Func<JsonElement, T> read)
+  {
+    try
+    {
+      using var payload = JsonDocument.Parse(job.PayloadJson);
+
+      return read(payload.RootElement);
+    }
+    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+    {
+      throw new InvalidJobException($"The payload of the {job.Type} job {job.Id} is not valid.");
+    }
+  }
+
+  /// <summary>Reads a text property that the payload must hold.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <param name="name">The name of the property.</param>
+  /// <returns>The text.</returns>
+  /// <exception cref="FormatException">The property is empty.</exception>
+  private static string ReadText(JsonElement payload, string name) =>
+    payload.GetProperty(name).GetString() is { Length: > 0 } text ? text : throw new FormatException($"'{name}' is empty.");
+
+  /// <summary>Reads a text property that the payload may hold.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <param name="name">The name of the property.</param>
+  /// <returns>The text, or <see langword="null" />.</returns>
+  private static string? ReadOptionalText(JsonElement payload, string name) =>
+    payload.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String ? value.GetString() : null;
 
   /// <summary>Reads the commit of a job.</summary>
   /// <param name="job">The job.</param>
@@ -90,6 +129,25 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         await sender.Send(new FinalizeCommitCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
         break;
 
+      case JobTypes.HandleWebhook:
+        await sender.Send(new HandleWebhookDeliveryCommand(Read(job, static p => ReadText(p, "deliveryId"))), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.SyncInstallations:
+        await sender.Send(Read(job, static p => new SyncInstallationsCommand(ReadOptionalText(p, "TransferredRepositoryId"), ReadOptionalText(p, "PreviousOwnerAccountId"))), cancellationToken)
+                    .ConfigureAwait(false);
+
+        break;
+      case JobTypes.SyncInstallationRepositories:
+        await sender.Send(new SyncInstallationRepositoriesCommand(Read(job, static p => p.GetProperty("InstallationId").GetInt64())), cancellationToken)
+                    .ConfigureAwait(false);
+
+        break;
+      case JobTypes.ReconcileRepositoryTransfer:
+        await sender.Send(new ReconcileRepositoryTransferCommand(Read(job, static p => ReadText(p, "RepositoryExternalId"))), cancellationToken)
+                    .ConfigureAwait(false);
+
+        break;
       case JobTypes.ReprocessCommit:
         await sender.Send(new RequeueCommitUploadsCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
         break;

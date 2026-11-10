@@ -33,6 +33,14 @@ public interface IWebhookDeliveryRepository
   /// <exception cref="ArgumentNullException"><paramref name="deliveryId" /> is <see langword="null" />.</exception>
   Task<GitHubWebhookEvent?> FindForProcessingAsync(string deliveryId, CancellationToken cancellationToken);
 
+  /// <summary>Records that a delivery was handled, when it belongs to the organization of the scope or to none.</summary>
+  /// <param name="deliveryId">The identifier of the delivery.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the date is saved; a delivery handled again keeps its first date.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="deliveryId" /> is <see langword="null" />.</exception>
+  Task MarkProcessedAsync(string deliveryId, DateTimeOffset at, CancellationToken cancellationToken);
+
   /// <summary>Lists the latest deliveries, without their bodies.</summary>
   /// <param name="count">How many deliveries to list.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>

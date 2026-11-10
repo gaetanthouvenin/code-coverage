@@ -51,7 +51,7 @@ public static class RepositorySeeder
   {
     var repository = NewRepository(installationId, externalId, slug);
 
-    await new RepositoryRepository(context).AddAsync(repository, cancellationToken);
+    await TestRepositories.Repositories(context).AddAsync(repository, cancellationToken);
 
     return repository.Id;
   }

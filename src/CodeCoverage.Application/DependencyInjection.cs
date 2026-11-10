@@ -61,7 +61,8 @@ public static partial class DependencyInjection
       .AddUploadServices()
       .AddComparisonServices()
       .AddNotificationServices()
-      .AddAccessServices();
+      .AddAccessServices()
+      .AddGitHubEventServices();
   }
 
   #endregion

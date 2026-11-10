@@ -140,7 +140,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
 
     var repository = await _github.Gateway.GetRepositoryAsync(Repository, Cancellation);
 
-    repository.ShouldBe(new ForgeRepositoryInfo("1296269", "octocat", string.Empty, "Hello-World", "main", true));
+    repository.ShouldBe(new ForgeRepositoryInfo("1296269", "octocat", string.Empty, "Hello-World", "main", true, "1"));
   }
 
   [Fact]

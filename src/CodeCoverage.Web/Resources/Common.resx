@@ -29,6 +29,7 @@
   <data name="General.Unexpected" xml:space="preserve"><value>An unexpected error occurred. Try again in a moment; if the problem persists, contact an administrator.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Some values are not valid. Correct them, then try again.</value></data>
   <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub is unavailable. Try again in a few minutes.</value></data>
+  <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>The delivery to handle does not exist.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>The delivery has no valid identifier or event.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>The body of the delivery cannot be read.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>The signature of the delivery is missing or invalid.</value></data>

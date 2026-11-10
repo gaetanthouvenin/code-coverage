@@ -11,6 +11,9 @@ public static class GitHubEventErrors
 {
   #region Fields
 
+  /// <summary>The delivery to handle is not stored, or belongs to another organization.</summary>
+  public const string DeliveryNotFound = "GitHubEvent.DeliveryNotFound";
+
   /// <summary>The signature of the delivery is missing or matches no secret.</summary>
   public const string InvalidSignature = "GitHubEvent.InvalidSignature";
 

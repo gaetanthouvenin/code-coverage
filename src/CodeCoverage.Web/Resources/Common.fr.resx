@@ -29,6 +29,7 @@
   <data name="General.Unexpected" xml:space="preserve"><value>Une erreur inattendue s’est produite. Réessayez dans un instant ; si le problème persiste, contactez un administrateur.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Certaines valeurs ne sont pas valides. Corrigez-les, puis réessayez.</value></data>
   <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub est indisponible. Réessayez dans quelques minutes.</value></data>
+  <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La livraison à traiter n’existe pas.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La livraison n’a pas d’identifiant ou d’événement valide.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>Le corps de la livraison est illisible.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>La signature de la livraison est absente ou invalide.</value></data>

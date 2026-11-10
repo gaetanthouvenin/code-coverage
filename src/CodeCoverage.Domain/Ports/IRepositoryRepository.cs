@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Ports;
@@ -64,6 +65,31 @@ public interface IRepositoryRepository
   /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
   /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
   Task UpdateAsync(TrackedRepository repository, CancellationToken cancellationToken);
+
+  /// <summary>Saves a repository, new or returned by a <c>Find</c> method of this scope, and queues a job in the same transaction.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="job">The job that the change calls for.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the repository is saved and the job queued.</returns>
+  /// <remarks>
+  ///   Refused as a conflict (<c>General.ConcurrentChange</c>) when a concurrent save added the same repository
+  ///   or changed its row: nothing is saved and nothing is queued.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  Task SaveWithJobAsync(TrackedRepository repository, JobRequest job, CancellationToken cancellationToken);
+
+  /// <summary>
+  ///   Saves a repository that left the organization and, in the same transaction, revokes its upload tokens
+  ///   and advises the rotation of the tokens of the organization.
+  /// </summary>
+  /// <param name="repository">The repository, returned by a <c>Find</c> method of this scope.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>How many tokens were revoked and how many were marked.</returns>
+  /// <remarks>Refused as a conflict (<c>General.ConcurrentChange</c>) when the row changed or disappeared since it was read.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
+  Task<RepositoryDepartureTokens> SaveDepartedAsync(TrackedRepository repository, DateTimeOffset at, CancellationToken cancellationToken);
 
   #endregion
 }

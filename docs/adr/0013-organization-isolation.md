@@ -79,7 +79,7 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 ### Jobs et transfert
 
 - `Jobs.OrganizationId` est nullable. `JobRequest.Create` prend l'organisation de la portée et lève sans elle ; `ForInstance` et `ForOrganization` sont explicites. `KeyMaxLength` passe à 178 pour que la clé préfixée tienne dans la colonne de 200 caractères. Le worker entre à partir de la colonne, jamais du payload, et termine un job d'une organisation non active.
-- Un transfert **ne déplace aucune donnée** : le destinataire reçoit une nouvelle ligne et une réconciliation désactive l'ancienne, révoque ses jetons de dépôt, fait tourner son jeton de badge, marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces trois actions.
+- Un transfert **ne déplace aucune donnée** : le destinataire reçoit une nouvelle ligne et une réconciliation désactive l'ancienne, révoque ses jetons de dépôt, fait tourner son jeton de badge, marque `RotationAdvisedAt` sur les jetons d'organisation de l'origine et audite ces trois actions. La ligne est fermée une seule fois, ce que note `Repositories.TransferredAt` : « inactive » ne veut pas dire « fermée », car l'installation de l'origine qui cesse de servir le dépôt désactive la ligne sans toucher à un jeton, et peut le faire avant que le transfert ne soit connu.
 - `ImportCodecovHistory` s'exécute en job ; le credential Codecov est chiffré dans `CodecovImports`, référencé par identifiant et supprimé en fin d'import.
 
 ## Écarts avec Codecov

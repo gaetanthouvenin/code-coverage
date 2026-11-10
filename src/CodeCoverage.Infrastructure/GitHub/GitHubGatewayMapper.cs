@@ -57,7 +57,8 @@ internal static class GitHubGatewayMapper
       string.Empty,
       repository.Name,
       repository.DefaultBranch,
-      repository.Private
+      repository.Private,
+      repository.Owner.Id is { } ownerId ? ToText(ownerId) : null
     );
   }
 

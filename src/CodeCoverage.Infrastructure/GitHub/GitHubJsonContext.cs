@@ -22,6 +22,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 [JsonSerializable(typeof(GitHubCommitResponse))]
 [JsonSerializable(typeof(GitHubCompareResponse))]
 [JsonSerializable(typeof(GitHubInstallationResponse))]
+[JsonSerializable(typeof(GitHubInstallationRepositoriesResponse))]
 [JsonSerializable(typeof(GitHubInstallationTokenResponse))]
 [JsonSerializable(typeof(GitHubPullResponse))]
 [JsonSerializable(typeof(GitHubRepositoryResponse))]
@@ -29,4 +30,5 @@ namespace CodeCoverage.Infrastructure.GitHub;
 [JsonSerializable(typeof(GitHubManifestConversionResponse))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubCommitResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubCompareFile>))]
+[JsonSerializable(typeof(IReadOnlyList<GitHubInstallationListItem>))]
 internal sealed partial class GitHubJsonContext : JsonSerializerContext;

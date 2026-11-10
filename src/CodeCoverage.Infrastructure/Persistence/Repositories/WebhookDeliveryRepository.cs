@@ -140,6 +140,21 @@ internal sealed class WebhookDeliveryRepository(
   }
 
   /// <inheritdoc />
+  public async Task MarkProcessedAsync(string deliveryId, DateTimeOffset at, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(deliveryId);
+
+    long? organizationId = currentOrganization.IsKnown ? currentOrganization.Id : null;
+    var utc = at.ToUniversalTime();
+
+    await context.WebhookDeliveries
+                 .Where(d => d.DeliveryId == deliveryId && d.ProcessedAt == null)
+                 .Where(d => d.OrganizationId == null || d.OrganizationId == organizationId)
+                 .ExecuteUpdateAsync(setters => setters.SetProperty(static d => d.ProcessedAt, utc), cancellationToken)
+                 .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<WebhookDeliverySummary>> ListRecentAsync(int count, CancellationToken cancellationToken)
   {
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);

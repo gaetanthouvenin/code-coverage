@@ -37,6 +37,9 @@ public sealed class TrackedRepository
   /// <summary>The maximum length of <see cref="Name" />, the longest path that GitLab allows.</summary>
   public const int NameMaxLength = 255;
 
+  /// <summary>What separates a released name from the identifier that makes it unique: no forge allows it in a name.</summary>
+  public const char ReleasedNameSeparator = '~';
+
   #endregion
 
   #region Ctors
@@ -124,6 +127,12 @@ public sealed class TrackedRepository
 
   /// <summary>Gets a value indicating whether the coverage of the repository is tracked.</summary>
   public bool IsActive { get; private set; }
+
+  /// <summary>
+  ///   Gets the moment the row was closed because its repository was transferred to another account, or
+  ///   <see langword="null" /> when it was not: a row that is only inactive kept its tokens.
+  /// </summary>
+  public DateTimeOffset? TransferredAt { get; private set; }
 
   /// <summary>Gets the badge token, protected by Data Protection.</summary>
   public string BadgeTokenProtected { get; private set; }
@@ -249,6 +258,150 @@ public sealed class TrackedRepository
     NormalizedNamespace = newSlug.NormalizedNamespace;
     Name = newSlug.Name;
     NormalizedName = newSlug.NormalizedName;
+    UpdatedAt = at.ToUniversalTime();
+    Version++;
+  }
+
+  /// <summary>Stops tracking the repository: its installation no longer serves it, or its forge deleted it.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>The row and its history stay: a repository that comes back is activated again.</remarks>
+  public void Deactivate(DateTimeOffset at)
+  {
+    if (!IsActive)
+    {
+      return;
+    }
+
+    IsActive = false;
+    Touch(at);
+  }
+
+  /// <summary>Tracks the repository again, under the installation that serves it now.</summary>
+  /// <param name="installationId">The identifier of the installation that serves the repository.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  /// <remarks>
+  ///   Nothing that was revoked while the repository was away comes back with it. A row that a transfer closed is
+  ///   open again: the repository that leaves once more is closed once more.
+  /// </remarks>
+  public void Activate(long installationId, DateTimeOffset at)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+
+    if (IsActive && InstallationId == installationId)
+    {
+      return;
+    }
+
+    IsActive = true;
+    InstallationId = installationId;
+    TransferredAt = null;
+    Touch(at);
+  }
+
+  /// <summary>
+  ///   Closes the row of a repository that was transferred to another account: it is no longer tracked, and its
+  ///   badge token is replaced.
+  /// </summary>
+  /// <param name="badgeTokenProtected">The new badge token, protected.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="ArgumentException"><paramref name="badgeTokenProtected" /> is empty.</exception>
+  /// <exception cref="InvalidOperationException">The row is already closed: a transfer closes it once.</exception>
+  /// <remarks>
+  ///   Not the same as <see cref="Deactivate" />, which touches no token: the row of a repository that an
+  ///   installation stopped serving is inactive, and still has to be closed when the repository turns out to
+  ///   have been transferred. <see cref="TransferredAt" /> tells the two apart.
+  /// </remarks>
+  public void CloseAsTransferred(string badgeTokenProtected, DateTimeOffset at)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(badgeTokenProtected);
+    InvalidOperationException.ThrowIf(TransferredAt is not null, "A transfer closes the row of its repository once.");
+
+    IsActive = false;
+    BadgeTokenProtected = badgeTokenProtected;
+    TransferredAt = at.ToUniversalTime();
+    Touch(at);
+  }
+
+  /// <summary>Gives up the name of a repository that is no longer tracked, so that a live repository can take it.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="InvalidOperationException">The repository is still tracked: only its forge renames it.</exception>
+  /// <remarks>
+  ///   The row keeps its history under a name no forge can give: the former name followed by <c>~</c> and the
+  ///   identifier of the repository on its forge. A repository that comes back gets its real name again from
+  ///   what the forge reports.
+  /// </remarks>
+  public void ReleaseName(DateTimeOffset at)
+  {
+    InvalidOperationException.ThrowIf(IsActive, "A tracked repository keeps its name.");
+
+    var suffix = ReleasedNameSeparator + ExternalId;
+
+    if (Name.EndsWith(suffix, StringComparison.Ordinal))
+    {
+      return;
+    }
+
+    var kept = Name.Length + suffix.Length > NameMaxLength ? Name[..(NameMaxLength - suffix.Length)] : Name;
+
+    Name = kept + suffix;
+    NormalizedName = Name.ToLowerInvariant();
+    Touch(at);
+  }
+
+  /// <summary>Applies the visibility that the forge reports.</summary>
+  /// <param name="isPrivate">Whether the repository is private.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  public void ChangeVisibility(bool isPrivate, DateTimeOffset at)
+  {
+    if (IsPrivate == isPrivate)
+    {
+      return;
+    }
+
+    IsPrivate = isPrivate;
+    Touch(at);
+  }
+
+  /// <summary>Applies the default branch that the forge reports.</summary>
+  /// <param name="defaultBranch">The name of the default branch.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="defaultBranch" /> is empty or longer than <see cref="Branch.NameMaxLength" />.
+  /// </exception>
+  public void ChangeDefaultBranch(string defaultBranch, DateTimeOffset at)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(defaultBranch);
+    ArgumentException.ThrowIf(
+      defaultBranch.Length > Branch.NameMaxLength,
+      $"The value cannot be longer than {Branch.NameMaxLength} characters.",
+      nameof(defaultBranch));
+
+    if (string.Equals(defaultBranch, DefaultBranch, StringComparison.Ordinal))
+    {
+      return;
+    }
+
+    DefaultBranch = defaultBranch;
+    Touch(at);
+  }
+
+  /// <summary>Replaces the badge token: the previous value no longer reads the badge.</summary>
+  /// <param name="badgeTokenProtected">The new badge token, protected.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="ArgumentException"><paramref name="badgeTokenProtected" /> is empty.</exception>
+  public void RotateBadgeToken(string badgeTokenProtected, DateTimeOffset at)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(badgeTokenProtected);
+
+    BadgeTokenProtected = badgeTokenProtected;
+    Touch(at);
+  }
+
+  /// <summary>Records a change.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  private void Touch(DateTimeOffset at)
+  {
     UpdatedAt = at.ToUniversalTime();
     Version++;
   }

@@ -16,10 +16,15 @@ namespace CodeCoverage.Domain.Contracts.Forges;
 /// <param name="Name">The name of the repository.</param>
 /// <param name="DefaultBranch">The default branch of the repository.</param>
 /// <param name="IsPrivate">A value indicating whether the repository is private.</param>
+/// <param name="OwnerExternalId">
+///   The identifier the forge gives the account that holds the repository, or <see langword="null" /> when the
+///   forge did not say. A login can be renamed or taken again by another account; this identifier cannot.
+/// </param>
 public sealed record ForgeRepositoryInfo(
   string ExternalId,
   string Owner,
   string Namespace,
   string Name,
   string DefaultBranch,
-  bool IsPrivate);
+  bool IsPrivate,
+  string? OwnerExternalId = null);

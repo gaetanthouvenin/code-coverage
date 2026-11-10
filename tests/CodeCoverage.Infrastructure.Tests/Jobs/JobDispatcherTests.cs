@@ -9,6 +9,10 @@ using Mediator;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
@@ -108,6 +112,71 @@ public sealed class JobDispatcherTests
   public async Task Dispatch_ReprocessCommitWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
   {
     var job = Job(JobTypes.ReprocessCommit, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
+    A.CallTo(_sender).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Dispatch_HandleWebhook_ShouldSendTheCommandOfTheStoredDelivery()
+  {
+    var job = Job(JobTypes.HandleWebhook, 42);
+    job.PayloadJson = """{"deliveryId":"d-1"}""";
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new HandleWebhookDeliveryCommand("d-1"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("{}", null, null)]
+  [InlineData("""{"TransferredRepositoryId":"7","PreviousOwnerAccountId":"2002"}""", "7", "2002")]
+  [InlineData("""{"TransferredRepositoryId":7}""", null, null)]
+  public async Task Dispatch_SyncInstallations_ShouldSendTheCoordinator(string payload, string? repository, string? owner)
+  {
+    var job = Job(JobTypes.SyncInstallations, 42);
+    job.PayloadJson = payload;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new SyncInstallationsCommand(repository, owner), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  // What the factories of the Domain write is what the dispatcher reads.
+  [Fact]
+  public async Task Dispatch_PayloadsOfTheFactories_ShouldBeRead()
+  {
+    var transfer = Job(JobTypes.SyncInstallations, 1);
+    transfer.PayloadJson = SyncInstallationsJobs.CreateForTransfer("7", "2002").PayloadJson;
+    var listing = Job(JobTypes.SyncInstallationRepositories, 2);
+    listing.PayloadJson = RepositoryReconciliationJobs.InstallationPayload(42);
+    var closing = Job(JobTypes.ReconcileRepositoryTransfer, 3);
+    closing.PayloadJson = RepositoryReconciliationJobs.TransferPayload("7");
+    var dispatcher = new JobDispatcher(_sender);
+
+    await dispatcher.DispatchAsync(transfer, Ct);
+    await dispatcher.DispatchAsync(listing, Ct);
+    await dispatcher.DispatchAsync(closing, Ct);
+
+    A.CallTo(() => _sender.Send(new SyncInstallationsCommand("7", "2002"), Ct)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(new SyncInstallationRepositoriesCommand(42), Ct)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(new ReconcileRepositoryTransferCommand("7"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData(JobTypes.HandleWebhook, "{}")]
+  [InlineData(JobTypes.HandleWebhook, """{"deliveryId":""}""")]
+  [InlineData(JobTypes.HandleWebhook, """{"deliveryId":7}""")]
+  [InlineData(JobTypes.HandleWebhook, "not json")]
+  [InlineData(JobTypes.SyncInstallations, "not json")]
+  [InlineData(JobTypes.SyncInstallationRepositories, "{}")]
+  [InlineData(JobTypes.SyncInstallationRepositories, """{"InstallationId":"x"}""")]
+  [InlineData(JobTypes.ReconcileRepositoryTransfer, "{}")]
+  [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":""}""")]
+  public async Task Dispatch_InvalidPayloadOfAReconciliation_ShouldThrowInvalidJobException(string type, string payload)
+  {
+    var job = Job(type, 42);
     job.PayloadJson = payload;
 
     await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
