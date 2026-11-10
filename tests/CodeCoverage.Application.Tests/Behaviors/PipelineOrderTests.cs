@@ -122,6 +122,8 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<IOrganizationSettingsProvider>());
     services.AddScoped(_ => A.Fake<IJobQueue>());
     services.AddScoped(_ => A.Fake<IPullRequestRepository>());
+    services.AddScoped(_ => A.Fake<IReportViewCache>());
+    services.AddScoped(_ => A.Fake<IComparisonRepository>());
     services.AddApplication();
     services.AddScoped<IValidator<PingQuery>>(sp => new TracingPingQueryValidator(
                                                 sp.GetRequiredService<PipelineTrace>(),

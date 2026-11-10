@@ -21,6 +21,8 @@ public static partial class DependencyInjection
   private static IServiceCollection AddComparisonServices(this IServiceCollection services)
   {
     services.AddScoped<BaseResolver>();
+    services.AddScoped<CommitReportReader>();
+    services.AddScoped<ComparisonBuilder>();
 
     return services;
   }

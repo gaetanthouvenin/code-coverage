@@ -70,7 +70,7 @@ internal sealed class CommitMerger
   /// <param name="config">The effective configuration.</param>
   /// <param name="sessions">The sessions.</param>
   /// <returns>The sessions; one with a flag <c>joined: false</c> leaves the project, as in Codecov.</returns>
-  private static IReadOnlyList<SessionReport> ToSessionReports(CoverageConfig config, IReadOnlyList<SessionCoverage> sessions)
+  internal static IReadOnlyList<SessionReport> ToSessionReports(CoverageConfig config, IReadOnlyList<SessionCoverage> sessions)
   {
     return
     [

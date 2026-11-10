@@ -1157,6 +1157,87 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Comparisons.ComparisonRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("BaseCoverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("decimal(9,5)");
+
+                    b.Property<int?>("BaseRevision")
+                        .HasColumnType("int");
+
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ComparedToSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset>("ComputedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<bool>("DiffIncomplete")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("DiffSource")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ForkPointSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal?>("HeadCoverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("decimal(9,5)");
+
+                    b.Property<int>("HeadRevision")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IndirectChangeCount")
+                        .HasColumnType("int");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("PatchHits")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatchLines")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatchMisses")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatchPartials")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PullNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommitId", "PullNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Comparisons_CommitId_PullNumber");
+
+                    b.ToTable("Comparisons", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.GitHub.WebhookDeliveryRecord", b =>
                 {
                     b.Property<string>("DeliveryId")
@@ -1622,6 +1703,15 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasOne("CodeCoverage.Domain.Commits.Upload", null)
                         .WithMany()
                         .HasForeignKey("UploadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Comparisons.ComparisonRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

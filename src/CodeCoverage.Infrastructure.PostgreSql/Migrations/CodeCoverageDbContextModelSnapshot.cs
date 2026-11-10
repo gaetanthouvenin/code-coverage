@@ -1156,6 +1156,87 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Comparisons.ComparisonRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("BaseCoverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("numeric(9,5)");
+
+                    b.Property<int?>("BaseRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ComparedToSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("ComputedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("DiffIncomplete")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DiffSource")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ForkPointSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal?>("HeadCoverage")
+                        .HasPrecision(9, 5)
+                        .HasColumnType("numeric(9,5)");
+
+                    b.Property<int>("HeadRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IndirectChangeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("PatchHits")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatchLines")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatchMisses")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatchPartials")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PullNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommitId", "PullNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Comparisons_CommitId_PullNumber");
+
+                    b.ToTable("Comparisons", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.GitHub.WebhookDeliveryRecord", b =>
                 {
                     b.Property<string>("DeliveryId")
@@ -1621,6 +1702,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Commits.Upload", null)
                         .WithMany()
                         .HasForeignKey("UploadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Comparisons.ComparisonRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
