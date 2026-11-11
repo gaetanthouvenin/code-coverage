@@ -408,6 +408,55 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
     A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // M2.04: a push moves the head of its branch inside its organization, and a deletion removes the row.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_Push_ShouldFollowTheBranchInsideItsOrganizationOnly(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: true);
+    await AddRepositoryAsync(seed, seed.FirstId, FirstInstallation, "first-org/app");
+    await AddRepositoryAsync(seed, seed.SecondId, SecondInstallation, "second-org/app");
+    await using var services = BuildServices(provider, seed.ConnectionString);
+
+    await ReceiveAsync(services, "d-1", "push", PushBody(FirstInstallation, "refs/heads/feature/x", Head.Value, deleted: false));
+    await RunUntilIdleAsync(services);
+
+    await using (var first = seed.ContextOf(seed.FirstId))
+    {
+      var branch = await first.Branches.AsNoTracking().SingleAsync(Ct);
+      branch.Name.ShouldBe("feature/x");
+      branch.HeadSha.ShouldBe(Head);
+      branch.CoveredCommitId.ShouldBeNull();
+      (await first.Commits.AsNoTracking().SingleAsync(Ct)).Sha.ShouldBe(Head);
+    }
+
+    await ReceiveAsync(services, "d-2", "push", PushBody(FirstInstallation, "refs/heads/feature/x", NewHead.Value, deleted: false, before: Head.Value));
+    await RunUntilIdleAsync(services);
+
+    await using (var first = seed.ContextOf(seed.FirstId))
+    {
+      (await first.Branches.AsNoTracking().SingleAsync(Ct)).HeadSha.ShouldBe(NewHead);
+    }
+
+    await ReceiveAsync(services, "d-3", "push", PushBody(FirstInstallation, "refs/heads/feature/x", "0000000000000000000000000000000000000000", deleted: true));
+    await RunUntilIdleAsync(services);
+
+    await using var after = seed.ContextOf(seed.FirstId);
+    (await after.Branches.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+
+    await using var second = seed.ContextOf(seed.SecondId);
+    (await second.Branches.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+    (await second.Commits.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+
+    await using var check = seed.ContextWithoutOrganization();
+    (await check.Jobs.AsNoTracking().ToListAsync(Ct)).ShouldAllBe(static j => j.State == JobState.Succeeded);
+  }
+
+  // As GitHub sends it: the commit the branch pointed to before the push, zeros for a branch the push creates.
+  private static string PushBody(long installationId, string reference, string after, bool deleted, string before = "0000000000000000000000000000000000000000") =>
+    "{\"ref\":\"" + reference + "\",\"before\":\"" + before + "\",\"after\":\"" + after + "\",\"deleted\":" + (deleted ? "true" : "false")
+    + ",\"installation\":{\"id\":" + Text(installationId) + "},\"repository\":{\"id\":" + ExternalId + "},\"commits\":[]}";
+
   private static GitHubInstallationInfo Listed(long id, string accountId, string login) =>
     new(id, accountId, login, OrganizationAccountType.Organization, false);
 

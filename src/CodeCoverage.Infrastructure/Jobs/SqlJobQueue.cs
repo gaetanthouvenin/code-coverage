@@ -104,6 +104,11 @@ internal sealed class SqlJobQueue(
 
   #region Methods
 
+  /// <summary>Tells whether the engine chose a statement as the victim of a deadlock.</summary>
+  /// <param name="exception">The failure of the statement.</param>
+  /// <returns><see langword="true" /> when the statement was rolled back to break a deadlock.</returns>
+  internal bool IsDeadlock(DbException exception) => dialect.IsDeadlock(exception);
+
   /// <summary>Claims the next job that may run, for a worker.</summary>
   /// <param name="lockedBy">The worker that claims the job.</param>
   /// <param name="cancellationToken">A token to cancel the claim.</param>

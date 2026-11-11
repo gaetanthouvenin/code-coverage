@@ -386,6 +386,27 @@ public sealed class TrackedRepository
     Touch(at);
   }
 
+  /// <summary>Records the configuration file read from the default branch.</summary>
+  /// <param name="yaml">The content of the file.</param>
+  /// <param name="sha">The commit the file was read from.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>The same content read from the same commit changes nothing.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="yaml" /> or <paramref name="sha" /> is <see langword="null" />.</exception>
+  public void RefreshDefaultBranchYaml(string yaml, GitSha sha, DateTimeOffset at)
+  {
+    ArgumentNullException.ThrowIfNull(yaml);
+    ArgumentNullException.ThrowIfNull(sha);
+
+    if (sha == DefaultBranchYamlSha && string.Equals(yaml, DefaultBranchYaml, StringComparison.Ordinal))
+    {
+      return;
+    }
+
+    DefaultBranchYaml = yaml;
+    DefaultBranchYamlSha = sha;
+    Touch(at);
+  }
+
   /// <summary>Replaces the badge token: the previous value no longer reads the badge.</summary>
   /// <param name="badgeTokenProtected">The new badge token, protected.</param>
   /// <param name="at">The current time; converted to UTC.</param>

@@ -8,6 +8,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
+using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Ports;
 
@@ -57,18 +58,26 @@ public interface ICommitReportRepository
   Task<IReadOnlyList<Upload>> RequeueUploadsAsync(IReadOnlyList<UploadRequeue> requeues, CancellationToken cancellationToken);
 
   /// <summary>
-  ///   Saves a finalization, in one transaction: the commit, its report, its sessions, its flag totals and the
-  ///   finalizations it wakes.
+  ///   Saves a finalization, in one transaction: the commit, its report, its sessions, its flag totals, the covered
+  ///   head of its branch and the finalizations it wakes.
   /// </summary>
   /// <param name="commit">The commit, read in this scope and carrying its <see cref="Commit.RecordFinalization" />.</param>
   /// <param name="report">The blob of the merged report.</param>
   /// <param name="fileIndex">The blob of the counters of its files.</param>
   /// <param name="sessions">The sessions of the commit, which replace the previous ones.</param>
   /// <param name="flagTotals">The totals of the commit, which replace the previous ones.</param>
+  /// <param name="branch">
+  ///   The branch of the commit with its covered head recorded (<see cref="Branch.Cover" />): an instance read in this
+  ///   scope, or a new one to add. <see langword="null" /> when the commit names no branch.
+  /// </param>
   /// <param name="wakeUps">The finalizations to queue in the same transaction.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
   /// <returns>A task that completes when the transaction is committed.</returns>
   /// <remarks>
+  ///   <para>
+  ///     The branch is written with the commit: a push that moved or created it meanwhile makes the save a conflict
+  ///     (<c>Commit.ConcurrentSave</c>), and the finalization, run again, reads the head the push left.
+  ///   </para>
   ///   <para>
   ///     A commit that completes queues the finalization of the <see cref="CarryforwardStatus.AncestorPending" />
   ///     commits of its repository, 10 at most, read after its own row is written. Their ancestry is not known here: a
@@ -86,6 +95,7 @@ public interface ICommitReportRepository
     byte[] fileIndex,
     IReadOnlyList<Session> sessions,
     IReadOnlyList<CommitFlagTotals> flagTotals,
+    Branch? branch,
     FinalizationWakeUps wakeUps,
     CancellationToken cancellationToken);
 

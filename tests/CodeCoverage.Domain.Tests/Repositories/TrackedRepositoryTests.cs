@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Tests.Repositories;
@@ -262,6 +263,51 @@ public sealed class TrackedRepositoryTests
     var branch = new string('b', Branch.NameMaxLength + 1);
 
     Should.Throw<ArgumentException>(() => NewRepository("owner/repo", "42").ChangeDefaultBranch(branch, Later));
+  }
+
+  [Fact]
+  public void RefreshDefaultBranchYaml_ShouldKeepTheContentAndTheCommitItWasReadFrom()
+  {
+    var repository = NewRepository("owner/repo", "42");
+    var sha = GitSha.Parse("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+
+    repository.RefreshDefaultBranchYaml("coverage:\n  precision: 1\n", sha, Later);
+
+    repository.DefaultBranchYaml.ShouldBe("coverage:\n  precision: 1\n");
+    repository.DefaultBranchYamlSha.ShouldBe(sha);
+    repository.UpdatedAt.ShouldBe(Later);
+    repository.Version.ShouldBe(1);
+  }
+
+  [Fact]
+  public void RefreshDefaultBranchYaml_ShouldCountOnlyAChange()
+  {
+    var repository = NewRepository("owner/repo", "42");
+    var first = GitSha.Parse("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    var second = GitSha.Parse("b94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    repository.RefreshDefaultBranchYaml("yaml", first, Later);
+
+    repository.RefreshDefaultBranchYaml("yaml", first, Later.AddHours(1));
+    repository.Version.ShouldBe(1);
+
+    // The same content at another commit still moves the commit it was read from.
+    repository.RefreshDefaultBranchYaml("yaml", second, Later.AddHours(1));
+    repository.DefaultBranchYamlSha.ShouldBe(second);
+    repository.Version.ShouldBe(2);
+
+    repository.RefreshDefaultBranchYaml("other", second, Later.AddHours(2));
+    repository.DefaultBranchYaml.ShouldBe("other");
+    repository.Version.ShouldBe(3);
+  }
+
+  [Fact]
+  public void RefreshDefaultBranchYaml_Null_ShouldThrow()
+  {
+    var repository = NewRepository("owner/repo", "42");
+    var sha = GitSha.Parse("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+
+    Should.Throw<ArgumentNullException>(() => repository.RefreshDefaultBranchYaml(null!, sha, Later));
+    Should.Throw<ArgumentNullException>(() => repository.RefreshDefaultBranchYaml("yaml", null!, Later));
   }
 
   [Fact]

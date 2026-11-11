@@ -71,5 +71,62 @@ public sealed class BranchTests
     branch.Version.ShouldBe(0);
   }
 
+  [Fact]
+  public void Cover_ShouldRecordTheCommitAndWhen()
+  {
+    var branch = Branch.Create(1, "main", First, Now);
+
+    branch.Cover(42, Now.AddHours(1));
+
+    branch.CoveredCommitId.ShouldBe(42);
+    branch.CoveredAt.ShouldBe(Now.AddHours(1));
+    branch.Version.ShouldBe(1);
+  }
+
+  [Fact]
+  public void Cover_SameCommit_ShouldDoNothing()
+  {
+    var branch = Branch.Create(1, "main", First, Now);
+    branch.Cover(42, Now.AddHours(1));
+
+    branch.Cover(42, Now.AddHours(2));
+
+    branch.CoveredAt.ShouldBe(Now.AddHours(1));
+    branch.Version.ShouldBe(1);
+  }
+
+  [Fact]
+  public void Cover_NoCommit_ShouldClearBoth()
+  {
+    var branch = Branch.Create(1, "main", First, Now);
+    branch.Cover(42, Now.AddHours(1));
+
+    branch.Cover(null, Now.AddHours(2));
+
+    branch.CoveredCommitId.ShouldBeNull();
+    branch.CoveredAt.ShouldBeNull();
+    branch.Version.ShouldBe(2);
+  }
+
+  [Fact]
+  public void Cover_NeverCovered_ShouldStayUntouchedByNoCommit()
+  {
+    var branch = Branch.Create(1, "main", First, Now);
+
+    branch.Cover(null, Now.AddHours(1));
+
+    branch.Version.ShouldBe(0);
+  }
+
+  [Theory]
+  [InlineData(0)]
+  [InlineData(-1)]
+  public void Cover_InvalidCommit_ShouldThrow(long commitId)
+  {
+    var branch = Branch.Create(1, "main", First, Now);
+
+    Should.Throw<ArgumentOutOfRangeException>(() => branch.Cover(commitId, Now));
+  }
+
   #endregion
 }

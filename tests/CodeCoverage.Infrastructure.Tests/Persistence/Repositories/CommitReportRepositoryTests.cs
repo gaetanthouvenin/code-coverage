@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
@@ -17,6 +18,7 @@ using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
@@ -226,6 +228,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
           Session.CarriedForward(commit.Id, 2, Origin, 7, null, [8], ["e2e"], "CF[1] - e2e", null, null, Totals),
         ],
         [CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, Totals, false, null), CommitFlagTotals.Create(commit, "e2e", Totals, true, Origin)],
+        null,
         FinalizationWakeUps.None,
         Ct
       );
@@ -289,7 +292,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     Finalize(loser);
 
     var exception = await Should.ThrowAsync<ConflictException>(
-      () => Repository(stale, first).SaveFinalizedAsync(loser, [9], [9], [Session.FromUpload(loser.Id, 5, 11, [], null, null, null, Totals)], [], FinalizationWakeUps.None, Ct)
+      () => Repository(stale, first).SaveFinalizedAsync(loser, [9], [9], [Session.FromUpload(loser.Id, 5, 11, [], null, null, null, Totals)], [], null, FinalizationWakeUps.None, Ct)
     );
 
     exception.ErrorCode.ShouldBe(CommitErrors.ConcurrentSave);
@@ -310,7 +313,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     await using var context = seed.Organizations.ContextOf(first);
     var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
 
-    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None, Ct));
+    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, FinalizationWakeUps.None, Ct));
   }
 
   [Theory]
@@ -329,7 +332,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     Finalize(commit);
     await using var context = seed.Organizations.ContextOf(first);
 
-    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None, Ct));
+    await Should.ThrowAsync<InvalidOperationException>(() => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, FinalizationWakeUps.None, Ct));
   }
 
   [Theory]
@@ -344,7 +347,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var repository = Repository(context, first);
 
     await Should.ThrowAsync<ArgumentException>(
-      () => repository.SaveFinalizedAsync(commit, Blob, Index, [Session.FromUpload(commit.Id + 1000, 1, 11, [], null, null, null, Totals)], [], FinalizationWakeUps.None, Ct)
+      () => repository.SaveFinalizedAsync(commit, Blob, Index, [Session.FromUpload(commit.Id + 1000, 1, 11, [], null, null, null, Totals)], [], null, FinalizationWakeUps.None, Ct)
     );
   }
 
@@ -363,7 +366,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
       commit.MarkPending(new string('b', Commit.BranchMaxLength), null, Now);
       Finalize(commit);
 
-      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [CommitFlagTotals.Create(commit, flag, Totals, false, null)], FinalizationWakeUps.None, Ct);
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [CommitFlagTotals.Create(commit, flag, Totals, false, null)], null, FinalizationWakeUps.None, Ct);
     }
 
     await using var reader = seed.Organizations.ContextOf(first);
@@ -389,6 +392,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
         Index,
         [],
         [CommitFlagTotals.Create(commit, "Backend", Totals, false, null), CommitFlagTotals.Create(commit, "backend", Totals, false, null)],
+        null,
         FinalizationWakeUps.None,
         Ct
       );
@@ -463,7 +467,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
       // The same keys as the first organization would give, on purpose.
       var twin = JobRequest.Create(JobTypes.NotifyCommit, "{}", $"commit:{seed.FirstCommit}", $"notify:{seed.FirstCommit}", Now + debounce, maxDelay: TimeSpan.FromSeconds(300));
 
-      await Repository(context, seed.Organizations.SecondId).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None with { Notification = twin }, Ct);
+      await Repository(context, seed.Organizations.SecondId).SaveFinalizedAsync(commit, Blob, Index, [], [], null, FinalizationWakeUps.None with { Notification = twin }, Ct);
     }
 
     var jobs = await NotificationsAsync(seed);
@@ -498,6 +502,294 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     (await NotificationsAsync(seed)).ShouldBeEmpty();
   }
 
+  // M2.04: the covered head of the branch is written with the finalization, in its transaction.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_NewBranch_ShouldAddItWithTheCommit(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var branch = Branch.Create(commit.RepositoryId, "feature/x", commit.Sha, Now);
+      branch.Cover(commit.Id, Now);
+      Finalize(commit);
+
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var saved = await reader.Branches.AsNoTracking().SingleAsync(Ct);
+    saved.Name.ShouldBe("feature/x");
+    saved.CoveredCommitId.ShouldBe(seed.FirstCommit);
+    saved.CoveredAt.ShouldBe(Now);
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await other.Branches.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_BranchReadInTheScope_ShouldSaveItsCoveredHead(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddBranchAsync(seed, "main");
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var branch = await new BranchRepository(context).FindAsync(commit.RepositoryId, "main", Ct);
+      branch.ShouldNotBeNull().Cover(commit.Id, Now);
+      Finalize(commit);
+
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var saved = await reader.Branches.AsNoTracking().SingleAsync(Ct);
+    saved.CoveredCommitId.ShouldBe(seed.FirstCommit);
+    saved.Version.ShouldBe(1);
+  }
+
+  // The collision of a push and a finalization on the same branch, forced: the push wins between the read and the
+  // save of the finalization. Nothing of the finalization is kept, and the job runs again.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_BranchMovedByAPushMeanwhile_ShouldRefuseAsAConcurrentSaveAndKeepNothing(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddBranchAsync(seed, "main");
+
+    for (var round = 1; round <= 10; round++)
+    {
+      await using var context = seed.Organizations.ContextOf(first);
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var branch = (await new BranchRepository(context).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+      var revision = commit.ReportRevision;
+
+      await using (var push = seed.Organizations.ContextOf(first))
+      {
+        var pushed = (await new BranchRepository(push).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+        pushed.MoveHead(round % 2 == 0 ? Head : NewHead, Now.AddMinutes(round));
+        await new BranchRepository(push).UpdateAsync(pushed, Ct);
+      }
+
+      branch.Cover(commit.Id, Now);
+      Finalize(commit);
+
+      var exception = await Should.ThrowAsync<ConflictException>(
+                        () => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct)
+                      );
+
+      exception.ErrorCode.ShouldBe(CommitErrors.ConcurrentSave);
+      context.ChangeTracker.Entries().ShouldBeEmpty("nothing is left for a later save of the scope");
+
+      await using var reader = seed.Organizations.ContextOf(first);
+      (await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == seed.FirstCommit, Ct)).ReportRevision.ShouldBe(revision);
+      (await reader.Branches.AsNoTracking().SingleAsync(Ct)).CoveredCommitId.ShouldBeNull();
+      (await reader.CommitReports.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+    }
+  }
+
+  // F15. The finalization does not change the branch, its covered head being the one already recorded; a push moves the
+  // head meanwhile. The version of the row is still checked: the finalization, run again, covers the new head.
+  // Forced, ten rounds on each engine.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_UnchangedBranchMovedByAPushMeanwhile_ShouldRefuseAsAConcurrentSave(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddBranchAsync(seed, "main");
+
+    for (var round = 1; round <= 10; round++)
+    {
+      await using var context = seed.Organizations.ContextOf(first);
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var branch = (await new BranchRepository(context).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+      var revision = commit.ReportRevision;
+
+      await using (var push = seed.Organizations.ContextOf(first))
+      {
+        var pushed = (await new BranchRepository(push).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+        pushed.MoveHead(round % 2 == 0 ? Head : NewHead, Now.AddMinutes(round));
+        await new BranchRepository(push).UpdateAsync(pushed, Ct);
+      }
+
+      // The covered head the finalization finds is the one recorded: nothing changes on the branch.
+      branch.Cover(branch.CoveredCommitId, Now);
+      Finalize(commit);
+
+      var exception = await Should.ThrowAsync<ConflictException>(
+                        () => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct)
+                      );
+
+      exception.ErrorCode.ShouldBe(CommitErrors.ConcurrentSave);
+
+      await using var reader = seed.Organizations.ContextOf(first);
+      (await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == seed.FirstCommit, Ct)).ReportRevision.ShouldBe(revision);
+    }
+  }
+
+  // S6. The other way round: a push read the row, then a finalization that does not change the branch saves whole
+  // before the push saves. The finalization moves the version, so that the push, run again, sees what it wrote.
+  // Forced, ten rounds on each engine.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_UnchangedBranchWhileAPushHoldsTheRow_ShouldMakeThePushAConflict(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddBranchAsync(seed, "main");
+
+    for (var round = 1; round <= 10; round++)
+    {
+      await using var push = seed.Organizations.ContextOf(first);
+      var pushed = (await new BranchRepository(push).FindAsync(seed.FirstRepository, "main", Ct)).ShouldNotBeNull();
+
+      await using (var context = seed.Organizations.ContextOf(first))
+      {
+        var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+        var branch = (await new BranchRepository(context).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+
+        branch.Cover(branch.CoveredCommitId, Now);
+        Finalize(commit);
+        await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct);
+      }
+
+      // The push is refused every round, so the head it moves from is always the first one.
+      pushed.MoveHead(NewHead, Now.AddMinutes(round));
+
+      var exception = await Should.ThrowAsync<ConflictException>(() => new BranchRepository(push).UpdateAsync(pushed, Ct));
+
+      exception.ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
+    }
+  }
+
+  // F15, S6. Without a push meanwhile, an unchanged branch saves as before, its version moved by one.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_UnchangedBranch_ShouldSaveAndMoveItsVersion(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddBranchAsync(seed, "main");
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var branch = (await new BranchRepository(context).FindAsync(commit.RepositoryId, "main", Ct)).ShouldNotBeNull();
+
+      Finalize(commit);
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    (await reader.Branches.AsNoTracking().SingleAsync(Ct)).Version.ShouldBe(1);
+  }
+
+  // F17. Two finalizations on one branch may deadlock: the victim is told to run again later, without using an attempt.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_ChosenAsTheVictimOfADeadlock_ShouldRetryLaterAndKeepNothing(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var throwing = new ThrowingCommandInterceptor(static sql => sql.Contains("CommitReports", StringComparison.Ordinal), static () => new TestDeadlockException());
+    var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
+    options.UseCodeCoverageDatabase(provider, seed.Organizations.ConnectionString).AddInterceptors(throwing);
+    var organization = new OrganizationContext();
+    organization.Enter(first);
+
+    await using var context = new CodeCoverageDbContext(options.Options, organization);
+    var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+    var revision = commit.ReportRevision;
+    var clock = A.Fake<IClock>();
+    A.CallTo(() => clock.UtcNow).Returns(Now);
+    var queue = new SqlJobQueue(
+      context,
+      organization,
+      clock,
+      new ConfigurationBuilder().Build(),
+      new DeadlockAwareJobClaimDialect(JobClaimDialects.For(context)),
+      _wakeUpSignal,
+      new CodeCoverageMeter(_meterFactory)
+    );
+
+    Finalize(commit);
+
+    await Should.ThrowAsync<RetryLaterException>(
+      () => new CommitReportRepository(context, queue, _wakeUpSignal).SaveFinalizedAsync(commit, Blob, Index, [], [], null, FinalizationWakeUps.None, Ct)
+    );
+
+    context.ChangeTracker.Entries().ShouldBeEmpty();
+    await using var reader = seed.Organizations.ContextOf(first);
+    (await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == seed.FirstCommit, Ct)).ReportRevision.ShouldBe(revision);
+  }
+
+  // The other collision: the push creates the row of the branch between the read (no row) and the save.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_BranchCreatedByAPushMeanwhile_ShouldRefuseAsAConcurrentSaveAndKeepNothing(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+
+    for (var round = 1; round <= 10; round++)
+    {
+      var name = "feature/" + round.ToString(System.Globalization.CultureInfo.InvariantCulture);
+      await using var context = seed.Organizations.ContextOf(first);
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      var revision = commit.ReportRevision;
+      (await new BranchRepository(context).FindAsync(commit.RepositoryId, name, Ct)).ShouldBeNull();
+
+      await AddBranchAsync(seed, name);
+
+      var branch = Branch.Create(commit.RepositoryId, name, commit.Sha, Now);
+      branch.Cover(commit.Id, Now);
+      Finalize(commit);
+
+      var exception = await Should.ThrowAsync<ConflictException>(
+                        () => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct)
+                      );
+
+      exception.ErrorCode.ShouldBe(CommitErrors.ConcurrentSave);
+      context.ChangeTracker.Entries().ShouldBeEmpty("nothing is left for a later save of the scope");
+
+      await using var reader = seed.Organizations.ContextOf(first);
+      (await reader.Commits.AsNoTracking().SingleAsync(c => c.Id == seed.FirstCommit, Ct)).ReportRevision.ShouldBe(revision);
+      (await reader.Branches.AsNoTracking().SingleAsync(b => b.Name == name, Ct)).CoveredCommitId.ShouldBeNull();
+      (await reader.CommitReports.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+    }
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_BranchOfAnotherRepository_ShouldThrow(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await using var context = seed.Organizations.ContextOf(first);
+    var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+    var branch = Branch.Create(commit.RepositoryId + 1000, "main", commit.Sha, Now);
+    Finalize(commit);
+
+    await Should.ThrowAsync<ArgumentException>(
+      () => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], branch, FinalizationWakeUps.None, Ct)
+    );
+  }
+
+  private static async Task AddBranchAsync(CommitSeed seed, string name)
+  {
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    await new BranchRepository(context).AddAsync(Branch.Create(seed.FirstRepository, name, Head, Now), Ct);
+  }
+
   private static async Task<List<JobRecord>> NotificationsAsync(CommitSeed seed)
   {
     await using var context = seed.Organizations.ContextWithoutOrganization();
@@ -513,7 +805,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
     Finalize(commit);
 
-    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], FinalizationWakeUps.None with { Notification = notification }, Ct);
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, FinalizationWakeUps.None with { Notification = notification }, Ct);
   }
 
   private static void Finalize(Commit commit) =>
@@ -541,6 +833,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
       Index,
       [Session.FromUpload(commit.Id, sessionNumber, 11, [], null, null, null, Totals)],
       [CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, Totals, false, null)],
+      null,
       FinalizationWakeUps.None,
       Ct
     );
@@ -728,7 +1021,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var commit = await context.Commits.SingleAsync(c => c.Id == commitId, Ct);
     Finalize(commit);
 
-    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], wakeUps, Ct);
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, wakeUps, Ct);
   }
 
   private static async Task<long> AddCommitAsync(CommitSeed seed, long organizationId, char sha, Action<Commit> state)
@@ -756,7 +1049,7 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
     Finalize(commit);
 
-    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], wakeUps, Ct);
+    await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, wakeUps, Ct);
   }
 
   private static Upload Received(long commitId, string key) =>

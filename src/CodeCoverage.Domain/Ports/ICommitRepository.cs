@@ -35,6 +35,15 @@ public interface ICommitRepository
   /// <exception cref="ArgumentNullException"><paramref name="sha" /> is <see langword="null" />.</exception>
   Task<Commit?> FindByShaAsync(long repositoryId, GitSha sha, CancellationToken cancellationToken);
 
+  /// <summary>Lists the commits of a repository that have one of the given SHAs, for reading only.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="shas">The SHAs to look for.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The commits found, in no particular order; a SHA without a commit gives none.</returns>
+  /// <remarks>The instances are not attached to the scope: they show the rows as stored, not a change pending in it.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="shas" /> is <see langword="null" />.</exception>
+  Task<IReadOnlyList<Commit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken);
+
   /// <summary>Returns the commit of a SHA, adding it as <see cref="CommitState.Known" /> when it does not exist.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="sha">The SHA of the commit.</param>

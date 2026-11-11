@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Mediator;
 
 using CodeCoverage.Application.Exceptions;
@@ -26,6 +28,7 @@ namespace CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookD
 /// <param name="jobQueue">The job queue.</param>
 /// <param name="reconciler">What the deliveries and the reconciliations share.</param>
 /// <param name="lifecycle">What an installation does to the organization of its account.</param>
+/// <param name="pushes">What applies a push to its branch.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   Every branch gives the same result when it runs twice: a delivery GitHub sends again, or a job that is
@@ -40,6 +43,7 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   IJobQueue jobQueue,
   RepositoryReconciler reconciler,
   InstallationLifecycle lifecycle,
+  PushProcessor pushes,
   IClock clock) : ICommandHandler<HandleWebhookDeliveryCommand>
 {
   #region Fields
@@ -49,6 +53,8 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   private const string InstallationRepositoriesEvent = "installation_repositories";
 
   private const string RepositoryEvent = "repository";
+
+  private const string PushEvent = "push";
 
   #endregion
 
@@ -139,6 +145,32 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
       default:
         return false;
     }
+  }
+
+  /// <summary>Handles a push to a repository that is tracked, inside its organization.</summary>
+  /// <param name="delivery">The delivery.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the push is applied.</returns>
+  private async Task HandlePushAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
+  {
+    if (delivery.RepositoryId is not { } externalId)
+    {
+      return;
+    }
+
+    var repository = await repositories.FindByExternalIdAsync(externalId.ToString(CultureInfo.InvariantCulture), cancellationToken)
+                                       .ConfigureAwait(false);
+
+    if (repository is not { IsActive: true })
+    {
+      return;
+    }
+
+    var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false)
+                       ?? throw new InvalidOperationException("The scope has not entered an organization.");
+
+    await pushes.ApplyAsync(repository, repository.ToForgeRef(organization.Forge), GitHubPushEvent.Parse(delivery.Payload), cancellationToken)
+                .ConfigureAwait(false);
   }
 
   /// <summary>Handles an event about one repository, inside its organization.</summary>
@@ -266,6 +298,10 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
         break;
       case RepositoryEvent when currentOrganization.IsKnown:
         await HandleRepositoryAsync(delivery, cancellationToken).ConfigureAwait(false);
+
+        break;
+      case PushEvent when currentOrganization.IsKnown:
+        await HandlePushAsync(delivery, cancellationToken).ConfigureAwait(false);
 
         break;
     }

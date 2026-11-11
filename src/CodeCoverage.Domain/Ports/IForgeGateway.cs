@@ -93,6 +93,13 @@ public interface IForgeGateway
   /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
   Task<ForgePullInfo?> GetPullAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken);
 
+  /// <summary>Reads the commit a branch points to now.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="branch">The name of the branch.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The head of the branch, or <see langword="null" /> when the branch does not exist.</returns>
+  Task<GitSha?> GetBranchHeadAsync(ForgeRepositoryRef repository, string branch, CancellationToken cancellationToken);
+
   /// <summary>Lists the files changed by a pull request, page after page.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="number">The number of the pull request.</param>

@@ -58,6 +58,23 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<Commit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(shas);
+
+    if (shas.Count == 0)
+    {
+      return [];
+    }
+
+    return await context.Commits
+                        .AsNoTracking()
+                        .Where(c => c.RepositoryId == repositoryId && shas.Contains(c.Sha))
+                        .ToListAsync(cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   /// <exception cref="NotFoundException">The repository is not one of the organization of the scope.</exception>
   /// <exception cref="ConflictException">The row that refused the insertion can no longer be read.</exception>
   /// <remarks>

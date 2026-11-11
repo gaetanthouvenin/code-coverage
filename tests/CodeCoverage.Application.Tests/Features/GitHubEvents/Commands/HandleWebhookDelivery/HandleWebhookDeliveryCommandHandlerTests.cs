@@ -14,6 +14,7 @@ using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -26,11 +27,15 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
   private const long Installation = 42;
 
+  private const long RepositoryId = 5;
+
   private const string AccountId = "1001";
 
   private const string RepositoryBody = """{"id":7,"name":"New-Name","private":true,"default_branch":"trunk","owner":{"login":"octo","id":1001}}""";
 
   private static readonly DateTimeOffset Now = new(2026, 11, 10, 8, 0, 0, TimeSpan.Zero);
+
+  private static readonly GitSha PushedHead = GitSha.Parse("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
 
   private readonly IWebhookDeliveryRepository _deliveries = A.Fake<IWebhookDeliveryRepository>();
 
@@ -39,6 +44,10 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   private readonly InMemoryOrganizationDirectory _directory = new(Now);
 
   private readonly IInstallationRepository _installations = A.Fake<IInstallationRepository>();
+
+  private readonly IBranchRepository _branches = A.Fake<IBranchRepository>();
+
+  private readonly ICommitRepository _commits = A.Fake<ICommitRepository>();
 
   private readonly List<Installation> _recorded = [];
 
@@ -97,6 +106,15 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
       _jobQueue,
       reconciler,
       new InstallationLifecycle(_directory, _installations, _auditLog, _clock),
+      new PushProcessor(
+        _branches,
+        _commits,
+        _repositories,
+        new BranchHeadTracker(_commits, new CommitAncestry(A.Fake<IGitCommitRepository>(), gateways, _clock)),
+        new ConfigResolver(A.Fake<ICommitConfigRepository>(), gateways, A.Fake<ICoverageConfigParser>(), A.Fake<IOrganizationSettingsProvider>(), _clock),
+        gateways,
+        _clock
+      ),
       _clock
     );
   }
@@ -688,8 +706,150 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     _savedWith.ShouldNotBeNull().PayloadJson.ShouldBe("""{"TransferredRepositoryId":"7","PreviousOwnerAccountId":"3003"}""");
   }
 
+  [Fact]
+  public async Task Handle_Push_ShouldMoveTheHeadOfTheBranchOfATrackedRepository()
+  {
+    TrackedWithId("octo/repo");
+    A.CallTo(() => _branches.FindAsync(RepositoryId, "feature/x", A<CancellationToken>._)).Returns((Branch?)null);
+    Stored("push", null, Push("refs/heads/feature/x"));
+
+    await HandleAsync();
+
+    A.CallTo(
+       () => _branches.AddAsync(
+         A<Branch>.That.Matches(b => b.Name == "feature/x" && b.HeadSha == PushedHead && b.CoveredCommitId == null),
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly();
+    // The commit of the head is known from now on; no parent is ever read from the commits the body lists.
+    A.CallTo(() => _commits.GetOrCreateAsync(RepositoryId, PushedHead, Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_PushDeleted_ShouldRemoveBranch()
+  {
+    TrackedWithId("octo/repo");
+    Stored("push", null, """{"ref":"refs/heads/gone","after":"0000000000000000000000000000000000000000","deleted":true,"head_commit":null}""");
+
+    await HandleAsync();
+
+    A.CallTo(() => _branches.RemoveAsync(RepositoryId, "gone", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _branches.AddAsync(A<Branch>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(_commits).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_PushDefaultBranchYaml_ShouldRefresh()
+  {
+    var repository = TrackedWithId("octo/repo");
+    A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, PushedHead, false, A<CancellationToken>._))
+     .Returns(new ForgeTree(PushedHead, [new ForgeTreeEntry("codecov.yml", PushedHead, false)], false));
+    A.CallTo(() => _gateway.GetContentAsync(A<ForgeRepositoryRef>._, "codecov.yml", PushedHead, A<CancellationToken>._)).Returns("comment: false\n");
+    // The body only tells that the file changed: its content is never read from it.
+    Stored("push", null, Push("refs/heads/main", """[{"id":"x","modified":["codecov.yml"],"content":"from the payload"}]"""));
+
+    await HandleAsync();
+
+    repository.DefaultBranchYaml.ShouldBe("comment: false\n");
+    repository.DefaultBranchYamlSha.ShouldBe(PushedHead);
+    A.CallTo(() => _repositories.UpdateAsync(repository, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_PushOnAnotherBranchTouchingTheConfiguration_ShouldNotRefreshTheDefault()
+  {
+    var repository = TrackedWithId("octo/repo");
+    Stored("push", null, Push("refs/heads/feature/x", """[{"added":["codecov.yml"]}]"""));
+
+    await HandleAsync();
+
+    repository.DefaultBranchYaml.ShouldBeNull();
+    A.CallTo(() => _repositories.UpdateAsync(A<TrackedRepository>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   [Theory]
-  [InlineData("push")]
+  [InlineData(false)]
+  [InlineData(true)]
+  public async Task Handle_PushToARepositoryThatIsNotTracked_ShouldChangeNothing(bool known)
+  {
+    if (known)
+    {
+      TrackedWithId("octo/repo").Deactivate(Now);
+    }
+    else
+    {
+      NotTracked();
+    }
+
+    Stored("push", null, Push("refs/heads/main"));
+
+    await HandleAsync();
+
+    A.CallTo(_branches).MustNotHaveHappened();
+    A.CallTo(_commits).MustNotHaveHappened();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_PushOfATag_ShouldChangeNothing()
+  {
+    TrackedWithId("octo/repo");
+    Stored("push", null, Push("refs/tags/v1.0"));
+
+    await HandleAsync();
+
+    A.CallTo(_branches).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_PushOnTheLaneOfTheInstance_ShouldReadNoRepository()
+  {
+    OnTheLaneOfTheInstance();
+    Stored("push", null, Push("refs/heads/main"));
+
+    await HandleAsync();
+
+    A.CallTo(_repositories).MustNotHaveHappened();
+    A.CallTo(_branches).MustNotHaveHappened();
+  }
+
+  // A save that loses a race, a finalization that created the branch meanwhile, leaves the delivery unprocessed: the
+  // job is retried.
+  [Fact]
+  public async Task Handle_PushWhenTheBranchCannotBeSaved_ShouldNotMarkTheDeliveryProcessed()
+  {
+    TrackedWithId("octo/repo");
+    A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns((Branch?)null);
+    A.CallTo(() => _branches.AddAsync(A<Branch>._, A<CancellationToken>._))
+     .Throws(new ConflictException("General.ConcurrentChange", "added in the meantime"));
+    Stored("push", null, Push("refs/heads/main"));
+
+    await Should.ThrowAsync<ConflictException>(async () => await HandleAsync());
+
+    A.CallTo(() => _deliveries.MarkProcessedAsync(A<string>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // D. A failure of the forge leaves the delivery unprocessed as well: the branch is not where the push started, and
+  // GitHub does not answer when it is asked where the branch is.
+  [Fact]
+  public async Task Handle_PushWhenTheForgeFails_ShouldNotMarkTheDeliveryProcessed()
+  {
+    TrackedWithId("octo/repo");
+    A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._))
+     .Returns(Branch.Create(RepositoryId, "main", GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3"), Now.AddDays(-1)));
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, "main", A<CancellationToken>._))
+     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+    Stored("push", null, Push("refs/heads/main"));
+
+    await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
+
+    A.CallTo(() => _deliveries.MarkProcessedAsync(A<string>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _branches.UpdateAsync(A<Branch>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Theory]
   [InlineData("pull_request")]
   [InlineData("installation_target")]
   public async Task Handle_EventOfALaterFeature_ShouldOnlyMarkTheDeliveryProcessed(string @event)
@@ -730,6 +890,9 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     return "{\"action\":\"transferred\",\"changes\":{\"owner\":{\"from\":{\"organization\":{\"id\":" + previousOwnerId + "}}}},\"repository\":" + repository + "}";
   }
 
+  private static string Push(string reference, string commits = "[]") =>
+    "{\"ref\":\"" + reference + "\",\"after\":\"" + PushedHead.Value + "\",\"deleted\":false,\"commits\":" + commits + "}";
+
   private static string InstallationBody(long installationId, long accountId, string login, string type = "Organization") =>
     "{\"installation\":{\"id\":" + installationId + ",\"account\":{\"id\":" + accountId + ",\"login\":\"" + login + "\",\"type\":\"" + type + "\"}}}";
 
@@ -751,6 +914,16 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     var repository = TrackedRepository.Create(5, "7", RepositorySlug.Parse(slug), defaultBranch, isPrivate, "badge", Now.AddDays(-30));
 
     A.CallTo(() => _repositories.FindByExternalIdAsync("7", A<CancellationToken>._)).Returns(repository);
+
+    return repository;
+  }
+
+  // A repository read from the database has its identifier, which a branch needs.
+  private TrackedRepository TrackedWithId(string slug)
+  {
+    var repository = Tracked(slug);
+
+    typeof(TrackedRepository).GetProperty(nameof(TrackedRepository.Id))!.SetValue(repository, RepositoryId);
 
     return repository;
   }

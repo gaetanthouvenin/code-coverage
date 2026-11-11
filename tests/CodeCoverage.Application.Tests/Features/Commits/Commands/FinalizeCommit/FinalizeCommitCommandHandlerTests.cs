@@ -16,6 +16,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Config;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
@@ -46,6 +47,8 @@ public sealed class FinalizeCommitCommandHandlerTests
 
   private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
 
+  private readonly IForgeGateway _gateway = A.Fake<IForgeGateway>();
+
   private readonly ICoverageConfigParser _configParser = A.Fake<ICoverageConfigParser>();
 
   private readonly IOrganizationSettingsProvider _organizationSettings = A.Fake<IOrganizationSettingsProvider>();
@@ -53,6 +56,8 @@ public sealed class FinalizeCommitCommandHandlerTests
   private readonly ICommitReportRepository _reports = A.Fake<ICommitReportRepository>();
 
   private readonly IRepositoryFlagRepository _repositoryFlags = A.Fake<IRepositoryFlagRepository>();
+
+  private readonly IBranchRepository _branches = A.Fake<IBranchRepository>();
 
   private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
 
@@ -67,6 +72,8 @@ public sealed class FinalizeCommitCommandHandlerTests
   private IReadOnlyList<CommitFlagTotals> _savedTotals = [];
 
   private FinalizationWakeUps? _savedWakeUps;
+
+  private Branch? _savedBranch;
 
   private readonly NotificationOptions _notificationOptions = new();
 
@@ -85,6 +92,9 @@ public sealed class FinalizeCommitCommandHandlerTests
     typeof(TrackedRepository).GetProperty(nameof(TrackedRepository.Id))!.SetValue(repository, 5L);
 
     A.CallTo(() => _clock.UtcNow).Returns(Now);
+    A.CallTo(() => _gateways.GetGateway(A<Forge>._)).Returns(_gateway);
+    // A branch without a row exists on the forge, at the commit finalized, unless a test says otherwise.
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).Returns(Sha);
     A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(_commit);
     A.CallTo(() => _repositories.FindAsync(5, A<CancellationToken>._)).Returns(repository);
     A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._))
@@ -96,11 +106,12 @@ public sealed class FinalizeCommitCommandHandlerTests
     A.CallTo(() => _codec.Decode(A<ReadOnlyMemory<byte>>._)).ReturnsLazily((ReadOnlyMemory<byte> blob) => _coverage[blob.Span[0]]);
     A.CallTo(() => _codec.Encode(A<CoverageReport>._)).Invokes((CoverageReport report) => _encoded = report).Returns([1]);
     A.CallTo(() => _codec.EncodeFileIndex(A<CoverageReport>._)).Returns([2]);
-    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
-     .Invokes((Commit _, byte[] _, byte[] _, IReadOnlyList<Session> sessions, IReadOnlyList<CommitFlagTotals> totals, FinalizationWakeUps wakeUps, CancellationToken _) =>
+    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<Branch?>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
+     .Invokes((Commit _, byte[] _, byte[] _, IReadOnlyList<Session> sessions, IReadOnlyList<CommitFlagTotals> totals, Branch? branch, FinalizationWakeUps wakeUps, CancellationToken _) =>
        {
          _savedSessions = sessions;
          _savedTotals = totals;
+         _savedBranch = branch;
          _savedWakeUps = wakeUps;
        });
   }
@@ -174,6 +185,149 @@ public sealed class FinalizeCommitCommandHandlerTests
     await Handler().Handle(new FinalizeCommitCommand(9), Ct);
 
     A.CallTo(_repositoryFlags).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_CommitWithoutBranch_ShouldSaveNoBranch()
+  {
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldBeNull();
+    A.CallTo(_branches).MustNotHaveHappened();
+  }
+
+  // No push told about the branch yet (the App was installed later, or the upload came first): the finalization
+  // creates its row, so that a badge of the branch has something to read.
+  [Fact]
+  public async Task Handle_BranchWithoutRow_ShouldCreateItCoveredByTheCommit()
+  {
+    _commit.MarkPending("feature/x", null, Now);
+    A.CallTo(() => _branches.FindAsync(5, "feature/x", A<CancellationToken>._)).Returns((Branch?)null);
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, "feature/x", A<CancellationToken>._)).Returns(Sha);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    var branch = _savedBranch.ShouldNotBeNull();
+    branch.RepositoryId.ShouldBe(5);
+    branch.Name.ShouldBe("feature/x");
+    branch.HeadSha.ShouldBe(Sha);
+    branch.CoveredCommitId.ShouldBe(9);
+    branch.CoveredAt.ShouldBe(Now);
+    // Saved by the transaction of the finalization only, never on its own.
+    A.CallTo(() => _branches.AddAsync(A<Branch>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_HeadOfItsBranch_ShouldBecomeTheCoveredHead()
+  {
+    _commit.MarkPending("main", null, Now);
+    var branch = Branch.Create(5, "main", Sha, Now.AddHours(-1));
+    A.CallTo(() => _branches.FindAsync(5, "main", A<CancellationToken>._)).Returns(branch);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldBeSameAs(branch);
+    branch.CoveredCommitId.ShouldBe(9);
+    A.CallTo(() => _branches.UpdateAsync(A<Branch>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // F16. The commit of a pull request names the branch of its head, a fork's branch for instance: the repository has no
+  // such branch, and a row would show the contributor's commit as the head of a branch, the default one included.
+  [Fact]
+  public async Task Handle_CommitOfAPullRequestWhoseBranchHasNoRow_ShouldCreateNoBranch()
+  {
+    _commit.MarkPending("main", 12, Now);
+    A.CallTo(() => _branches.FindAsync(5, "main", A<CancellationToken>._)).Returns((Branch?)null);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldBeNull();
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // F16. A late finalization does not bring back a branch that was deleted.
+  [Fact]
+  public async Task Handle_BranchDeletedOnTheForge_ShouldCreateNoBranch()
+  {
+    _commit.MarkPending("feature/gone", null, Now);
+    A.CallTo(() => _branches.FindAsync(5, "feature/gone", A<CancellationToken>._)).Returns((Branch?)null);
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, "feature/gone", A<CancellationToken>._)).Returns((GitSha?)null);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldBeNull();
+  }
+
+  // F16. The row starts where the branch is on the forge, not at the commit that was finalized.
+  [Fact]
+  public async Task Handle_BranchWithoutRowThatMovedOn_ShouldCreateItAtItsHead()
+  {
+    var head = GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    _commit.MarkPending("feature/x", null, Now);
+    A.CallTo(() => _branches.FindAsync(5, "feature/x", A<CancellationToken>._)).Returns((Branch?)null);
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, "feature/x", A<CancellationToken>._)).Returns(head);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldNotBeNull().HeadSha.ShouldBe(head);
+  }
+
+  // The head of the branch moved on, and nothing links it to this commit within the ancestry that is read.
+  [Fact]
+  public async Task Handle_CommitOutOfTheAncestryOfTheHead_ShouldLeaveTheCoveredHeadToTheAncestry()
+  {
+    _commit.MarkPending("main", null, Now);
+    var branch = Branch.Create(5, "main", GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3"), Now.AddHours(-1));
+    A.CallTo(() => _branches.FindAsync(5, "main", A<CancellationToken>._)).Returns(branch);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedBranch.ShouldBeSameAs(branch);
+    branch.CoveredCommitId.ShouldBeNull();
+    branch.Version.ShouldBe(0);
+  }
+
+  [Fact]
+  public async Task Handle_AllUploadsFailedOnTheHeadOfItsBranch_ShouldNotBecomeTheCoveredHead()
+  {
+    _commit.MarkPending("main", null, Now);
+    var branch = Branch.Create(5, "main", Sha, Now.AddHours(-1));
+    branch.Cover(9, Now.AddHours(-1));
+    A.CallTo(() => _branches.FindAsync(5, "main", A<CancellationToken>._)).Returns(branch);
+    var failed = Upload.Receive(9, 1, "k", [], null, null, null, null, null, null, null, 3, PrincipalKind.OrganizationToken, Now);
+    failed.MarkFailed("Upload.NoFileMapped", "none", 1, 0, 1, ProcessingLog.Empty, Now);
+    Uploads(failed);
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _commit.State.ShouldBe(CommitState.Error);
+    branch.CoveredCommitId.ShouldBeNull();
+  }
+
+  // The ancestry may save what it fetches: the finalization must not be on the commit yet, or that save would write it
+  // outside the transaction of SaveFinalizedAsync.
+  [Fact]
+  public async Task Handle_ShouldReadTheCoveredHeadBeforeRecordingTheFinalization()
+  {
+    _commit.MarkPending("main", null, Now);
+    var revisionWhenRead = -1;
+    A.CallTo(() => _commits.ListByShasAsync(5, A<IReadOnlyCollection<GitSha>>._, A<CancellationToken>._))
+     .Invokes(() => revisionWhenRead = _commit.ReportRevision)
+     .Returns([]);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    revisionWhenRead.ShouldBe(0);
+    _commit.ReportRevision.ShouldBe(1);
   }
 
   [Fact]
@@ -420,7 +574,7 @@ public sealed class FinalizeCommitCommandHandlerTests
     retried.MarkPending(null, null, Now);
     _commit.MarkPending(null, null, Now);
     A.CallTo(() => _commits.FindAsync(9, A<CancellationToken>._)).Returns(_commit).Once().Then.Returns(retried);
-    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
+    A.CallTo(() => _reports.SaveFinalizedAsync(A<Commit>._, A<byte[]>._, A<byte[]>._, A<IReadOnlyList<Session>>._, A<IReadOnlyList<CommitFlagTotals>>._, A<Branch?>._, A<FinalizationWakeUps>._, A<CancellationToken>._))
      .Throws(new TimeoutException("lost"))
      .Once();
     Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
@@ -484,7 +638,23 @@ public sealed class FinalizeCommitCommandHandlerTests
     var notifications = A.Fake<IOptionsMonitor<NotificationOptions>>();
     A.CallTo(() => notifications.CurrentValue).Returns(_notificationOptions);
 
-    return new FinalizeCommitCommandHandler(_commits, _uploads, _repositories, _directory, resolver, _reports, _codec, new CommitMerger(), carryforward, _repositoryFlags, notifications, _clock);
+    return new FinalizeCommitCommandHandler(
+      _commits,
+      _uploads,
+      _repositories,
+      _directory,
+      resolver,
+      _reports,
+      _codec,
+      new CommitMerger(),
+      carryforward,
+      _repositoryFlags,
+      _branches,
+      new BranchHeadTracker(_commits, ancestry),
+      _gateways,
+      notifications,
+      _clock
+    );
   }
 
   #endregion

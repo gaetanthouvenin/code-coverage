@@ -321,6 +321,37 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
   }
 
   [Fact]
+  public async Task GetBranchHead_ShouldReadTheCommitTheBranchPointsTo()
+  {
+    GivenBody(Root + "/branches/feature/x", """{"name":"feature/x","commit":{"sha":"a94a8fe5ccb19ba61c4c0873d391e987982fbbd3","url":"https://api.github.com/x"},"protected":false}""");
+
+    var head = await _github.Gateway.GetBranchHeadAsync(Repository, "feature/x", Cancellation);
+
+    head.ShouldNotBeNull().Value.ShouldBe("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    BearerOf(_github.Server.LogEntries.Single(static e => e.RequestMessage!.Path.Contains("/branches/", StringComparison.Ordinal)).RequestMessage!).ShouldBe(InstallationToken);
+  }
+
+  [Fact]
+  public async Task GetBranchHead_BranchThatDoesNotExist_ShouldReturnNull()
+  {
+    GivenStatus(Root + "/branches/gone", 404);
+
+    (await _github.Gateway.GetBranchHeadAsync(Repository, "gone", Cancellation)).ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(500, "{}")]
+  [InlineData(200, "{}")]
+  [InlineData(200, """{"commit":{"sha":"not a sha"}}""")]
+  [InlineData(200, "not json")]
+  public async Task GetBranchHead_RefusedOrUnreadable_ShouldThrowBadGateway(int status, string body)
+  {
+    _github.Server.Given(Request.Create().WithPath(Root + "/branches/main").UsingGet()).RespondWith(Response.Create().WithStatusCode(status).WithBody(body));
+
+    await Should.ThrowAsync<BadGatewayException>(() => _github.Gateway.GetBranchHeadAsync(Repository, "main", Cancellation));
+  }
+
+  [Fact]
   public async Task GetPull_NotFound_ShouldReturnNull()
   {
     GivenStatus($"{Root}/pulls/1347", 404);
