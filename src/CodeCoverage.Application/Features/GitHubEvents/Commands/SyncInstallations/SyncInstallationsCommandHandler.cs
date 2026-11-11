@@ -6,13 +6,11 @@
 
 using Mediator;
 
-using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 
@@ -21,18 +19,26 @@ namespace CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallati
 /// <param name="installations">The repository of the installations.</param>
 /// <param name="directory">The directory of the organizations.</param>
 /// <param name="jobQueue">The job queue.</param>
-/// <param name="clock">The clock.</param>
+/// <param name="lifecycle">What an installation does to the organization of its account.</param>
 /// <remarks>
-///   A coordinator (ADR-013): it reads only global tables, <c>Installations</c> and <c>Organizations</c>, and
-///   queues one job per active organization, by its identifier. An organization that is not active gets no
-///   job, so none of its repositories is created.
+///   <para>
+///     A coordinator (ADR-013): it reads and writes only global tables, <c>Installations</c> and
+///     <c>Organizations</c>, and queues one job per active organization, by its identifier. An organization that
+///     is not active gets no job, so none of its repositories is created.
+///   </para>
+///   <para>
+///     It repairs the deliveries of the <c>installation</c> event that were lost, both ways: an unknown account
+///     gets a pending organization, an organization whose installation is suspended or no longer listed is
+///     suspended, and one that the removal of the application had suspended is reactivated when its installation
+///     is listed again. Nothing here admits an organization.
+///   </para>
 /// </remarks>
 internal sealed class SyncInstallationsCommandHandler(
   IGitHubAppGateway gitHub,
   IInstallationRepository installations,
   IOrganizationDirectory directory,
   IJobQueue jobQueue,
-  IClock clock) : ICommandHandler<SyncInstallationsCommand>
+  InstallationLifecycle lifecycle) : ICommandHandler<SyncInstallationsCommand>
 {
   #region Methods
 
@@ -62,37 +68,83 @@ internal sealed class SyncInstallationsCommandHandler(
     await jobQueue.EnqueueAsync(job, cancellationToken).ConfigureAwait(false);
   }
 
-  /// <summary>Finds the organization that holds an installation, recording the installation of a known account.</summary>
+  /// <summary>Applies what the listing says of one installation to the organization of its account.</summary>
   /// <param name="installation">The installation, as GitHub lists it.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>The organization, or <see langword="null" /> when the account is not an organization of the instance.</returns>
-  private async Task<InstallationOwner?> FindOwnerAsync(GitHubInstallationInfo installation, CancellationToken cancellationToken)
+  /// <returns>
+  ///   The organization the installation serves, or <see langword="null" /> when it serves none: its account
+  ///   cannot be an organization, or the installation is suspended.
+  /// </returns>
+  private async Task<Organization?> FollowAsync(GitHubInstallationInfo installation, CancellationToken cancellationToken)
   {
-    var owner = await installations.FindOwnerAsync(installation.Id, cancellationToken).ConfigureAwait(false);
-
-    if (owner is not null)
-    {
-      return owner;
-    }
-
-    var organization = await directory.FindByAccountIdAsync(Forge.GitHub, installation.AccountId, cancellationToken).ConfigureAwait(false);
+    var organization = await lifecycle.AttachAsync(installation, cancellationToken).ConfigureAwait(false);
 
     if (organization is null)
     {
       return null;
     }
 
-    try
+    if (!installation.Suspended)
     {
-      await installations.AddAsync(Installation.Create(installation.Id, organization.Id, clock.UtcNow), cancellationToken).ConfigureAwait(false);
-    }
-    catch (ConflictException exception) when (exception.ErrorCode == GeneralErrors.ConcurrentChange)
-    {
-      // Recorded in the meantime, by an upload for instance: its row tells which organization holds it.
-      return await installations.FindOwnerAsync(installation.Id, cancellationToken).ConfigureAwait(false);
+      return await lifecycle.ReactivateAsync(organization, cancellationToken).ConfigureAwait(false);
     }
 
-    return new InstallationOwner(organization.Id, organization.State);
+    // The delivery of the suspension was lost.
+    if (organization.State is not OrganizationState.Suspended)
+    {
+      await lifecycle.SuspendAsync(organization.ExternalAccountId, cancellationToken).ConfigureAwait(false);
+    }
+
+    return null;
+  }
+
+  /// <summary>Suspends the active organizations whose installation GitHub no longer lists.</summary>
+  /// <param name="served">The identifiers, on GitHub, of the accounts a listed installation serves.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the organizations are suspended.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     The delivery of the removal was lost. An organization that never had an installation is left alone: an
+  ///     administrator may admit an account before it installs the application.
+  ///   </para>
+  ///   <para>
+  ///     The pages of the listing are numbered: an installation added or removed between two readings shifts the
+  ///     next page, and may leave one out. Each installation of the organization is therefore asked for on its own,
+  ///     and the organization is suspended only when none of them is still active on GitHub.
+  ///   </para>
+  /// </remarks>
+  private async Task SuspendUnservedAsync(HashSet<string> served, CancellationToken cancellationToken)
+  {
+    var active = await directory.ListActiveAsync(cancellationToken).ConfigureAwait(false);
+
+    foreach (var organization in active.Where(o => o.Forge is Forge.GitHub && !served.Contains(o.ExternalAccountId)))
+    {
+      var recorded = await installations.ListIdsForOrganizationAsync(organization.Id, cancellationToken).ConfigureAwait(false);
+
+      if (recorded.Count == 0 || await IsStillServedAsync(recorded, cancellationToken).ConfigureAwait(false))
+      {
+        continue;
+      }
+
+      await lifecycle.SuspendAsync(organization.ExternalAccountId, cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <summary>Tells whether one of the installations of an organization is still active on GitHub.</summary>
+  /// <param name="recorded">The identifiers of its installations.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns><see langword="true" /> when GitHub still knows one of them, not suspended.</returns>
+  private async Task<bool> IsStillServedAsync(IReadOnlyList<long> recorded, CancellationToken cancellationToken)
+  {
+    foreach (var installationId in recorded)
+    {
+      if (await gitHub.GetInstallationAsync(installationId, cancellationToken).ConfigureAwait(false) is { Suspended: false })
+      {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   #endregion
@@ -111,21 +163,26 @@ internal sealed class SyncInstallationsCommandHandler(
       return Unit.Value;
     }
 
+    // The listing is read to its last page or fails: a partial one would suspend the organizations it left out.
     var listed = await gitHub.ListInstallationsAsync(cancellationToken).ConfigureAwait(false);
 
-    // GitHub refuses every call made for a suspended installation: its repositories stay as they are.
-    foreach (var installation in listed.Where(static i => !i.Suspended))
-    {
-      var owner = await FindOwnerAsync(installation, cancellationToken).ConfigureAwait(false);
+    // By account, not by organization: an account that is listed is served even when it is left out below.
+    var served = listed.Where(static i => !i.Suspended)
+                       .Select(static i => Organization.NormalizeExternalAccountId(i.AccountId))
+                       .ToHashSet(StringComparer.Ordinal);
 
-      if (owner is not { State: OrganizationState.Active })
+    foreach (var installation in listed)
+    {
+      var organization = await FollowAsync(installation, cancellationToken).ConfigureAwait(false);
+
+      if (organization is not { State: OrganizationState.Active })
       {
         continue;
       }
 
       var key = RepositoryReconciliationJobs.InstallationKey(installation.Id);
       var job = JobRequest.ForOrganization(
-        owner.OrganizationId,
+        organization.Id,
         JobTypes.SyncInstallationRepositories,
         RepositoryReconciliationJobs.InstallationPayload(installation.Id),
         key,
@@ -135,6 +192,8 @@ internal sealed class SyncInstallationsCommandHandler(
 
       await jobQueue.EnqueueAsync(job, cancellationToken).ConfigureAwait(false);
     }
+
+    await SuspendUnservedAsync(served, cancellationToken).ConfigureAwait(false);
 
     return Unit.Value;
   }

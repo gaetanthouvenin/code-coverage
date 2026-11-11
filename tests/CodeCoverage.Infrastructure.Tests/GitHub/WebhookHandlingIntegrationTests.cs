@@ -221,8 +221,7 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
     var seed = await SeededAsync(provider, admitSecond: false);
     await using var services = BuildServices(provider, seed.ConnectionString);
 
-    A.CallTo(() => _gitHub.ListInstallationsAsync(A<CancellationToken>._))
-     .Returns([new GitHubInstallationInfo(FirstInstallation, "1001", "first-org", false), new GitHubInstallationInfo(SecondInstallation, "2002", "second-org", false)]);
+    Lists(Listed(FirstInstallation, "1001", "first-org"), Listed(SecondInstallation, "2002", "second-org"));
     A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(A<long>._, A<CancellationToken>._))
      .Returns([new ForgeRepositoryInfo(ExternalId, "any-org", string.Empty, "app", "main", true)]);
 
@@ -297,6 +296,132 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
     (await check.Jobs.AsNoTracking().ToListAsync(Ct)).ShouldAllBe(static j => j.State == JobState.Succeeded);
   }
 
+  // The lifecycle of M2.03a1, through the real directory: the account waits for its admission and nothing is tracked.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_InstallationCreatedForAnUnknownAccount_ShouldCreateAPendingOrganization(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: false);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    Lists(
+      Listed(FirstInstallation, "1001", "first-org"),
+      Listed(SecondInstallation, "2002", "second-org"),
+      new GitHubInstallationInfo(9900, "3003", "Newcomer", OrganizationAccountType.User, false)
+    );
+
+    var outcome = await ReceiveAsync(services, "d-1", "installation", InstallationBody("created", 9900, 3003, "Newcomer", "User"));
+    await RunUntilIdleAsync(services);
+
+    outcome.ShouldBe(WebhookOutcome.Accepted);
+
+    await using var check = seed.ContextWithoutOrganization();
+    var organization = await check.Organizations.AsNoTracking().SingleAsync(o => o.ExternalAccountId == "3003", Ct);
+    organization.State.ShouldBe(OrganizationState.Pending);
+    organization.Login.ShouldBe("Newcomer");
+    organization.AccountType.ShouldBe(OrganizationAccountType.User);
+    organization.AdmittedBy.ShouldBeNull();
+    (await check.Installations.AsNoTracking().SingleAsync(i => i.Id == 9900, Ct)).OrganizationId.ShouldBe(organization.Id);
+    A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(9900, A<CancellationToken>._)).MustNotHaveHappened();
+    (await check.Jobs.AsNoTracking().ToListAsync(Ct)).ShouldAllBe(static j => j.State == JobState.Succeeded);
+  }
+
+  // The acceptance of M2.03a1: a lost installation.created gives a pending row at the next synchronization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_LostInstallationCreated_ShouldCreateAPendingOrganizationAtTheNextSynchronization(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: false);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    Lists(Listed(FirstInstallation, "1001", "first-org"), Listed(SecondInstallation, "2002", "second-org"), Listed(9900, "3003", "newcomer"));
+
+    await QueueSynchronizationAsync(services);
+    await RunUntilIdleAsync(services);
+
+    await using var check = seed.ContextWithoutOrganization();
+    var organization = await check.Organizations.AsNoTracking().SingleAsync(o => o.ExternalAccountId == "3003", Ct);
+    organization.State.ShouldBe(OrganizationState.Pending);
+    (await check.Installations.AsNoTracking().SingleAsync(i => i.Id == 9900, Ct)).OrganizationId.ShouldBe(organization.Id);
+    // Nothing admits: the second organization of the seed is still pending too.
+    (await check.Organizations.AsNoTracking().CountAsync(o => o.State == OrganizationState.Active, Ct)).ShouldBe(1);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_UninstalledThenInstalledAgain_ShouldSuspendThenReattachAndReactivate(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: false);
+    await AddRepositoryAsync(seed, seed.FirstId, FirstInstallation, "first-org/app");
+    await using var services = BuildServices(provider, seed.ConnectionString);
+
+    Lists(Listed(SecondInstallation, "2002", "second-org"));
+    await ReceiveAsync(services, "d-1", "installation", InstallationBody("deleted", FirstInstallation, 1001, "first-org", "Organization"));
+    await RunUntilIdleAsync(services);
+
+    await using (var suspended = seed.ContextWithoutOrganization())
+    {
+      var organization = await suspended.Organizations.AsNoTracking().SingleAsync(o => o.Id == seed.FirstId, Ct);
+      organization.State.ShouldBe(OrganizationState.Suspended);
+      organization.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
+    }
+
+    // A reinstallation has another identifier: its delivery arrives on the lane of the instance.
+    Lists(Listed(SecondInstallation, "2002", "second-org"), Listed(9901, "1001", "first-org"));
+    A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(9901, A<CancellationToken>._))
+     .Returns([new ForgeRepositoryInfo(ExternalId, "first-org", string.Empty, "app", "main", false, "1001")]);
+    await ReceiveAsync(services, "d-2", "installation", InstallationBody("created", 9901, 1001, "first-org", "Organization"));
+    await RunUntilIdleAsync(services);
+
+    await using var check = seed.ContextWithoutOrganization();
+    var reactivated = await check.Organizations.AsNoTracking().SingleAsync(o => o.Id == seed.FirstId, Ct);
+    reactivated.State.ShouldBe(OrganizationState.Active);
+    reactivated.SuspensionReason.ShouldBeNull();
+    (await check.Installations.AsNoTracking().SingleAsync(i => i.Id == 9901, Ct)).OrganizationId.ShouldBe(seed.FirstId);
+    (await check.Jobs.AsNoTracking().ToListAsync(Ct)).ShouldAllBe(static j => j.State == JobState.Succeeded);
+
+    await using var first = seed.ContextOf(seed.FirstId);
+    (await first.Repositories.AsNoTracking().SingleAsync(Ct)).InstallationId.ShouldBe(9901);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_SuspendedByAnAdministrator_ShouldStaySuspendedWhenInstalledAgain(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: false);
+    await using var services = BuildServices(provider, seed.ConnectionString);
+
+    await using (var writer = seed.ContextWithoutOrganization())
+    {
+      var organization = await writer.Organizations.SingleAsync(o => o.Id == seed.FirstId, Ct);
+      organization.Suspend(SuspensionReason.AppUninstalled, Now);
+      organization.Suspend(SuspensionReason.Administrator, Now);
+      await writer.SaveChangesAsync(Ct);
+    }
+
+    Lists(Listed(9901, "1001", "first-org"));
+    await ReceiveAsync(services, "d-1", "installation", InstallationBody("created", 9901, 1001, "first-org", "Organization"));
+    await RunUntilIdleAsync(services);
+
+    await using var check = seed.ContextWithoutOrganization();
+    var suspended = await check.Organizations.AsNoTracking().SingleAsync(o => o.Id == seed.FirstId, Ct);
+    suspended.State.ShouldBe(OrganizationState.Suspended);
+    suspended.SuspensionReason.ShouldBe(SuspensionReason.Administrator);
+    A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  private static GitHubInstallationInfo Listed(long id, string accountId, string login) =>
+    new(id, accountId, login, OrganizationAccountType.Organization, false);
+
+  private static string InstallationBody(string action, long installationId, long accountId, string login, string type) =>
+    "{\"action\":\"" + action + "\",\"installation\":{\"id\":" + Text(installationId) + ",\"account\":{\"id\":" + Text(accountId)
+    + ",\"login\":\"" + login + "\",\"type\":\"" + type + "\"}}}";
+
+  private static async Task QueueSynchronizationAsync(ServiceProvider services)
+  {
+    await using var scope = services.CreateAsyncScope();
+
+    await scope.ServiceProvider.GetRequiredService<IJobQueue>().EnqueueAsync(SyncInstallationsJobs.Create(), Ct);
+  }
+
   private static string RepositoryBody(string action, long installationId, string owner, long ownerId, string name, long? previousOwnerId = null)
   {
     var changes = previousOwnerId is { } previous ? ",\"changes\":{\"owner\":{\"from\":{\"organization\":{\"id\":" + Text(previous) + "}}}}" : string.Empty;
@@ -363,6 +488,11 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
     await using var context = seed.ContextOf(organizationId);
 
     return (await context.Repositories.AsNoTracking().SingleAsync(Ct)).Version;
+  }
+
+  private void Lists(params GitHubInstallationInfo[] installations)
+  {
+    A.CallTo(() => _gitHub.ListInstallationsAsync(A<CancellationToken>._)).Returns(installations);
   }
 
   private ServiceProvider BuildServices(DatabaseProvider provider, string connectionString)

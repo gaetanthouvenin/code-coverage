@@ -7,6 +7,7 @@
 using Mediator;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -18,11 +19,13 @@ namespace CodeCoverage.Application.Features.Organizations.Commands.AdmitOrganiza
 /// <param name="currentUser">The principal that admits the organization.</param>
 /// <param name="clock">The clock.</param>
 /// <param name="auditLog">The audit trail.</param>
+/// <param name="jobQueue">The job queue.</param>
 internal sealed class AdmitOrganizationCommandHandler(
   IOrganizationDirectory directory,
   ICurrentUser currentUser,
   IClock clock,
-  IAuditLog auditLog) : ICommandHandler<AdmitOrganizationCommand, Organization>
+  IAuditLog auditLog,
+  IJobQueue jobQueue) : ICommandHandler<AdmitOrganizationCommand, Organization>
 {
   #region Implementation of ICommandHandler<AdmitOrganizationCommand,Organization>
 
@@ -63,6 +66,14 @@ internal sealed class AdmitOrganizationCommandHandler(
     }
 
     await auditLog.RecordAsync("Organization.Admit", $"{command.Forge}/{admitted.Login}", null, cancellationToken).ConfigureAwait(false);
+
+    // The admission knows no installation: the coordinator lists them and queues the listing of the repositories of
+    // this organization, now that it is active. The admission is saved already; the daily reconciliation does the
+    // same if this job is never queued. Only GitHub has installations to list.
+    if (command.Forge is Forge.GitHub)
+    {
+      await jobQueue.EnqueueAsync(SyncInstallationsJobs.Create(), cancellationToken).ConfigureAwait(false);
+    }
 
     return admitted;
   }

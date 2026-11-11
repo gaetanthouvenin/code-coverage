@@ -26,6 +26,13 @@ public interface IGitHubAppGateway
   /// <returns>The installations.</returns>
   Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken);
 
+  /// <summary>Reads one installation of the App.</summary>
+  /// <param name="installationId">The identifier of the installation.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>The installation, or <see langword="null" /> when GitHub no longer knows it.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  Task<GitHubInstallationInfo?> GetInstallationAsync(long installationId, CancellationToken cancellationToken);
+
   /// <summary>Lists the repositories an installation serves.</summary>
   /// <param name="installationId">The identifier of the installation.</param>
   /// <param name="cancellationToken">A token to cancel the call.</param>

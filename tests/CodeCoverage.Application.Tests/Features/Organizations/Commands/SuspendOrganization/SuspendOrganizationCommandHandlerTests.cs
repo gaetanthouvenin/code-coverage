@@ -61,8 +61,26 @@ public sealed class SuspendOrganizationCommandHandlerTests
     A.CallTo(() => _audit.RecordAsync("Organization.Suspend", $"GitHub/{Login}", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
+  [Theory]
+  [InlineData(SuspensionReason.Administrator)]
+  [InlineData(SuspensionReason.ReservedLogin)]
+  public async Task Handle_AlreadySuspended_ShouldChangeNothing(SuspensionReason reason)
+  {
+    var organization = Active();
+    organization.Suspend(reason, Now);
+    var version = organization.Version;
+    Finds(organization);
+
+    await Handler().Handle(new SuspendOrganizationCommand(Forge.GitHub, Login), Ct);
+
+    organization.SuspensionReason.ShouldBe(reason);
+    organization.Version.ShouldBe(version);
+    A.CallTo(_audit).MustNotHaveHappened();
+  }
+
+  // Otherwise a reinstallation would lift a suspension the administrator meant to keep.
   [Fact]
-  public async Task Handle_AlreadySuspended_ShouldChangeNothing()
+  public async Task Handle_SuspendedByTheRemovalOfTheApplication_ShouldTakeTheSuspensionOver()
   {
     var organization = Active();
     organization.Suspend(SuspensionReason.AppUninstalled, Now);
@@ -70,8 +88,10 @@ public sealed class SuspendOrganizationCommandHandlerTests
 
     await Handler().Handle(new SuspendOrganizationCommand(Forge.GitHub, Login), Ct);
 
-    organization.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
-    A.CallTo(_audit).MustNotHaveHappened();
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.Administrator);
+    organization.Reactivate(Now).ShouldBeFalse();
+    A.CallTo(() => _audit.RecordAsync("Organization.Suspend", $"GitHub/{Login}", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]

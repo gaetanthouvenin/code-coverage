@@ -11,6 +11,8 @@ using System.Text;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 
+using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -71,9 +73,27 @@ public sealed class GitHubAppGatewayInstallationTests : IDisposable
     installations[0].Id.ShouldBe(42);
     installations[0].AccountId.ShouldBe("1001");
     installations[0].AccountLogin.ShouldBe("first-org");
+    installations[0].AccountType.ShouldBe(OrganizationAccountType.Organization);
     installations[0].Suspended.ShouldBeFalse();
     installations[1].Id.ShouldBe(43);
     installations[1].Suspended.ShouldBeTrue();
+  }
+
+  [Fact]
+  public async Task ListInstallations_ShouldMapTheKindOfAccount()
+  {
+    GivenPage(
+      "/app/installations",
+      1,
+      """[{"id":42,"account":{"id":1001,"login":"someone","type":"User"}},{"id":43,"account":{"id":3003,"slug":"an-enterprise"}}]"""
+    );
+
+    var installations = await _github.Gateway.ListInstallationsAsync(Cancellation);
+
+    installations[0].AccountType.ShouldBe(OrganizationAccountType.User);
+    // An enterprise has a slug and no login: it is listed, with a login no organization can hold.
+    installations[1].AccountLogin.ShouldBeEmpty();
+    installations[1].AccountType.ShouldBe(OrganizationAccountType.Organization);
   }
 
   [Fact]
@@ -100,6 +120,41 @@ public sealed class GitHubAppGatewayInstallationTests : IDisposable
 
     installations.Count.ShouldBe(103);
     installations[^1].Id.ShouldBe(103);
+  }
+
+  // F21. One installation, asked for on its own, authenticated as the App.
+  [Theory]
+  [InlineData("null", false)]
+  [InlineData("\"2026-11-01T00:00:00Z\"", true)]
+  public async Task GetInstallation_ShouldMapTheAccountAndTheSuspension(string suspendedAt, bool suspended)
+  {
+    _github.Server.Given(Request.Create().WithPath("/app/installations/42").UsingGet())
+           .RespondWith(Response.Create().WithStatusCode(200).WithBody("{\"id\":42,\"account\":{\"id\":1001,\"login\":\"first-org\",\"type\":\"Organization\"},\"suspended_at\":" + suspendedAt + "}"));
+
+    var installation = (await _github.Gateway.GetInstallationAsync(42, Cancellation)).ShouldNotBeNull();
+
+    installation.ShouldBe(new GitHubInstallationInfo(42, "1001", "first-org", OrganizationAccountType.Organization, suspended));
+    var authorization = _github.Server.LogEntries.Single(static e => e.RequestMessage!.Path == "/app/installations/42").RequestMessage!.Headers!["Authorization"].Single();
+    GitHubApiHarness.IsSignedBy(authorization["Bearer ".Length..], Key).ShouldBeTrue();
+  }
+
+  [Fact]
+  public async Task GetInstallation_Unknown_ShouldReturnNull()
+  {
+    _github.Server.Given(Request.Create().WithPath("/app/installations/42").UsingGet()).RespondWith(Response.Create().WithStatusCode(404));
+
+    (await _github.Gateway.GetInstallationAsync(42, Cancellation)).ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(500)]
+  [InlineData(403)]
+  public async Task GetInstallation_Refused_ShouldThrowBadGateway(int status)
+  {
+    _github.Server.Given(Request.Create().WithPath("/app/installations/42").UsingGet()).RespondWith(Response.Create().WithStatusCode(status));
+
+    await Should.ThrowAsync<BadGatewayException>(() => _github.Gateway.GetInstallationAsync(42, Cancellation));
+    await Should.ThrowAsync<ArgumentOutOfRangeException>(() => _github.Gateway.GetInstallationAsync(0, Cancellation));
   }
 
   [Fact]

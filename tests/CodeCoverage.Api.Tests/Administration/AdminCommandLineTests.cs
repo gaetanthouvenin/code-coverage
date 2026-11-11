@@ -12,6 +12,7 @@ using Serilog.Core;
 
 using CodeCoverage.Api.Configuration.Administration;
 using CodeCoverage.Api.Tests.Support;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -44,6 +45,8 @@ public sealed class AdminCommandLineTests
   private readonly IRepositoryRepository _repositories = A.Fake<IRepositoryRepository>();
 
   private readonly IAuditLog _audit = A.Fake<IAuditLog>();
+
+  private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
 
   private readonly CapturingLogSink _log = new();
 
@@ -258,6 +261,11 @@ public sealed class AdminCommandLineTests
     _auditedFrom.ShouldBe([((long?)null, AuditEntry.CommandLineActor)], "an admission enters no organization");
     _error.ToString().ShouldContain("Organization github/new-org is Active");
     _output.ToString().ShouldBeEmpty();
+    // This process runs no worker: the job waits for the Api, which lists the installations of the App.
+    A.CallTo(
+       () => _jobQueue.EnqueueAsync(A<JobRequest>.That.Matches(j => j.Type == JobTypes.SyncInstallations && j.IsInstance), A<CancellationToken>._)
+     )
+     .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -278,6 +286,7 @@ public sealed class AdminCommandLineTests
 
     exit.ShouldBe(AdminCommandLine.Success);
     _error.ToString().ShouldContain("Organization bitbucket/team is Active");
+    A.CallTo(_jobQueue).MustNotHaveHappened();
     A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -437,6 +446,7 @@ public sealed class AdminCommandLineTests
       services.AddSingleton(_directory);
       services.AddSingleton(_tokens);
       services.AddSingleton(_repositories);
+      services.AddSingleton(_jobQueue);
       services.AddSingleton<ILogEventSink>(_log);
 
       // The audit log of the scope, so that a test reads the organization and the actor it would write.

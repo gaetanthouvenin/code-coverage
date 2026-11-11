@@ -150,6 +150,112 @@ public sealed class OrganizationTests
   }
 
   [Fact]
+  public void Suspend_AdministratorAfterAppUninstalled_ShouldReplaceTheReason()
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+    var version = organization.Version;
+
+    organization.Suspend(SuspensionReason.Administrator, Later.AddHours(1));
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.Administrator);
+    organization.Version.ShouldBe(version + 1);
+  }
+
+  [Fact]
+  public void Suspend_ReservedLoginAfterAppUninstalled_ShouldKeepFirstReason()
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+
+    organization.Suspend(SuspensionReason.ReservedLogin, Later.AddHours(1));
+
+    organization.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
+  }
+
+  [Fact]
+  public void Reactivate_AdmittedAndAppUninstalled_ShouldBeActiveAgain()
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+    var version = organization.Version;
+
+    organization.Reactivate(Later.AddHours(1)).ShouldBeTrue();
+
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
+    organization.UpdatedAt.ShouldBe(Later.AddHours(1));
+    organization.Version.ShouldBe(version + 1);
+  }
+
+  [Fact]
+  public void Reactivate_NeverAdmitted_ShouldBePendingNotActive()
+  {
+    var organization = Pending("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+
+    organization.Reactivate(Later.AddHours(1)).ShouldBeTrue();
+
+    organization.State.ShouldBe(OrganizationState.Pending);
+    organization.SuspensionReason.ShouldBeNull();
+    organization.AdmittedBy.ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(SuspensionReason.Administrator)]
+  [InlineData(SuspensionReason.ReservedLogin)]
+  public void Reactivate_OtherReason_ShouldStaySuspended(SuspensionReason reason)
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(reason, Later);
+    var version = organization.Version;
+
+    organization.Reactivate(Later.AddHours(1)).ShouldBeFalse();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(reason);
+    organization.Version.ShouldBe(version);
+  }
+
+  [Fact]
+  public void Reactivate_AdministratorAfterAppUninstalled_ShouldStaySuspended()
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+    organization.Suspend(SuspensionReason.Administrator, Later);
+
+    organization.Reactivate(Later.AddHours(1)).ShouldBeFalse();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+  }
+
+  [Fact]
+  public void Reactivate_NotSuspended_ShouldChangeNothing()
+  {
+    var organization = Active("octo-org");
+    var version = organization.Version;
+
+    organization.Reactivate(Later).ShouldBeFalse();
+
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.Version.ShouldBe(version);
+  }
+
+  [Fact]
+  public void Reactivate_LoginBecameReserved_ShouldStaySuspendedForThatReason()
+  {
+    var organization = Active("octo-org");
+    organization.Suspend(SuspensionReason.AppUninstalled, Later);
+    organization.Rename("Setup", Later);
+
+    organization.Reactivate(Later.AddHours(1)).ShouldBeFalse();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+  }
+
+  [Fact]
   public void Rename_ShouldKeepExternalAccountId()
   {
     var organization = Active("octo-org");

@@ -10,6 +10,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.GitHubEvents;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Services;
+using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -35,7 +36,11 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
   private readonly IRepositoryRepository _repositories = A.Fake<IRepositoryRepository>();
 
-  private readonly IOrganizationDirectory _directory = A.Fake<IOrganizationDirectory>();
+  private readonly InMemoryOrganizationDirectory _directory = new(Now);
+
+  private readonly IInstallationRepository _installations = A.Fake<IInstallationRepository>();
+
+  private readonly List<Installation> _recorded = [];
 
   private readonly ICurrentOrganization _currentOrganization = A.Fake<ICurrentOrganization>();
 
@@ -66,8 +71,10 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     A.CallTo(() => _clock.UtcNow).Returns(Now);
     A.CallTo(() => _currentOrganization.IsKnown).Returns(true);
     A.CallTo(() => _currentOrganization.Id).Returns(9);
-    A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._))
-     .Returns(Organization.CreatePending(Forge.GitHub, AccountId, "octo", OrganizationAccountType.Organization, Now));
+    _directory.Current = _directory.Add(AccountId, "octo", admitted: true);
+    A.CallTo(() => _installations.FindOwnerAsync(A<long>._, A<CancellationToken>._)).Returns((InstallationOwner?)null);
+    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._))
+     .Invokes((Installation installation, CancellationToken _) => _recorded.Add(installation));
     A.CallTo(() => gateways.GetGateway(Forge.GitHub)).Returns(_gateway);
     A.CallTo(() => generator.NewBadgeToken()).Returns("new-badge");
     A.CallTo(() => protector.Protect(A<string>._)).ReturnsLazily((string value) => $"protected:{value}");
@@ -81,7 +88,17 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
     var reconciler = new RepositoryReconciler(_repositories, _directory, gateways, generator, protector, _auditLog, _clock);
 
-    _handler = new HandleWebhookDeliveryCommandHandler(_deliveries, _repositories, _directory, _currentOrganization, _jobQueue, reconciler, _clock);
+    _handler = new HandleWebhookDeliveryCommandHandler(
+      _deliveries,
+      _repositories,
+      _directory,
+      _installations,
+      _currentOrganization,
+      _jobQueue,
+      reconciler,
+      new InstallationLifecycle(_directory, _installations, _auditLog, _clock),
+      _clock
+    );
   }
 
   #endregion
@@ -203,7 +220,7 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   [Fact]
   public async Task Handle_RepositoryEventOnTheLaneOfTheInstance_ShouldReadNoRepository()
   {
-    A.CallTo(() => _currentOrganization.IsKnown).Returns(false);
+    OnTheLaneOfTheInstance();
     Stored("repository", "renamed", $$"""{"repository":{{RepositoryBody}}}""");
 
     await HandleAsync();
@@ -261,14 +278,124 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   [Theory]
   [InlineData("deleted")]
   [InlineData("suspend")]
-  public async Task Handle_InstallationGone_ShouldQueueNoListing(string action)
+  public async Task Handle_InstallationGone_ShouldSuspendTheOrganizationOfTheScopeAndQueueNoListing(string action)
   {
-    Stored("installation", action, "{}");
+    // The body names another account: inside an organization, only the one of the scope is suspended.
+    var other = _directory.Add("2002", "other", admitted: true);
+    Stored("installation", action, InstallationBody(42, 2002, "other"));
 
     await HandleAsync();
 
+    _directory.Current!.State.ShouldBe(OrganizationState.Suspended);
+    _directory.Current.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
+    other.State.ShouldBe(OrganizationState.Active);
+    // GitHub answers nothing for this installation. The coordinator tells whether another one serves the account.
+    var job = _queued.ShouldHaveSingleItem();
+    job.Type.ShouldBe(JobTypes.SyncInstallations);
+    job.IsInstance.ShouldBeTrue();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // F20. The account installed the application again before the removal of its former installation was handled: the
+  // late delivery names an installation that is no longer the current one, and suspends nothing.
+  [Theory]
+  [InlineData("deleted")]
+  [InlineData("suspend")]
+  public async Task Handle_LateRemovalOfAFormerInstallation_ShouldNotSuspendTheOrganization(string action)
+  {
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(_directory.Current!.Id, A<CancellationToken>._)).Returns([50L, Installation]);
+    Stored("installation", action, InstallationBody(Installation, 1001, "octo"));
+
+    await HandleAsync();
+
+    _directory.Current!.State.ShouldBe(OrganizationState.Active);
     _queued.ShouldBeEmpty();
     A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("deleted")]
+  [InlineData("suspend")]
+  public async Task Handle_LateRemovalOfAFormerInstallationOnTheLaneOfTheInstance_ShouldNotSuspendTheOrganization(string action)
+  {
+    OnTheLaneOfTheInstance();
+    var pending = _directory.Add("2002", "newcomer");
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(pending.Id, A<CancellationToken>._)).Returns([50L, Installation]);
+    Stored("installation", action, InstallationBody(Installation, 2002, "newcomer"));
+
+    await HandleAsync();
+
+    pending.State.ShouldBe(OrganizationState.Pending);
+  }
+
+  // F20. The current installation is the most recent one recorded: its removal suspends.
+  [Fact]
+  public async Task Handle_RemovalOfTheCurrentInstallation_ShouldSuspendTheOrganization()
+  {
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(_directory.Current!.Id, A<CancellationToken>._)).Returns([Installation, 30L]);
+    Stored("installation", "deleted", InstallationBody(Installation, 1001, "octo"));
+
+    await HandleAsync();
+
+    _directory.Current!.State.ShouldBe(OrganizationState.Suspended);
+  }
+
+  // F18. The account was renamed to a reserved login: the installation event that tells it suspends the organization,
+  // and the suspension is audited as one an administrator decides.
+  [Fact]
+  public async Task Handle_InstallationCreatedUnderAReservedLogin_ShouldSuspendWithAnAuditEntry()
+  {
+    Stored("installation", "created", InstallationBody(Installation, 1001, "admin"));
+
+    await HandleAsync();
+
+    _directory.Current!.State.ShouldBe(OrganizationState.Suspended);
+    _directory.Current.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    ReservedLoginAudited("GitHub/admin");
+  }
+
+  // F18. Installed again under a login that became reserved meanwhile: it stays suspended for that reason, audited.
+  [Fact]
+  public async Task Handle_ReinstalledUnderAReservedLogin_ShouldStaySuspendedWithAnAuditEntry()
+  {
+    OnTheLaneOfTheInstance();
+    var organization = _directory.Add("2002", "former", admitted: true);
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    Stored("installation", "created", InstallationBody(44, 2002, "admin"));
+
+    await HandleAsync();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    ReservedLoginAudited("GitHub/admin");
+  }
+
+  [Theory]
+  [InlineData("deleted")]
+  [InlineData("suspend")]
+  public async Task Handle_InstallationGoneOnTheLaneOfTheInstance_ShouldSuspendTheAccountOfTheBody(string action)
+  {
+    OnTheLaneOfTheInstance();
+    var pending = _directory.Add("2002", "newcomer");
+    Stored("installation", action, InstallationBody(43, 2002, "newcomer"));
+
+    await HandleAsync();
+
+    pending.State.ShouldBe(OrganizationState.Suspended);
+    pending.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
+    _directory.Current!.State.ShouldBe(OrganizationState.Active);
+  }
+
+  [Fact]
+  public async Task Handle_InstallationGoneForAnUnknownAccount_ShouldCreateNothing()
+  {
+    OnTheLaneOfTheInstance();
+    Stored("installation", "deleted", InstallationBody(43, 2002, "stranger"));
+
+    await HandleAsync();
+
+    _directory.All.ShouldHaveSingleItem();
+    _directory.Upserts.ShouldBe(0);
   }
 
   [Theory]
@@ -276,7 +403,7 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   [InlineData("installation_repositories", "removed")]
   public async Task Handle_InstallationEventOnTheLaneOfTheInstance_ShouldQueueTheCoordinatorAndCreateNoRepository(string @event, string action)
   {
-    A.CallTo(() => _currentOrganization.IsKnown).Returns(false);
+    OnTheLaneOfTheInstance();
     Stored(@event, action, """{"repositories_removed":[{"id":7}],"repositories_added":[{"id":8}]}""");
 
     await HandleAsync();
@@ -285,7 +412,147 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     job.Type.ShouldBe(JobTypes.SyncInstallations);
     job.IsInstance.ShouldBeTrue();
     A.CallTo(_repositories).MustNotHaveHappened();
-    A.CallTo(_directory).MustNotHaveHappened();
+    _directory.Upserts.ShouldBe(0);
+  }
+
+  [Theory]
+  [InlineData("Organization", OrganizationAccountType.Organization)]
+  [InlineData("User", OrganizationAccountType.User)]
+  public async Task Handle_InstallationCreated_ShouldCreatePendingOrganization(string type, OrganizationAccountType accountType)
+  {
+    OnTheLaneOfTheInstance();
+    Stored("installation", "created", InstallationBody(43, 2002, "Newcomer", type));
+
+    await HandleAsync();
+
+    var organization = _directory.All.Single(o => o.ExternalAccountId == "2002");
+    organization.State.ShouldBe(OrganizationState.Pending);
+    organization.Login.ShouldBe("Newcomer");
+    organization.AccountType.ShouldBe(accountType);
+    organization.AdmittedBy.ShouldBeNull();
+    // Linked by the identifier of its account, and nothing is tracked.
+    var installation = _recorded.ShouldHaveSingleItem();
+    installation.Id.ShouldBe(43);
+    installation.OrganizationId.ShouldBe(organization.Id);
+    A.CallTo(_repositories).MustNotHaveHappened();
+    _queued.ShouldHaveSingleItem().Type.ShouldBe(JobTypes.SyncInstallations);
+  }
+
+  [Theory]
+  [InlineData("created")]
+  [InlineData("unsuspend")]
+  public async Task Handle_ReinstallSameAccount_ShouldReattachAndReactivate(string action)
+  {
+    OnTheLaneOfTheInstance();
+    var organization = _directory.Add("2002", "back-again", admitted: true);
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    Stored("installation", action, InstallationBody(44, 2002, "back-again"));
+
+    await HandleAsync();
+
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
+    _directory.All.Count.ShouldBe(2);
+    var installation = _recorded.ShouldHaveSingleItem();
+    installation.Id.ShouldBe(44);
+    installation.OrganizationId.ShouldBe(organization.Id);
+    // The repositories are listed by the coordinator, in the organization that is active again.
+    _queued.ShouldHaveSingleItem().Type.ShouldBe(JobTypes.SyncInstallations);
+  }
+
+  [Fact]
+  public async Task Handle_ReinstallBeforeAnyAdmission_ShouldGoBackToPendingNotActive()
+  {
+    OnTheLaneOfTheInstance();
+    var organization = _directory.Add("2002", "never-admitted");
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    Stored("installation", "created", InstallationBody(44, 2002, "never-admitted"));
+
+    await HandleAsync();
+
+    organization.State.ShouldBe(OrganizationState.Pending);
+    organization.AdmittedBy.ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(SuspensionReason.Administrator)]
+  [InlineData(SuspensionReason.ReservedLogin)]
+  public async Task Handle_AdminSuspended_ShouldStaySuspendedOnReinstall(SuspensionReason reason)
+  {
+    OnTheLaneOfTheInstance();
+    var organization = _directory.Add("2002", "blocked", admitted: true);
+    organization.Suspend(reason, Now);
+    Stored("installation", "created", InstallationBody(44, 2002, "blocked"));
+
+    await HandleAsync();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(reason);
+    // The installation is recorded all the same: the day the suspension is lifted, its deliveries find the organization.
+    _recorded.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
+  }
+
+  [Fact]
+  public async Task Handle_AdminSuspendedAfterTheRemoval_ShouldStaySuspendedOnReinstall()
+  {
+    OnTheLaneOfTheInstance();
+    var organization = _directory.Add("2002", "blocked", admitted: true);
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    organization.Suspend(SuspensionReason.Administrator, Now);
+    Stored("installation", "created", InstallationBody(44, 2002, "blocked"));
+
+    await HandleAsync();
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+  }
+
+  [Theory]
+  [InlineData("{}")]
+  [InlineData("""{"installation":{"id":44}}""")]
+  [InlineData("""{"installation":{"id":44,"account":{"id":2002}}}""")]
+  [InlineData("""{"installation":{"id":44,"account":{"id":2002,"login":"~stale-2002"}}}""")]
+  [InlineData("""{"installation":{"id":44,"account":{"id":2002,"slug":"an-enterprise"}}}""")]
+  public async Task Handle_InstallationCreatedWithoutAnAccountThatCanBeAnOrganization_ShouldCreateNothing(string body)
+  {
+    OnTheLaneOfTheInstance();
+    Stored("installation", "created", body);
+
+    await HandleAsync();
+
+    _directory.All.ShouldHaveSingleItem();
+    _recorded.ShouldBeEmpty();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_InstallationCreatedTwice_ShouldChangeNothingMore()
+  {
+    OnTheLaneOfTheInstance();
+    Stored("installation", "created", InstallationBody(43, 2002, "newcomer"));
+
+    await HandleAsync();
+    var organization = _directory.All.Single(o => o.ExternalAccountId == "2002");
+    var version = organization.Version;
+    A.CallTo(() => _installations.FindOwnerAsync(43, A<CancellationToken>._)).Returns(new InstallationOwner(organization.Id, organization.State));
+    await HandleAsync();
+
+    organization.Version.ShouldBe(version);
+    _directory.All.Count.ShouldBe(2);
+    _recorded.ShouldHaveSingleItem();
+  }
+
+  [Theory]
+  [InlineData("new_permissions_accepted")]
+  [InlineData(null)]
+  public async Task Handle_InstallationOtherAction_ShouldChangeNoOrganization(string? action)
+  {
+    OnTheLaneOfTheInstance();
+    Stored("installation", action, InstallationBody(43, 2002, "newcomer"));
+
+    await HandleAsync();
+
+    _directory.All.ShouldHaveSingleItem();
+    _directory.Upserts.ShouldBe(0);
   }
 
   [Fact]
@@ -463,6 +730,14 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     return "{\"action\":\"transferred\",\"changes\":{\"owner\":{\"from\":{\"organization\":{\"id\":" + previousOwnerId + "}}}},\"repository\":" + repository + "}";
   }
 
+  private static string InstallationBody(long installationId, long accountId, string login, string type = "Organization") =>
+    "{\"installation\":{\"id\":" + installationId + ",\"account\":{\"id\":" + accountId + ",\"login\":\"" + login + "\",\"type\":\"" + type + "\"}}}";
+
+  private void OnTheLaneOfTheInstance()
+  {
+    A.CallTo(() => _currentOrganization.IsKnown).Returns(false);
+  }
+
   private async Task HandleAsync() => await _handler.Handle(new HandleWebhookDeliveryCommand("d-1"), Ct);
 
   private void Stored(string @event, string? action, string body)
@@ -483,6 +758,19 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   private void NotTracked()
   {
     A.CallTo(() => _repositories.FindByExternalIdAsync(A<string>._, A<CancellationToken>._)).Returns((TrackedRepository?)null);
+  }
+
+  private void ReservedLoginAudited(string target)
+  {
+    A.CallTo(
+       () => _auditLog.RecordAsync(
+         "Organization.Suspend",
+         target,
+         A<IReadOnlyDictionary<string, string>?>.That.Matches(d => d != null && d["Reason"] == "ReservedLogin"),
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly();
   }
 
   private void Audited(string action, string tokens)

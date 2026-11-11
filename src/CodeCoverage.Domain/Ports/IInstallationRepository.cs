@@ -29,6 +29,16 @@ public interface IInstallationRepository
   /// <returns>The owner of the installation, or <see langword="null" /> when the installation is unknown.</returns>
   Task<InstallationOwner?> FindOwnerAsync(long id, CancellationToken cancellationToken);
 
+  /// <summary>Lists the installations recorded for an organization, the most recent first.</summary>
+  /// <param name="organizationId">The identifier of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The identifiers of its installations, the highest first: GitHub gives them in increasing order, whatever the
+  ///   order they were recorded in here.
+  /// </returns>
+  /// <remarks>The rows of the installations GitHub deleted are kept: this tells which ones existed, not which ones still do.</remarks>
+  Task<IReadOnlyList<long>> ListIdsForOrganizationAsync(long organizationId, CancellationToken cancellationToken);
+
   /// <summary>Adds an installation, saved at once.</summary>
   /// <param name="installation">The installation.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
