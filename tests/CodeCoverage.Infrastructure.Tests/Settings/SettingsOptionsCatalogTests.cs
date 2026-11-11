@@ -35,7 +35,6 @@ public sealed class SettingsOptionsCatalogTests
   private static readonly string[] KeysWithoutOptions =
   [
     SettingDefinitions.GitHubAppId,
-    SettingDefinitions.GitHubAppSlug,
     SettingDefinitions.GitHubClientSecret,
   ];
 

@@ -120,7 +120,11 @@ public sealed class NotificationServiceTests
     var resolver = new BaseResolver(_pullRequests, _commits, new CommitAncestry(_gitCommits, gateways, clock), new DiffProvider(diffCache, gateways, clock), gateways, processing, clock);
     var builder = new ComparisonBuilder(resolver, new CommitReportReader(_reports, _codec), views, A.Fake<IComparisonRepository>(), clock);
 
-    _service = new NotificationService(builder, views, _posted, _repositoryFlags, gateways, _settings, urls, clock, NullLogger<NotificationService>.Instance);
+    var notificationOptions = A.Fake<IOptionsMonitor<NotificationOptions>>();
+    A.CallTo(() => notificationOptions.CurrentValue).Returns(new NotificationOptions());
+    var comments = new CommentPublisher(gateways, _pullRequests, notificationOptions, urls, clock, NullLogger<CommentPublisher>.Instance);
+
+    _service = new NotificationService(builder, views, _posted, _repositoryFlags, gateways, comments, _settings, urls, clock, NullLogger<NotificationService>.Instance);
   }
 
   #endregion
@@ -238,9 +242,9 @@ public sealed class NotificationServiceTests
   }
 
   [Fact]
-  public async Task Publish_StatusesDisabled_ShouldPostNothing()
+  public async Task Publish_StatusesAndCommentsDisabled_ShouldPostNothing()
   {
-    Settings("coverage", enabled: false);
+    Settings("coverage", enabled: false, comments: false);
 
     (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(0);
 
@@ -248,6 +252,31 @@ public sealed class NotificationServiceTests
     _stored.ShouldBeEmpty();
     // Nothing is even computed: the forge is not asked for a diff.
     A.CallTo(_gateway).MustNotHaveHappened();
+  }
+
+  // The comment needs the comparison even when the organization publishes no status.
+  [Fact]
+  public async Task Publish_StatusesDisabledButCommentsEnabled_ShouldStillCompareAndPostNoStatus()
+  {
+    Settings("coverage", enabled: false);
+
+    (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(0);
+
+    _published.ShouldBeEmpty();
+    _stored.ShouldBeEmpty();
+    A.CallTo(() => _commits.FindByShaAsync(A<long>._, Parent, A<CancellationToken>._)).MustHaveHappened();
+  }
+
+  // A commit whose every upload failed has no comparison: the comment of its pull request stays as it is.
+  [Fact]
+  public async Task Publish_CommitInError_ShouldLeaveTheCommentUntouched()
+  {
+    await PublishAsync(Failed(), Config());
+
+    A.CallTo(() => _gateway.ListIssueCommentsAsync(A<ForgeRepositoryRef>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _gateway.CreateIssueCommentAsync(A<ForgeRepositoryRef>._, A<int>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _gateway.UpdateIssueCommentAsync(A<ForgeRepositoryRef>._, A<long>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _pullRequests.UpdateAsync(A<PullRequest>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   // The acceptance of M2.19: the page of the pull request in the Web console, else the page of the commit.
@@ -409,9 +438,9 @@ public sealed class NotificationServiceTests
   [Fact]
   public async Task Publish_Null_ShouldThrow()
   {
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.PublishStatusesAsync(null!, Forge.GitHub, Complete(HeadId, Head), Config(), Ct));
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.PublishStatusesAsync(_repository, Forge.GitHub, null!, Config(), Ct));
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.PublishStatusesAsync(_repository, Forge.GitHub, Complete(HeadId, Head), null!, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(null!, Forge.GitHub, Complete(HeadId, Head), Config(), 0, false, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, null!, Config(), 0, false, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, Complete(HeadId, Head), null!, 0, false, Ct));
   }
 
   // The built-in defaults, as the resolver merges them: project and patch on, adjust_base off to keep the numbers plain.
@@ -504,11 +533,11 @@ public sealed class NotificationServiceTests
     return commit;
   }
 
-  private Task<int> PublishAsync(Commit commit, CoverageConfig config) => _service.PublishStatusesAsync(_repository, Forge.GitHub, commit, config, Ct);
+  private Task<int> PublishAsync(Commit commit, CoverageConfig config) => _service.NotifyAsync(_repository, Forge.GitHub, commit, config, 0, false, Ct);
 
-  private void Settings(string prefix, bool enabled)
+  private void Settings(string prefix, bool enabled, bool comments = true)
   {
-    A.CallTo(() => _settings.GetAsync(A<CancellationToken>._)).Returns(new OrganizationSettingsSnapshot(prefix, enabled, true, null));
+    A.CallTo(() => _settings.GetAsync(A<CancellationToken>._)).Returns(new OrganizationSettingsSnapshot(prefix, enabled, comments, null));
   }
 
   private void Sessions(long commitId, byte blob, CoverageReport report)

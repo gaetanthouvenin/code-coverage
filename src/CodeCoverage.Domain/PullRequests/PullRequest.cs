@@ -7,6 +7,7 @@
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Guards;
 
 namespace CodeCoverage.Domain.PullRequests;
 
@@ -231,6 +232,69 @@ public sealed class PullRequest
   /// <param name="login">The login, or <see langword="null" />.</param>
   /// <returns>The login that is kept.</returns>
   private static string? ShortenLogin(string? login) => login?.Length > AuthorLoginMaxLength ? null : login;
+
+  /// <summary>Records the comment written on the forge for a head of the pull request.</summary>
+  /// <param name="commentId">The identifier the forge gives the comment.</param>
+  /// <param name="bodyHash">The hash of the body of the comment, <see cref="CommentBodyHashLength" /> bytes long.</param>
+  /// <param name="headSha">The head the comment was written for.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>Recording the same comment, with the same body for the same head, changes nothing.</remarks>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="commentId" /> is zero or negative.</exception>
+  /// <exception cref="ArgumentNullException"><paramref name="bodyHash" /> or <paramref name="headSha" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="bodyHash" /> does not have the length of a hash.</exception>
+  public void RecordComment(long commentId, byte[] bodyHash, GitSha headSha, DateTimeOffset at)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commentId);
+    ArgumentNullException.ThrowIfNull(bodyHash);
+    ArgumentNullException.ThrowIfNull(headSha);
+
+    ArgumentException.ThrowIf(
+      bodyHash.Length != CommentBodyHashLength,
+      $"The hash of a comment is {CommentBodyHashLength} bytes long.",
+      nameof(bodyHash)
+    );
+
+    if (commentId == CommentId && headSha == CommentedHeadSha && CommentBodyHash is not null && bodyHash.AsSpan().SequenceEqual(CommentBodyHash))
+    {
+      return;
+    }
+
+    CommentId = commentId;
+    CommentBodyHash = [.. bodyHash];
+    CommentedHeadSha = headSha;
+    Touch(at);
+  }
+
+  /// <summary>Tells whether a body is the one of the comment already written.</summary>
+  /// <param name="bodyHash">The hash of the body.</param>
+  /// <returns><see langword="true" /> when a comment is recorded with this hash.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="bodyHash" /> is <see langword="null" />.</exception>
+  public bool HasCommentBody(byte[] bodyHash)
+  {
+    ArgumentNullException.ThrowIfNull(bodyHash);
+
+    return CommentId is not null && CommentBodyHash is not null && bodyHash.AsSpan().SequenceEqual(CommentBodyHash);
+  }
+
+  /// <summary>Records what the head of the pull request was last compared to.</summary>
+  /// <param name="forkPointSha">The commit its branch forked from, or <see langword="null" /> when it could not be resolved.</param>
+  /// <param name="comparedToSha">The commit whose report was compared, or <see langword="null" /> when none was found.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>
+  ///   A base that receives its report later finds, by these two values, the pull requests whose comparison it
+  ///   changes. Recording the same values changes nothing.
+  /// </remarks>
+  public void RecordBase(GitSha? forkPointSha, GitSha? comparedToSha, DateTimeOffset at)
+  {
+    if (forkPointSha == ForkPointSha && comparedToSha == ComparedToSha)
+    {
+      return;
+    }
+
+    ForkPointSha = forkPointSha;
+    ComparedToSha = comparedToSha;
+    Touch(at);
+  }
 
   /// <summary>Tells whether a pull request can be recorded as the forge reports it.</summary>
   /// <param name="pull">What the forge reports.</param>

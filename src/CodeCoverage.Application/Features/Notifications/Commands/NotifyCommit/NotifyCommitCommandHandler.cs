@@ -149,7 +149,15 @@ internal sealed class NotifyCommitCommandHandler(
       return Unit.Value;
     }
 
-    var published = await notifications.PublishStatusesAsync(repository, organization.Forge, commit, resolved.Config, cancellationToken).ConfigureAwait(false);
+    var published = await notifications.NotifyAsync(
+                        repository,
+                        organization.Forge,
+                        commit,
+                        resolved.Config,
+                        all.Count(static upload => upload.State is UploadState.Failed),
+                        resolved.Errors.Count > 0,
+                        cancellationToken
+                      ).ConfigureAwait(false);
 
     if (published > 0 && commit.LastUploadAt is { } lastUpload)
     {

@@ -151,6 +151,29 @@ public sealed class GitHubAppTokenProviderTests : IDisposable
     _github.Server.LogEntries.Count().ShouldBe(1);
   }
 
+  // A second token for the same installation is harmless: its request is retried.
+  [Fact]
+  public async Task GetInstallationToken_TransientFailure_ShouldBeRetried()
+  {
+    const string Scenario = "transient";
+    _github.Server.Given(TokenRequest(Installation))
+           .InScenario(Scenario)
+           .WillSetStateTo("recovered")
+           .RespondWith(Response.Create().WithStatusCode(502));
+    _github.Server.Given(TokenRequest(Installation))
+           .InScenario(Scenario)
+           .WhenStateIs("recovered")
+           .RespondWith(
+             Response.Create()
+                     .WithStatusCode(201)
+                     .WithBody("{\"token\":\"ghs_retried\",\"expires_at\":\"" + DateTimeOffset.UtcNow.AddHours(1).ToString("O", CultureInfo.InvariantCulture) + "\"}")
+           );
+
+    (await _github.TokenProvider.GetInstallationTokenAsync(Installation, Cancellation)).ShouldBe("ghs_retried");
+
+    _github.Server.LogEntries.Count().ShouldBe(2);
+  }
+
   [Fact]
   public async Task GetInstallationToken_UnreadablePayload_ShouldThrowBadGateway()
   {

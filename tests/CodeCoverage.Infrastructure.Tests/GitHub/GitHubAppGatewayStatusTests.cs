@@ -120,6 +120,25 @@ public sealed class GitHubAppGatewayStatusTests : IDisposable
     );
   }
 
+  // A status sent twice replaces itself: unlike a comment, it is retried.
+  [Fact]
+  public async Task CreateStatus_TransientFailure_ShouldBeRetried()
+  {
+    const string Scenario = "transient";
+    _github.Server.Given(Request.Create().WithPath(Path).UsingPost())
+           .InScenario(Scenario)
+           .WillSetStateTo("recovered")
+           .RespondWith(Response.Create().WithStatusCode(502));
+    _github.Server.Given(Request.Create().WithPath(Path).UsingPost())
+           .InScenario(Scenario)
+           .WhenStateIs("recovered")
+           .RespondWith(Response.Create().WithStatusCode(201));
+
+    await _github.Gateway.CreateStatusAsync(Repository, Head, new CommitStatus("coverage/project", StatusState.Success, "ok"), null, Cancellation);
+
+    _github.Server.LogEntries.Count(static e => e.RequestMessage!.Path == Path).ShouldBe(2);
+  }
+
   [Fact]
   public async Task CreateStatus_NullArgument_ShouldThrow()
   {

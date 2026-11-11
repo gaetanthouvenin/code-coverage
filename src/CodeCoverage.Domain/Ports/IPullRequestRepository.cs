@@ -40,5 +40,17 @@ public interface IPullRequestRepository
   /// <exception cref="ArgumentNullException"><paramref name="pull" /> is <see langword="null" />.</exception>
   Task<PullRequest> UpsertAsync(long repositoryId, ForgePullInfo pull, DateTimeOffset at, CancellationToken cancellationToken);
 
+  /// <summary>Saves the changes of a pull request returned by this repository in this scope, at once.</summary>
+  /// <param name="pullRequest">The pull request.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the pull request is saved.</returns>
+  /// <remarks>
+  ///   Refused as a conflict (<c>General.ConcurrentChange</c>) when the row changed or disappeared since it was read:
+  ///   nothing of the change is kept.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="pullRequest" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
+  Task UpdateAsync(PullRequest pullRequest, CancellationToken cancellationToken);
+
   #endregion
 }

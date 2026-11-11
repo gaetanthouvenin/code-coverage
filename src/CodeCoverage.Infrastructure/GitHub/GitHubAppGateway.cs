@@ -11,6 +11,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
+using Microsoft.Extensions.Options;
+
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
@@ -26,12 +28,14 @@ namespace CodeCoverage.Infrastructure.GitHub;
 /// <summary>The readings of GitHub, through its REST API and the GitHub App.</summary>
 /// <param name="client">The <c>github</c> client, whose pipeline adds the API version and handles the rate limits.</param>
 /// <param name="tokens">The authentication of the server against GitHub.</param>
+/// <param name="options">The settings of the App, read at each use.</param>
 /// <remarks>
 ///   A tracked repository is read by its identifier, through <c>/repositories/{id}</c>, so a renaming never breaks a
 ///   reading; only the search of a repository that is not tracked yet goes by owner and name. A refusal other than the
 ///   absence of what was asked for is an answer no caller can use: it surfaces as a <see cref="BadGatewayException" />.
 /// </remarks>
-internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens) : IForgeGateway, IGitHubAppGateway
+internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens, IOptionsMonitor<GitHubOptions> options)
+  : IForgeGateway, IGitHubAppGateway
 {
   #region Fields
 
@@ -49,7 +53,22 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   // 100 000 installations or repositories: far beyond what one instance serves, and an end to a listing that never shrinks.
   private const int ListMaxPages = 1000;
 
+  // 10 000 comments on one pull request.
+  private const int CommentsMaxPages = 100;
+
   private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
+
+  /// <summary>
+  ///   The refusals of a new comment that are not failures: the pull request is gone, locked, or no longer takes
+  ///   comments.
+  /// </summary>
+  private static readonly HttpStatusCode[] CommentRefused =
+  [
+    HttpStatusCode.NotFound,
+    HttpStatusCode.Forbidden,
+    HttpStatusCode.Gone,
+    HttpStatusCode.UnprocessableEntity,
+  ];
 
   /// <summary>The refusals of the code of a manifest that is unknown, expired or already used.</summary>
   private static readonly HttpStatusCode[] ManifestCodeRefused = [HttpStatusCode.NotFound, HttpStatusCode.UnprocessableEntity];
@@ -272,6 +291,8 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
     using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
 
     request.Method = HttpMethod.Post;
+    // A status sent twice replaces itself.
+    request.Options.Set(GitHubHttpClientConfiguration.Repeatable, true);
     request.Content = JsonContent.Create(
       new GitHubStatusRequest(state, status.Context, status.Description, targetUrl),
       GitHubJsonContext.Default.GitHubStatusRequest
@@ -307,6 +328,117 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
     return GitSha.TryParse(read.Commit?.Sha, out var head)
              ? head
              : throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub answered the reading of '{address}' without the commit of the branch.");
+  }
+
+  /// <inheritdoc />
+  /// <remarks>
+  ///   A comment was written by this application when its author is the bot account of the App,
+  ///   <c>{slug}[bot]</c>. Until the slug of the App is known (<c>GitHub:AppSlug</c>), no comment is.
+  /// </remarks>
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   GitHub refused the reading, does not answer, answered with an unreadable payload, or the pull request has more
+  ///   comments than this instance reads.
+  /// </exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<IReadOnlyList<ForgeIssueComment>> ListIssueCommentsAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
+
+    var (installationId, root) = Locate(repository);
+    var author = options.CurrentValue.AppSlug is { Length: > 0 } slug ? $"{slug}[bot]" : null;
+    var comments = new List<ForgeIssueComment>();
+
+    for (var page = 1; page <= CommentsMaxPages; page++)
+    {
+      var read = await GetAsync<IReadOnlyList<GitHubIssueCommentResponse>, IReadOnlyList<ForgeIssueComment>>(
+                   installationId,
+                   string.Create(CultureInfo.InvariantCulture, $"{root}/issues/{number}/comments?per_page={ListPerPage}&page={page}"),
+                   GitHubJsonContext.Default.IReadOnlyListGitHubIssueCommentResponse,
+                   NotFound,
+                   list =>
+                   [
+                     .. list.Select(comment => new ForgeIssueComment(
+                                      comment.Id,
+                                      comment.Body ?? string.Empty,
+                                      author is not null && string.Equals(comment.User?.Login, author, StringComparison.OrdinalIgnoreCase)
+                                    )
+                     ),
+                   ],
+                   cancellationToken
+                 ).ConfigureAwait(false);
+
+      if (read is null)
+      {
+        return [];
+      }
+
+      comments.AddRange(read);
+
+      if (read.Count < ListPerPage)
+      {
+        return comments;
+      }
+    }
+
+    // A partial listing could miss the comment of this application, and a second one would be written.
+    throw new BadGatewayException(GitHubErrors.Unavailable, "The pull request has more comments than this instance reads.");
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the comment for another reason, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<long?> CreateIssueCommentAsync(ForgeRepositoryRef repository, int number, string body, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(body);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
+
+    var (installationId, root) = Locate(repository);
+    var address = string.Create(CultureInfo.InvariantCulture, $"{root}/issues/{number}/comments");
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Post;
+    request.Content = JsonContent.Create(new GitHubIssueCommentRequest(body), GitHubJsonContext.Default.GitHubIssueCommentRequest);
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    var created = await ReadAsync(
+                    response,
+                    address,
+                    GitHubJsonContext.Default.GitHubIssueCommentResponse,
+                    CommentRefused,
+                    static comment => comment,
+                    cancellationToken
+                  ).ConfigureAwait(false);
+
+    return created?.Id;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the update for another reason or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<bool> UpdateIssueCommentAsync(ForgeRepositoryRef repository, long commentId, string body, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(body);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commentId);
+
+    var (installationId, root) = Locate(repository);
+    var address = string.Create(CultureInfo.InvariantCulture, $"{root}/issues/comments/{commentId}");
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Patch;
+    request.Content = JsonContent.Create(new GitHubIssueCommentRequest(body), GitHubJsonContext.Default.GitHubIssueCommentRequest);
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return !IsAbsent(response, address, NotFound);
   }
 
   /// <inheritdoc />

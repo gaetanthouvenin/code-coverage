@@ -695,6 +695,19 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
     (await _github.Gateway.ConvertManifestAsync("the-code", Cancellation)).ShouldBeNull();
   }
 
+  // The code of a manifest is accepted once: a conversion sent again after a lost answer would be refused.
+  [Fact]
+  public async Task ConvertManifest_TransientFailure_ShouldBeSentOnce()
+  {
+    _github.Server
+           .Given(Request.Create().WithPath("/app-manifests/the-code/conversions").UsingPost())
+           .RespondWith(Response.Create().WithStatusCode(502));
+
+    await Should.ThrowAsync<BadGatewayException>(() => _github.Gateway.ConvertManifestAsync("the-code", Cancellation));
+
+    _github.Server.LogEntries.Count().ShouldBe(1);
+  }
+
   [Fact]
   public async Task ListPullFiles_ShouldReadEveryPage()
   {
