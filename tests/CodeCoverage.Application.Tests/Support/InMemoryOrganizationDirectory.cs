@@ -58,6 +58,9 @@ internal sealed class InMemoryOrganizationDirectory(DateTimeOffset now) : IOrgan
 
   #region Implementation of IOrganizationDirectory
 
+  public Task<Organization?> FindAsync(long id, CancellationToken cancellationToken) =>
+    Task.FromResult(_organizations.SingleOrDefault(o => o.Id == id));
+
   public Task<Organization?> FindByLoginAsync(Forge forge, string login, CancellationToken cancellationToken) =>
     Task.FromResult(_organizations.SingleOrDefault(o => o.Forge == forge && o.NormalizedLogin == Organization.NormalizeLogin(login)));
 

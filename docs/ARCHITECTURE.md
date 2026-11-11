@@ -427,7 +427,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | Table | Colonnes principales (PK en gras) | Index et remarques |
 |---|---|---|
 | **Organizations** | **Id**, Forge, ExternalAccountId (texte, ≤ 40, en minuscules), Login (≤ 255), NormalizedLogin, AccountType, State (`Pending`, `Active`, `Suspended`), SuspensionReason?, AdmittedBy?, CreatedAt, UpdatedAt, Version | UX(Forge, ExternalAccountId) ; UX(Forge, NormalizedLogin), sans filtre. Un login repris par un autre compte de la même forge devient `~stale-{ExternalAccountId}` sur l'ancienne ligne. |
-| **OrganizationMemberships** | **Id**, UserId, OrganizationId, Role (`Participant`, `Admin`), RefreshedAt | UX(UserId, OrganizationId). Une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien. |
+| **OrganizationMemberships** | **Id**, UserId, OrganizationId, Role (`Participant`, `Admin`), RefreshedAt | UX(OrganizationId, UserId) : il sert aussi la clé étrangère vers l'organisation. Une ligne plus ancienne que `Access:HardExpiryMinutes` n'accorde rien. |
 | **OrganizationSettings** | **Id**, Key, Value, UpdatedAt, UpdatedBy | UX(OrganizationId, Key). Valeurs des 4 clés de portée `Organization` (§4bis.1). |
 | **Installations** | **Id** (id d'installation GitHub, bigint), OrganizationId FK, AccountType, SuspendedAt?, CreatedAt, UpdatedAt | Table propre à GitHub (ADR-014). Le login du compte est dans `Organizations`. |
 | **Repositories** | **Id**, ExternalId (texte), InstallationId FK, Namespace (≤ 512, chaîne vide hors projet Azure DevOps et sous-groupes GitLab), NormalizedNamespace, Owner, Name, NormalizedName, DefaultBranch, IsPrivate, IsActive, TransferredAt? (ligne close par un transfert, §8.3), BadgeTokenProtected (Data Protection, affichable dans le snippet README), DefaultBranchYaml?, DefaultBranchYamlSha?, CreatedAt, UpdatedAt, Version | UX(OrganizationId, ExternalId) ; UX(OrganizationId, NormalizedNamespace, NormalizedName). Owner et Name sont mis à jour lors d'un renommage ; ExternalId reste l'identité stable. Owner n'est qu'une copie d'affichage, jamais employée pour résoudre, autoriser ou appeler la forge. |
@@ -849,6 +849,7 @@ OUTPUT inserted.*;
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
+| `RefreshUserMemberships` | `memberships:{userId}` | `memberships:{userId}` (fusion) | `RefreshUserMembershipsCommand(userId)`, sur la voie d'instance : les appartenances d'un utilisateur couvrent plusieurs organisations |
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
 | `SyncInstallationRepositories` | `installation:{installationId}` | `sync:installation:{installationId}` (fusion) | `SyncInstallationRepositoriesCommand(installationId)`, dans l'organisation |
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |

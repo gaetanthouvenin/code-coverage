@@ -124,6 +124,48 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
   /// <exception cref="UnauthorizedException">GitHub no longer accepts the token.</exception>
   /// <exception cref="BadGatewayException">
   ///   GitHub refused the reading, does not answer, answered with an unreadable payload, or its pages do not hold the
+  ///   installations it counted.
+  /// </exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(string accessToken, CancellationToken cancellationToken)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
+
+    var installations = new Dictionary<long, GitHubInstallationInfo>();
+
+    for (var page = 1; page <= ListMaxPages; page++)
+    {
+      var address = string.Create(CultureInfo.InvariantCulture, $"user/installations?per_page={ListPerPage}&page={page}");
+      var read = await GetAsync(accessToken, address, GitHubJsonContext.Default.GitHubUserInstallationsResponse, absentWhenNotFound: false, cancellationToken)
+                   .ConfigureAwait(false);
+
+      foreach (var installation in read!.Installations)
+      {
+        installations[installation.Id] = new GitHubInstallationInfo(
+          installation.Id,
+          installation.Account.Id.ToString(CultureInfo.InvariantCulture),
+          installation.Account.Login ?? string.Empty,
+          GitHubAccountTypes.ToAccountType(installation.Account.Type),
+          installation.SuspendedAt is not null
+        );
+      }
+
+      if (read.Installations.Count < ListPerPage)
+      {
+        // A list that does not hold what GitHub counted would take organizations away from the user: read again later.
+        return installations.Count == read.TotalCount
+                 ? [.. installations.Values]
+                 : throw new BadGatewayException(GitHubErrors.Unavailable, "The installations of the user changed while they were listed.");
+      }
+    }
+
+    throw new BadGatewayException(GitHubErrors.Unavailable, "The user reaches more installations than this instance reads.");
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="UnauthorizedException">GitHub no longer accepts the token.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   GitHub refused the reading, does not answer, answered with an unreadable payload, or its pages do not hold the
   ///   repositories it counted.
   /// </exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>

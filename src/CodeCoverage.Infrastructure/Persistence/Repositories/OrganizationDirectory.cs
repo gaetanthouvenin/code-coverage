@@ -137,6 +137,10 @@ internal sealed class OrganizationDirectory(
   }
 
   /// <inheritdoc />
+  public async Task<Organization?> FindAsync(long id, CancellationToken cancellationToken) =>
+    await context.Organizations.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, cancellationToken).ConfigureAwait(false);
+
+  /// <inheritdoc />
   public async Task<Organization?> FindByAccountIdAsync(
     Forge forge,
     string externalAccountId,

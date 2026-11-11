@@ -17,6 +17,12 @@ public interface IOrganizationDirectory
 {
   #region Methods
 
+  /// <summary>Finds an organization by its identifier, whatever its state.</summary>
+  /// <param name="id">The identifier of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The organization, or <see langword="null" />.</returns>
+  Task<Organization?> FindAsync(long id, CancellationToken cancellationToken);
+
   /// <summary>Finds an organization by the current login of its account, whatever its case.</summary>
   /// <param name="forge">The forge of the account.</param>
   /// <param name="login">The login.</param>

@@ -19,7 +19,7 @@ internal static class TableClassification
 
   /// <summary>Gets the tables without business data, read before an organization is entered.</summary>
   public static IReadOnlySet<string> Global { get; } =
-    new[] { "DataProtectionKeys", "Installations", "Organizations", "Settings", "SettingsRevision", "Users" }.ToFrozenSet(StringComparer.Ordinal);
+    new[] { "DataProtectionKeys", "Installations", "OrganizationMemberships", "Organizations", "Settings", "SettingsRevision", "Users" }.ToFrozenSet(StringComparer.Ordinal);
 
   /// <summary>Gets the tables of the rows of one organization, under the query filter.</summary>
   public static IReadOnlySet<string> OrganizationOwned { get; } =

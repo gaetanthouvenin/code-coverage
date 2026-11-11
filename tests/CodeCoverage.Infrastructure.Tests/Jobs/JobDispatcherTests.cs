@@ -6,6 +6,7 @@
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
@@ -146,6 +147,17 @@ public sealed class JobDispatcherTests
     A.CallTo(() => _sender.Send(new SyncInstallationsCommand(repository, owner), Ct)).MustHaveHappenedOnceExactly();
   }
 
+  [Fact]
+  public async Task Dispatch_RefreshUserMemberships_ShouldSendTheRefreshOfThatUser()
+  {
+    var job = Job(JobTypes.RefreshUserMemberships, 42);
+    job.PayloadJson = RefreshUserMembershipsJobs.Create(7).PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new RefreshUserMembershipsCommand(7), Ct)).MustHaveHappenedOnceExactly();
+  }
+
   // What the factories of the Domain write is what the dispatcher reads.
   [Fact]
   public async Task Dispatch_PayloadsOfTheFactories_ShouldBeRead()
@@ -173,6 +185,8 @@ public sealed class JobDispatcherTests
   [InlineData(JobTypes.HandleWebhook, """{"deliveryId":7}""")]
   [InlineData(JobTypes.HandleWebhook, "not json")]
   [InlineData(JobTypes.SyncInstallations, "not json")]
+  [InlineData(JobTypes.RefreshUserMemberships, "{}")]
+  [InlineData(JobTypes.RefreshUserMemberships, """{"UserId":"x"}""")]
   [InlineData(JobTypes.SyncInstallationRepositories, "{}")]
   [InlineData(JobTypes.SyncInstallationRepositories, """{"InstallationId":"x"}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, "{}")]
