@@ -14,6 +14,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositor
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
+using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
@@ -213,6 +214,33 @@ public sealed class JobDispatcherTests
 
     A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, false), Ct)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, true), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  // What the factory of the Domain writes is what the dispatcher reads.
+  [Fact]
+  public async Task Dispatch_SyncPullRequest_ShouldSendTheSynchronizationOfThePullRequest()
+  {
+    var job = Job(JobTypes.SyncPullRequest, 42);
+    job.PayloadJson = SyncPullRequestJobs.Create(5, 12).PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new SyncPullRequestCommand(5, 12), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("{}")]
+  [InlineData("not json")]
+  [InlineData("""{"RepositoryId":5}""")]
+  [InlineData("""{"Number":12}""")]
+  [InlineData("""{"RepositoryId":"five","Number":12}""")]
+  [InlineData("""{"RepositoryId":5,"Number":12.5}""")]
+  public async Task Dispatch_SyncPullRequestWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
+  {
+    var job = Job(JobTypes.SyncPullRequest, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
   }
 
   [Theory]

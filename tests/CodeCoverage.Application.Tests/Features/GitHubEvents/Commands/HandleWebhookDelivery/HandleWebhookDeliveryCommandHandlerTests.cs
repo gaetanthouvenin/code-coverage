@@ -850,7 +850,93 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
   }
 
   [Theory]
-  [InlineData("pull_request")]
+  [InlineData("opened")]
+  [InlineData("synchronize")]
+  [InlineData("reopened")]
+  [InlineData("edited")]
+  [InlineData("ready_for_review")]
+  [InlineData("closed")]
+  public async Task Handle_PullRequest_ShouldQueueItsSynchronizationInTheOrganizationOfTheScope(string action)
+  {
+    TrackedWithId("octo/repo");
+    // Whatever the body says about the pull request, only its number is read.
+    Stored("pull_request", action, """{"number":12,"pull_request":{"number":12,"state":"closed","head":{"sha":"0000000000000000000000000000000000000001"}}}""");
+
+    await HandleAsync();
+
+    var job = _queued.ShouldHaveSingleItem();
+    job.Type.ShouldBe(JobTypes.SyncPullRequest);
+    job.OrganizationId.ShouldBeNull();
+    job.IsInstance.ShouldBeFalse();
+    job.PayloadJson.ShouldBe("""{"RepositoryId":5,"Number":12}""");
+    job.LockKey.ShouldBe("pull:5:12");
+    job.DedupKey.ShouldBe("syncpr:5:12");
+    job.Coalesce.ShouldBeTrue();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("labeled")]
+  [InlineData("assigned")]
+  [InlineData("review_requested")]
+  [InlineData("converted_to_draft")]
+  [InlineData(null)]
+  public async Task Handle_PullRequestOtherAction_ShouldQueueNothingAndReadNoRepository(string? action)
+  {
+    Stored("pull_request", action, """{"number":12}""");
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+    A.CallTo(_repositories).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_PullRequestWithoutNumber_ShouldQueueNothing()
+  {
+    TrackedWithId("octo/repo");
+    Stored("pull_request", "opened", """{"pull_request":{}}""");
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+  }
+
+  [Theory]
+  [InlineData(false)]
+  [InlineData(true)]
+  public async Task Handle_PullRequestOfARepositoryThatIsNotTracked_ShouldQueueNothing(bool known)
+  {
+    if (known)
+    {
+      TrackedWithId("octo/repo").Deactivate(Now);
+    }
+    else
+    {
+      NotTracked();
+    }
+
+    Stored("pull_request", "opened", """{"number":12}""");
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_PullRequestOnTheLaneOfTheInstance_ShouldReadNoRepository()
+  {
+    OnTheLaneOfTheInstance();
+    Stored("pull_request", "opened", """{"number":12}""");
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+    A.CallTo(_repositories).MustNotHaveHappened();
+  }
+
+  [Theory]
   [InlineData("installation_target")]
   public async Task Handle_EventOfALaterFeature_ShouldOnlyMarkTheDeliveryProcessed(string @event)
   {

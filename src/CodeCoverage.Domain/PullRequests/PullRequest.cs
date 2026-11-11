@@ -232,12 +232,26 @@ public sealed class PullRequest
   /// <returns>The login that is kept.</returns>
   private static string? ShortenLogin(string? login) => login?.Length > AuthorLoginMaxLength ? null : login;
 
+  /// <summary>Tells whether a pull request can be recorded as the forge reports it.</summary>
+  /// <param name="pull">What the forge reports.</param>
+  /// <returns>
+  ///   <see langword="false" /> when one of its branches is longer than <see cref="BranchMaxLength" />: a cut branch
+  ///   would name another branch, so such a pull request is not recorded at all.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="pull" /> is <see langword="null" />.</exception>
+  public static bool CanRecord(ForgePullInfo pull)
+  {
+    ArgumentNullException.ThrowIfNull(pull);
+
+    return pull.HeadBranch.Length <= BranchMaxLength && pull.BaseBranch.Length <= BranchMaxLength;
+  }
+
   /// <summary>Refuses a branch that does not fit its column: a cut branch would name another branch.</summary>
   /// <param name="pull">What the forge reports.</param>
   /// <exception cref="ArgumentException">A branch is too long.</exception>
   private static void ThrowIfBranchTooLong(ForgePullInfo pull)
   {
-    if (pull.HeadBranch.Length > BranchMaxLength || pull.BaseBranch.Length > BranchMaxLength)
+    if (!CanRecord(pull))
     {
       throw new ArgumentException($"A branch cannot be longer than {BranchMaxLength} characters.", nameof(pull));
     }
