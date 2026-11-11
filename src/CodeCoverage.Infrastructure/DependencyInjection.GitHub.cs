@@ -34,6 +34,8 @@ public static partial class DependencyInjection
     services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
     services.AddSingleton<ISetupTokenIssuer, SetupTokenIssuer>();
     services.AddTransient<IGitHubAppGateway>(static provider => provider.GetRequiredService<GitHubAppGateway>());
+    services.AddTransient<IGitHubUserGateway>(static provider => provider.GetRequiredService<GitHubUserGateway>());
+    services.AddSingleton<IGitHubUserTokenProvider, GitHubUserTokenProvider>();
     services.AddTransient<IForgeGatewayProvider, ForgeGatewayProvider>();
 
     return services;

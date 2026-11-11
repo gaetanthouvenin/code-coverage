@@ -145,6 +145,22 @@ public sealed class AppUser
     Version++;
   }
 
+  /// <summary>Forgets the tokens of the user: GitHub no longer accepts them.</summary>
+  /// <remarks>A user without any token is left as it is.</remarks>
+  public void ClearTokens()
+  {
+    if (AccessTokenProtected is null && RefreshTokenProtected is null && AccessTokenExpiresAt is null && RefreshTokenExpiresAt is null)
+    {
+      return;
+    }
+
+    AccessTokenProtected = null;
+    AccessTokenExpiresAt = null;
+    RefreshTokenProtected = null;
+    RefreshTokenExpiresAt = null;
+    Version++;
+  }
+
   /// <summary>Records whether the user is an administrator of the instance.</summary>
   /// <param name="isAdmin">Whether the user is one.</param>
   public void SetInstanceAdmin(bool isAdmin)

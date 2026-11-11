@@ -24,10 +24,23 @@ internal static class GitHubHttpClientConfiguration
   public const string ClientName = "github";
 
   /// <summary>
+  ///   The name of the client of the web host of GitHub, where the tokens of the users are renewed. It has no retry:
+  ///   a refresh token is accepted once, and a request sent again after a lost answer would be refused. Its timeout
+  ///   is <see cref="OAuthTimeout" />: the renewal of a user holds the lock of that user.
+  /// </summary>
+  public const string OAuthClientName = "github-oauth";
+
+  /// <summary>How long a renewal of a user token may take.</summary>
+  public static readonly TimeSpan OAuthTimeout = TimeSpan.FromSeconds(30);
+
+  /// <summary>
   ///   The option that marks a POST GitHub may receive twice without harm, such as a status or an installation token:
   ///   only such a POST is retried.
   /// </summary>
   public static readonly HttpRequestOptionsKey<bool> Repeatable = new("CodeCoverage.GitHub.Repeatable");
+
+  /// <summary>The web host of GitHub; GitHub Enterprise Server is out of scope.</summary>
+  private static readonly Uri OAuthBaseAddress = new("https://github.com/", UriKind.Absolute);
 
   private const string ApiVersion = "2022-11-28";
 
@@ -73,6 +86,17 @@ internal static class GitHubHttpClientConfiguration
             );
 
     services.AddHttpClient<GitHubAppGateway>(ClientName);
+    services.AddHttpClient<GitHubUserGateway>(ClientName);
+    services.AddHttpClient(
+      OAuthClientName,
+      static client =>
+      {
+        client.BaseAddress = OAuthBaseAddress;
+        client.Timeout = OAuthTimeout;
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+      }
+    );
 
     return services;
   }

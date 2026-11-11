@@ -22,5 +22,5 @@ internal sealed record GitHubPullResponse(
   bool Merged,
   GitHubPullBranch Head,
   GitHubPullBranch Base,
-  GitHubUser? User = null,
+  GitHubAuthor? User = null,
   string? MergeCommitSha = null);

@@ -44,6 +44,12 @@ internal sealed partial class RateLimitHandler(
   /// </summary>
   public static readonly HttpRequestOptionsKey<long> InstallationId = new("CodeCoverage.GitHub.InstallationId");
 
+  /// <summary>
+  ///   The option that marks a request sent with a user token: its quota is the one of that user, and is not
+  ///   published under the installation nor under the App.
+  /// </summary>
+  public static readonly HttpRequestOptionsKey<bool> UserToken = new("CodeCoverage.GitHub.UserToken");
+
   private const string RemainingHeader = "x-ratelimit-remaining";
 
   private const string ResetHeader = "x-ratelimit-reset";
@@ -154,6 +160,11 @@ internal sealed partial class RateLimitHandler(
   /// <param name="response">The response.</param>
   private void PublishQuota(HttpRequestMessage request, HttpResponseMessage response)
   {
+    if (request.Options.TryGetValue(UserToken, out var user) && user)
+    {
+      return;
+    }
+
     if (ReadNumber(response, RemainingHeader) is not { } remaining)
     {
       return;
