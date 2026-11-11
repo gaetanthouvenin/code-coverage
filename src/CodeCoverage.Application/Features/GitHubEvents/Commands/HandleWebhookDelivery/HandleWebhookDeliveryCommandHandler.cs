@@ -29,6 +29,8 @@ namespace CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookD
 /// <param name="reconciler">What the deliveries and the reconciliations share.</param>
 /// <param name="lifecycle">What an installation does to the organization of its account.</param>
 /// <param name="pushes">What applies a push to its branch.</param>
+/// <param name="users">The repository of the users.</param>
+/// <param name="auditLog">The audit trail.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   Every branch gives the same result when it runs twice: a delivery GitHub sends again, or a job that is
@@ -44,6 +46,8 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   RepositoryReconciler reconciler,
   InstallationLifecycle lifecycle,
   PushProcessor pushes,
+  IUserRepository users,
+  IAuditLog auditLog,
   IClock clock) : ICommandHandler<HandleWebhookDeliveryCommand>
 {
   #region Fields
@@ -57,6 +61,14 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   private const string PushEvent = "push";
 
   private const string PullRequestEvent = "pull_request";
+
+  private const string InstallationTargetEvent = "installation_target";
+
+  private const string OrganizationEvent = "organization";
+
+  private const string MemberEvent = "member";
+
+  private const string MembershipEvent = "membership";
 
   #endregion
 
@@ -146,6 +158,81 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
         return true;
       default:
         return false;
+    }
+  }
+
+  /// <summary>Applies the rename of the account of an installation, an organization or a personal account.</summary>
+  /// <param name="delivery">The delivery of an <c>installation_target</c> event.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the rename is applied.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     The organization is found by the identifier of the account, never by a login. An account this instance
+  ///     does not know is left alone: only an installation creates an organization. A login that is not well
+  ///     formed is ignored, and the delivery is recorded as handled.
+  ///   </para>
+  ///   <para>
+  ///     A reserved login suspends an active organization, with an audit entry; it stays suspended until an
+  ///     administrator acts. Otherwise, in the scope of that organization, the rewrite of the owner of its
+  ///     repositories is queued, even when the login was already applied: the delivery may be handled again
+  ///     after a failure between the two.
+  ///   </para>
+  /// </remarks>
+  private async Task HandleAccountRenamedAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
+  {
+    var body = GitHubInstallationTargetEvent.Parse(delivery.Payload);
+
+    if (body.AccountId is not { } accountId
+        || body.Login is not { } login
+        || !Organization.IsWellFormedLogin(login)
+        || await directory.FindByAccountIdAsync(Forge.GitHub, accountId, cancellationToken).ConfigureAwait(false) is not { } known)
+    {
+      return;
+    }
+
+    var wasActive = known.State is OrganizationState.Active;
+    var renamed = await directory.UpsertFromForgeAsync(Forge.GitHub, accountId, login, body.AccountType ?? known.AccountType, cancellationToken)
+                                 .ConfigureAwait(false);
+
+    if (renamed.State is not OrganizationState.Active)
+    {
+      if (wasActive && renamed.SuspensionReason is SuspensionReason.ReservedLogin)
+      {
+        await auditLog.RecordAsync(
+                        "Organization.Suspend",
+                        $"{Forge.GitHub}/{renamed.Login}",
+                        new Dictionary<string, string>(StringComparer.Ordinal) { ["Reason"] = nameof(SuspensionReason.ReservedLogin) },
+                        cancellationToken
+                      )
+                      .ConfigureAwait(false);
+      }
+
+      return;
+    }
+
+    // The job runs in the organization of the scope: it is queued only when that organization is the renamed one.
+    if (currentOrganization.IsKnown
+        && await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false) is { } current
+        && string.Equals(current.ExternalAccountId, renamed.ExternalAccountId, StringComparison.Ordinal))
+    {
+      await jobQueue.EnqueueAsync(RewriteRepositoryOwnerJobs.Create(), cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <summary>Queues the refresh of the memberships of the user an event is about.</summary>
+  /// <param name="delivery">The delivery of an <c>organization</c>, <c>member</c> or <c>membership</c> event.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the refresh is queued, or when there is none to queue.</returns>
+  /// <remarks>
+  ///   Nothing is decided from the body: the job asks GitHub. A user who never signed in has no membership to
+  ///   refresh, and an action that names no user queues nothing.
+  /// </remarks>
+  private async Task HandleMemberAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
+  {
+    if (GitHubMemberEvent.Parse(delivery.Payload).UserExternalId is { } externalId
+        && await users.FindByExternalIdAsync(Forge.GitHub, externalId, cancellationToken).ConfigureAwait(false) is { } user)
+    {
+      await jobQueue.EnqueueAsync(RefreshUserMembershipsJobs.Create(user.Id), cancellationToken).ConfigureAwait(false);
     }
   }
 
@@ -334,6 +421,14 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
         break;
       case PullRequestEvent when currentOrganization.IsKnown:
         await HandlePullRequestAsync(delivery, cancellationToken).ConfigureAwait(false);
+
+        break;
+      case InstallationTargetEvent when delivery.Action is "renamed":
+        await HandleAccountRenamedAsync(delivery, cancellationToken).ConfigureAwait(false);
+
+        break;
+      case OrganizationEvent or MemberEvent or MembershipEvent when currentOrganization.IsKnown:
+        await HandleMemberAsync(delivery, cancellationToken).ConfigureAwait(false);
 
         break;
     }

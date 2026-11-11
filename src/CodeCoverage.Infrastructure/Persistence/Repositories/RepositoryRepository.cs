@@ -10,6 +10,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
@@ -85,6 +86,38 @@ internal sealed class RepositoryRepository(CodeCoverageDbContext context, SqlJob
                  .ThenBy(static r => r.NormalizedName)
                  .ToListAsync(cancellationToken)
                  .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<long?> RewriteOwnerAsync(string owner, long afterId, int batchSize, CancellationToken cancellationToken)
+  {
+    ArgumentException.ThrowIf(!Organization.IsWellFormedLogin(owner), $"The login '{owner}' is not well formed.", nameof(owner));
+    ArgumentOutOfRangeException.ThrowIfNegative(afterId);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+
+    var ids = await context.Repositories
+                           .Where(r => r.Id > afterId)
+                           .OrderBy(static r => r.Id)
+                           .Select(static r => r.Id)
+                           .Take(batchSize)
+                           .ToListAsync(cancellationToken)
+                           .ConfigureAwait(false);
+
+    if (ids.Count == 0)
+    {
+      return null;
+    }
+
+    var last = ids[^1];
+
+    // Every row of the batch is written, whatever it holds: comparing the stored owner with the new one would
+    // skip a rename that only changes the case, on a database whose collation ignores it.
+    await context.Repositories
+                 .Where(r => r.Id > afterId && r.Id <= last)
+                 .ExecuteUpdateAsync(setters => setters.SetProperty(static r => r.Owner, owner), cancellationToken)
+                 .ConfigureAwait(false);
+
+    return last;
+  }
 
   /// <inheritdoc />
   /// <exception cref="ConflictException">A concurrent save added the same name or external identifier.</exception>

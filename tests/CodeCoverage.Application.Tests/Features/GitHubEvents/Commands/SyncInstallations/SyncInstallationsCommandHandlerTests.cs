@@ -73,6 +73,9 @@ public sealed class SyncInstallationsCommandHandlerTests
 
   private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+  // What is queued besides the rewrite of the owner, which every active organization gets.
+  private List<JobRequest> Children => [.. _queued.Where(static j => j.Type != JobTypes.RewriteRepositoryOwner)];
+
   #endregion
 
   #region Methods
@@ -86,15 +89,39 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    _queued.Count.ShouldBe(2);
-    _queued[0].OrganizationId.ShouldBe(first.Id);
-    _queued[0].Type.ShouldBe(JobTypes.SyncInstallationRepositories);
-    _queued[0].PayloadJson.ShouldBe("""{"InstallationId":42}""");
-    _queued[0].LockKey.ShouldBe("installation:42");
-    _queued[0].DedupKey.ShouldBe("sync:installation:42");
-    _queued[0].Coalesce.ShouldBeTrue();
-    _queued[1].OrganizationId.ShouldBe(second.Id);
-    _queued[1].PayloadJson.ShouldBe("""{"InstallationId":43}""");
+    Children.Count.ShouldBe(2);
+    Children[0].OrganizationId.ShouldBe(first.Id);
+    Children[0].Type.ShouldBe(JobTypes.SyncInstallationRepositories);
+    Children[0].PayloadJson.ShouldBe("""{"InstallationId":42}""");
+    Children[0].LockKey.ShouldBe("installation:42");
+    Children[0].DedupKey.ShouldBe("sync:installation:42");
+    Children[0].Coalesce.ShouldBeTrue();
+    Children[1].OrganizationId.ShouldBe(second.Id);
+    Children[1].PayloadJson.ShouldBe("""{"InstallationId":43}""");
+  }
+
+  // F19, S10. A rename learned here reaches the repositories GitHub no longer lists, inactive ones included: the
+  // organization gets the rewrite of the owner of its repositories, which reads its login when it runs. An
+  // organization whose login did not change gets none.
+  [Fact]
+  public async Task Handle_ShouldQueueTheRewriteOfTheOwnerOfAnActiveOrganizationRenamedOnly()
+  {
+    var renamed = _directory.Add("1001", "former-login", admitted: true);
+    var pending = _directory.Add("2002", "pending");
+    var unchanged = _directory.Add("3003", "same-login", admitted: true);
+    Listed(Installed(42, "1001", "new-login"), Installed(43, "2002", "pending"), Installed(44, "3003", "same-login"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    renamed.Login.ShouldBe("new-login");
+    var rewrite = _queued.Where(static j => j.Type == JobTypes.RewriteRepositoryOwner).ShouldHaveSingleItem();
+    rewrite.OrganizationId.ShouldBe(renamed.Id);
+    rewrite.PayloadJson.ShouldBe("{}");
+    rewrite.LockKey.ShouldBe(RewriteRepositoryOwnerJobs.Key);
+    rewrite.DedupKey.ShouldBe(RewriteRepositoryOwnerJobs.Key);
+    rewrite.Coalesce.ShouldBeTrue();
+    _queued.ShouldNotContain(j => j.OrganizationId == pending.Id);
+    _queued.ShouldNotContain(j => j.OrganizationId == unchanged.Id && j.Type == JobTypes.RewriteRepositoryOwner);
   }
 
   [Fact]
@@ -115,7 +142,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     installation.Id.ShouldBe(42);
     installation.OrganizationId.ShouldBe(organization.Id);
     installation.CreatedAt.ShouldBe(Now);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Fact]
@@ -128,7 +155,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     organization.State.ShouldBe(OrganizationState.Pending);
     _recorded.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Fact]
@@ -153,7 +180,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
     _recorded.ShouldBeEmpty();
-    _queued.ShouldHaveSingleItem();
+    Children.ShouldHaveSingleItem();
   }
 
   [Fact]
@@ -166,7 +193,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
+    Children.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
   }
 
   [Fact]
@@ -180,7 +207,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     // The delivery of installation.suspend was lost. GitHub refuses every call made for this installation.
     organization.State.ShouldBe(OrganizationState.Suspended);
     organization.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Fact]
@@ -196,7 +223,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     gone.State.ShouldBe(OrganizationState.Suspended);
     gone.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
     served.State.ShouldBe(OrganizationState.Active);
-    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(served.Id);
+    Children.ShouldHaveSingleItem().OrganizationId.ShouldBe(served.Id);
   }
 
   // F21. The pages of the listing are numbered: an installation added or removed between two pages shifts the next
@@ -299,7 +326,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     organization.State.ShouldBe(OrganizationState.Active);
     _directory.Upserts.ShouldBe(0);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Fact]
@@ -315,7 +342,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     organization.State.ShouldBe(OrganizationState.Active);
     organization.SuspensionReason.ShouldBeNull();
     _recorded.ShouldHaveSingleItem().Id.ShouldBe(44);
-    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
+    Children.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
   }
 
   [Fact]
@@ -328,7 +355,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
     organization.State.ShouldBe(OrganizationState.Pending);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Theory]
@@ -344,7 +371,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     organization.State.ShouldBe(OrganizationState.Suspended);
     organization.SuspensionReason.ShouldBe(reason);
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Theory]
@@ -359,7 +386,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
     _directory.All.ShouldHaveSingleItem();
-    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(other.Id);
+    Children.ShouldHaveSingleItem().OrganizationId.ShouldBe(other.Id);
   }
 
   [Fact]
@@ -380,7 +407,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
   }
 
   [Fact]
@@ -404,7 +431,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     await _handler.Handle(new SyncInstallationsCommand("7", "2002"), Ct);
 
-    var job = _queued.ShouldHaveSingleItem();
+    var job = Children.ShouldHaveSingleItem();
     job.OrganizationId.ShouldBe(origin.Id);
     job.Type.ShouldBe(JobTypes.ReconcileRepositoryTransfer);
     job.PayloadJson.ShouldBe("""{"RepositoryExternalId":"7"}""");
@@ -426,7 +453,7 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     await _handler.Handle(new SyncInstallationsCommand("7", "2002"), Ct);
 
-    _queued.ShouldBeEmpty();
+    Children.ShouldBeEmpty();
     A.CallTo(_gitHub).MustNotHaveHappened();
   }
 

@@ -18,6 +18,7 @@ using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Tests.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 
@@ -59,6 +60,8 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
   private readonly IAuditLog _auditLog = A.Fake<IAuditLog>();
 
+  private readonly IUserRepository _users = A.Fake<IUserRepository>();
+
   private readonly IClock _clock = A.Fake<IClock>();
 
   private readonly List<JobRequest> _queued = [];
@@ -78,6 +81,7 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     var protector = A.Fake<ISecretProtector>();
 
     A.CallTo(() => _clock.UtcNow).Returns(Now);
+    A.CallTo(() => _users.FindByExternalIdAsync(A<Forge>._, A<string>._, A<CancellationToken>._)).Returns((AppUser?)null);
     A.CallTo(() => _currentOrganization.IsKnown).Returns(true);
     A.CallTo(() => _currentOrganization.Id).Returns(9);
     _directory.Current = _directory.Add(AccountId, "octo", admitted: true);
@@ -115,6 +119,8 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
         gateways,
         _clock
       ),
+      _users,
+      _auditLog,
       _clock
     );
   }
@@ -974,6 +980,271 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     var repository = RepositoryBody.Replace("\"id\":1001", "\"id\":" + ownerId, StringComparison.Ordinal);
 
     return "{\"action\":\"transferred\",\"changes\":{\"owner\":{\"from\":{\"organization\":{\"id\":" + previousOwnerId + "}}}},\"repository\":" + repository + "}";
+  }
+
+  [Fact]
+  public async Task Handle_InstallationTargetRenamed_ShouldUpdateLoginByAccountId()
+  {
+    // The former login of the body is not the one this instance holds: only the identifier of the account counts.
+    Stored("installation_target", "renamed", Renamed(1001, "New-Octo", "Organization", from: "someone-else"));
+
+    await HandleAsync();
+
+    var organization = _directory.All.ShouldHaveSingleItem();
+
+    organization.ExternalAccountId.ShouldBe(AccountId);
+    organization.Login.ShouldBe("New-Octo");
+    organization.NormalizedLogin.ShouldBe("new-octo");
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.AccountType.ShouldBe(OrganizationAccountType.Organization);
+    ShouldHaveQueuedTheRewrite();
+    A.CallTo(_auditLog).MustNotHaveHappened();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // The acceptance of the micro-feature: a personal account is renamed as an organization is.
+  [Fact]
+  public async Task Handle_PersonalAccountRenamed_ShouldRewriteRepositoryOwner()
+  {
+    _directory.All[0].ChangeAccountType(OrganizationAccountType.User, Now);
+    Stored("installation_target", "renamed", Renamed(1001, "octocat-renamed", "User"));
+
+    await HandleAsync();
+
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octocat-renamed");
+    _directory.Current.AccountType.ShouldBe(OrganizationAccountType.User);
+    ShouldHaveQueuedTheRewrite();
+  }
+
+  // The body does not say the kind of account: the one already known is kept.
+  [Fact]
+  public async Task Handle_RenamedWithoutAKindOfAccount_ShouldKeepTheKnownOne()
+  {
+    _directory.All[0].ChangeAccountType(OrganizationAccountType.User, Now);
+    Stored("installation_target", "renamed", """{"action":"renamed","account":{"id":1001,"login":"octocat-renamed"}}""");
+
+    await HandleAsync();
+
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octocat-renamed");
+    _directory.Current.AccountType.ShouldBe(OrganizationAccountType.User);
+  }
+
+  [Fact]
+  public async Task Handle_RenamedToReservedLogin_ShouldSuspend()
+  {
+    Stored("installation_target", "renamed", Renamed(1001, "admin", "Organization"));
+
+    await HandleAsync();
+
+    var organization = _directory.Current.ShouldNotBeNull();
+
+    organization.Login.ShouldBe("admin");
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    // The worker refuses a job of an organization that is not active: none is queued for it.
+    _queued.ShouldBeEmpty();
+    A.CallTo(
+       () => _auditLog.RecordAsync(
+         "Organization.Suspend",
+         "GitHub/admin",
+         A<IReadOnlyDictionary<string, string>?>.That.Matches(d => d != null && d["Reason"] == "ReservedLogin"),
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+
+    // The delivery again, then a login that is free: nothing lifts the suspension, only an administrator does.
+    await HandleAsync();
+    Stored("installation_target", "renamed", Renamed(1001, "octo-again", "Organization"));
+    await HandleAsync();
+
+    organization.Login.ShouldBe("octo-again");
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    _queued.ShouldBeEmpty();
+    A.CallTo(_auditLog).MustHaveHappenedOnceExactly();
+  }
+
+  // A pending organization stays pending under a reserved login: nothing was suspended, nothing is audited.
+  [Fact]
+  public async Task Handle_PendingOrganizationRenamedOnTheLaneOfTheInstance_ShouldUpdateLoginAndQueueNothing()
+  {
+    OnTheLaneOfTheInstance();
+    _directory.Current = null;
+    var pending = _directory.Add("2002", "pending-org");
+    Stored("installation_target", "renamed", Renamed(2002, "admin", "Organization"));
+
+    await HandleAsync();
+
+    pending.Login.ShouldBe("admin");
+    pending.State.ShouldBe(OrganizationState.Pending);
+    _queued.ShouldBeEmpty();
+    A.CallTo(_auditLog).MustNotHaveHappened();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // A suspended organization is renamed on the lane of the instance too; its repositories wait for the
+  // reconciliation that follows its reactivation.
+  [Fact]
+  public async Task Handle_SuspendedOrganizationRenamed_ShouldUpdateLoginAndQueueNothing()
+  {
+    OnTheLaneOfTheInstance();
+    var suspended = _directory.All[0];
+    suspended.Suspend(SuspensionReason.Administrator, Now);
+    _directory.Current = null;
+    Stored("installation_target", "renamed", Renamed(1001, "new-octo", "Organization"));
+
+    await HandleAsync();
+
+    suspended.Login.ShouldBe("new-octo");
+    suspended.SuspensionReason.ShouldBe(SuspensionReason.Administrator);
+    _queued.ShouldBeEmpty();
+    A.CallTo(_auditLog).MustNotHaveHappened();
+  }
+
+  // The delivery handled again after a failure: the login is already applied, the rewrite is still asked for.
+  [Fact]
+  public async Task Handle_InstallationTargetRenamedAgain_ShouldStillQueueTheRewrite()
+  {
+    Stored("installation_target", "renamed", Renamed(1001, "octo", "Organization"));
+
+    await HandleAsync();
+
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octo");
+    ShouldHaveQueuedTheRewrite();
+  }
+
+  // The job would run in the organization of the scope: it is not queued for another account.
+  [Fact]
+  public async Task Handle_RenameOfAnotherAccountThanTheScope_ShouldNotQueueTheRewrite()
+  {
+    var other = _directory.Add("2002", "other-org", admitted: true);
+    Stored("installation_target", "renamed", Renamed(2002, "other-renamed", "Organization"));
+
+    await HandleAsync();
+
+    other.Login.ShouldBe("other-renamed");
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octo");
+    _queued.ShouldBeEmpty();
+  }
+
+  [Theory]
+  // An account this instance does not know: only an installation creates an organization.
+  [InlineData("""{"action":"renamed","account":{"id":9009,"login":"stranger"},"target_type":"Organization"}""")]
+  // A login that is not well formed, or missing.
+  [InlineData("""{"action":"renamed","account":{"id":1001,"login":"not a login"}}""")]
+  [InlineData("""{"action":"renamed","account":{"id":1001,"login":""}}""")]
+  [InlineData("""{"action":"renamed","account":{"id":1001}}""")]
+  [InlineData("""{"action":"renamed","account":{"login":"new-octo"}}""")]
+  [InlineData("{}")]
+  public async Task Handle_InstallationTargetThatCannotBeApplied_ShouldBeRecordedAsHandled(string body)
+  {
+    Stored("installation_target", "renamed", body);
+
+    await HandleAsync();
+
+    _directory.All.ShouldHaveSingleItem().Login.ShouldBe("octo");
+    _directory.Upserts.ShouldBe(0);
+    _queued.ShouldBeEmpty();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_InstallationTargetOtherAction_ShouldChangeNothing()
+  {
+    Stored("installation_target", "something_new", Renamed(1001, "new-octo", "Organization"));
+
+    await HandleAsync();
+
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octo");
+    _queued.ShouldBeEmpty();
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_MemberRemoved_ShouldQueueMembershipRefresh()
+  {
+    KnownUser("583231", 77);
+    Stored("organization", "member_removed", """{"action":"member_removed","membership":{"role":"member","state":"active","user":{"id":583231,"login":"octocat"}},"organization":{"id":1001}}""");
+
+    await HandleAsync();
+
+    ShouldHaveQueuedTheRefreshOf(77);
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Theory]
+  [InlineData("organization", "member_added", """{"membership":{"user":{"id":583231}}}""")]
+  // A collaborator of a repository, who may be an outside one.
+  [InlineData("member", "added", """{"member":{"id":583231},"repository":{"id":7}}""")]
+  [InlineData("member", "removed", """{"member":{"id":583231},"repository":{"id":7}}""")]
+  [InlineData("member", "edited", """{"member":{"id":583231},"repository":{"id":7}}""")]
+  // A member of a team.
+  [InlineData("membership", "added", """{"scope":"team","member":{"id":583231},"team":{"id":3}}""")]
+  [InlineData("membership", "removed", """{"scope":"team","member":{"id":583231},"team":{"id":3}}""")]
+  public async Task Handle_EventAboutAMember_ShouldQueueMembershipRefresh(string @event, string action, string body)
+  {
+    KnownUser("583231", 77);
+    Stored(@event, action, body);
+
+    await HandleAsync();
+
+    ShouldHaveQueuedTheRefreshOf(77);
+  }
+
+  [Theory]
+  // A user who never signed in has no membership to refresh.
+  [InlineData("organization", "member_removed", """{"membership":{"user":{"id":999}}}""")]
+  [InlineData("member", "removed", """{"member":{"id":999}}""")]
+  // No user in the body.
+  [InlineData("organization", "renamed", """{"organization":{"id":1001,"login":"new-octo"}}""")]
+  [InlineData("organization", "deleted", """{"organization":{"id":1001}}""")]
+  [InlineData("membership", "added", "{}")]
+  public async Task Handle_EventAboutNoKnownUser_ShouldQueueNothing(string @event, string action, string body)
+  {
+    KnownUser("583231", 77);
+    Stored(@event, action, body);
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+    // The rename of an organization is applied from installation_target, by the identifier of the account.
+    _directory.Current.ShouldNotBeNull().Login.ShouldBe("octo");
+    A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  private static string Renamed(long accountId, string login, string targetType, string from = "octo") =>
+    "{\"action\":\"renamed\",\"account\":{\"id\":" + accountId + ",\"login\":\"" + login + "\"},\"changes\":{\"login\":{\"from\":\"" + from
+    + "\"}},\"target_type\":\"" + targetType + "\"}";
+
+  private void KnownUser(string externalId, long id)
+  {
+    var user = AppUser.Create(Forge.GitHub, externalId, "octocat", null);
+
+    typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, id);
+    A.CallTo(() => _users.FindByExternalIdAsync(Forge.GitHub, externalId, A<CancellationToken>._)).Returns(user);
+  }
+
+  private void ShouldHaveQueuedTheRewrite()
+  {
+    var job = _queued.ShouldHaveSingleItem();
+
+    job.Type.ShouldBe(JobTypes.RewriteRepositoryOwner);
+    // In the organization of the scope, with no organization named by the handler.
+    job.IsInstance.ShouldBeFalse();
+    job.OrganizationId.ShouldBeNull();
+    job.DedupKey.ShouldBe(RewriteRepositoryOwnerJobs.Key);
+  }
+
+  private void ShouldHaveQueuedTheRefreshOf(long userId)
+  {
+    var job = _queued.ShouldHaveSingleItem();
+
+    job.Type.ShouldBe(JobTypes.RefreshUserMemberships);
+    job.IsInstance.ShouldBeTrue();
+    job.PayloadJson.ShouldBe(RefreshUserMembershipsJobs.Create(userId).PayloadJson);
+    job.DedupKey.ShouldBe(RefreshUserMembershipsJobs.Create(userId).DedupKey);
   }
 
   private static string Push(string reference, string commits = "[]") =>

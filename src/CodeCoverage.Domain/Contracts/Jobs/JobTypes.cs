@@ -53,6 +53,12 @@ public static class JobTypes
   /// <summary>Puts the ended uploads of a commit back in the queue, so that they are parsed again from their raw files.</summary>
   public const string ReprocessCommit = "ReprocessCommit";
 
+  /// <summary>
+  ///   Rewrites the owner of the repositories of an organization, a copy for display, after its account was
+  ///   renamed.
+  /// </summary>
+  public const string RewriteRepositoryOwner = "RewriteRepositoryOwner";
+
   /// <summary>Reads a pull request again from its forge and records it.</summary>
   public const string SyncPullRequest = "SyncPullRequest";
 

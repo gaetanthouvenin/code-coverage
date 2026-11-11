@@ -14,6 +14,7 @@ using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
@@ -169,6 +170,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.RefreshUserMemberships:
         await sender.Send(new RefreshUserMembershipsCommand(Read(job, static p => p.GetProperty("UserId").GetInt64())), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.RewriteRepositoryOwner:
+        await sender.Send(new RewriteRepositoryOwnerCommand(), cancellationToken).ConfigureAwait(false);
         break;
 
       case JobTypes.SweepPendingCommits:

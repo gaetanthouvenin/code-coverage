@@ -23,8 +23,9 @@ namespace CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallati
 /// <remarks>
 ///   <para>
 ///     A coordinator (ADR-013): it reads and writes only global tables, <c>Installations</c> and
-///     <c>Organizations</c>, and queues one job per active organization, by its identifier. An organization that
-///     is not active gets no job, so none of its repositories is created.
+///     <c>Organizations</c>, and queues, per active organization and by its identifier, the reconciliation of its
+///     repositories, and the rewrite of their owner when the listing renames the account. An organization that is
+///     not active gets no job, so none of its repositories is created.
 ///   </para>
 ///   <para>
 ///     It repairs the deliveries of the <c>installation</c> event that were lost, both ways: an unknown account
@@ -173,6 +174,8 @@ internal sealed class SyncInstallationsCommandHandler(
 
     foreach (var installation in listed)
     {
+      // Read as a value before the listing is applied: a directory may give the instance it then changes.
+      var storedLogin = (await directory.FindByAccountIdAsync(Forge.GitHub, installation.AccountId, cancellationToken).ConfigureAwait(false))?.Login;
       var organization = await FollowAsync(installation, cancellationToken).ConfigureAwait(false);
 
       if (organization is not { State: OrganizationState.Active })
@@ -191,6 +194,24 @@ internal sealed class SyncInstallationsCommandHandler(
       );
 
       await jobQueue.EnqueueAsync(job, cancellationToken).ConfigureAwait(false);
+
+      if (storedLogin is null || string.Equals(storedLogin, organization.Login, StringComparison.Ordinal))
+      {
+        continue;
+      }
+
+      // A rename learned here reaches the repositories GitHub no longer lists as well: the rewrite reads the login
+      // of the organization when it runs.
+      var rewrite = JobRequest.ForOrganization(
+        organization.Id,
+        JobTypes.RewriteRepositoryOwner,
+        "{}",
+        RewriteRepositoryOwnerJobs.Key,
+        RewriteRepositoryOwnerJobs.Key,
+        coalesce: true
+      );
+
+      await jobQueue.EnqueueAsync(rewrite, cancellationToken).ConfigureAwait(false);
     }
 
     await SuspendUnservedAsync(served, cancellationToken).ConfigureAwait(false);
