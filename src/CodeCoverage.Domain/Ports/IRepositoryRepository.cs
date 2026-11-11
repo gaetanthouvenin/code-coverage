@@ -66,6 +66,21 @@ public interface IRepositoryRepository
   /// <exception cref="InvalidOperationException">The instance was not read in this scope.</exception>
   Task UpdateAsync(TrackedRepository repository, CancellationToken cancellationToken);
 
+  /// <summary>Rewrites the owner of the next repositories of the organization, in the order of their identifiers.</summary>
+  /// <param name="owner">The login of the account that owns them.</param>
+  /// <param name="afterId">The identifier the batch starts after; 0 for the first batch.</param>
+  /// <param name="batchSize">How many repositories one call rewrites at most.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The identifier of the last repository of the batch, or <see langword="null" /> when none is left.</returns>
+  /// <remarks>
+  ///   The owner is a copy for display: the rows are written at once, inactive ones included, without their
+  ///   <c>Version</c> nor their date of update, so no save in progress is refused because of it. Running it again
+  ///   changes nothing more.
+  /// </remarks>
+  /// <exception cref="ArgumentException"><paramref name="owner" /> is not a well-formed login.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="afterId" /> is negative, or <paramref name="batchSize" /> is zero or negative.</exception>
+  Task<long?> RewriteOwnerAsync(string owner, long afterId, int batchSize, CancellationToken cancellationToken);
+
   /// <summary>Saves a repository, new or returned by a <c>Find</c> method of this scope, and queues a job in the same transaction.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="job">The job that the change calls for.</param>

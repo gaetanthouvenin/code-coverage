@@ -853,6 +853,7 @@ OUTPUT inserted.*;
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
 | `SyncInstallationRepositories` | `installation:{installationId}` | `sync:installation:{installationId}` (fusion) | `SyncInstallationRepositoriesCommand(installationId)`, dans l'organisation |
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
+| `RewriteRepositoryOwner` | `owner-rewrite` | `owner-rewrite` (fusion) | `RewriteRepositoryOwnerCommand`, dans l'organisation dont le compte a été renommé, par `installation_target` ou par le listage de `SyncInstallations` : réécrit `Repositories.Owner` par lots, lignes inactives comprises, avec le login lu dans `Organizations` à l'exécution |
 | `SweepPendingCommits` | `sweep` | `sweep` (fusion) | `SweepPendingCommitsCommand`. Sur la voie d'instance, toutes les 5 minutes : coordinateur, qui met en file un job du même type par organisation `Active`. Dans l'organisation : met en file `NotifyCommit` (`notify:{id}:sweep`) pour ses commits bloqués |
 | `PurgeExpiredData` | `purge` | `purge` | quotidien |
 

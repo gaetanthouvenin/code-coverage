@@ -12,6 +12,7 @@ using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
@@ -145,6 +146,17 @@ public sealed class JobDispatcherTests
     await new JobDispatcher(_sender).DispatchAsync(job, Ct);
 
     A.CallTo(() => _sender.Send(new SyncInstallationsCommand(repository, owner), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Dispatch_RewriteRepositoryOwner_ShouldSendTheRewrite()
+  {
+    var job = Job(JobTypes.RewriteRepositoryOwner, 42);
+    job.PayloadJson = RewriteRepositoryOwnerJobs.Create().PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new RewriteRepositoryOwnerCommand(), Ct)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
