@@ -1,0 +1,25 @@
+<!-- code-coverage:comment -->
+## [Coverage](https://coverage.example.com/github/octo/repo/pull/123) Report
+:x: Patch coverage is `72.50%` with `11 lines` in your changes missing coverage. Please review.
+:white_check_mark: Project coverage is 81.23%. Comparing base ([`a1b2c3d`](https://coverage.example.com/github/octo/repo/commit/a1b2c3d000000000000000000000000000000000)) to head ([`e4f5a6b`](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000)).
+> :warning: Diff incomplete (more than 3000 files); patch coverage is partial.
+> :warning: The configuration file of this commit is not valid and was ignored.
+
+<details><summary>Additional details and impacted files</summary>
+
+```diff
+@@            Coverage Diff             @@
+##             main     #123      +/-   ##
+==========================================
++ Coverage   80.90%   81.23%   +0.33%
+==========================================
+  Files         210      212       +2
+  Lines       15000    15100     +100
+  Branches     3000     3010      +10
+==========================================
++ Hits        12135    12266     +131
++ Misses       2500     2480      -20
++ Partials      365      354      -11
+```
+
+</details>

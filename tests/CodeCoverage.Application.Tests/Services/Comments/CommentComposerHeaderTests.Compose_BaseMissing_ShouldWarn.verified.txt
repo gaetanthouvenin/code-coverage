@@ -1,0 +1,24 @@
+<!-- code-coverage:comment -->
+## [Coverage](https://coverage.example.com/github/octo/repo/pull/123) Report
+:x: Patch coverage is `72.50%` with `11 lines` in your changes missing coverage. Please review.
+:white_check_mark: Project coverage is 81.23%.
+> :warning: Please upload report for BASE (`main@a1b2c3d`).
+
+<details><summary>Additional details and impacted files</summary>
+
+```diff
+@@          Coverage Diff          @@
+##           main     #123   +/-   ##
+=====================================
+  Coverage      ?   81.23%
+=====================================
+  Files         ?      212
+  Lines         ?    15100
+  Branches      ?     3010
+=====================================
+  Hits          ?    12266
+  Misses        ?     2480
+  Partials      ?      354
+```
+
+</details>
