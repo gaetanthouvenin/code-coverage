@@ -10,6 +10,8 @@
     <PackageReference Include="Testcontainers.MsSql" Version="4.*" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.*" />
     <PackageReference Include="WireMock.Net.Minimal" Version="2.*" />
+    <!-- WireMock.Net brings 2.3.0, which GHSA-6527-9fp8-r4x6 names: the patched 2.3 line is referenced directly. -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.3.*" />
   </ItemGroup>
 
   <ItemGroup>
