@@ -13,10 +13,15 @@ namespace CodeCoverage.Application.Services;
 /// <summary>Writes the body of the comment of a pull request (ARCHITECTURE §8.4).</summary>
 /// <remarks>
 ///   <para>
-///     The body starts with the hidden marker, then the title and the header. The other sections follow in the
-///     order of <c>comment.layout</c>, each as often as it is listed, folded under one <c>details</c> element;
-///     the footer closes the body. The header comes first wherever the layout lists it, and is written even
-///     when the layout lists none (<c>condensed_header</c> of Codecov, which writes the same lines).
+///     The body starts with the hidden marker, then the title and the header. The <c>diff</c>, <c>flags</c> and
+///     <c>files</c> sections follow in the order of <c>comment.layout</c>, each as often as it is listed, folded
+///     under one <c>details</c> element; the footer closes the body. The header comes first wherever the layout
+///     lists it, and is written even when the layout lists none (<c>condensed_header</c> of Codecov, which writes
+///     the same lines).
+///   </para>
+///   <para>
+///     A body over <see cref="CommentTruncator.MaxLength" /> characters gives up rows of files, then the folded
+///     sections, and says so.
 ///   </para>
 ///   <para>
 ///     Pure: the same content gives the same text, with line feeds only, so that its hash tells whether the
@@ -42,25 +47,40 @@ internal static class CommentComposer
 
   /// <summary>Writes the body of the comment.</summary>
   /// <param name="content">What the comment is written from.</param>
-  /// <returns>The Markdown of the comment, without a final line feed.</returns>
+  /// <returns>
+  ///   The Markdown of the comment, without a final line feed and at most
+  ///   <see cref="CommentTruncator.MaxLength" /> characters long.
+  /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="content" /> is <see langword="null" />.</exception>
   public static string Compose(CommentContent content)
   {
     ArgumentNullException.ThrowIfNull(content);
 
+    return CommentTruncator.Fit(content.Config.Comment.FilesLimit, files => Write(content, files));
+  }
+
+  /// <summary>Writes the body with a given number of files.</summary>
+  /// <param name="content">What the comment is written from.</param>
+  /// <param name="files">
+  ///   The number of files the comment lists, at most; <see langword="null" /> to leave every folded section out.
+  /// </param>
+  /// <returns>The Markdown of the comment.</returns>
+  private static string Write(CommentContent content, int? files)
+  {
+    var layout = content.Config.Comment.Layout;
+    var shortened = files is null || files < content.Config.Comment.FilesLimit;
     var lines = new List<string>
     {
       content.Marker,
       $"## {CommentFormatting.Link(CommentFormatting.Escape(content.Title), content.Links.Pull(content.Pull.Number))} Report",
     };
 
-    lines.AddRange(WriteHeader(content));
+    lines.AddRange(WriteHeader(content, shortened));
     lines.Add(string.Empty);
 
-    IReadOnlyList<string>[] folded =
-    [
-      .. content.Config.Comment.Layout.Select(section => WriteSection(section, content)).Where(static section => section.Count > 0),
-    ];
+    IReadOnlyList<string>[] folded = files is { } limit
+                                       ? [.. layout.Select(section => WriteSection(section, content, limit)).Where(static section => section.Count > 0)]
+                                       : [];
 
     if (folded.Length > 0)
     {
@@ -83,6 +103,11 @@ internal static class CommentComposer
       }
     }
 
+    if (layout.Contains(CommentSection.Footer))
+    {
+      lines.Add(FooterRenderer.Render(content));
+    }
+
     while (lines[^1].Length == 0)
     {
       lines.RemoveAt(lines.Count - 1);
@@ -94,14 +119,15 @@ internal static class CommentComposer
   /// <summary>Writes one of the sections that are folded.</summary>
   /// <param name="section">The section, as the layout names it.</param>
   /// <param name="content">What the comment is written from.</param>
+  /// <param name="files">The number of files the comment lists, at most.</param>
   /// <returns>The lines of the section; empty for a section that is written elsewhere, or that has nothing to show.</returns>
-  private static IReadOnlyList<string> WriteSection(CommentSection section, CommentContent content)
+  private static IReadOnlyList<string> WriteSection(CommentSection section, CommentContent content, int files)
   {
     var comparison = content.Context.Comparison.Result;
 
     return section switch
     {
-      // The project coverage is hidden with everything that details it.
+      // The project coverage is hidden with the table that details it.
       CommentSection.Diff when !content.Config.Comment.HideProjectCoverage => DiffTableRenderer.Render(
         content.Pull.BaseBranch,
         string.Create(System.Globalization.CultureInfo.InvariantCulture, $"#{content.Pull.Number}"),
@@ -111,14 +137,17 @@ internal static class CommentComposer
         content.HeadFileCount,
         content.Config
       ),
+      CommentSection.Flags => FlagTableRenderer.Render(content),
+      CommentSection.Files => FileTableRenderer.Render(content, files),
       var _ => [],
     };
   }
 
   /// <summary>Writes the header: the patch, the project, and what the reader must know about the base.</summary>
   /// <param name="content">What the comment is written from.</param>
+  /// <param name="shortened">Whether the body leaves out what would make it too long.</param>
   /// <returns>The lines of the header.</returns>
-  private static List<string> WriteHeader(CommentContent content)
+  private static List<string> WriteHeader(CommentContent content, bool shortened)
   {
     var comparison = content.Context.Comparison.Result;
     var lines = new List<string> { WritePatch(content) };
@@ -136,6 +165,13 @@ internal static class CommentComposer
     if (content.ConfigInvalid)
     {
       lines.Add("> :warning: The configuration file of this commit is not valid and was ignored.");
+    }
+
+    if (shortened)
+    {
+      var report = CommentFormatting.Link("the full report", content.Links.Pull(content.Pull.Number));
+
+      lines.Add($"> :warning: This comment is too long to show every file: see {report}.");
     }
 
     return lines;

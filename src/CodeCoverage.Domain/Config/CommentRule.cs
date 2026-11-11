@@ -25,12 +25,8 @@ public sealed class CommentRule
     "betaprofiling",
     "changes",
     "components",
-    "condensed_files",
-    "condensed_footer",
     "feedback",
     "file",
-    "newfiles",
-    "newfooter",
     "newheader",
     "reach",
     "suggestions",
@@ -147,12 +143,15 @@ public sealed class CommentRule
       "condensed_header" => CommentSection.CondensedHeader,
       "diff" => CommentSection.Diff,
       "flag" or "flags" => CommentSection.Flags,
-      "files" or "tree" => CommentSection.Files,
-      "footer" => CommentSection.Footer,
+      // Codecov writes the table of the files with missing lines for newfiles and condensed_files: the one of files here.
+      "files" or "tree" or "newfiles" or "condensed_files" => CommentSection.Files,
+      "footer" or "newfooter" or "condensed_footer" => CommentSection.Footer,
       var _ => null,
     };
 
   private static string SectionName(string entry) => entry.Split(':')[0];
+
+  private static bool IsShortName(string name) => name is "newfiles" or "condensed_files" or "newfooter" or "condensed_footer";
 
   private static string[] ReadLayoutEntries(ConfigNode settings, ICollection<ConfigWarning> warnings)
   {
@@ -176,7 +175,11 @@ public sealed class CommentRule
     {
       if (ToSection(name) is { } section)
       {
-        layout.Add(section);
+        // A short name of a section the layout already writes, newfiles beside files for instance, adds nothing.
+        if (!IsShortName(name) || (!layout.Contains(section) && !entries.Select(SectionName).Any(other => !IsShortName(other) && ToSection(other) == section)))
+        {
+          layout.Add(section);
+        }
       }
       else
       {

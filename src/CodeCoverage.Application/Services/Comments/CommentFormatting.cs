@@ -25,6 +25,12 @@ internal static class CommentFormatting
   /// <summary>The text of a value that is missing, as the legend of the comment names it.</summary>
   public const string Missing = "?";
 
+  /// <summary>
+  ///   What a cell of coverage writes for a coverage, or a change, that cannot be computed although the base is there:
+  ///   the empty set, as <c>make_metrics</c> of Codecov writes it.
+  /// </summary>
+  public const string NotComputed = "∅";
+
   /// <summary>The number of characters of a SHA that the comment shows.</summary>
   private const int ShortShaLength = 7;
 
@@ -52,6 +58,42 @@ internal static class CommentFormatting
       null => Missing,
       0 => CoverageMath.NoImpact,
       var _ => CoverageMath.FormatDelta(value, config.Precision, config.Rounding) + "%",
+    };
+
+  /// <summary>Writes the cell that compares a coverage with its base, as <c>make_metrics</c> of Codecov does.</summary>
+  /// <param name="head">The totals of the head.</param>
+  /// <param name="baseTotals">The totals of the base, or <see langword="null" /> when the base holds none.</param>
+  /// <param name="patch">The coverage of the lines of the patch, or <see langword="null" /> when the patch has no coverable line.</param>
+  /// <param name="config">The configuration, for the precision and the rounding.</param>
+  /// <param name="missingBase">What the change says when the base does not hold what the cell describes.</param>
+  /// <returns>
+  ///   The cell: the coverage of the head, the one of the patch between angle brackets, and the change between
+  ///   parentheses; <see cref="CoverageMath.NoImpact" /> for no patch line or no change. Without a base, the change is
+  ///   what <paramref name="missingBase" /> says; with a base but a coverage that cannot be computed, it is
+  ///   <see cref="NotComputed" />, as <c>make_metrics</c> of Codecov writes them.
+  /// </returns>
+  public static string Metrics(CoverageTotals head, CoverageTotals? baseTotals, decimal? patch, CoverageConfig config, MissingBase missingBase)
+  {
+    var absolute = head.Coverage is null ? NotComputed : Percent(head.Coverage, config);
+    var relative = patch is null ? CoverageMath.NoImpact : Percent(patch, config);
+    var impact = baseTotals is not { } before
+                   ? missingBase is MissingBase.Unknown ? Missing : CoverageMath.NoImpact
+                   : head.Coverage is { } after && before.Coverage is { } was
+                     ? Delta(after - was, config)
+                     : NotComputed;
+
+    return $"`{absolute} <{relative}> ({impact})`";
+  }
+
+  /// <summary>Writes the arrow of a change of coverage.</summary>
+  /// <param name="change">The change, not rounded, or <see langword="null" /> when it cannot be known.</param>
+  /// <returns>An arrow up or down, or nothing for no change or an unknown one.</returns>
+  public static string Arrow(decimal? change) =>
+    change switch
+    {
+      > 0 => ":arrow_up:",
+      < 0 => ":arrow_down:",
+      var _ => string.Empty,
     };
 
   /// <summary>Formats a count.</summary>

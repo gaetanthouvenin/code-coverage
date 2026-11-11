@@ -107,6 +107,17 @@ public sealed class CommentRuleTests
     _warnings.ShouldBeEmpty();
   }
 
+  // F23. Codecov writes the table of the files with missing lines for newfiles and condensed_files, and a footer for
+  // newfooter and condensed_footer: each is rendered once, by the section that writes it here.
+  [Fact]
+  public void Parse_LayoutWithTheNamesOfTheShortSections_ShouldRenderThem()
+  {
+    var rule = Parse(("layout", Text("condensed_header, condensed_files, newfiles, files, condensed_footer, newfooter")));
+
+    rule.Layout.ShouldBe([CommentSection.CondensedHeader, CommentSection.Files, CommentSection.Footer]);
+    _warnings.ShouldBeEmpty();
+  }
+
   [Fact]
   public void Parse_EmptyLayout_ShouldStayEmpty()
   {
