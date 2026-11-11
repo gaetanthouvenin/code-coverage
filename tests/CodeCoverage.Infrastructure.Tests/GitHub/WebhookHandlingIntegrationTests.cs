@@ -22,6 +22,7 @@ using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
@@ -450,6 +451,61 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
 
     await using var check = seed.ContextWithoutOrganization();
     (await check.Jobs.AsNoTracking().ToListAsync(Ct)).ShouldAllBe(static j => j.State == JobState.Succeeded);
+  }
+
+  // The acceptance of M2.05: the pull request is recorded even when the upload came before it was opened. The body
+  // of the delivery says "open" on another head: only the forge is believed.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Worker_PullRequestOpenedAfterTheUpload_ShouldRecordItFromTheForge(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider, admitSecond: true);
+    var repositoryId = await AddRepositoryAsync(seed, seed.FirstId, FirstInstallation, "first-org/app");
+    await AddRepositoryAsync(seed, seed.SecondId, SecondInstallation, "second-org/app");
+
+    await using (var uploaded = seed.ContextOf(seed.FirstId))
+    {
+      // The commit exists already: its upload came first.
+      await new CodeCoverage.Infrastructure.Persistence.Repositories.CommitRepository(uploaded).GetOrCreateAsync(repositoryId, Head, Now, Ct);
+    }
+
+    await using var services = BuildServices(provider, seed.ConnectionString);
+    A.CallTo(() => _forge.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "Add a feature", "octocat", Head, "feature/x", "main", NewHead));
+
+    var body = "{\"action\":\"opened\",\"number\":12,\"installation\":{\"id\":" + Text(FirstInstallation) + "},\"repository\":{\"id\":" + ExternalId
+               + "},\"pull_request\":{\"number\":12,\"state\":\"open\",\"head\":{\"sha\":\"" + NewHead.Value + "\"}}}";
+
+    (await ReceiveAsync(services, "d-1", "pull_request", body)).ShouldBe(WebhookOutcome.Accepted);
+    await RunUntilIdleAsync(services);
+
+    await using (var first = seed.ContextOf(seed.FirstId))
+    {
+      var pull = await first.PullRequests.AsNoTracking().SingleAsync(Ct);
+      pull.Number.ShouldBe(12);
+      pull.RepositoryId.ShouldBe(repositoryId);
+      pull.State.ShouldBe(PullRequestState.Open);
+      pull.HeadSha.ShouldBe(Head);
+      pull.BaseBranch.ShouldBe("main");
+    }
+
+    // Closed and merged since: the same delivery path, and again only the forge is believed.
+    A.CallTo(() => _forge.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Merged, "Add a feature", "octocat", Head, "feature/x", "main", NewHead));
+    await ReceiveAsync(services, "d-2", "pull_request", body.Replace("opened", "closed", StringComparison.Ordinal));
+    await RunUntilIdleAsync(services);
+
+    await using var after = seed.ContextOf(seed.FirstId);
+    (await after.PullRequests.AsNoTracking().SingleAsync(Ct)).State.ShouldBe(PullRequestState.Merged);
+
+    await using var second = seed.ContextOf(seed.SecondId);
+    (await second.PullRequests.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+
+    await using var check = seed.ContextWithoutOrganization();
+    var jobs = await check.Jobs.AsNoTracking().OrderBy(static j => j.Id).ToListAsync(Ct);
+    jobs.ShouldAllBe(static j => j.State == JobState.Succeeded);
+    jobs.Select(static j => j.Type).ShouldBe([JobTypes.HandleWebhook, JobTypes.SyncPullRequest, JobTypes.HandleWebhook, JobTypes.SyncPullRequest]);
+    jobs.ShouldAllBe(j => j.OrganizationId == seed.FirstId);
   }
 
   // As GitHub sends it: the commit the branch pointed to before the push, zeros for a branch the push creates.

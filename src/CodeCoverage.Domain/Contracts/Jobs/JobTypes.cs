@@ -53,5 +53,8 @@ public static class JobTypes
   /// <summary>Puts the ended uploads of a commit back in the queue, so that they are parsed again from their raw files.</summary>
   public const string ReprocessCommit = "ReprocessCommit";
 
+  /// <summary>Reads a pull request again from its forge and records it.</summary>
+  public const string SyncPullRequest = "SyncPullRequest";
+
   #endregion
 }

@@ -142,6 +142,19 @@ public sealed class PullRequestTests
     PullRequest.Create(5, Info(ForgePullState.Open) with { AuthorLogin = null }, Now).AuthorLogin.ShouldBeNull();
   }
 
+  [Fact]
+  public void CanRecord_ShouldRefuseOnlyABranchThatDoesNotFit()
+  {
+    var tooLong = new string('b', PullRequest.BranchMaxLength + 1);
+    var longest = new string('b', PullRequest.BranchMaxLength);
+
+    PullRequest.CanRecord(Info(ForgePullState.Open)).ShouldBeTrue();
+    PullRequest.CanRecord(Info(ForgePullState.Open) with { HeadBranch = longest, BaseBranch = longest }).ShouldBeTrue();
+    PullRequest.CanRecord(Info(ForgePullState.Open) with { HeadBranch = tooLong }).ShouldBeFalse();
+    PullRequest.CanRecord(Info(ForgePullState.Open) with { BaseBranch = tooLong }).ShouldBeFalse();
+    Should.Throw<ArgumentNullException>(() => PullRequest.CanRecord(null!));
+  }
+
   private static ForgePullInfo Info(ForgePullState state) => new(7, state, "title", "octocat", Head, "feature", "main", Base);
 
   #endregion

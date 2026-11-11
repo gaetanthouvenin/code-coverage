@@ -56,6 +56,8 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
 
   private const string PushEvent = "push";
 
+  private const string PullRequestEvent = "pull_request";
+
   #endregion
 
   #region Methods
@@ -171,6 +173,32 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
 
     await pushes.ApplyAsync(repository, repository.ToForgeRef(organization.Forge), GitHubPushEvent.Parse(delivery.Payload), cancellationToken)
                 .ConfigureAwait(false);
+  }
+
+  /// <summary>Handles an event about a pull request of a repository that is tracked, inside its organization.</summary>
+  /// <param name="delivery">The delivery.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the synchronization of the pull request is queued, or when there is none to queue.</returns>
+  /// <remarks>
+  ///   Only the number is read from the body: the job reads the pull request from the forge. The other actions, a
+  ///   label or a review request for instance, change nothing that is recorded and cost no call to the forge.
+  /// </remarks>
+  private async Task HandlePullRequestAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
+  {
+    if (delivery.Action is not ("opened" or "synchronize" or "reopened" or "edited" or "ready_for_review" or "closed")
+        || delivery.RepositoryId is not { } externalId
+        || GitHubPullRequestEvent.Parse(delivery.Payload).Number is not { } number)
+    {
+      return;
+    }
+
+    var repository = await repositories.FindByExternalIdAsync(externalId.ToString(CultureInfo.InvariantCulture), cancellationToken)
+                                       .ConfigureAwait(false);
+
+    if (repository is { IsActive: true })
+    {
+      await jobQueue.EnqueueAsync(SyncPullRequestJobs.Create(repository.Id, number), cancellationToken).ConfigureAwait(false);
+    }
   }
 
   /// <summary>Handles an event about one repository, inside its organization.</summary>
@@ -302,6 +330,10 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
         break;
       case PushEvent when currentOrganization.IsKnown:
         await HandlePushAsync(delivery, cancellationToken).ConfigureAwait(false);
+
+        break;
+      case PullRequestEvent when currentOrganization.IsKnown:
+        await HandlePullRequestAsync(delivery, cancellationToken).ConfigureAwait(false);
 
         break;
     }
