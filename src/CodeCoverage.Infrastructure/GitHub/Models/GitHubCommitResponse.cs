@@ -15,4 +15,4 @@ internal sealed record GitHubCommitResponse(
   string Sha,
   GitHubCommitDetails Commit,
   IReadOnlyList<GitHubCommitRef> Parents,
-  GitHubUser? Author = null);
+  GitHubAuthor? Author = null);

@@ -178,6 +178,22 @@ public sealed class RateLimitHandlerTests : IDisposable
     measurement.Tags["installation"].ShouldBe(RateLimitHandler.AppQuota);
   }
 
+  // The quota of a user token is the one of that user: it says nothing about an installation nor about the App.
+  [Fact]
+  public async Task Send_WithAUserToken_ShouldPublishNoQuota()
+  {
+    Given(Response.Create().WithStatusCode(200).WithHeader("x-ratelimit-remaining", "4999"));
+
+    using var client = _github.CreateClient();
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("repositories/1", UriKind.Relative));
+    request.Options.Set(RateLimitHandler.UserToken, true);
+
+    using var response = await client.SendAsync(request, Cancellation);
+    _github.Quota.Collect();
+
+    _github.Quota.Of(CodeCoverageMeter.GitHubRateLimitRemaining).ShouldBeEmpty();
+  }
+
   [Fact]
   public async Task Send_WhenRateLimited_ShouldStillPublishTheQuota()
   {

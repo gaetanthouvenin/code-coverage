@@ -10,4 +10,4 @@ namespace CodeCoverage.Infrastructure.GitHub.Models;
 /// <param name="Id">The identifier of the comment.</param>
 /// <param name="Body">The text of the comment, or <see langword="null" /> for an empty one.</param>
 /// <param name="User">Who wrote the comment; an application writes as <c>{slug}[bot]</c>.</param>
-internal sealed record GitHubIssueCommentResponse(long Id, string? Body = null, GitHubUser? User = null);
+internal sealed record GitHubIssueCommentResponse(long Id, string? Body = null, GitHubAuthor? User = null);

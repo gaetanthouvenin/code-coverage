@@ -107,6 +107,32 @@ public sealed class AppUserTests
   }
 
   [Fact]
+  public void ClearTokens_ShouldForgetBothTokensAndTheirExpiries()
+  {
+    var user = New();
+    user.ReplaceTokens(_protector, "access", Now.AddHours(8), "refresh", Now.AddMonths(6));
+    var version = user.Version;
+
+    user.ClearTokens();
+
+    user.AccessTokenProtected.ShouldBeNull();
+    user.RefreshTokenProtected.ShouldBeNull();
+    user.AccessTokenExpiresAt.ShouldBeNull();
+    user.RefreshTokenExpiresAt.ShouldBeNull();
+    user.Version.ShouldBe(version + 1);
+  }
+
+  [Fact]
+  public void ClearTokens_WithoutAnyToken_ShouldChangeNothing()
+  {
+    var user = New();
+
+    user.ClearTokens();
+
+    user.Version.ShouldBe(0);
+  }
+
+  [Fact]
   public void ReplaceTokens_BlankAccessToken_ShouldThrow()
   {
     Should.Throw<ArgumentException>(() => New().ReplaceTokens(_protector, " ", Now, null, null));

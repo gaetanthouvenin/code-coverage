@@ -38,6 +38,9 @@ public sealed class GitHubOptions
   /// <value>Empty until the App is created or entered; its comments then cannot be told from those of others.</value>
   public string? AppSlug { get; set; }
 
+  /// <summary>Gets or sets the client secret of the GitHub App, protected: it renews the tokens of the users.</summary>
+  public string? ClientSecret { get; set; }
+
   /// <summary>Gets or sets the protected PEM private key of the GitHub App, never the plain text.</summary>
   /// <value>The protected value, or <see langword="null" /> while the App is not created.</value>
   public string? PrivateKeyPem { get; set; }
@@ -75,6 +78,24 @@ public sealed class GitHubOptions
     );
 
     return protector.Unprotect(PrivateKeyPem);
+  }
+
+  /// <summary>Decrypts the client secret of the GitHub App, at the moment of use.</summary>
+  /// <param name="protector">The secret protector.</param>
+  /// <returns>The client secret, which the caller must not keep.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="protector" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">The client secret is not configured.</exception>
+  /// <exception cref="System.Security.Cryptography.CryptographicException">The protected value cannot be decrypted.</exception>
+  public string GetClientSecret(ISecretProtector protector)
+  {
+    ArgumentNullException.ThrowIfNull(protector);
+
+    InvalidOperationException.ThrowIf(
+      string.IsNullOrWhiteSpace(ClientSecret),
+      $"The setting '{SettingDefinitions.GitHubClientSecret}' is not configured."
+    );
+
+    return protector.Unprotect(ClientSecret);
   }
 
   #endregion
