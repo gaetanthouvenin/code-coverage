@@ -117,15 +117,9 @@ internal sealed partial class NotificationService(
   /// <returns>The address in the Web console, or <see langword="null" /> when the instance has no public address.</returns>
   internal string? TargetUrl(TrackedRepository repository, Forge forge, Commit commit, int? pullNumber)
   {
-    if (urls.CurrentValue.WebPublicUrl is not { Length: > 0 } web)
-    {
-      return null;
-    }
+    var links = new WebLinks(urls.CurrentValue.WebPublicUrl, forge, repository);
 
-    var owner = repository.Namespace.Length == 0 ? repository.Owner : $"{repository.Owner}:{repository.Namespace.Replace('/', ':')}";
-    var page = pullNumber is { } number ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"pull/{number}") : $"commit/{commit.Sha.Value}";
-
-    return $"{web.TrimEnd('/')}/{ForgeSegments.ToSegment(forge)}/{owner}/{repository.Name}/{page}";
+    return pullNumber is { } number ? links.Pull(number) : links.Commit(commit.Sha);
   }
 
   /// <summary>Tells whether a commit belongs to a pull request, or to the branch of a merge queue.</summary>

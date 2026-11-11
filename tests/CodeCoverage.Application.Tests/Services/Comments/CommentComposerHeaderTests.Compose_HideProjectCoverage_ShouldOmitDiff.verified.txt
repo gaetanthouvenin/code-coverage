@@ -1,0 +1,3 @@
+<!-- code-coverage:comment -->
+## [Coverage](https://coverage.example.com/github/octo/repo/pull/123) Report
+:x: Patch coverage is `72.50%` with `11 lines` in your changes missing coverage. Please review.
