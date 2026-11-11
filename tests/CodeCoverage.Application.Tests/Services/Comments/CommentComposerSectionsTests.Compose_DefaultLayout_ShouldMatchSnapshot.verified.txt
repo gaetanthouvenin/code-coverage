@@ -1,0 +1,37 @@
+<!-- code-coverage:comment -->
+## [Coverage](https://coverage.example.com/github/octo/repo/pull/123) Report
+:x: Patch coverage is `72.50%` with `11 lines` in your changes missing coverage. Please review.
+:white_check_mark: Project coverage is 81.23%. Comparing base ([`a1b2c3d`](https://coverage.example.com/github/octo/repo/commit/a1b2c3d000000000000000000000000000000000)) to head ([`e4f5a6b`](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000)).
+
+<details><summary>Additional details and impacted files</summary>
+
+```diff
+@@            Coverage Diff             @@
+##             main     #123      +/-   ##
+==========================================
++ Coverage   80.90%   81.23%   +0.33%
+==========================================
+  Files         210      212       +2
+  Lines       15000    15100     +100
+  Branches     3000     3010      +10
+==========================================
++ Hits        12135    12266     +131
++ Misses       2500     2480      -20
++ Partials      365      354      -11
+```
+
+| Flag | Coverage Δ | |
+|---|---|---|
+| backend | `85.10% <80.00%> (+0.40%)` | :arrow_up: |
+| frontend | `70.02% <ø> (ø)` | Carriedforward from [`9f8e7d6`](https://coverage.example.com/github/octo/repo/commit/9f8e7d6000000000000000000000000000000000) |
+
+| [Files with missing lines](https://coverage.example.com/github/octo/repo/pull/123) | Coverage Δ | |
+|---|---|---|
+| [src/Api/Foo.cs](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000/blob/src/Api/Foo.cs?pull=123) | `72.00% <60.00%> (-3.00%)` | :arrow_down: |
+| [src/Api/Bar.cs](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000/blob/src/Api/Bar.cs?pull=123) | `90.00% <90.00%> (ø)` | |
+| ~~src/Old.cs~~ | | |
+| ... and [2 files with indirect coverage changes](https://coverage.example.com/github/octo/repo/pull/123) | | |
+
+</details>
+
+<sub>Δ = absolute &lt;relative&gt; (impact), ø = not affected, ? = missing data · Last update a1b2c3d...e4f5a6b · 3 uploads (1 carried forward) · 1 upload failed</sub>

@@ -1,0 +1,14 @@
+<!-- code-coverage:comment -->
+## [Coverage](https://coverage.example.com/github/octo/repo/pull/123) Report
+:x: Patch coverage is `72.50%` with `11 lines` in your changes missing coverage. Please review.
+:white_check_mark: Project coverage is 81.23%. Comparing base ([`a1b2c3d`](https://coverage.example.com/github/octo/repo/commit/a1b2c3d000000000000000000000000000000000)) to head ([`e4f5a6b`](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000)).
+
+<details><summary>Additional details and impacted files</summary>
+
+| [Files with missing lines](https://coverage.example.com/github/octo/repo/pull/123) | Coverage Δ | |
+|---|---|---|
+| [src/File5.cs](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000/blob/src/File5.cs?pull=123) | `50.00% <0.00%> (ø)` | |
+| [src/File4.cs](https://coverage.example.com/github/octo/repo/commit/e4f5a6b000000000000000000000000000000000/blob/src/File4.cs?pull=123) | `50.00% <0.00%> (ø)` | |
+| ... and [3 more](https://coverage.example.com/github/octo/repo/pull/123) | | |
+
+</details>

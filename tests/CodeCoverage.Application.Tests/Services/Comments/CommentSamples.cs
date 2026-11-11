@@ -83,6 +83,18 @@ internal static class CommentSamples
       diffIncomplete
     );
 
+  public static ImpactedFile File(string path, CoverageTotals? @base, CoverageTotals? head, CoverageTotals patch, FileDiffStatus status = FileDiffStatus.Modified) =>
+    new(path, null, status, @base, head, patch);
+
+  public static FlagComparison Flag(string name, CoverageTotals? @base, CoverageTotals? head, CoverageTotals? patch = null, bool carriedForward = false) =>
+    new(name, @base, head, patch is { } totals ? new PatchCoverage(totals, []) : PatchCoverage.Empty, carriedForward);
+
+  public static SessionCoverage Uploaded(int number, params string[] flags) =>
+    new(Session.FromUpload(9, number, 100 + number, flags, null, null, null, HeadTotals), CoverageReport.Create([]));
+
+  public static SessionCoverage CarriedForward(int number, GitSha origin, params string[] flags) =>
+    new(Session.CarriedForward(9, number, origin, 7, null, [8], flags, null, null, null, HeadTotals), CoverageReport.Create([]));
+
   // comparedTo is the commit whose report is compared; hops counts the commits between it and the fork point.
   public static CommentContent Content(
     CoverageConfig? config = null,

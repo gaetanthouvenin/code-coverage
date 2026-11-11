@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Application.Services.Comments;
+using CodeCoverage.Domain.Coverage;
 
 using static CodeCoverage.Application.Tests.Services.Comments.CommentSamples;
 
@@ -46,6 +47,21 @@ public sealed class CommentFormattingTests
   public void Count_ShouldAgreeWithItsNoun(int value, string expected)
   {
     CommentFormatting.Count(value, "line").ShouldBe(expected);
+  }
+
+  // S1. make_metrics of Codecov: without a base, "ø" for a file (False) and "?" for a flag (None); the empty set when
+  // the base is there and a coverage cannot be computed.
+  [Fact]
+  public void Metrics_ShouldWriteWhatCodecovWritesForWhatCannotBeComputed()
+  {
+    var config = Config();
+    var head = new CoverageTotals(3, 1, 0, 0, 0);
+
+    CommentFormatting.Metrics(head, null, 75m, config, MissingBase.NoImpact).ShouldBe("`75.00% <75.00%> (\u00f8)`");
+    CommentFormatting.Metrics(head, null, 75m, config, MissingBase.Unknown).ShouldBe("`75.00% <75.00%> (?)`");
+    CommentFormatting.Metrics(new CoverageTotals(0, 0, 0, 0, 0), head, null, config, MissingBase.NoImpact).ShouldBe("`\u2205 <\u00f8> (\u2205)`");
+    CommentFormatting.Metrics(head, new CoverageTotals(0, 0, 0, 0, 0), null, config, MissingBase.Unknown).ShouldBe("`75.00% <\u00f8> (\u2205)`");
+    CommentFormatting.Metrics(head, head, null, config, MissingBase.NoImpact).ShouldBe("`75.00% <\u00f8> (\u00f8)`");
   }
 
   [Fact]
