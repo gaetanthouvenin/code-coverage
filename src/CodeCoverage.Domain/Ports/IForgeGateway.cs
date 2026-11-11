@@ -134,6 +134,38 @@ public interface IForgeGateway
   /// <exception cref="ArgumentNullException">An argument other than <paramref name="targetUrl" /> is <see langword="null" />.</exception>
   Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken);
 
+  /// <summary>Lists every comment of a pull request, the oldest first.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="number">The number of the pull request.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The comments, read to the last page; empty when the forge does not have the pull request.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="number" /> is zero or negative.</exception>
+  Task<IReadOnlyList<ForgeIssueComment>> ListIssueCommentsAsync(ForgeRepositoryRef repository, int number, CancellationToken cancellationToken);
+
+  /// <summary>Writes a new comment on a pull request.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="number">The number of the pull request.</param>
+  /// <param name="body">The text of the comment.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>
+  ///   The identifier of the comment, or <see langword="null" /> when the forge takes no comment there: the pull
+  ///   request is locked or gone.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> or <paramref name="body" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="number" /> is zero or negative.</exception>
+  Task<long?> CreateIssueCommentAsync(ForgeRepositoryRef repository, int number, string body, CancellationToken cancellationToken);
+
+  /// <summary>Replaces the text of a comment.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="commentId">The identifier of the comment.</param>
+  /// <param name="body">The new text of the comment.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns><see langword="false" /> when the forge no longer has the comment: it was deleted.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> or <paramref name="body" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="commentId" /> is zero or negative.</exception>
+  Task<bool> UpdateIssueCommentAsync(ForgeRepositoryRef repository, long commentId, string body, CancellationToken cancellationToken);
+
   /// <summary>Reads the text of a file at a commit.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="path">The path of the file.</param>

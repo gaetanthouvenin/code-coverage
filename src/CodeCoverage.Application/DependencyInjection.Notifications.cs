@@ -21,6 +21,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddNotificationServices(this IServiceCollection services)
   {
     services.AddScoped<NotificationService>();
+    services.AddScoped<CommentPublisher>();
 
     return services;
   }

@@ -23,6 +23,12 @@ internal static class GitHubHttpClientConfiguration
   /// <summary>The name of the HTTP client of the GitHub REST API.</summary>
   public const string ClientName = "github";
 
+  /// <summary>
+  ///   The option that marks a POST GitHub may receive twice without harm, such as a status or an installation token:
+  ///   only such a POST is retried.
+  /// </summary>
+  public static readonly HttpRequestOptionsKey<bool> Repeatable = new("CodeCoverage.GitHub.Repeatable");
+
   private const string ApiVersion = "2022-11-28";
 
   private const string ApiVersionHeader = "X-GitHub-Api-Version";
@@ -45,7 +51,9 @@ internal static class GitHubHttpClientConfiguration
   /// <remarks>
   ///   The base address is read each time a client is created: a change of <c>GitHub:ApiBaseUrl</c> applies without a
   ///   restart. The pipeline keeps the 3 retries on a 5xx or a timeout and the circuit breaker of the standard handler,
-  ///   but a 403 or a 429 is a limit to wait for, which neither retries nor counts as a failure of GitHub.
+  ///   but a 403 or a 429 is a limit to wait for, which neither retries nor counts as a failure of GitHub. A POST that
+  ///   is not marked <see cref="Repeatable" /> is never retried: GitHub may have done it and lost its answer, and a
+  ///   comment would be written twice, or the code of a manifest, accepted once, refused.
   /// </remarks>
   public static IServiceCollection AddGitHubHttpClient(this IServiceCollection services)
   {
@@ -57,7 +65,9 @@ internal static class GitHubHttpClientConfiguration
             .AddStandardResilienceHandler(
               static resilience =>
               {
-                resilience.Retry.ShouldHandle = static arguments => ValueTask.FromResult(IsTransient(arguments.Outcome));
+                resilience.Retry.ShouldHandle = static arguments => ValueTask.FromResult(
+                                                  IsTransient(arguments.Outcome) && CanBeSentAgain(arguments.Context.GetRequestMessage())
+                                                );
                 resilience.CircuitBreaker.ShouldHandle = static arguments => ValueTask.FromResult(IsTransient(arguments.Outcome));
               }
             );
@@ -77,6 +87,13 @@ internal static class GitHubHttpClientConfiguration
     client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
     client.DefaultRequestHeaders.Add(ApiVersionHeader, ApiVersion);
   }
+
+  /// <summary>Tells whether a request may be sent again after a failure.</summary>
+  /// <param name="request">The request, or <see langword="null" /> when the pipeline does not know it.</param>
+  /// <returns><see langword="false" /> for a POST that is not marked <see cref="Repeatable" />, or an unknown request.</returns>
+  private static bool CanBeSentAgain(HttpRequestMessage? request) =>
+    request is not null
+    && (request.Method != HttpMethod.Post || (request.Options.TryGetValue(Repeatable, out var repeatable) && repeatable));
 
   /// <summary>Tells whether an outcome is a transient failure of GitHub.</summary>
   /// <param name="outcome">The outcome of an attempt.</param>

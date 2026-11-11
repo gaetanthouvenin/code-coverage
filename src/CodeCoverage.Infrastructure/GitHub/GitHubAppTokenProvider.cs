@@ -145,6 +145,8 @@ internal sealed class GitHubAppTokenProvider(
       new Uri(string.Create(CultureInfo.InvariantCulture, $"app/installations/{installationId}/access_tokens"), UriKind.Relative)
     );
     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CreateAppJwt());
+    // A second token of the same installation is harmless.
+    request.Options.Set(GitHubHttpClientConfiguration.Repeatable, true);
 
     using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
 

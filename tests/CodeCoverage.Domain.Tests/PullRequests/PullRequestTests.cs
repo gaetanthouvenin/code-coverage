@@ -143,6 +143,92 @@ public sealed class PullRequestTests
   }
 
   [Fact]
+  public void RecordComment_ShouldKeepTheCommentItsHashAndItsHead()
+  {
+    var pull = PullRequest.Create(5, Info(ForgePullState.Open), Now);
+    var hash = Hash(1);
+
+    pull.RecordComment(42, hash, Head, Now.AddHours(1));
+
+    pull.CommentId.ShouldBe(42);
+    pull.CommentBodyHash.ShouldBe(hash);
+    pull.CommentBodyHash.ShouldNotBeSameAs(hash, "the hash is copied");
+    pull.CommentedHeadSha.ShouldBe(Head);
+    pull.UpdatedAt.ShouldBe(Now.AddHours(1));
+    pull.Version.ShouldBe(1);
+    pull.HasCommentBody(Hash(1)).ShouldBeTrue();
+    pull.HasCommentBody(Hash(2)).ShouldBeFalse();
+  }
+
+  [Fact]
+  public void RecordComment_SameComment_ShouldChangeNothing()
+  {
+    var pull = PullRequest.Create(5, Info(ForgePullState.Open), Now);
+    pull.RecordComment(42, Hash(1), Head, Now);
+
+    pull.RecordComment(42, Hash(1), Head, Now.AddHours(1));
+    pull.Version.ShouldBe(1);
+
+    pull.RecordComment(42, Hash(2), Head, Now.AddHours(1));
+    pull.Version.ShouldBe(2);
+
+    pull.RecordComment(43, Hash(2), Head, Now.AddHours(1));
+    pull.Version.ShouldBe(3);
+
+    pull.RecordComment(43, Hash(2), Base, Now.AddHours(1));
+    pull.Version.ShouldBe(4);
+  }
+
+  [Fact]
+  public void RecordComment_InvalidArguments_ShouldThrow()
+  {
+    var pull = PullRequest.Create(5, Info(ForgePullState.Open), Now);
+
+    Should.Throw<ArgumentOutOfRangeException>(() => pull.RecordComment(0, Hash(1), Head, Now));
+    Should.Throw<ArgumentNullException>(() => pull.RecordComment(1, null!, Head, Now));
+    Should.Throw<ArgumentNullException>(() => pull.RecordComment(1, Hash(1), null!, Now));
+    Should.Throw<ArgumentException>(() => pull.RecordComment(1, new byte[31], Head, Now));
+    Should.Throw<ArgumentNullException>(() => pull.HasCommentBody(null!));
+  }
+
+  [Fact]
+  public void HasCommentBody_WithoutAComment_ShouldBeFalse()
+  {
+    PullRequest.Create(5, Info(ForgePullState.Open), Now).HasCommentBody(Hash(1)).ShouldBeFalse();
+  }
+
+  [Fact]
+  public void RecordBase_ShouldCountOnlyAChange()
+  {
+    var pull = PullRequest.Create(5, Info(ForgePullState.Open), Now);
+
+    pull.RecordBase(null, null, Now.AddHours(1));
+    pull.Version.ShouldBe(0);
+
+    pull.RecordBase(Base, null, Now.AddHours(1));
+    pull.ForkPointSha.ShouldBe(Base);
+    pull.ComparedToSha.ShouldBeNull();
+    pull.Version.ShouldBe(1);
+
+    pull.RecordBase(Base, Base, Now.AddHours(2));
+    pull.ComparedToSha.ShouldBe(Base);
+    pull.UpdatedAt.ShouldBe(Now.AddHours(2));
+    pull.Version.ShouldBe(2);
+
+    pull.RecordBase(Base, Base, Now.AddHours(3));
+    pull.Version.ShouldBe(2);
+  }
+
+  private static byte[] Hash(byte value)
+  {
+    var hash = new byte[PullRequest.CommentBodyHashLength];
+
+    hash[0] = value;
+
+    return hash;
+  }
+
+  [Fact]
   public void CanRecord_ShouldRefuseOnlyABranchThatDoesNotFit()
   {
     var tooLong = new string('b', PullRequest.BranchMaxLength + 1);

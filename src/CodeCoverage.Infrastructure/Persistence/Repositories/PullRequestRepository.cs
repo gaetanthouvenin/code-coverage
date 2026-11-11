@@ -11,6 +11,7 @@ using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -29,6 +30,9 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
 
   /// <summary>The message of the refusal of an unknown repository; it is sent to the caller.</summary>
   private const string RepositoryNotFoundMessage = "The repository does not exist or cannot be read.";
+
+  /// <summary>The message of the refusal of an instance that this scope did not read.</summary>
+  private const string NotReadMessage = "A pull request must be read in this scope before it can be updated.";
 
   /// <summary>The message of the refusal of a pull request that cannot be read; it is sent to the caller.</summary>
   private const string PullRequestGoneMessage = "The pull request was changed or removed in the meantime; reload it and try again.";
@@ -105,6 +109,26 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
                    ?? throw new ConflictException(GeneralErrors.ConcurrentChange, PullRequestGoneMessage, exception);
 
       return await RefreshAsync(winner, pull, at, cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <inheritdoc />
+  public async Task UpdateAsync(PullRequest pullRequest, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(pullRequest);
+
+    InvalidOperationException.ThrowIf(context.Entry(pullRequest).State is EntityState.Detached, NotReadMessage);
+
+    try
+    {
+      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch (ConflictException exception) when (exception.ErrorCode == GeneralErrors.ConcurrentChange)
+    {
+      // Nothing is left for a later save of the scope, which would fail the same way.
+      context.Entry(pullRequest).State = EntityState.Detached;
+
+      throw;
     }
   }
 

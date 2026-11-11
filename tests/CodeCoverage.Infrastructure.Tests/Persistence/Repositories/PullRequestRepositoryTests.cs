@@ -90,6 +90,99 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
     exception.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Update_ShouldSaveTheCommentAndTheBaseUnderTheVersion(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await UpsertAsync(seed, Info(7));
+    var hash = new byte[PullRequest.CommentBodyHashLength];
+    hash[0] = 9;
+
+    await using (var context = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      var repository = new PullRequestRepository(context);
+      var pull = (await repository.FindOpenByHeadShaAsync(seed.FirstRepository, Head, Ct)).ShouldNotBeNull();
+
+      pull.RecordComment(123456789012, hash, Head, Now.AddHours(1));
+      pull.RecordBase(Base, Base, Now.AddHours(1));
+      await repository.UpdateAsync(pull, Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var saved = await reader.PullRequests.AsNoTracking().SingleAsync(Ct);
+    saved.CommentId.ShouldBe(123456789012);
+    saved.CommentBodyHash.ShouldBe(hash);
+    saved.CommentedHeadSha.ShouldBe(Head);
+    saved.ForkPointSha.ShouldBe(Base);
+    saved.ComparedToSha.ShouldBe(Base);
+    saved.Version.ShouldBe(2);
+  }
+
+  // The collision of a synchronization and a notification on the same pull request, forced: the other writer saves
+  // between the read and the save. Nothing is overwritten, nothing is left for a later save of the scope.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Update_RowChangedMeanwhile_ShouldRefuseAsAConflictAndKeepNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await UpsertAsync(seed, Info(7));
+
+    for (var round = 1; round <= 10; round++)
+    {
+      await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+      var repository = new PullRequestRepository(context);
+      var loser = (await repository.FindOpenByHeadShaAsync(seed.FirstRepository, Head, Ct)).ShouldNotBeNull();
+
+      await UpsertAsync(seed, Info(7) with { Title = "round " + round.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+
+      loser.RecordComment(round, new byte[PullRequest.CommentBodyHashLength], Head, Now);
+
+      var exception = await Should.ThrowAsync<ConflictException>(() => repository.UpdateAsync(loser, Ct));
+
+      exception.ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
+      context.ChangeTracker.Entries().ShouldBeEmpty("nothing is left for a later save of the scope");
+
+      await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+      (await reader.PullRequests.AsNoTracking().SingleAsync(Ct)).CommentId.ShouldBeNull();
+    }
+  }
+
+  // A row can only be written by the scope that read it (ADR-013): an instance read by another organization is refused.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Update_InstanceReadByOtherOrganization_ShouldThrowAndWriteNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await UpsertAsync(seed, Info(7));
+
+    await using (var first = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      var foreign = (await new PullRequestRepository(first).FindOpenByHeadShaAsync(seed.FirstRepository, Head, Ct)).ShouldNotBeNull();
+      foreign.RecordBase(Base, Base, Now);
+
+      await using var second = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+
+      await Should.ThrowAsync<InvalidOperationException>(() => new PullRequestRepository(second).UpdateAsync(foreign, Ct));
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    (await reader.PullRequests.AsNoTracking().SingleAsync(Ct)).ForkPointSha.ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Update_InstanceNotReadInTheScope_ShouldThrow(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var detached = await UpsertAsync(seed, Info(7));
+
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    await Should.ThrowAsync<InvalidOperationException>(() => new PullRequestRepository(context).UpdateAsync(detached, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => new PullRequestRepository(context).UpdateAsync(null!, Ct));
+  }
+
   // Each writer reads the row before the other commits: the second update refuses instead of overwriting.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]

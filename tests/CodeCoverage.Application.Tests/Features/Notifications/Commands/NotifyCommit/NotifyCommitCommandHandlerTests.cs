@@ -57,6 +57,8 @@ public sealed class NotifyCommitCommandHandlerTests
 
   private readonly IPostedStatusRepository _posted = A.Fake<IPostedStatusRepository>();
 
+  private readonly IPullRequestRepository _pullRequests = A.Fake<IPullRequestRepository>();
+
   private readonly INotificationMetrics _metrics = A.Fake<INotificationMetrics>();
 
   private readonly IClock _clock = A.Fake<IClock>();
@@ -473,7 +475,7 @@ public sealed class NotifyCommitCommandHandlerTests
 
     var resolver = new ConfigResolver(_configs, gateways, _configParser, _settings, _clock);
     var baseResolver = new BaseResolver(
-      A.Fake<IPullRequestRepository>(),
+      _pullRequests,
       _commits,
       new CommitAncestry(A.Fake<IGitCommitRepository>(), gateways, _clock),
       new DiffProvider(A.Fake<IDiffCacheRepository>(), gateways, _clock),
@@ -482,7 +484,10 @@ public sealed class NotifyCommitCommandHandlerTests
       _clock
     );
     var builder = new ComparisonBuilder(baseResolver, new CommitReportReader(A.Fake<ICommitReportRepository>(), A.Fake<ICoverageReportCodec>()), views, A.Fake<IComparisonRepository>(), _clock);
-    var service = new NotificationService(builder, views, _posted, A.Fake<IRepositoryFlagRepository>(), gateways, _settings, urls, _clock, NullLogger<NotificationService>.Instance);
+    var commentOptions = A.Fake<IOptionsMonitor<NotificationOptions>>();
+    A.CallTo(() => commentOptions.CurrentValue).Returns(new NotificationOptions());
+    var comments = new CommentPublisher(gateways, _pullRequests, commentOptions, urls, _clock, NullLogger<CommentPublisher>.Instance);
+    var service = new NotificationService(builder, views, _posted, A.Fake<IRepositoryFlagRepository>(), gateways, comments, _settings, urls, _clock, NullLogger<NotificationService>.Instance);
 
     var mergeCommits = new MergeCommitDetector(gateways, new CommitAncestry(A.Fake<IGitCommitRepository>(), gateways, _clock));
 

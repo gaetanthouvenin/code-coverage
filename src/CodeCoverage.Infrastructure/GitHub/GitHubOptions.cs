@@ -34,6 +34,10 @@ public sealed class GitHubOptions
   /// <value>The client identifier, or <see langword="null" /> while the App is not created.</value>
   public string? ClientId { get; set; }
 
+  /// <summary>Gets or sets the slug of the App, which names the account it writes its comments as.</summary>
+  /// <value>Empty until the App is created or entered; its comments then cannot be told from those of others.</value>
+  public string? AppSlug { get; set; }
+
   /// <summary>Gets or sets the protected PEM private key of the GitHub App, never the plain text.</summary>
   /// <value>The protected value, or <see langword="null" /> while the App is not created.</value>
   public string? PrivateKeyPem { get; set; }

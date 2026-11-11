@@ -16,6 +16,7 @@ using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Settings;
 
 namespace CodeCoverage.Application.Services;
 
@@ -25,6 +26,7 @@ namespace CodeCoverage.Application.Services;
 /// <param name="repositoryFlags">The flags the repositories received coverage for.</param>
 /// <param name="posted">The repository of the published statuses.</param>
 /// <param name="gateways">The gateways of the forges.</param>
+/// <param name="comments">What publishes the comment of a pull request.</param>
 /// <param name="organizationSettings">The settings of the organization of the scope.</param>
 /// <param name="urls">The public addresses of the instance.</param>
 /// <param name="clock">The clock.</param>
@@ -46,6 +48,7 @@ internal sealed partial class NotificationService(
   IPostedStatusRepository posted,
   IRepositoryFlagRepository repositoryFlags,
   IForgeGatewayProvider gateways,
+  CommentPublisher comments,
   IOrganizationSettingsProvider organizationSettings,
   IOptionsMonitor<UrlOptions> urls,
   IClock clock,
@@ -62,19 +65,33 @@ internal sealed partial class NotificationService(
 
   #region Methods
 
-  /// <summary>Publishes the statuses of a commit.</summary>
-  /// <param name="repository">The repository of the commit.</param>
+  /// <summary>Notifies a commit on its forge: its statuses, then the comment of the pull request it is the head of.</summary>
+  /// <param name="repository">The repository.</param>
   /// <param name="forge">The forge of the repository.</param>
-  /// <param name="commit">The commit, complete or in error.</param>
-  /// <param name="config">The effective configuration of the commit.</param>
+  /// <param name="commit">The commit, finalized.</param>
+  /// <param name="config">The configuration of the commit.</param>
+  /// <param name="failedUploads">The number of uploads of the commit that failed.</param>
+  /// <param name="configInvalid">Whether the configuration file of the commit could not be read and was ignored.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>How many statuses were published on the forge.</returns>
+  /// <returns>The number of statuses published.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     One comparison serves the statuses and the comment. It is built as soon as the organization publishes either
+  ///     of them (<c>Notifications:StatusesEnabled</c>, <c>Notifications:CommentsEnabled</c>).
+  ///   </para>
+  ///   <para>
+  ///     A commit whose every upload failed has no comparison: it only gets the failed statuses of
+  ///     <c>codecov.notify.notify_error</c>, and the comment of its pull request stays as it is.
+  ///   </para>
+  /// </remarks>
   /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
-  public async Task<int> PublishStatusesAsync(
+  public async Task<int> NotifyAsync(
     TrackedRepository repository,
     Forge forge,
     Commit commit,
     CoverageConfig config,
+    int failedUploads,
+    bool configInvalid,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repository);
@@ -83,30 +100,64 @@ internal sealed partial class NotificationService(
 
     var settings = await organizationSettings.GetAsync(cancellationToken).ConfigureAwait(false);
 
-    if (!settings.StatusesEnabled)
+    if (!settings.StatusesEnabled && !settings.CommentsEnabled)
     {
       return 0;
     }
 
-    var format = new StatusFormat(settings.StatusContextPrefix, config.Precision, config.Rounding);
-    var knownFlags = await repositoryFlags.ListAsync(repository.Id, cancellationToken).ConfigureAwait(false);
-    IReadOnlyList<CommitStatus> statuses;
-    int? pullNumber;
-
     if (commit.State is CommitState.Error)
     {
-      pullNumber = commit.PullNumber;
-      statuses = config.Notify.NotifyError ? FailedStatuses(commit, config, knownFlags, format, TargetUrl(repository, forge, commit, pullNumber)) : [];
+      return settings.StatusesEnabled ? await PublishFailedStatusesAsync(repository, forge, commit, config, settings, cancellationToken).ConfigureAwait(false) : 0;
     }
-    else
+
+    var context = await comparisons.BuildAsync(repository, forge, commit, config, cancellationToken).ConfigureAwait(false);
+    var published = 0;
+
+    if (settings.StatusesEnabled)
     {
-      var context = await comparisons.BuildAsync(repository, forge, commit, config, cancellationToken).ConfigureAwait(false);
+      var format = new StatusFormat(settings.StatusContextPrefix, config.Precision, config.Rounding);
+      var knownFlags = await repositoryFlags.ListAsync(repository.Id, cancellationToken).ConfigureAwait(false);
+      var statuses = Evaluate(commit, config, context, knownFlags, format);
+      var targetUrl = TargetUrl(repository, forge, commit, context.Resolution.PullRequest?.Number);
 
-      pullNumber = context.Resolution.PullRequest?.Number;
-      statuses = Evaluate(commit, config, context, knownFlags, format);
+      published = await PublishAsync(repository, forge, commit, statuses, targetUrl, cancellationToken).ConfigureAwait(false);
     }
 
-    return await PublishAsync(repository, forge, commit, statuses, TargetUrl(repository, forge, commit, pullNumber), cancellationToken).ConfigureAwait(false);
+    // After the statuses: the pull request is saved once, with what the comment and the comparison change on it.
+    await comments.PublishAsync(repository, forge, commit, config, context, failedUploads, configInvalid, settings.CommentsEnabled, cancellationToken)
+                  .ConfigureAwait(false);
+
+    return published;
+  }
+
+  /// <summary>Publishes the statuses of a commit whose every upload failed.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="commit">The commit.</param>
+  /// <param name="config">The configuration of the commit.</param>
+  /// <param name="settings">The settings of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>The number of statuses published.</returns>
+  private async Task<int> PublishFailedStatusesAsync(
+    TrackedRepository repository,
+    Forge forge,
+    Commit commit,
+    CoverageConfig config,
+    OrganizationSettingsSnapshot settings,
+    CancellationToken cancellationToken)
+  {
+    var targetUrl = TargetUrl(repository, forge, commit, commit.PullNumber);
+
+    if (!config.Notify.NotifyError)
+    {
+      return await PublishAsync(repository, forge, commit, [], targetUrl, cancellationToken).ConfigureAwait(false);
+    }
+
+    var format = new StatusFormat(settings.StatusContextPrefix, config.Precision, config.Rounding);
+    var knownFlags = await repositoryFlags.ListAsync(repository.Id, cancellationToken).ConfigureAwait(false);
+
+    return await PublishAsync(repository, forge, commit, FailedStatuses(commit, config, knownFlags, format, targetUrl), targetUrl, cancellationToken)
+             .ConfigureAwait(false);
   }
 
   /// <summary>Builds the address a status links to: the page of the pull request, else the page of the commit.</summary>
