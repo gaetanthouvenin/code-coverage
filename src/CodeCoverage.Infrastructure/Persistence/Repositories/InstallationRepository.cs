@@ -43,6 +43,16 @@ internal sealed class InstallationRepository(CodeCoverageDbContext context) : II
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<long>> ListIdsForOrganizationAsync(long organizationId, CancellationToken cancellationToken) =>
+    await context.Installations
+                 .AsNoTracking()
+                 .Where(i => i.OrganizationId == organizationId)
+                 .OrderByDescending(static i => i.Id)
+                 .Select(static i => i.Id)
+                 .ToListAsync(cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
   public async Task AddAsync(Installation installation, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(installation);

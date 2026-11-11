@@ -7,6 +7,8 @@
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
+using CodeCoverage.Application.Services;
+using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
@@ -25,11 +27,15 @@ public sealed class SyncInstallationsCommandHandlerTests
 
   private readonly IInstallationRepository _installations = A.Fake<IInstallationRepository>();
 
-  private readonly IOrganizationDirectory _directory = A.Fake<IOrganizationDirectory>();
+  private readonly InMemoryOrganizationDirectory _directory = new(Now);
 
   private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
 
   private readonly List<JobRequest> _queued = [];
+
+  private readonly List<Installation> _recorded = [];
+
+  private readonly IAuditLog _auditLog = A.Fake<IAuditLog>();
 
   private readonly SyncInstallationsCommandHandler _handler;
 
@@ -43,12 +49,22 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     A.CallTo(() => clock.UtcNow).Returns(Now);
     A.CallTo(() => _installations.FindOwnerAsync(A<long>._, A<CancellationToken>._)).Returns((InstallationOwner?)null);
-    A.CallTo(() => _directory.FindByAccountIdAsync(A<Forge>._, A<string>._, A<CancellationToken>._)).Returns((Organization?)null);
+    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._))
+     .Invokes((Installation installation, CancellationToken _) => _recorded.Add(installation));
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(A<long>._, A<CancellationToken>._)).Returns([99L]);
+    // An installation GitHub left out of its listing is asked for on its own: by default it is gone.
+    A.CallTo(() => _gitHub.GetInstallationAsync(A<long>._, A<CancellationToken>._)).Returns((GitHubInstallationInfo?)null);
     A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._))
      .Invokes((JobRequest job, CancellationToken _) => _queued.Add(job))
      .Returns(1L);
 
-    _handler = new SyncInstallationsCommandHandler(_gitHub, _installations, _directory, _jobQueue, clock);
+    _handler = new SyncInstallationsCommandHandler(
+      _gitHub,
+      _installations,
+      _directory,
+      _jobQueue,
+      new InstallationLifecycle(_directory, _installations, _auditLog, clock)
+    );
   }
 
   #endregion
@@ -64,104 +80,297 @@ public sealed class SyncInstallationsCommandHandlerTests
   [Fact]
   public async Task Handle_ShouldQueueOneChildPerActiveOrganization()
   {
-    Listed(new GitHubInstallationInfo(42, "1001", "first", false), new GitHubInstallationInfo(43, "2002", "second", false));
-    Owned(42, 9, OrganizationState.Active);
-    Owned(43, 10, OrganizationState.Active);
+    var first = _directory.Add("1001", "first", admitted: true);
+    var second = _directory.Add("2002", "second", admitted: true);
+    Listed(Installed(42, "1001", "first"), Installed(43, "2002", "second"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
     _queued.Count.ShouldBe(2);
-    _queued[0].OrganizationId.ShouldBe(9);
+    _queued[0].OrganizationId.ShouldBe(first.Id);
     _queued[0].Type.ShouldBe(JobTypes.SyncInstallationRepositories);
     _queued[0].PayloadJson.ShouldBe("""{"InstallationId":42}""");
     _queued[0].LockKey.ShouldBe("installation:42");
     _queued[0].DedupKey.ShouldBe("sync:installation:42");
     _queued[0].Coalesce.ShouldBeTrue();
-    _queued[1].OrganizationId.ShouldBe(10);
+    _queued[1].OrganizationId.ShouldBe(second.Id);
     _queued[1].PayloadJson.ShouldBe("""{"InstallationId":43}""");
   }
 
-  [Theory]
-  [InlineData(OrganizationState.Pending)]
-  [InlineData(OrganizationState.Suspended)]
-  public async Task Handle_OrganizationNotActive_ShouldQueueNothing(OrganizationState state)
+  [Fact]
+  public async Task Handle_UnknownInstallation_ShouldCreatePendingOrganization()
   {
-    Listed(new GitHubInstallationInfo(42, "1001", "first", false));
-    Owned(42, 9, state);
+    Listed(Installed(42, "1001", "Stranger", OrganizationAccountType.User));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
+    // The delivery of installation.created was lost: the account waits for its admission, and nothing is tracked.
+    var organization = _directory.All.ShouldHaveSingleItem();
+    organization.State.ShouldBe(OrganizationState.Pending);
+    organization.ExternalAccountId.ShouldBe("1001");
+    organization.Login.ShouldBe("Stranger");
+    organization.AccountType.ShouldBe(OrganizationAccountType.User);
+    organization.AdmittedBy.ShouldBeNull();
+    var installation = _recorded.ShouldHaveSingleItem();
+    installation.Id.ShouldBe(42);
+    installation.OrganizationId.ShouldBe(organization.Id);
+    installation.CreatedAt.ShouldBe(Now);
     _queued.ShouldBeEmpty();
   }
 
   [Fact]
-  public async Task Handle_SuspendedInstallation_ShouldBeSkippedWithoutAnyReading()
+  public async Task Handle_PendingOrganization_ShouldStayPendingAndQueueNothing()
   {
-    Listed(new GitHubInstallationInfo(42, "1001", "first", true));
-    Owned(42, 9, OrganizationState.Active);
+    var organization = _directory.Add("1001", "first");
+    Listed(Installed(42, "1001", "first"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
+    organization.State.ShouldBe(OrganizationState.Pending);
+    _recorded.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
     _queued.ShouldBeEmpty();
-    A.CallTo(_installations).MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task Handle_UnknownAccount_ShouldRecordNothing()
+  public async Task Handle_RenamedAccount_ShouldUpdateTheLoginByAccountId()
   {
-    Listed(new GitHubInstallationInfo(42, "1001", "stranger", false));
+    var organization = _directory.Add("1001", "old-name", admitted: true);
+    Listed(Installed(42, "1001", "New-Name"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    _queued.ShouldBeEmpty();
-    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._)).MustNotHaveHappened();
+    organization.Login.ShouldBe("New-Name");
+    _directory.All.ShouldHaveSingleItem();
   }
 
   [Fact]
-  public async Task Handle_NewInstallationOfAKnownAccount_ShouldRecordItUnderTheOrganizationOfThatAccount()
+  public async Task Handle_KnownInstallation_ShouldNotRecordItAgain()
   {
-    var organization = Admitted("1001", "first");
-    Listed(new GitHubInstallationInfo(42, "1001", "first", false));
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, "1001", A<CancellationToken>._)).Returns(organization);
+    _directory.Add("1001", "first", admitted: true);
+    A.CallTo(() => _installations.FindOwnerAsync(42, A<CancellationToken>._)).Returns(new InstallationOwner(100, OrganizationState.Active));
+    Listed(Installed(42, "1001", "first"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    A.CallTo(
-       () => _installations.AddAsync(
-         A<Installation>.That.Matches(i => i.Id == 42 && i.OrganizationId == organization.Id && i.CreatedAt == Now),
-         A<CancellationToken>._
-       )
-     )
-     .MustHaveHappenedOnceExactly();
+    _recorded.ShouldBeEmpty();
+    _queued.ShouldHaveSingleItem();
+  }
+
+  [Fact]
+  public async Task Handle_InstallationRecordedInTheMeantime_ShouldGoOn()
+  {
+    var organization = _directory.Add("1001", "first", admitted: true);
+    Listed(Installed(42, "1001", "first"));
+    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._))
+     .Throws(new ConflictException(GeneralErrors.ConcurrentChange, "added in the meantime"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
     _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
   }
 
   [Fact]
-  public async Task Handle_NewInstallationOfAPendingAccount_ShouldRecordItAndQueueNothing()
+  public async Task Handle_SuspendedInstallation_ShouldSuspendItsOrganizationAndQueueNothing()
   {
-    var organization = WithId(Organization.CreatePending(Forge.GitHub, "1001", "first", OrganizationAccountType.Organization, Now));
-    Listed(new GitHubInstallationInfo(42, "1001", "first", false));
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, "1001", A<CancellationToken>._)).Returns(organization);
+    var organization = _directory.Add("1001", "first", admitted: true);
+    Listed(Installed(42, "1001", "first", suspended: true));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    // The delivery of installation.suspend was lost. GitHub refuses every call made for this installation.
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
     _queued.ShouldBeEmpty();
   }
 
   [Fact]
-  public async Task Handle_InstallationRecordedInTheMeantime_ShouldFollowItsRow()
+  public async Task Handle_InstallationNoLongerListed_ShouldSuspendItsOrganization()
   {
-    Listed(new GitHubInstallationInfo(42, "1001", "first", false));
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, "1001", A<CancellationToken>._)).Returns(Admitted("1001", "first"));
-    A.CallTo(() => _installations.AddAsync(A<Installation>._, A<CancellationToken>._))
-     .Throws(new ConflictException(GeneralErrors.ConcurrentChange, "added in the meantime"));
-    A.CallTo(() => _installations.FindOwnerAsync(42, A<CancellationToken>._))
-     .ReturnsNextFromSequence(null, new InstallationOwner(77, OrganizationState.Active));
+    var gone = _directory.Add("1001", "gone", admitted: true);
+    var served = _directory.Add("2002", "served", admitted: true);
+    Listed(Installed(43, "2002", "served"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(77);
+    // The delivery of installation.deleted was lost.
+    gone.State.ShouldBe(OrganizationState.Suspended);
+    gone.SuspensionReason.ShouldBe(SuspensionReason.AppUninstalled);
+    served.State.ShouldBe(OrganizationState.Active);
+    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(served.Id);
+  }
+
+  // F21. The pages of the listing are numbered: an installation added or removed between two pages shifts the next
+  // one, and an installation may be left out. Before it is suspended, its installation is asked for on its own.
+  [Fact]
+  public async Task Handle_InstallationLeftOutOfAShiftedListing_ShouldNotBeSuspended()
+  {
+    var shifted = _directory.Add("1001", "shifted", admitted: true);
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(shifted.Id, A<CancellationToken>._)).Returns([42L]);
+    A.CallTo(() => _gitHub.GetInstallationAsync(42, A<CancellationToken>._)).Returns(Installed(42, "1001", "shifted"));
+    Listed();
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    shifted.State.ShouldBe(OrganizationState.Active);
+  }
+
+  // F21. Asked on its own, the installation is suspended or gone: the organization is suspended.
+  [Theory]
+  [InlineData(true)]
+  [InlineData(false)]
+  public async Task Handle_InstallationConfirmedGone_ShouldSuspendTheOrganization(bool suspendedOnGitHub)
+  {
+    var gone = _directory.Add("1001", "gone", admitted: true);
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(gone.Id, A<CancellationToken>._)).Returns([42L]);
+    A.CallTo(() => _gitHub.GetInstallationAsync(42, A<CancellationToken>._))
+     .Returns(suspendedOnGitHub ? Installed(42, "1001", "gone", suspended: true) : null);
+    Listed();
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    gone.State.ShouldBe(OrganizationState.Suspended);
+  }
+
+  // D. A failure in the middle of the listing suspends nothing: the organizations the listing had not reached yet are
+  // not taken for uninstalled.
+  [Fact]
+  public async Task Handle_FailureInTheMiddleOfTheListing_ShouldSuspendNothing()
+  {
+    _directory.Add("1001", "first", admitted: true);
+    _directory.Add("2002", "second", admitted: true);
+    var notListed = _directory.Add("3003", "not-listed", admitted: true);
+    A.CallTo(() => _installations.FindOwnerAsync(43, A<CancellationToken>._)).Throws(new InvalidOperationException("The database does not answer."));
+    Listed(Installed(42, "1001", "first"), Installed(43, "2002", "second"));
+
+    await Should.ThrowAsync<InvalidOperationException>(async () => await _handler.Handle(new SyncInstallationsCommand(), Ct));
+
+    notListed.State.ShouldBe(OrganizationState.Active);
+    _directory.All.ShouldAllBe(static o => o.State == OrganizationState.Active);
+  }
+
+  // F18. The listing tells that an active account took a reserved login: suspended, and audited.
+  [Fact]
+  public async Task Handle_AccountRenamedToAReservedLogin_ShouldSuspendWithAnAuditEntry()
+  {
+    var organization = _directory.Add("1001", "octo", admitted: true);
+    Listed(Installed(42, "1001", "admin"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    A.CallTo(() => _auditLog.RecordAsync("Organization.Suspend", "GitHub/admin", A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_ActiveOrganizationThatNeverHadAnInstallation_ShouldStayActive()
+  {
+    // Admitted from the command line before the account installed the application.
+    var organization = _directory.Add("1001", "early", admitted: true);
+    A.CallTo(() => _installations.ListIdsForOrganizationAsync(organization.Id, A<CancellationToken>._)).Returns([]);
+    Listed();
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.State.ShouldBe(OrganizationState.Active);
+  }
+
+  [Fact]
+  public async Task Handle_OrganizationOfAnotherForge_ShouldNeverBeSuspendedByThisListing()
+  {
+    var organization = Organization.CreatePending(Forge.GitLab, "77", "elsewhere", OrganizationAccountType.Organization, Now);
+    organization.Admit("tests", Now);
+    _directory.Add(organization);
+    Listed();
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.State.ShouldBe(OrganizationState.Active);
+  }
+
+  [Fact]
+  public async Task Handle_ListingFails_ShouldChangeNoState()
+  {
+    var organization = _directory.Add("1001", "first", admitted: true);
+    A.CallTo(() => _gitHub.ListInstallationsAsync(A<CancellationToken>._))
+     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub lists more installations than this instance reads."));
+
+    await Should.ThrowAsync<BadGatewayException>(async () => await _handler.Handle(new SyncInstallationsCommand(), Ct));
+
+    organization.State.ShouldBe(OrganizationState.Active);
+    _directory.Upserts.ShouldBe(0);
+    _queued.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_UninstalledOrganizationListedAgain_ShouldReactivateAndQueueItsChild()
+  {
+    var organization = _directory.Add("1001", "first", admitted: true);
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    Listed(Installed(44, "1001", "first"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    // The delivery of the reinstallation was lost.
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
+    _recorded.ShouldHaveSingleItem().Id.ShouldBe(44);
+    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(organization.Id);
+  }
+
+  [Fact]
+  public async Task Handle_UninstalledBeforeItsAdmission_ShouldGoBackToPendingNotActive()
+  {
+    var organization = _directory.Add("1001", "first");
+    organization.Suspend(SuspensionReason.AppUninstalled, Now);
+    Listed(Installed(44, "1001", "first"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.State.ShouldBe(OrganizationState.Pending);
+    _queued.ShouldBeEmpty();
+  }
+
+  [Theory]
+  [InlineData(SuspensionReason.Administrator)]
+  [InlineData(SuspensionReason.ReservedLogin)]
+  public async Task Handle_SuspendedForAnotherReason_ShouldStaySuspended(SuspensionReason reason)
+  {
+    var organization = _directory.Add("1001", "first", admitted: true);
+    organization.Suspend(reason, Now);
+    Listed(Installed(42, "1001", "first"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.State.ShouldBe(OrganizationState.Suspended);
+    organization.SuspensionReason.ShouldBe(reason);
+    _queued.ShouldBeEmpty();
+  }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("~stale-1001")]
+  [InlineData("not/a/login")]
+  public async Task Handle_AccountThatCannotBeAnOrganization_ShouldBeLeftOutAndTheOthersFollowed(string login)
+  {
+    var other = _directory.Add("2002", "second", admitted: true);
+    Listed(Installed(42, "1001", login), Installed(43, "2002", "second"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    _directory.All.ShouldHaveSingleItem();
+    _queued.ShouldHaveSingleItem().OrganizationId.ShouldBe(other.Id);
+  }
+
+  [Fact]
+  public async Task Handle_ListedAccountThatCannotBeFollowed_ShouldNotBeTakenForUninstalled()
+  {
+    var organization = _directory.Add("1001", "first", admitted: true);
+    Listed(Installed(42, "1001", string.Empty));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    organization.State.ShouldBe(OrganizationState.Active);
   }
 
   [Fact]
@@ -175,10 +384,23 @@ public sealed class SyncInstallationsCommandHandlerTests
   }
 
   [Fact]
+  public async Task Handle_Twice_ShouldEndInTheSameState()
+  {
+    var gone = _directory.Add("1001", "gone", admitted: true);
+    Listed(Installed(43, "2002", "new"));
+
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+    var version = gone.Version;
+    await _handler.Handle(new SyncInstallationsCommand(), Ct);
+
+    gone.Version.ShouldBe(version);
+    _directory.All.Count.ShouldBe(2);
+  }
+
+  [Fact]
   public async Task Handle_Transfer_ShouldQueueTheClosingInTheActiveOrigin()
   {
-    var origin = Admitted("2002", "origin");
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, "2002", A<CancellationToken>._)).Returns(origin);
+    var origin = _directory.Add("2002", "origin", admitted: true);
 
     await _handler.Handle(new SyncInstallationsCommand("7", "2002"), Ct);
 
@@ -199,8 +421,7 @@ public sealed class SyncInstallationsCommandHandlerTests
   {
     if (known)
     {
-      A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, "2002", A<CancellationToken>._))
-       .Returns(Organization.CreatePending(Forge.GitHub, "2002", "origin", OrganizationAccountType.User, Now));
+      _directory.Add("2002", "origin", accountType: OrganizationAccountType.User);
     }
 
     await _handler.Handle(new SyncInstallationsCommand("7", "2002"), Ct);
@@ -228,31 +449,17 @@ public sealed class SyncInstallationsCommandHandlerTests
     await Should.ThrowAsync<ArgumentNullException>(async () => await _handler.Handle(null!, Ct));
   }
 
-  private static Organization Admitted(string accountId, string login)
-  {
-    var organization = Organization.CreatePending(Forge.GitHub, accountId, login, OrganizationAccountType.Organization, Now);
-
-    organization.Admit("tests", Now);
-
-    return WithId(organization);
-  }
-
-  // The identifier is given by the database: a row read from it always has one.
-  private static Organization WithId(Organization organization)
-  {
-    typeof(Organization).GetProperty(nameof(Organization.Id))!.SetValue(organization, 12L);
-
-    return organization;
-  }
+  private static GitHubInstallationInfo Installed(
+    long id,
+    string accountId,
+    string login,
+    OrganizationAccountType accountType = OrganizationAccountType.Organization,
+    bool suspended = false) =>
+    new(id, accountId, login, accountType, suspended);
 
   private void Listed(params GitHubInstallationInfo[] installations)
   {
     A.CallTo(() => _gitHub.ListInstallationsAsync(A<CancellationToken>._)).Returns(installations);
-  }
-
-  private void Owned(long installationId, long organizationId, OrganizationState state)
-  {
-    A.CallTo(() => _installations.FindOwnerAsync(installationId, A<CancellationToken>._)).Returns(new InstallationOwner(organizationId, state));
   }
 
   #endregion

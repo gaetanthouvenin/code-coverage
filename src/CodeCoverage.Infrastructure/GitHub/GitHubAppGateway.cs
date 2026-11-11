@@ -310,7 +310,8 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
                      .. list.Select(static i => new GitHubInstallationInfo(
                                       i.Id,
                                       i.Account.Id.ToString(CultureInfo.InvariantCulture),
-                                      i.Account.Login,
+                                      i.Account.Login ?? string.Empty,
+                                      GitHubAccountTypes.ToAccountType(i.Account.Type),
                                       i.SuspendedAt is not null
                                     )
                      ),
@@ -327,6 +328,38 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
     }
 
     throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub lists more installations than this instance reads.");
+  }
+
+  /// <inheritdoc />
+  /// <remarks>Authenticated as the App itself: an installation that is suspended or deleted has no token.</remarks>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<GitHubInstallationInfo?> GetInstallationAsync(long installationId, CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+
+    var address = string.Create(CultureInfo.InvariantCulture, $"app/installations/{installationId}");
+
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(address, UriKind.Relative));
+
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokens.CreateAppJwt());
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(
+             response,
+             address,
+             GitHubJsonContext.Default.GitHubInstallationListItem,
+             NotFound,
+             static installation => new GitHubInstallationInfo(
+               installation.Id,
+               installation.Account.Id.ToString(CultureInfo.InvariantCulture),
+               installation.Account.Login ?? string.Empty,
+               GitHubAccountTypes.ToAccountType(installation.Account.Type),
+               installation.SuspendedAt is not null
+             ),
+             cancellationToken
+           ).ConfigureAwait(false);
   }
 
   /// <inheritdoc />

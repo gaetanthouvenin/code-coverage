@@ -31,5 +31,6 @@ namespace CodeCoverage.Infrastructure.GitHub;
 [JsonSerializable(typeof(GitHubManifestConversionResponse))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubCommitResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubCompareFile>))]
+[JsonSerializable(typeof(GitHubInstallationListItem))]
 [JsonSerializable(typeof(IReadOnlyList<GitHubInstallationListItem>))]
 internal sealed partial class GitHubJsonContext : JsonSerializerContext;

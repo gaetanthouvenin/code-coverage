@@ -62,6 +62,33 @@ public sealed class InstallationRepositoryTests(DatabaseFixture database)
     (await repository.FindOwnerAsync(SecondInstallation, Ct)).ShouldBe(new InstallationOwner(organizations.SecondId, OrganizationState.Pending));
   }
 
+  // F20, F21, S7. The installations of an organization, the most recent first: GitHub gives its identifiers in
+  // increasing order, so the highest one is the current one, whatever the order they were recorded in here (a late
+  // or redelivered creation is recorded after a more recent installation).
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListIdsForOrganization_ShouldGiveItsInstallationsTheHighestIdentifierFirst(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+
+    await using (var context = organizations.ContextWithoutOrganization())
+    {
+      var repository = new InstallationRepository(context);
+
+      await repository.AddAsync(Installation.Create(30, organizations.FirstId, Now.AddDays(-2)), Ct);
+      await repository.AddAsync(Installation.Create(10, organizations.FirstId, Now), Ct);
+      await repository.AddAsync(Installation.Create(20, organizations.FirstId, Now.AddDays(-1)), Ct);
+      await repository.AddAsync(Installation.Create(40, organizations.SecondId, Now), Ct);
+    }
+
+    await using var reader = organizations.ContextWithoutOrganization();
+    var installations = new InstallationRepository(reader);
+
+    (await installations.ListIdsForOrganizationAsync(organizations.FirstId, Ct)).ShouldBe([30L, 20L, 10L]);
+    (await installations.ListIdsForOrganizationAsync(organizations.SecondId, Ct)).ShouldBe([40L]);
+    (await installations.ListIdsForOrganizationAsync(long.MaxValue, Ct)).ShouldBeEmpty();
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task FindOwner_Unknown_ShouldReturnNull(DatabaseProvider provider)

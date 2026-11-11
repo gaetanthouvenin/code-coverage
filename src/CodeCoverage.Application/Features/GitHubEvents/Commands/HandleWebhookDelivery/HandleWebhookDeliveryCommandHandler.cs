@@ -11,6 +11,7 @@ using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 
@@ -20,9 +21,11 @@ namespace CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookD
 /// <param name="deliveries">The repository of the deliveries.</param>
 /// <param name="repositories">The repository of the tracked repositories.</param>
 /// <param name="directory">The directory of the organizations.</param>
+/// <param name="installations">The repository of the installations.</param>
 /// <param name="currentOrganization">The organization of the scope.</param>
 /// <param name="jobQueue">The job queue.</param>
 /// <param name="reconciler">What the deliveries and the reconciliations share.</param>
+/// <param name="lifecycle">What an installation does to the organization of its account.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   Every branch gives the same result when it runs twice: a delivery GitHub sends again, or a job that is
@@ -32,9 +35,11 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   IWebhookDeliveryRepository deliveries,
   IRepositoryRepository repositories,
   IOrganizationDirectory directory,
+  IInstallationRepository installations,
   ICurrentOrganization currentOrganization,
   IJobQueue jobQueue,
   RepositoryReconciler reconciler,
+  InstallationLifecycle lifecycle,
   IClock clock) : ICommandHandler<HandleWebhookDeliveryCommand>
 {
   #region Fields
@@ -55,8 +60,12 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   /// <returns>A task that completes when the event is handled.</returns>
   private async Task HandleInstallationAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
   {
+    var suspended = delivery.Event is InstallationEvent && await FollowLifecycleAsync(delivery, cancellationToken).ConfigureAwait(false);
+
     // The account is not an active organization: only the coordinator may look at it, and it creates no repository.
-    if (!currentOrganization.IsKnown)
+    // After a suspension it also tells whether another installation still serves the account, when the deliveries
+    // of a reinstallation arrived out of order.
+    if (!currentOrganization.IsKnown || suspended)
     {
       await jobQueue.EnqueueAsync(SyncInstallationsJobs.Create(), cancellationToken).ConfigureAwait(false);
 
@@ -78,6 +87,57 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
     if (delivery.InstallationId is { } installationId && delivery.Action is not ("deleted" or "suspend"))
     {
       await jobQueue.EnqueueAsync(RepositoryReconciliationJobs.ForInstallation(installationId), cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <summary>Applies what the creation, the removal or the suspension of an installation does to its organization.</summary>
+  /// <param name="delivery">The delivery of an <c>installation</c> event.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns><see langword="true" /> when the delivery reports an installation that no longer serves its account.</returns>
+  /// <remarks>
+  ///   <c>created</c> and <c>unsuspend</c> record the installation under the organization of its account, pending
+  ///   when the account is new, and lift a suspension the removal of the application caused. <c>deleted</c> and
+  ///   <c>suspend</c> suspend the organization, unless they name an installation older than the most recent one it
+  ///   has: a delivery that arrived after the account installed the application again. No action admits one.
+  /// </remarks>
+  private async Task<bool> FollowLifecycleAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
+  {
+    switch (delivery.Action)
+    {
+      case "created" or "unsuspend":
+        if (GitHubInstallationEvent.Parse(delivery.Payload).Installation is { } installation
+            && await lifecycle.AttachAsync(installation, cancellationToken).ConfigureAwait(false) is { } organization)
+        {
+          await lifecycle.ReactivateAsync(organization, cancellationToken).ConfigureAwait(false);
+        }
+
+        return false;
+      case "deleted" or "suspend":
+        // Inside an organization, the account is the one of the scope, which the job took from its own row.
+        var target = currentOrganization.IsKnown
+                       ? await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false)
+                       : GitHubInstallationEvent.Parse(delivery.Payload).Installation?.AccountId is { } bodyAccountId
+                         ? await directory.FindByAccountIdAsync(Forge.GitHub, bodyAccountId, cancellationToken).ConfigureAwait(false)
+                         : null;
+
+        if (target is null)
+        {
+          return true;
+        }
+
+        // The account installed the application again meanwhile: the removal of a former installation suspends nothing.
+        if (delivery.InstallationId is { } removed
+            && await installations.ListIdsForOrganizationAsync(target.Id, cancellationToken).ConfigureAwait(false) is [var current, ..]
+            && current != removed)
+        {
+          return false;
+        }
+
+        await lifecycle.SuspendAsync(target.ExternalAccountId, cancellationToken).ConfigureAwait(false);
+
+        return true;
+      default:
+        return false;
     }
   }
 

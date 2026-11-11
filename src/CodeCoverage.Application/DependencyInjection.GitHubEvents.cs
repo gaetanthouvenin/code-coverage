@@ -21,6 +21,7 @@ public static partial class DependencyInjection
   private static IServiceCollection AddGitHubEventServices(this IServiceCollection services)
   {
     services.AddScoped<RepositoryReconciler>();
+    services.AddScoped<InstallationLifecycle>();
 
     return services;
   }

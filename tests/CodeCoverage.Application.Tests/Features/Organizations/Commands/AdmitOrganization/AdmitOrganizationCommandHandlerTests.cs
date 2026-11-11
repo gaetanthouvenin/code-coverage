@@ -7,6 +7,7 @@
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Organizations.Commands.AdmitOrganization;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -30,6 +31,8 @@ public sealed class AdmitOrganizationCommandHandlerTests
   private readonly IClock _clock = A.Fake<IClock>();
 
   private readonly IAuditLog _audit = A.Fake<IAuditLog>();
+
+  private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
 
   #endregion
 
@@ -62,6 +65,38 @@ public sealed class AdmitOrganizationCommandHandlerTests
     admitted.State.ShouldBe(OrganizationState.Active);
     admitted.AdmittedBy.ShouldBe(AuditEntry.SystemActor);
     A.CallTo(() => _audit.RecordAsync("Organization.Admit", $"GitHub/{Login}", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_Pending_ShouldQueueTheCoordinatorOfTheInstallations()
+  {
+    Knows(Pending());
+
+    await Handler().Handle(Command(), Ct);
+
+    // The admission knows no installation: the coordinator of the instance lane finds it, never a job named for
+    // the organization.
+    A.CallTo(
+       () => _jobQueue.EnqueueAsync(
+         A<JobRequest>.That.Matches(j => j.Type == JobTypes.SyncInstallations && j.IsInstance && j.OrganizationId == null),
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_AccountOfAnotherForge_ShouldQueueNoListingOfGitHubInstallations()
+  {
+    var pending = Organization.CreatePending(Forge.Bitbucket, AccountId, Login, OrganizationAccountType.Organization, Now);
+    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.Bitbucket, AccountId, A<CancellationToken>._)).Returns(pending);
+    Upserts(pending);
+    Changes(pending);
+
+    var admitted = await Handler().Handle(new AdmitOrganizationCommand(Forge.Bitbucket, Login, AccountId), Ct);
+
+    admitted.State.ShouldBe(OrganizationState.Active);
+    A.CallTo(_jobQueue).MustNotHaveHappened();
   }
 
   [Fact]
@@ -115,6 +150,7 @@ public sealed class AdmitOrganizationCommandHandlerTests
     exception.ErrorCode.ShouldBe(OrganizationErrors.ReservedLogin);
     A.CallTo(_directory).MustNotHaveHappened();
     A.CallTo(_audit).MustNotHaveHappened();
+    A.CallTo(_jobQueue).MustNotHaveHappened();
   }
 
   [Fact]
@@ -157,7 +193,7 @@ public sealed class AdmitOrganizationCommandHandlerTests
 
   private static Organization Pending() => Organization.CreatePending(Forge.GitHub, AccountId, Login, OrganizationAccountType.Organization, Now);
 
-  private AdmitOrganizationCommandHandler Handler() => new(_directory, _user, _clock, _audit);
+  private AdmitOrganizationCommandHandler Handler() => new(_directory, _user, _clock, _audit, _jobQueue);
 
   private void Knows(Organization organization)
   {
@@ -171,7 +207,7 @@ public sealed class AdmitOrganizationCommandHandlerTests
      .Returns(organization);
 
   private void Changes(Organization organization) =>
-    A.CallTo(() => _directory.ChangeAsync(Forge.GitHub, AccountId, A<Action<Organization>>._, A<CancellationToken>._))
+    A.CallTo(() => _directory.ChangeAsync(organization.Forge, AccountId, A<Action<Organization>>._, A<CancellationToken>._))
      .ReturnsLazily((Forge _, string _, Action<Organization> change, CancellationToken _) =>
        {
          change(organization);

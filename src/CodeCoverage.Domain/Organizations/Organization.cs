@@ -235,19 +235,74 @@ public sealed class Organization
     Touch(at);
   }
 
-  /// <summary>Suspends the organization; the reason of a first suspension is kept.</summary>
+  /// <summary>Suspends the organization.</summary>
   /// <param name="reason">Why the organization is suspended.</param>
   /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>
+  ///   The reason of a first suspension is kept, with one exception: an administrator who suspends an
+  ///   organization that the removal of the application had already suspended replaces that reason, so that
+  ///   a later reinstallation does not lift the suspension (<see cref="Reactivate" />).
+  /// </remarks>
   public void Suspend(SuspensionReason reason, DateTimeOffset at)
   {
     if (State is OrganizationState.Suspended)
     {
+      if (reason is Organizations.SuspensionReason.Administrator && SuspensionReason is Organizations.SuspensionReason.AppUninstalled)
+      {
+        SuspensionReason = reason;
+        Touch(at);
+      }
+
       return;
     }
 
     State = OrganizationState.Suspended;
     SuspensionReason = reason;
     Touch(at);
+  }
+
+  /// <summary>Lifts the suspension that followed the removal or the suspension of the application.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <returns><see langword="true" /> when the suspension was lifted; otherwise <see langword="false" />.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     Only a suspension whose reason is <see cref="Organizations.SuspensionReason.AppUninstalled" /> is
+  ///     lifted: one an administrator decided, or one a reserved login caused, stays.
+  ///   </para>
+  ///   <para>
+  ///     The organization goes back to <see cref="OrganizationState.Active" /> only when it had been
+  ///     admitted, otherwise to <see cref="OrganizationState.Pending" />: nothing here admits it. An admitted
+  ///     organization whose login became reserved meanwhile stays suspended, for that reason.
+  ///   </para>
+  /// </remarks>
+  public bool Reactivate(DateTimeOffset at)
+  {
+    if (State is not OrganizationState.Suspended || SuspensionReason is not Organizations.SuspensionReason.AppUninstalled)
+    {
+      return false;
+    }
+
+    Touch(at);
+
+    if (AdmittedBy is null)
+    {
+      State = OrganizationState.Pending;
+      SuspensionReason = null;
+
+      return true;
+    }
+
+    if (ReservedLogins.IsReserved(Login))
+    {
+      SuspensionReason = Organizations.SuspensionReason.ReservedLogin;
+
+      return false;
+    }
+
+    State = OrganizationState.Active;
+    SuspensionReason = null;
+
+    return true;
   }
 
   /// <summary>Applies the login that the forge reports for the account.</summary>
