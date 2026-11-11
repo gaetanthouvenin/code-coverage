@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Data.Common;
+
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
@@ -15,6 +17,7 @@ using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
 using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Jobs;
@@ -49,11 +52,17 @@ internal sealed class CommitReportRepository(
   /// <summary>The message of the refusal of a row of another commit.</summary>
   private const string ForeignCommitMessage = "Every session and every total must belong to the commit.";
 
+  /// <summary>The message of the refusal of a branch of another repository.</summary>
+  private const string ForeignBranchMessage = "The branch must belong to the repository of the commit.";
+
   /// <summary>The message of the refusal of a finalization that lost a race; it is sent to the caller.</summary>
   private const string ConcurrentSaveMessage = "The commit was finalized in the meantime; finalize it again.";
 
   /// <summary>How many waiting commits a commit that completes wakes.</summary>
   private const int MaxWokenCommits = 10;
+
+  /// <summary>How long the victim of a deadlock waits before it runs again.</summary>
+  private static readonly TimeSpan DeadlockRetryDelay = TimeSpan.FromSeconds(2);
 
   #endregion
 
@@ -219,6 +228,7 @@ internal sealed class CommitReportRepository(
     byte[] fileIndex,
     IReadOnlyList<Session> sessions,
     IReadOnlyList<CommitFlagTotals> flagTotals,
+    Branch? branch,
     FinalizationWakeUps wakeUps,
     CancellationToken cancellationToken)
   {
@@ -232,6 +242,7 @@ internal sealed class CommitReportRepository(
     InvalidOperationException.ThrowIf(!context.Entry(commit).Property(static c => c.Version).IsModified, NotFinalizedMessage);
     ArgumentException.ThrowIf(sessions.Any(s => s.CommitId != commit.Id), ForeignCommitMessage, nameof(sessions));
     ArgumentException.ThrowIf(flagTotals.Any(t => t.CommitId != commit.Id), ForeignCommitMessage, nameof(flagTotals));
+    ArgumentException.ThrowIf(branch is not null && branch.RepositoryId != commit.RepositoryId, ForeignBranchMessage, nameof(branch));
 
     var commitId = commit.Id;
     IReadOnlyList<long> queued = [];
@@ -254,6 +265,21 @@ internal sealed class CommitReportRepository(
         context.CommitSessions.AddRange(sessions);
         context.CommitFlagTotals.AddRange(flagTotals);
 
+        // A branch read in this scope is tracked already and carries its change.
+        if (branch is not null && context.Entry(branch).State is EntityState.Detached)
+        {
+          context.Branches.Add(branch);
+        }
+        else if (branch is not null && context.Entry(branch).State is EntityState.Unchanged)
+        {
+          // Unchanged, its version is still checked and moved: a push that moved its head meanwhile makes this save a
+          // conflict, and a push that read the row before this save makes its own a conflict. Either way, the one run
+          // again covers the new head.
+          var version = context.Entry(branch).Property(static b => b.Version);
+
+          version.CurrentValue = version.OriginalValue + 1;
+        }
+
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         // After the row of the commit is written: see the remarks of the port.
@@ -263,13 +289,28 @@ internal sealed class CommitReportRepository(
       }
       catch (ConflictException exception) when (exception.ErrorCode == GeneralErrors.ConcurrentChange)
       {
-        Forget(commit, stored, sessions, flagTotals);
+        Forget(commit, stored, sessions, flagTotals, branch);
 
         throw new ConflictException(CommitErrors.ConcurrentSave, ConcurrentSaveMessage, exception);
       }
+      catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, BranchConfiguration.PrimaryKeyName))
+      {
+        // A push created the branch meanwhile: the finalization, run again, reads its row.
+        Forget(commit, stored, sessions, flagTotals, branch);
+
+        throw new ConflictException(CommitErrors.ConcurrentSave, ConcurrentSaveMessage, exception);
+      }
+      catch (Exception exception) when (IsDeadlock(exception))
+      {
+        // Two finalizations of one branch, or of a commit and its ancestor, took the same rows in another order. The
+        // engine rolled this one back: it runs again shortly, without using an attempt of the job.
+        Forget(commit, stored, sessions, flagTotals, branch);
+
+        throw new RetryLaterException(DeadlockRetryDelay, $"The finalization of commit {commitId} was chosen as the victim of a deadlock.");
+      }
       catch
       {
-        Forget(commit, stored, sessions, flagTotals);
+        Forget(commit, stored, sessions, flagTotals, branch);
 
         throw;
       }
@@ -280,6 +321,12 @@ internal sealed class CommitReportRepository(
       wakeUpSignal.Notify(jobId);
     }
   }
+
+  /// <summary>Tells whether a failure is the rollback of the victim of a deadlock.</summary>
+  /// <param name="exception">The failure, or the update that wraps it.</param>
+  /// <returns><see langword="true" /> when the engine chose the statement as the victim of a deadlock.</returns>
+  private bool IsDeadlock(Exception exception) =>
+    (exception as DbException ?? exception.InnerException as DbException) is { } database && jobQueue.IsDeadlock(database);
 
   /// <summary>Queues the finalizations a finalization wakes, in its transaction.</summary>
   /// <param name="commit">The commit, whose row is already written in the transaction.</param>
@@ -491,13 +538,24 @@ internal sealed class CommitReportRepository(
   /// <param name="report">The row of the report, or <see langword="null" />.</param>
   /// <param name="sessions">The sessions.</param>
   /// <param name="flagTotals">The totals.</param>
-  private void Forget(Commit commit, CommitReportRecord? report, IReadOnlyList<Session> sessions, IReadOnlyList<CommitFlagTotals> flagTotals)
+  /// <param name="branch">The branch, or <see langword="null" />.</param>
+  private void Forget(
+    Commit commit,
+    CommitReportRecord? report,
+    IReadOnlyList<Session> sessions,
+    IReadOnlyList<CommitFlagTotals> flagTotals,
+    Branch? branch)
   {
     context.Entry(commit).State = EntityState.Detached;
 
     if (report is not null)
     {
       context.Entry(report).State = EntityState.Detached;
+    }
+
+    if (branch is not null)
+    {
+      context.Entry(branch).State = EntityState.Detached;
     }
 
     foreach (var session in sessions)

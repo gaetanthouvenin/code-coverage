@@ -284,6 +284,32 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   }
 
   /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository, or the name is empty.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<GitSha?> GetBranchHeadAsync(ForgeRepositoryRef repository, string branch, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+    var (installationId, root) = Locate(repository);
+
+    // Each part of the name is escaped; its slashes stay, as GitHub reads them.
+    var address = $"{root}/branches/{string.Join('/', branch.Split('/').Select(Uri.EscapeDataString))}";
+    var read = await GetAsync(installationId, address, GitHubJsonContext.Default.GitHubBranchResponse, NotFound, static response => response, cancellationToken)
+                 .ConfigureAwait(false);
+
+    if (read is null)
+    {
+      return null;
+    }
+
+    return GitSha.TryParse(read.Commit?.Sha, out var head)
+             ? head
+             : throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub answered the reading of '{address}' without the commit of the branch.");
+  }
+
+  /// <inheritdoc />
   /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
   public async Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken)

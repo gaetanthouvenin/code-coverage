@@ -106,5 +106,27 @@ public sealed class Branch
     Version++;
   }
 
+  /// <summary>Records the covered head of the branch: the nearest complete commit in the ancestry of its head.</summary>
+  /// <param name="commitId">The identifier of that commit, or <see langword="null" /> when the ancestry holds none.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <remarks>Recording the commit already recorded changes nothing, so that a replay does not move the version.</remarks>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="commitId" /> is zero or negative.</exception>
+  public void Cover(long? commitId, DateTimeOffset at)
+  {
+    if (commitId is { } id)
+    {
+      ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id, nameof(commitId));
+    }
+
+    if (commitId == CoveredCommitId)
+    {
+      return;
+    }
+
+    CoveredCommitId = commitId;
+    CoveredAt = commitId is null ? null : at.ToUniversalTime();
+    Version++;
+  }
+
   #endregion
 }

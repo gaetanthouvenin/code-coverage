@@ -32,16 +32,6 @@ internal sealed class ConfigResolver(
   IOrganizationSettingsProvider organizationSettings,
   IClock clock)
 {
-  #region Fields
-
-  /// <summary>The names of a configuration file, in the order of the search.</summary>
-  private static readonly string[] FileNames = ["codecov.yml", ".codecov.yml", "codecov.yaml", ".codecov.yaml"];
-
-  /// <summary>The directories searched after the root, in order.</summary>
-  private static readonly string[] Directories = [".github", "dev"];
-
-  #endregion
-
   #region Methods
 
   /// <summary>Resolves the effective configuration of a commit.</summary>
@@ -159,7 +149,7 @@ internal sealed class ConfigResolver(
   /// <param name="sha">The SHA of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
   /// <returns>Its path and its text, or <see langword="null" />.</returns>
-  private async Task<(string Path, string Yaml)?> ReadFileAtCommitAsync(ForgeRepositoryRef address, GitSha sha, CancellationToken cancellationToken)
+  internal async Task<(string Path, string Yaml)?> ReadFileAtCommitAsync(ForgeRepositoryRef address, GitSha sha, CancellationToken cancellationToken)
   {
     var gateway = gateways.GetGateway(address.Forge);
     var root = await gateway.GetTreeAsync(address, sha, recursive: false, cancellationToken).ConfigureAwait(false);
@@ -171,7 +161,7 @@ internal sealed class ConfigResolver(
 
     var path = FindFile(root, prefix: string.Empty);
 
-    foreach (var directory in Directories)
+    foreach (var directory in ConfigFileLocations.Directories)
     {
       if (path is not null)
       {
@@ -200,7 +190,7 @@ internal sealed class ConfigResolver(
   /// <param name="prefix">What precedes the entries of the tree in the repository.</param>
   /// <returns>Its path in the repository, or <see langword="null" />.</returns>
   private static string? FindFile(ForgeTree tree, string prefix) =>
-    FileNames.FirstOrDefault(name => tree.Entries.Any(e => !e.IsDirectory && e.Path == name)) is { } file ? prefix + file : null;
+    ConfigFileLocations.FileNames.FirstOrDefault(name => tree.Entries.Any(e => !e.IsDirectory && e.Path == name)) is { } file ? prefix + file : null;
 
   /// <summary>Reads the configuration of the organization.</summary>
   /// <param name="yaml">Its text, or <see langword="null" />.</param>

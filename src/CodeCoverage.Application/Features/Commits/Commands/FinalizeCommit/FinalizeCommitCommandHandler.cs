@@ -17,6 +17,7 @@ using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 
@@ -31,9 +32,19 @@ namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 /// <param name="merger">Rebuilds the report from the sessions.</param>
 /// <param name="carryforward">Finds what the commit inherits from its ancestors.</param>
 /// <param name="repositoryFlags">The flags the repositories received coverage for.</param>
+/// <param name="branches">The repository of the branches.</param>
+/// <param name="tracker">What finds the covered head of a branch.</param>
+/// <param name="gateways">The gateways of the forges.</param>
 /// <param name="notifications">The notification options.</param>
 /// <param name="clock">The clock.</param>
-/// <remarks>The job is serialized by its lock key. The rebuild is complete and deterministic, whatever the order of arrival.</remarks>
+/// <remarks>
+///   <para>The job is serialized by its lock key. The rebuild is complete and deterministic, whatever the order of arrival.</para>
+///   <para>
+///     A branch without a row gets one only when the forge has it, at the head the forge gives: a late finalization
+///     never brings back a branch deleted since. The commit of a pull request creates none, since its branch may be a
+///     fork's, which the repository does not have.
+///   </para>
+/// </remarks>
 internal sealed class FinalizeCommitCommandHandler(
   ICommitRepository commits,
   IUploadRepository uploads,
@@ -45,6 +56,9 @@ internal sealed class FinalizeCommitCommandHandler(
   CommitMerger merger,
   CarryforwardResolver carryforward,
   IRepositoryFlagRepository repositoryFlags,
+  IBranchRepository branches,
+  BranchHeadTracker tracker,
+  IForgeGatewayProvider gateways,
   IOptionsMonitor<NotificationOptions> notifications,
   IClock clock) : ICommandHandler<FinalizeCommitCommand>
 {
@@ -146,6 +160,21 @@ internal sealed class FinalizeCommitCommandHandler(
     SessionCoverage[] sessions = [.. uploaded, .. carried.Sessions];
     var merged = merger.MergeProject(resolved.Config, sessions);
     var wasComplete = commit.State is CommitState.Complete;
+    var outcome = processed.Length == 0 ? CommitState.Error : CommitState.Complete;
+
+    // Read before the finalization is recorded on the commit: the ancestry may save what it fetches from the forge,
+    // and a save of the scope must not write the commit before SaveFinalizedAsync does.
+    var branch = commit.Branch is null ? null : await branches.FindAsync(commit.RepositoryId, commit.Branch, cancellationToken).ConfigureAwait(false);
+    var head = branch?.HeadSha;
+
+    if (commit.Branch is not null && branch is null && commit.PullNumber is null)
+    {
+      head = await gateways.GetGateway(address.Forge).GetBranchHeadAsync(address, commit.Branch, cancellationToken).ConfigureAwait(false);
+    }
+
+    var covered = head is null
+                    ? null
+                    : await tracker.TrackAsync(commit.RepositoryId, address, head, commit, outcome, cancellationToken).ConfigureAwait(false);
 
     // Before the save: the notification it queues builds the flag statuses from the flags known to the repository.
     await repositoryFlags.AddMissingAsync(
@@ -156,7 +185,7 @@ internal sealed class FinalizeCommitCommandHandler(
     ).ConfigureAwait(false);
 
     commit.RecordFinalization(
-      processed.Length == 0 ? CommitState.Error : CommitState.Complete,
+      outcome,
       merged.Files.Count,
       merged.Totals,
       sessions.Length,
@@ -166,12 +195,20 @@ internal sealed class FinalizeCommitCommandHandler(
       clock.UtcNow
     );
 
+    if (commit.Branch is not null && head is not null)
+    {
+      // No push told about this branch yet: its row starts at the head the forge gives, and the next push moves it.
+      branch ??= Branch.Create(commit.RepositoryId, commit.Branch, head, clock.UtcNow);
+      branch.Cover(covered, clock.UtcNow);
+    }
+
     await reports.SaveFinalizedAsync(
       commit,
       codec.Encode(merged),
       codec.EncodeFileIndex(merged),
       [.. sessions.Select(static session => session.Session)],
       merger.BuildFlagTotals(commit, resolved.Config, sessions, merged),
+      branch,
       WakeUps(commit, wasComplete, carried) with { Notification = Notification(commit, resolved.Config) },
       cancellationToken
     ).ConfigureAwait(false);

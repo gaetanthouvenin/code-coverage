@@ -160,6 +160,34 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByShas_ShouldGiveTheCommitsFoundWithoutAttachingThem(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var known = await GetOrCreateAsync(seed, seed.Organizations.FirstId, seed.FirstRepository);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    var found = await new CommitRepository(context).ListByShasAsync(seed.FirstRepository, [Head, NewHead], Ct);
+
+    found.ShouldHaveSingleItem().Id.ShouldBe(known);
+    context.ChangeTracker.Entries().ShouldBeEmpty();
+    (await new CommitRepository(context).ListByShasAsync(seed.FirstRepository, [], Ct)).ShouldBeEmpty();
+    (await new CommitRepository(context).ListByShasAsync(seed.FirstRepository, [NewHead], Ct)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByShas_OtherOrganization_ShouldGiveNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await GetOrCreateAsync(seed, seed.Organizations.SecondId, seed.SecondRepository);
+
+    await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    (await new CommitRepository(first).ListByShasAsync(seed.SecondRepository, [Head], Ct)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task FindBySha_OtherOrganization_ShouldReturnNull(DatabaseProvider provider)
   {
     var seed = await AddRepositoriesAsync(database, provider, Ct);
