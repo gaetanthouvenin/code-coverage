@@ -783,6 +783,60 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     );
   }
 
+  // M2.23: the heads of the pull requests that forked from the commit are notified again in its transaction.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_DependentNotifications_ShouldBeQueuedWithTheCommit(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var wakeUps = FinalizationWakeUps.None with
+    {
+      Notification = NotifyCommitJobs.Create(seed.FirstCommit, Now, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(300)),
+      DependentNotifications =
+      [
+        NotifyCommitJobs.Create(501, Now, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(300)),
+        NotifyCommitJobs.Create(502, Now, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(300)),
+      ],
+    };
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      Finalize(commit);
+
+      await Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, wakeUps, Ct);
+    }
+
+    var jobs = await NotificationsAsync(seed);
+    jobs.Select(static j => j.DedupKey).ShouldBe([$"o{first}:notify:{seed.FirstCommit}", $"o{first}:notify:501", $"o{first}:notify:502"]);
+    jobs.ShouldAllBe(j => j.OrganizationId == first && j.State == JobState.Queued);
+  }
+
+  // The dependents are queued in the transaction of the finalization: a save that fails queues none of them.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_FailedSave_ShouldQueueNoDependentNotification(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var wakeUps = FinalizationWakeUps.None with
+    {
+      DependentNotifications = [NotifyCommitJobs.Create(501, Now, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(300))],
+    };
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+    var foreign = JobRequest.ForOrganization(seed.Organizations.SecondId, JobTypes.NotifyCommit, "{}");
+    Finalize(commit);
+
+    await Should.ThrowAsync<InvalidOperationException>(
+      () => Repository(context, first).SaveFinalizedAsync(commit, Blob, Index, [], [], null, wakeUps with { Notification = foreign }, Ct)
+    );
+
+    (await JobCountAsync(seed)).ShouldBe(0);
+  }
+
   private static async Task AddBranchAsync(CommitSeed seed, string name)
   {
     await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);

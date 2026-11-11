@@ -72,6 +72,10 @@ internal sealed partial class NotificationService(
   /// <param name="config">The configuration of the commit.</param>
   /// <param name="failedUploads">The number of uploads of the commit that failed.</param>
   /// <param name="configInvalid">Whether the configuration file of the commit could not be read and was ignored.</param>
+  /// <param name="statusSuffix">
+  ///   What is added to the description of every status, or <see langword="null" />: the notification of a stuck
+  ///   commit says how many uploads it received.
+  /// </param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>The number of statuses published.</returns>
   /// <remarks>
@@ -92,6 +96,7 @@ internal sealed partial class NotificationService(
     CoverageConfig config,
     int failedUploads,
     bool configInvalid,
+    string? statusSuffix,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repository);
@@ -117,7 +122,14 @@ internal sealed partial class NotificationService(
     {
       var format = new StatusFormat(settings.StatusContextPrefix, config.Precision, config.Rounding);
       var knownFlags = await repositoryFlags.ListAsync(repository.Id, cancellationToken).ConfigureAwait(false);
-      var statuses = Evaluate(commit, config, context, knownFlags, format);
+      IReadOnlyList<CommitStatus> statuses = Evaluate(commit, config, context, knownFlags, format);
+
+      if (statusSuffix is not null)
+      {
+        // Never a pending status: the evaluated one is published, and says it rests on a part of the uploads.
+        statuses = [.. statuses.Select(status => status.WithSuffix(statusSuffix))];
+      }
+
       var targetUrl = TargetUrl(repository, forge, commit, context.Resolution.PullRequest?.Number);
 
       published = await PublishAsync(repository, forge, commit, statuses, targetUrl, cancellationToken).ConfigureAwait(false);

@@ -158,6 +158,95 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
     (await new CommitRepository(first).FindAsync(foreign, Ct)).ShouldBeNull();
   }
 
+  // The sweep of M2.23: finalized, never notified, nothing in progress, in a tracked repository, within the window.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListStuck_ShouldKeepOnlyTheCommitsNothingWillEverNotify(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var first = seed.Organizations.FirstId;
+    long inactive;
+
+    await using (var setup = seed.Organizations.ContextOf(first))
+    {
+      inactive = await AddRepositoryAsync(setup, FirstInstallation, "77", "first-org/gone", Ct);
+      (await setup.Repositories.SingleAsync(r => r.Id == inactive, Ct)).Deactivate(Now);
+      await setup.SaveChangesAsync(Ct);
+    }
+
+    var stuck = await AddCommitAsync(seed, first, seed.FirstRepository, 1, CommitState.Complete, Now.AddHours(-3));
+    var inError = await AddCommitAsync(seed, first, seed.FirstRepository, 2, CommitState.Error, Now.AddHours(-2));
+    await AddCommitAsync(seed, first, seed.FirstRepository, 3, CommitState.Complete, Now.AddHours(-3), notified: true);
+    await AddCommitAsync(seed, first, seed.FirstRepository, 4, CommitState.Complete, Now.AddMinutes(-10));
+    await AddCommitAsync(seed, first, seed.FirstRepository, 5, CommitState.Pending, Now.AddHours(-3));
+    await AddCommitAsync(seed, first, seed.FirstRepository, 6, CommitState.Complete, Now.AddHours(-3), uploadInProgress: UploadState.Received);
+    await AddCommitAsync(seed, first, seed.FirstRepository, 7, CommitState.Complete, Now.AddHours(-3), uploadInProgress: UploadState.Processing);
+    await AddCommitAsync(seed, first, seed.FirstRepository, 8, CommitState.Complete, Now.AddDays(-10));
+    await AddCommitAsync(seed, first, seed.FirstRepository, 9, CommitState.Known, null);
+    await AddCommitAsync(seed, first, inactive, 10, CommitState.Complete, Now.AddHours(-3));
+    var other = await AddCommitAsync(seed, seed.Organizations.SecondId, seed.SecondRepository, 11, CommitState.Complete, Now.AddHours(-3));
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var repository = new CommitRepository(context);
+
+    var listed = await repository.ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), null, 50, Ct);
+
+    // The oldest last upload first.
+    listed.Select(static c => c.Id).ShouldBe([stuck, inError]);
+    context.ChangeTracker.Entries().ShouldBeEmpty();
+    (await repository.ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), null, 1, Ct)).ShouldHaveSingleItem().Id.ShouldBe(stuck);
+
+    // The bounds: the oldest one is included, the newest one is not.
+    (await repository.ListStuckAsync(Now.AddHours(-3), Now.AddHours(-2), null, 50, Ct)).ShouldHaveSingleItem().Id.ShouldBe(stuck);
+
+    await using var second = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await new CommitRepository(second).ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), null, 50, Ct)).ShouldHaveSingleItem().Id.ShouldBe(other);
+  }
+
+  // F5. Pages after a commit, in the same order: commits with the same last upload are told apart by their identifier.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListStuck_AfterACommit_ShouldGoOnInTheSameOrder(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var first = seed.Organizations.FirstId;
+    var a = await AddCommitAsync(seed, first, seed.FirstRepository, 1, CommitState.Complete, Now.AddHours(-3));
+    var b = await AddCommitAsync(seed, first, seed.FirstRepository, 2, CommitState.Complete, Now.AddHours(-3));
+    var c = await AddCommitAsync(seed, first, seed.FirstRepository, 3, CommitState.Complete, Now.AddHours(-3));
+    var d = await AddCommitAsync(seed, first, seed.FirstRepository, 4, CommitState.Error, Now.AddHours(-2));
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var repository = new CommitRepository(context);
+    var read = new List<long>();
+    Commit? after = null;
+
+    while (true)
+    {
+      var page = await repository.ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), after, 2, Ct);
+
+      read.AddRange(page.Select(static commit => commit.Id));
+
+      if (page.Count < 2)
+      {
+        break;
+      }
+
+      after = page[^1];
+    }
+
+    read.ShouldBe([a, b, c, d]);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListStuck_InvalidLimit_ShouldThrow(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    await Should.ThrowAsync<ArgumentOutOfRangeException>(() => new CommitRepository(context).ListStuckAsync(Now, Now, null, 0, Ct));
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task ListByShas_ShouldGiveTheCommitsFoundWithoutAttachingThem(DatabaseProvider provider)
@@ -496,6 +585,56 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
     await context.Database.ExecuteSqlAsync($"""UPDATE "Branches" SET "CoveredCommitId" = {id}""", Ct);
 
     await Should.ThrowAsync<DbException>(() => context.Database.ExecuteSqlAsync($"""DELETE FROM "Commits" WHERE "Id" = {id}""", Ct));
+  }
+
+  private static async Task<long> AddCommitAsync(
+    BranchSeed seed,
+    long organizationId,
+    long repositoryId,
+    int number,
+    CommitState state,
+    DateTimeOffset? lastUpload,
+    bool notified = false,
+    UploadState? uploadInProgress = null)
+  {
+    await using var context = seed.Organizations.ContextOf(organizationId);
+
+    var sha = GitSha.Parse(number.ToString("x40", System.Globalization.CultureInfo.InvariantCulture));
+    var commit = await new CommitRepository(context).GetOrCreateAsync(repositoryId, sha, Now.AddDays(-30), Ct);
+
+    if (lastUpload is { } at)
+    {
+      commit.MarkPending("main", null, at);
+    }
+
+    if (state is CommitState.Complete or CommitState.Error)
+    {
+      commit.RecordFinalization(state, 1, default, 1, 1, CarryforwardStatus.None, "default", lastUpload ?? Now);
+    }
+
+    if (notified)
+    {
+      commit.MarkNotified(Now);
+    }
+
+    if (uploadInProgress is { } progress)
+    {
+      var upload = Upload.Receive(commit.Id, 1, $"key-{number}", [], null, null, null, null, null, null, null, null, PrincipalKind.GitHubOidc, Now);
+
+      if (progress is UploadState.Processing)
+      {
+        context.Uploads.Add(upload);
+        context.Entry(upload).Property(static u => u.State).CurrentValue = UploadState.Processing;
+      }
+      else
+      {
+        context.Uploads.Add(upload);
+      }
+    }
+
+    await context.SaveChangesAsync(Ct);
+
+    return commit.Id;
   }
 
   private static async Task<long> GetOrCreateAsync(BranchSeed seed, long organizationId, long repositoryId)

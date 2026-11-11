@@ -243,12 +243,69 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
 
     await using (var first = seed.Organizations.ContextOf(seed.Organizations.FirstId))
     {
-      (await new PullRequestRepository(first).ListOpenByForkPointAsync(seed.FirstRepository, Base, Ct)).ShouldHaveSingleItem().Number.ShouldBe(7);
+      (await new PullRequestRepository(first).ListOpenByForkPointAsync(seed.FirstRepository, Base, 50, Ct)).ShouldHaveSingleItem().Number.ShouldBe(7);
     }
 
     await using var second = seed.Organizations.ContextOf(seed.Organizations.SecondId);
 
-    (await new PullRequestRepository(second).ListOpenByForkPointAsync(seed.FirstRepository, Base, Ct)).ShouldBeEmpty();
+    (await new PullRequestRepository(second).ListOpenByForkPointAsync(seed.FirstRepository, Base, 50, Ct)).ShouldBeEmpty();
+  }
+
+  // F7. Bounded, the most recently updated first.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListOpenByForkPoint_ShouldGiveTheMostRecentlyUpdatedFirstUpToTheLimit(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+
+    await using (var context = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      var repository = new PullRequestRepository(context);
+
+      foreach (var (number, minutes) in new[] { (7, 3), (8, 1), (9, 2) })
+      {
+        await SetForkPointAsync(context, await repository.UpsertAsync(seed.FirstRepository, Info(number), Now.AddMinutes(minutes), Ct));
+      }
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var repositoryReader = new PullRequestRepository(reader);
+
+    (await repositoryReader.ListOpenByForkPointAsync(seed.FirstRepository, Base, 2, Ct)).Select(static p => p.Number).ShouldBe([7, 9]);
+    await Should.ThrowAsync<ArgumentOutOfRangeException>(() => repositoryReader.ListOpenByForkPointAsync(seed.FirstRepository, Base, 0, Ct));
+  }
+
+  // S4. The pull requests already compared to the commit are left out before the limit: a later finalization finds
+  // the ones a former one did not reach.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListOpenByForkPoint_ShouldLeaveOutThoseAlreadyComparedToTheCommitBeforeTheLimit(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+
+    await using (var context = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      var repository = new PullRequestRepository(context);
+
+      foreach (var (number, minutes) in new[] { (7, 1), (8, 3), (9, 2) })
+      {
+        var pull = await repository.UpsertAsync(seed.FirstRepository, Info(number), Now.AddMinutes(minutes), Ct);
+
+        context.Entry(pull).Property(static p => p.ForkPointSha).CurrentValue = Base;
+
+        // The two most recent ones were already compared to the commit.
+        if (number is not 7)
+        {
+          context.Entry(pull).Property(static p => p.ComparedToSha).CurrentValue = Base;
+        }
+
+        await context.SaveChangesAsync(Ct);
+      }
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    (await new PullRequestRepository(reader).ListOpenByForkPointAsync(seed.FirstRepository, Base, 1, Ct)).ShouldHaveSingleItem().Number.ShouldBe(7);
   }
 
   [Theory]

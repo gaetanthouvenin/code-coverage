@@ -84,5 +84,27 @@ public static class NotificationGate
     return sessions >= rule.AfterNBuilds ? NotificationDecision.Notify : NotificationDecision.BuildsExpected;
   }
 
+  /// <summary>Gives what the statuses of a commit notified by force say when it did not receive every upload it expected.</summary>
+  /// <param name="commit">The commit.</param>
+  /// <param name="rule">The <c>codecov.notify</c> rule.</param>
+  /// <param name="countCarriedForward">Whether the sessions carried forward count for <c>after_n_builds</c>.</param>
+  /// <returns>
+  ///   The suffix <c> (partial: n/m uploads)</c>, with the sessions counted and <c>after_n_builds</c>, or
+  ///   <see langword="null" /> when <c>after_n_builds</c> is reached.
+  /// </returns>
+  /// <remarks>The sessions are counted as <see cref="Decide" /> counts them.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="commit" /> or <paramref name="rule" /> is <see langword="null" />.</exception>
+  public static string? PartialSuffix(Commit commit, NotifyRule rule, bool countCarriedForward)
+  {
+    ArgumentNullException.ThrowIfNull(commit);
+    ArgumentNullException.ThrowIfNull(rule);
+
+    var sessions = countCarriedForward ? commit.SessionCount : commit.UploadedSessionCount;
+
+    return sessions >= rule.AfterNBuilds
+             ? null
+             : string.Create(System.Globalization.CultureInfo.InvariantCulture, $" (partial: {sessions}/{rule.AfterNBuilds} uploads)");
+  }
+
   #endregion
 }

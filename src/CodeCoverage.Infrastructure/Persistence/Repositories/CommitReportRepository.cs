@@ -395,6 +395,8 @@ internal sealed class CommitReportRepository(
       jobs.Add(notification);
     }
 
+    jobs.AddRange(wakeUps.DependentNotifications);
+
     var queued = new List<long>(jobs.Count);
 
     foreach (var job in jobs)

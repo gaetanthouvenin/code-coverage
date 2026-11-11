@@ -270,8 +270,16 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
   }
 
   /// <inheritdoc />
+  /// <remarks>
+  ///   A refusal no retry can heal is permanent, so that the job fails at once and the sweep does not force the commit
+  ///   again: a 404 (a repository or a commit GitHub does not know), a 403 that is not a rate limit (the App may not
+  ///   write statuses, or the repository is archived), a 422 (a SHA GitHub does not know, or a commit that holds 1000
+  ///   statuses already). A rate limit and a failure of GitHub stay transient.
+  /// </remarks>
   /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
-  /// <exception cref="BadGatewayException">GitHub refused the status or does not answer.</exception>
+  /// <exception cref="NotFoundException">GitHub does not know the repository or the commit (GitHub.StatusRefused).</exception>
+  /// <exception cref="UnprocessableEntityException">GitHub refuses the status for good (GitHub.StatusRefused).</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the status for another reason, or does not answer.</exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
   public async Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken)
   {
@@ -300,7 +308,19 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
 
     using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
-    // Nothing is absent here: a repository or a commit GitHub does not know is a failure of the publication.
+    // The rate limits and the failures of GitHub were thrown by the pipeline: what is left is an answer about this
+    // status, and these ones stay the same however often it is sent again.
+    var refused = string.Create(CultureInfo.InvariantCulture, $"GitHub refused the status '{status.Context}' on '{address}': HTTP {(int)response.StatusCode}.");
+
+    switch (response.StatusCode)
+    {
+      case HttpStatusCode.NotFound:
+        throw new NotFoundException(GitHubErrors.StatusRefused, refused);
+      case HttpStatusCode.Forbidden or HttpStatusCode.UnprocessableEntity:
+        throw new UnprocessableEntityException(GitHubErrors.StatusRefused, refused);
+    }
+
+    // Nothing is absent here: any other refusal is a failure of the publication, tried again.
     _ = IsAbsent(response, address, []);
   }
 

@@ -32,6 +32,7 @@ internal static class RecurringJobCatalog
   public static IReadOnlyList<RecurringJobDefinition> All { get; } =
   [
     new(JobTypes.SyncInstallations, TimeSpan.FromDays(1), SyncInstallationsJobs.Key, SyncInstallationsJobs.Key),
+    new(JobTypes.SweepPendingCommits, TimeSpan.FromMinutes(5), SweepPendingCommitsJobs.Key, SweepPendingCommitsJobs.Key),
   ];
 
   #endregion

@@ -58,6 +58,41 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<Commit>> ListStuckAsync(
+    DateTimeOffset uploadedFrom,
+    DateTimeOffset uploadedBefore,
+    Commit? after,
+    int limit,
+    CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+    // The times are those of the clock of the application, as everywhere they are written: never the one of the server.
+    var from = uploadedFrom.ToUniversalTime();
+    var before = uploadedBefore.ToUniversalTime();
+
+    // The order of the listing, (LastUploadAt, Id), goes on after the last commit of the previous page.
+    var afterAt = after?.LastUploadAt?.ToUniversalTime();
+    var afterId = after?.Id ?? 0;
+
+    return await context.Commits
+                        .AsNoTracking()
+                        .Where(c => afterAt == null || c.LastUploadAt > afterAt || (c.LastUploadAt == afterAt && c.Id > afterId))
+                        .Where(c => c.NotifiedAt == null
+                                    && c.LastUploadAt != null
+                                    && c.LastUploadAt >= from
+                                    && c.LastUploadAt < before
+                                    && (c.State == CommitState.Complete || c.State == CommitState.Error)
+                                    && context.Repositories.Any(r => r.Id == c.RepositoryId && r.IsActive)
+                                    && !context.Uploads.Any(u => u.CommitId == c.Id && (u.State == UploadState.Received || u.State == UploadState.Processing)))
+                        .OrderBy(static c => c.LastUploadAt)
+                        .ThenBy(static c => c.Id)
+                        .Take(limit)
+                        .ToListAsync(cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<Commit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(shas);

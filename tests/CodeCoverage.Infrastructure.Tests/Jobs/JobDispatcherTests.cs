@@ -14,6 +14,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositor
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
+using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -214,6 +215,35 @@ public sealed class JobDispatcherTests
 
     A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, false), Ct)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, true), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Dispatch_NotifyCommitOfTheSweep_ShouldBeForcedAndPartial()
+  {
+    var job = Job(JobTypes.NotifyCommit, 42);
+    job.PayloadJson = NotifyCommitJobs.CreateForSweep(9).PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new NotifyCommitCommand(9, true, true), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Dispatch_NotifyCommitWithAnInvalidPartialFlag_ShouldThrowInvalidJobException()
+  {
+    var job = Job(JobTypes.NotifyCommit, 42);
+    job.PayloadJson = """{"CommitId":9,"Force":true,"Partial":"yes"}""";
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
+  }
+
+  // The coordinator and the sweep of an organization are the same job: the lane of the worker tells them apart.
+  [Fact]
+  public async Task Dispatch_SweepPendingCommits_ShouldSendTheSweep()
+  {
+    await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.SweepPendingCommits, 42), Ct);
+
+    A.CallTo(() => _sender.Send(new SweepPendingCommitsCommand(), Ct)).MustHaveHappenedOnceExactly();
   }
 
   // What the factory of the Domain writes is what the dispatcher reads.

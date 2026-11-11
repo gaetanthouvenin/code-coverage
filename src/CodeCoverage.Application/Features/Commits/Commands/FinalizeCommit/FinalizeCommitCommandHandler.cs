@@ -15,6 +15,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -34,6 +35,7 @@ namespace CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 /// <param name="repositoryFlags">The flags the repositories received coverage for.</param>
 /// <param name="branches">The repository of the branches.</param>
 /// <param name="tracker">What finds the covered head of a branch.</param>
+/// <param name="pullRequests">The repository of the pull requests.</param>
 /// <param name="gateways">The gateways of the forges.</param>
 /// <param name="notifications">The notification options.</param>
 /// <param name="clock">The clock.</param>
@@ -58,10 +60,22 @@ internal sealed class FinalizeCommitCommandHandler(
   IRepositoryFlagRepository repositoryFlags,
   IBranchRepository branches,
   BranchHeadTracker tracker,
+  IPullRequestRepository pullRequests,
   IForgeGatewayProvider gateways,
   IOptionsMonitor<NotificationOptions> notifications,
   IClock clock) : ICommandHandler<FinalizeCommitCommand>
 {
+  #region Fields
+
+  /// <summary>
+  ///   The number of pull requests one finalization notifies again, at most: those most recently updated. The others
+  ///   keep the comparison they were notified with until their head is notified again, by its next upload, a push to
+  ///   the pull request or a request by hand.
+  /// </summary>
+  internal const int MaxDependentNotifications = 50;
+
+  #endregion
+
   #region Methods
 
   /// <summary>Builds the refusal of a commit that cannot be read.</summary>
@@ -91,9 +105,14 @@ internal sealed class FinalizeCommitCommandHandler(
   {
     var options = notifications.CurrentValue;
 
-    // The finalization just merged every upload that was processed.
-    if (NotificationGate.Decide(commit, 0, commit.UploadedSessionCount, config.Notify, options.AfterNBuildsCountsCarryforward, forced: false)
-        is not NotificationDecision.Notify)
+    // The finalization just merged every upload that was processed. A commit notified once already, as a part of
+    // its uploads by the sweep, or by its pipeline under manual_trigger, is notified again: its statuses must leave the
+    // former report, and a notification asked while these uploads were in progress was dropped for this one to take
+    // over. Under manual_trigger, a commit never notified waits for its pipeline, as in Codecov.
+    var decision = NotificationGate.Decide(commit, 0, commit.UploadedSessionCount, config.Notify, options.AfterNBuildsCountsCarryforward, forced: false);
+    var again = commit.NotifiedAt is not null && decision is NotificationDecision.ManualTriggerExpected or NotificationDecision.BuildsExpected;
+
+    if (decision is not NotificationDecision.Notify && !again)
     {
       return null;
     }
@@ -104,6 +123,46 @@ internal sealed class FinalizeCommitCommandHandler(
       TimeSpan.FromSeconds(Math.Max(0, options.DebounceSeconds)),
       TimeSpan.FromSeconds(Math.Max(1, options.MaxDelaySeconds))
     );
+  }
+
+  /// <summary>Builds the notifications of the pull requests whose base is the commit that completes.</summary>
+  /// <param name="commit">The commit, which becomes complete.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>One notification per head commit to notify again; empty when no pull request waited for this report.</returns>
+  /// <remarks>
+  ///   The base was processed after the pull request: the pull requests that forked from this commit and were compared
+  ///   to something else, an older ancestor or nothing, now have a better base. Their head is notified again when its
+  ///   own report is ready, with the debounced job; a head that was never notified still waits for
+  ///   <c>after_n_builds</c> and <c>manual_trigger</c>. Once a head is compared to this commit it is no longer listed,
+  ///   which ends the round trips. At most <see cref="MaxDependentNotifications" /> are notified.
+  /// </remarks>
+  private async Task<IReadOnlyList<JobRequest>> NotifyDependentsAsync(Commit commit, CancellationToken cancellationToken)
+  {
+    var open = await pullRequests.ListOpenByForkPointAsync(commit.RepositoryId, commit.Sha, MaxDependentNotifications, cancellationToken).ConfigureAwait(false);
+    GitSha[] heads =
+    [
+      .. open.Where(pull => pull.ComparedToSha != commit.Sha && pull.HeadSha != commit.Sha)
+             .Select(static pull => pull.HeadSha)
+             .Distinct()
+             .Take(MaxDependentNotifications),
+    ];
+
+    if (heads.Length == 0)
+    {
+      return [];
+    }
+
+    var options = notifications.CurrentValue;
+    var debounce = TimeSpan.FromSeconds(Math.Max(0, options.DebounceSeconds));
+    var maxDelay = TimeSpan.FromSeconds(Math.Max(1, options.MaxDelaySeconds));
+    var found = await commits.ListByShasAsync(commit.RepositoryId, heads, cancellationToken).ConfigureAwait(false);
+
+    return
+    [
+      .. found.Where(static head => head.State is CommitState.Complete or CommitState.Error)
+              .OrderBy(static head => head.Id)
+              .Select(head => NotifyCommitJobs.Create(head.Id, clock.UtcNow, debounce, maxDelay)),
+    ];
   }
 
   /// <summary>Reads the sessions of the uploads that were processed.</summary>
@@ -184,6 +243,9 @@ internal sealed class FinalizeCommitCommandHandler(
       cancellationToken
     ).ConfigureAwait(false);
 
+    // Read before the finalization is recorded, as the branch: nothing is saved between it and SaveFinalizedAsync.
+    var dependents = outcome is CommitState.Complete ? await NotifyDependentsAsync(commit, cancellationToken).ConfigureAwait(false) : [];
+
     commit.RecordFinalization(
       outcome,
       merged.Files.Count,
@@ -209,7 +271,7 @@ internal sealed class FinalizeCommitCommandHandler(
       [.. sessions.Select(static session => session.Session)],
       merger.BuildFlagTotals(commit, resolved.Config, sessions, merged),
       branch,
-      WakeUps(commit, wasComplete, carried) with { Notification = Notification(commit, resolved.Config) },
+      WakeUps(commit, wasComplete, carried) with { Notification = Notification(commit, resolved.Config), DependentNotifications = dependents },
       cancellationToken
     ).ConfigureAwait(false);
 

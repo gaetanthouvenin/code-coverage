@@ -483,6 +483,23 @@ internal sealed class SqlJobQueue(
     ArgumentNullException.ThrowIfNull(transactionContext);
     ArgumentNullException.ThrowIfNull(request);
 
+    return (await EnqueueOrMergeAsync(transactionContext, request, cancellationToken).ConfigureAwait(false)).Id;
+  }
+
+  /// <summary>Queues a job in the transaction of the caller, or merges it into its queued twin.</summary>
+  /// <param name="transactionContext">The context of the caller, whose transaction is begun.</param>
+  /// <param name="request">The job to run.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The identifier of the job, and whether the request was merged into its queued twin.</returns>
+  /// <exception cref="InvalidOperationException">
+  ///   No transaction is begun, the twin kept changing state, or the current scope does not allow the organization
+  ///   of the request.
+  /// </exception>
+  private async Task<(long Id, bool Merged)> EnqueueOrMergeAsync(
+    CodeCoverageDbContext transactionContext,
+    JobRequest request,
+    CancellationToken cancellationToken)
+  {
     var placement = JobPlacement.Of(request, currentOrganization.IsKnown ? currentOrganization.Id : null);
     var transaction = transactionContext.Database.CurrentTransaction
                       ?? throw new InvalidOperationException(
@@ -492,7 +509,7 @@ internal sealed class SqlJobQueue(
 
     if (placement.DedupKey is null)
     {
-      return await InsertAsync(transactionContext, request, placement, now, cancellationToken).ConfigureAwait(false);
+      return (await InsertAsync(transactionContext, request, placement, now, cancellationToken).ConfigureAwait(false), false);
     }
 
     for (var round = 1; round <= MaxRounds; round++)
@@ -509,7 +526,7 @@ internal sealed class SqlJobQueue(
         if (await MergeAsync(transactionContext, twin.Id, twin.FirstQueuedAt, request, now, cancellationToken)
               .ConfigureAwait(false))
         {
-          return twin.Id;
+          return (twin.Id, true);
         }
 
         // Claimed between the read and the update: the next round queues a new job.
@@ -521,13 +538,33 @@ internal sealed class SqlJobQueue(
 
       if (inserted is { } id)
       {
-        return id;
+        return (id, false);
       }
     }
 
     throw new InvalidOperationException(
       $"The job '{request}' could not be queued: its queued twin kept changing state. Try again."
     );
+  }
+
+  /// <summary>Queues a job in a transaction of its own, and wakes a worker of this process.</summary>
+  /// <param name="request">The job to run.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The identifier of the job, and whether the request was merged into its queued twin.</returns>
+  private async Task<(long Id, bool Merged)> EnqueueAloneAsync(JobRequest request, CancellationToken cancellationToken)
+  {
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      var queued = await EnqueueOrMergeAsync(context, request, cancellationToken).ConfigureAwait(false);
+      await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+      // Committed: a worker of this process may claim the job at once instead of at its next poll.
+      wakeUpSignal.Notify(queued.Id);
+
+      return queued;
+    }
   }
 
   /// <summary>Checks the identifier of a worker.</summary>
@@ -783,18 +820,15 @@ internal sealed class SqlJobQueue(
   {
     ArgumentNullException.ThrowIfNull(request);
 
-    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+    return (await EnqueueAloneAsync(request, cancellationToken).ConfigureAwait(false)).Id;
+  }
 
-    await using (transaction.ConfigureAwait(false))
-    {
-      var id = await EnqueueInTransactionAsync(context, request, cancellationToken).ConfigureAwait(false);
-      await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+  /// <inheritdoc />
+  public async Task<bool> TryEnqueueAsync(JobRequest request, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(request);
 
-      // Committed: a worker of this process may claim the job at once instead of at its next poll.
-      wakeUpSignal.Notify(id);
-
-      return id;
-    }
+    return !(await EnqueueAloneAsync(request, cancellationToken).ConfigureAwait(false)).Merged;
   }
 
   #endregion

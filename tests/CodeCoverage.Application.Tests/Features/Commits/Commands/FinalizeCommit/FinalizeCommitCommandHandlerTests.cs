@@ -16,12 +16,13 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Config;
-using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Settings;
 
@@ -32,6 +33,10 @@ public sealed class FinalizeCommitCommandHandlerTests
   #region Fields
 
   private static readonly DateTimeOffset Now = new(2026, 11, 9, 8, 0, 0, TimeSpan.Zero);
+
+  private static readonly GitSha HeadOfPull = GitSha.Parse("d94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+
+  private static readonly GitSha OlderBase = GitSha.Parse("e94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
 
   private static readonly GitSha Sha = GitSha.Parse(new string('a', GitSha.Length));
 
@@ -58,6 +63,8 @@ public sealed class FinalizeCommitCommandHandlerTests
   private readonly IRepositoryFlagRepository _repositoryFlags = A.Fake<IRepositoryFlagRepository>();
 
   private readonly IBranchRepository _branches = A.Fake<IBranchRepository>();
+
+  private readonly IPullRequestRepository _pullRequests = A.Fake<IPullRequestRepository>();
 
   private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
 
@@ -426,6 +433,125 @@ public sealed class FinalizeCommitCommandHandlerTests
   }
 
   // The notification of a finalized commit is queued by the save itself, in its transaction, and debounced.
+  // The base of a pull request was processed after the pull request itself: its head, compared to an older ancestor or to
+  // nothing until now, is notified again, in the transaction of the finalization.
+  [Fact]
+  public async Task Handle_BaseProcessedAfterPr_ShouldRenotifyPrHead()
+  {
+    var head = Dependent(41, HeadOfPull, CommitState.Complete);
+    PullsForkedFromThisCommit(Pull(12, HeadOfPull, comparedTo: null), Pull(13, HeadOfPull, comparedTo: OlderBase));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    // Two pull requests share the head: it is notified once.
+    var job = _savedWakeUps!.DependentNotifications.ShouldHaveSingleItem();
+    job.Type.ShouldBe(JobTypes.NotifyCommit);
+    job.PayloadJson.ShouldBe("""{"CommitId":41,"Force":false}""");
+    job.LockKey.ShouldBe("commit:41");
+    job.DedupKey.ShouldBe("notify:41");
+    job.RunAfter.ShouldBe(Now.AddSeconds(20));
+    job.OrganizationId.ShouldBeNull();
+    head.NotifiedAt.ShouldBeNull("nothing is written on the head here");
+    A.CallTo(() => _pullRequests.ListOpenByForkPointAsync(5, Sha, A<int>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // F7. A base many pull requests forked from wakes a bounded number of them; the others are notified on their next event.
+  [Fact]
+  public async Task Handle_MorePullRequestsThanTheBound_ShouldNotifyTheBoundOnly()
+  {
+    var count = FinalizeCommitCommandHandler.MaxDependentNotifications + 10;
+    GitSha[] heads = [.. Enumerable.Range(1, count).Select(static i => GitSha.Parse(i.ToString("x40", System.Globalization.CultureInfo.InvariantCulture)))];
+    Commit[] found =
+    [
+      .. heads.Select(
+        static (sha, i) =>
+        {
+          var head = Commit.Create(5, sha, Now);
+
+          typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(head, 100L + i);
+          typeof(Commit).GetProperty(nameof(Commit.State))!.SetValue(head, CommitState.Complete);
+
+          return head;
+        }
+      ),
+    ];
+    A.CallTo(() => _commits.ListByShasAsync(5, A<IReadOnlyCollection<GitSha>>._, A<CancellationToken>._))
+     .ReturnsLazily((long _, IReadOnlyCollection<GitSha> shas, CancellationToken _) => Task.FromResult<IReadOnlyList<Commit>>([.. found.Where(head => shas.Contains(head.Sha))]));
+    PullsForkedFromThisCommit([.. heads.Select(static (sha, i) => Pull(i + 1, sha, comparedTo: null))]);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.Count.ShouldBe(FinalizeCommitCommandHandler.MaxDependentNotifications);
+    A.CallTo(() => _pullRequests.ListOpenByForkPointAsync(5, Sha, FinalizeCommitCommandHandler.MaxDependentNotifications, A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  // Once the head is compared to this commit, another finalization of the base no longer notifies it: no round trip.
+  [Fact]
+  public async Task Handle_PullRequestAlreadyComparedToThisCommit_ShouldNotRenotify()
+  {
+    Dependent(41, HeadOfPull, CommitState.Complete);
+    PullsForkedFromThisCommit(Pull(12, HeadOfPull, comparedTo: Sha));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.ShouldBeEmpty();
+  }
+
+  [Theory]
+  [InlineData(CommitState.Known)]
+  [InlineData(CommitState.Pending)]
+  public async Task Handle_HeadOfThePullRequestNotFinalizedYet_ShouldLeaveItToItsOwnFinalization(CommitState state)
+  {
+    Dependent(41, HeadOfPull, state);
+    PullsForkedFromThisCommit(Pull(12, HeadOfPull, comparedTo: null));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_HeadOfThePullRequestWithoutCommit_ShouldNotRenotify()
+  {
+    PullsForkedFromThisCommit(Pull(12, HeadOfPull, comparedTo: null));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.ShouldBeEmpty();
+  }
+
+  // A base whose every upload failed has no report: nothing changes for the pull requests that forked from it.
+  [Fact]
+  public async Task Handle_BaseInError_ShouldNotRenotify()
+  {
+    Dependent(41, HeadOfPull, CommitState.Complete);
+    PullsForkedFromThisCommit(Pull(12, HeadOfPull, comparedTo: null));
+    var failed = Upload.Receive(9, 1, "k", [], null, null, null, null, null, null, null, 3, PrincipalKind.OrganizationToken, Now);
+    failed.MarkFailed("Upload.NoFileMapped", "none", 1, 0, 1, ProcessingLog.Empty, Now);
+    Uploads(failed);
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.ShouldBeEmpty();
+    A.CallTo(_pullRequests).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_NoPullRequestForkedFromTheCommit_ShouldQueueNoDependent()
+  {
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.DependentNotifications.ShouldBeEmpty();
+  }
+
   [Fact]
   public async Task Handle_CompleteCommit_ShouldQueueTheDebouncedNotificationInTheSave()
   {
@@ -489,6 +615,49 @@ public sealed class FinalizeCommitCommandHandlerTests
     _savedWakeUps!.Notification.ShouldBeNull();
     // The commit is finalized all the same: only its notification waits.
     _commit.State.ShouldBe(CommitState.Complete);
+  }
+
+  // S3. Notified once already, as a part of its uploads by the sweep for instance: a new upload notifies it again, so
+  // that its statuses leave the former report, even under after_n_builds.
+  [Fact]
+  public async Task Handle_CommitAlreadyNotifiedUnderAfterNBuilds_ShouldQueueTheNotificationAgain()
+  {
+    Notify(("after_n_builds", ConfigNode.FromNumber(3)));
+    _commit.MarkPending(null, null, Now);
+    _commit.MarkNotified(Now.AddMinutes(-30));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)), Processed(2, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Notification.ShouldNotBeNull();
+  }
+
+  // S3, T2. Under manual_trigger, a commit already notified was triggered once for this head: its finalization
+  // notifies it again, as the job dropped while its uploads were in progress would have.
+  [Fact]
+  public async Task Handle_CommitAlreadyNotifiedUnderManualTrigger_ShouldQueueTheNotificationAgain()
+  {
+    Notify(("manual_trigger", ConfigNode.FromBoolean(true)));
+    _commit.MarkPending(null, null, Now);
+    _commit.MarkNotified(Now.AddMinutes(-30));
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Notification.ShouldNotBeNull();
+  }
+
+  // T2. Never notified, manual_trigger holds as in Codecov: only the pipeline notifies.
+  [Fact]
+  public async Task Handle_NeverNotifiedUnderManualTrigger_ShouldNotQueueTheNotification()
+  {
+    Notify(("manual_trigger", ConfigNode.FromBoolean(true)));
+    _commit.MarkPending(null, null, Now);
+    Uploads(Processed(1, ["a"], Report("src/A.cs", 1)));
+
+    await Handler().Handle(new FinalizeCommitCommand(9), Ct);
+
+    _savedWakeUps!.Notification.ShouldBeNull();
   }
 
   [Theory]
@@ -625,6 +794,31 @@ public sealed class FinalizeCommitCommandHandlerTests
     _savedWakeUps!.Completed.ShouldBeFalse();
   }
 
+  private static PullRequest Pull(int number, GitSha head, GitSha? comparedTo)
+  {
+    var pull = PullRequest.Create(5, new ForgePullInfo(number, ForgePullState.Open, "title", "octocat", head, "feature", "main", Sha), Now);
+
+    pull.RecordBase(Sha, comparedTo, Now);
+
+    return pull;
+  }
+
+  private Commit Dependent(long id, GitSha sha, CommitState state)
+  {
+    var head = Commit.Create(5, sha, Now);
+
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(head, id);
+    typeof(Commit).GetProperty(nameof(Commit.State))!.SetValue(head, state);
+    A.CallTo(() => _commits.ListByShasAsync(5, A<IReadOnlyCollection<GitSha>>.That.Contains(sha), A<CancellationToken>._)).Returns([head]);
+
+    return head;
+  }
+
+  private void PullsForkedFromThisCommit(params PullRequest[] pulls)
+  {
+    A.CallTo(() => _pullRequests.ListOpenByForkPointAsync(5, Sha, A<int>._, A<CancellationToken>._)).Returns(pulls);
+  }
+
   private FinalizeCommitCommandHandler Handler()
   {
     var resolver = new ConfigResolver(_configs, _gateways, _configParser, _organizationSettings, _clock);
@@ -651,6 +845,7 @@ public sealed class FinalizeCommitCommandHandlerTests
       _repositoryFlags,
       _branches,
       new BranchHeadTracker(_commits, ancestry),
+      _pullRequests,
       _gateways,
       notifications,
       _clock

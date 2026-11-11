@@ -120,6 +120,23 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
     (await queue.EnqueueAsync(Finalize("""{"commitId":42}"""), Ct)).ShouldBe(queued);
   }
 
+  // T1. Tells a new job from a request merged into its queued twin, which a job waiting for its retry is.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryEnqueue_ShouldTellANewJobFromOneMergedIntoItsQueuedTwin(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var queue = CreateQueue(context);
+
+    (await queue.TryEnqueueAsync(Finalize("""{"commitId":42}"""), Ct)).ShouldBeTrue();
+    (await queue.TryEnqueueAsync(Finalize("""{"commitId":42}"""), Ct)).ShouldBeFalse();
+    (await queue.TryEnqueueAsync(JobRequest.ForInstance("ProcessUpload", """{"uploadId":7}"""), Ct)).ShouldBeTrue();
+    (await queue.TryEnqueueAsync(JobRequest.ForInstance("ProcessUpload", """{"uploadId":7}"""), Ct)).ShouldBeTrue();
+
+    (await JobsAsync(provider, connectionString)).Count.ShouldBe(3);
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task Enqueue_WithoutDedupKey_ShouldQueueEachRequest(DatabaseProvider provider)

@@ -6,6 +6,12 @@
 
 using Mediator;
 
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
+using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
 
@@ -16,6 +22,9 @@ namespace CodeCoverage.Application.Features.PullRequests.Commands.SyncPullReques
 /// <param name="directory">The directory of the organizations.</param>
 /// <param name="gateways">The gateways of the forges.</param>
 /// <param name="pullRequests">The repository of the pull requests.</param>
+/// <param name="commits">The repository of the commits.</param>
+/// <param name="jobQueue">The job queue.</param>
+/// <param name="notifications">The settings of the notifications, read at each use.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   <para>
@@ -33,8 +42,46 @@ internal sealed class SyncPullRequestCommandHandler(
   IOrganizationDirectory directory,
   IForgeGatewayProvider gateways,
   IPullRequestRepository pullRequests,
+  ICommitRepository commits,
+  IJobQueue jobQueue,
+  IOptionsMonitor<NotificationOptions> notifications,
   IClock clock) : ICommandHandler<SyncPullRequestCommand>
 {
+  #region Methods
+
+  /// <summary>Queues the notification of the head of an open pull request, when its report is ready.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="headSha">The head of the pull request.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the notification is queued, or when there is none to queue.</returns>
+  /// <remarks>
+  ///   The upload may have come before the pull request was opened: the commit was then notified as a push, and
+  ///   its comment appears now. A head whose report is not complete yet is notified by its own finalization. The
+  ///   job is the debounced one, not a forced one: <c>after_n_builds</c> and <c>manual_trigger</c> still apply.
+  /// </remarks>
+  private async Task NotifyHeadAsync(long repositoryId, GitSha headSha, CancellationToken cancellationToken)
+  {
+    var found = await commits.ListByShasAsync(repositoryId, [headSha], cancellationToken).ConfigureAwait(false);
+
+    if (found is not [{ State: CommitState.Complete } head])
+    {
+      return;
+    }
+
+    var options = notifications.CurrentValue;
+    var job = NotifyCommitJobs.Create(
+      head.Id,
+      clock.UtcNow,
+      TimeSpan.FromSeconds(Math.Max(0, options.DebounceSeconds)),
+      TimeSpan.FromSeconds(Math.Max(1, options.MaxDelaySeconds))
+    );
+
+    // After the pull request is saved: a notification that ran before it would take the commit for a push.
+    await jobQueue.EnqueueAsync(job, cancellationToken).ConfigureAwait(false);
+  }
+
+  #endregion
+
   #region Implementation of ICommandHandler<SyncPullRequestCommand>
 
   /// <inheritdoc />
@@ -62,7 +109,12 @@ internal sealed class SyncPullRequestCommandHandler(
       return Unit.Value;
     }
 
-    await pullRequests.UpsertAsync(repository.Id, pull, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+    var recorded = await pullRequests.UpsertAsync(repository.Id, pull, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+
+    if (recorded.AcceptsComments)
+    {
+      await NotifyHeadAsync(repository.Id, recorded.HeadSha, cancellationToken).ConfigureAwait(false);
+    }
 
     return Unit.Value;
   }

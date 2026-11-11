@@ -254,6 +254,30 @@ public sealed class NotificationServiceTests
     A.CallTo(_gateway).MustNotHaveHappened();
   }
 
+  // The acceptance of M2.23: a stuck commit gets its evaluated statuses, which say they rest on a part of the uploads.
+  // No pending status is ever published.
+  [Fact]
+  public async Task Publish_PartialNotification_ShouldSayItOnEveryStatusAndNeverPublishAPendingOne()
+  {
+    (await PublishAsync(Complete(HeadId, Head), Config(), " (partial: 1/3 uploads)")).ShouldBe(2);
+
+    _published.Count.ShouldBe(2);
+    _published.ShouldAllBe(static p => p.Status.Description.EndsWith(" (partial: 1/3 uploads)", StringComparison.Ordinal));
+    _published.ShouldAllBe(static p => p.Status.State == StatusState.Success || p.Status.State == StatusState.Failure || p.Status.State == StatusState.Error);
+    _stored.ShouldAllBe(static s => s.Status.Description.EndsWith(" (partial: 1/3 uploads)", StringComparison.Ordinal));
+  }
+
+  // The same partial notification twice publishes nothing more: the description is stable.
+  [Fact]
+  public async Task Publish_PartialNotificationTwice_ShouldPublishOnce()
+  {
+    await PublishAsync(Complete(HeadId, Head), Config(), " (partial: 1/3 uploads)");
+
+    (await PublishAsync(Complete(HeadId, Head), Config(), " (partial: 1/3 uploads)")).ShouldBe(0);
+
+    _published.Count.ShouldBe(2);
+  }
+
   // The comment needs the comparison even when the organization publishes no status.
   [Fact]
   public async Task Publish_StatusesDisabledButCommentsEnabled_ShouldStillCompareAndPostNoStatus()
@@ -438,9 +462,9 @@ public sealed class NotificationServiceTests
   [Fact]
   public async Task Publish_Null_ShouldThrow()
   {
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(null!, Forge.GitHub, Complete(HeadId, Head), Config(), 0, false, Ct));
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, null!, Config(), 0, false, Ct));
-    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, Complete(HeadId, Head), null!, 0, false, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(null!, Forge.GitHub, Complete(HeadId, Head), Config(), 0, false, null, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, null!, Config(), 0, false, null, Ct));
+    await Should.ThrowAsync<ArgumentNullException>(() => _service.NotifyAsync(_repository, Forge.GitHub, Complete(HeadId, Head), null!, 0, false, null, Ct));
   }
 
   // The built-in defaults, as the resolver merges them: project and patch on, adjust_base off to keep the numbers plain.
@@ -533,7 +557,8 @@ public sealed class NotificationServiceTests
     return commit;
   }
 
-  private Task<int> PublishAsync(Commit commit, CoverageConfig config) => _service.NotifyAsync(_repository, Forge.GitHub, commit, config, 0, false, Ct);
+  private Task<int> PublishAsync(Commit commit, CoverageConfig config, string? suffix = null) =>
+    _service.NotifyAsync(_repository, Forge.GitHub, commit, config, 0, false, suffix, Ct);
 
   private void Settings(string prefix, bool enabled, bool comments = true)
   {

@@ -63,5 +63,26 @@ public static class NotifyCommitJobs
     );
   }
 
+  /// <summary>Builds the notification the sweep of the stuck commits asks for, to run at once.</summary>
+  /// <param name="commitId">The identifier of the commit.</param>
+  /// <returns>The job, merged with the sweep notification already waiting for the same commit.</returns>
+  /// <remarks>
+  ///   Forced, and marked as partial: its statuses say how many uploads were received out of those expected. Its
+  ///   deduplication key is its own, since a merged job keeps its payload: merged with a notification asked by hand,
+  ///   one of the two would lose its mode.
+  /// </remarks>
+  public static JobRequest CreateForSweep(long commitId)
+  {
+    var id = commitId.ToString(CultureInfo.InvariantCulture);
+
+    return JobRequest.Create(
+      JobTypes.NotifyCommit,
+      JsonSerializer.Serialize(new { CommitId = commitId, Force = true, Partial = true }),
+      $"commit:{id}",
+      $"notify:{id}:sweep",
+      coalesce: true
+    );
+  }
+
   #endregion
 }
