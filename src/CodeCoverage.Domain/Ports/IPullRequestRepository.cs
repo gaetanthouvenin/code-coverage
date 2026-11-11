@@ -23,13 +23,18 @@ public interface IPullRequestRepository
   /// <exception cref="ArgumentNullException"><paramref name="headSha" /> is <see langword="null" />.</exception>
   Task<PullRequest?> FindOpenByHeadShaAsync(long repositoryId, GitSha headSha, CancellationToken cancellationToken);
 
-  /// <summary>Lists the open pull requests that forked from a commit.</summary>
+  /// <summary>Lists the open pull requests that forked from a commit and are not compared to it yet.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="forkPointSha">The SHA of the commit.</param>
+  /// <param name="limit">The number of pull requests to list, at most.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
-  /// <returns>The pull requests, for reading only.</returns>
+  /// <returns>
+  ///   The pull requests, the most recently updated first, for reading only; those whose head is the commit, or that
+  ///   are already compared to it, are left out before the limit.
+  /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="forkPointSha" /> is <see langword="null" />.</exception>
-  Task<IReadOnlyList<PullRequest>> ListOpenByForkPointAsync(long repositoryId, GitSha forkPointSha, CancellationToken cancellationToken);
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit" /> is zero or negative.</exception>
+  Task<IReadOnlyList<PullRequest>> ListOpenByForkPointAsync(long repositoryId, GitSha forkPointSha, int limit, CancellationToken cancellationToken);
 
   /// <summary>Adds a pull request or applies to it what its forge reports, saved at once.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>

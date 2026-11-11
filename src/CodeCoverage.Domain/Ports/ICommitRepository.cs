@@ -35,6 +35,27 @@ public interface ICommitRepository
   /// <exception cref="ArgumentNullException"><paramref name="sha" /> is <see langword="null" />.</exception>
   Task<Commit?> FindByShaAsync(long repositoryId, GitSha sha, CancellationToken cancellationToken);
 
+  /// <summary>Lists the commits of the organization that are finalized, were never notified and no longer receive anything.</summary>
+  /// <param name="uploadedFrom">The oldest last upload that is looked at, included.</param>
+  /// <param name="uploadedBefore">The time before which the last upload must have been received.</param>
+  /// <param name="after">
+  ///   The last commit of the previous page, or <see langword="null" /> for the first one: the listing goes on after
+  ///   it, in the same order, so that a caller that leaves commits out can read past them.
+  /// </param>
+  /// <param name="limit">The number of commits to list, at most.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The commits, the oldest last upload first, for reading only: complete or in error, of a repository that is
+  ///   still tracked, without any upload still received or being processed.
+  /// </returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit" /> is zero or negative.</exception>
+  Task<IReadOnlyList<Commit>> ListStuckAsync(
+    DateTimeOffset uploadedFrom,
+    DateTimeOffset uploadedBefore,
+    Commit? after,
+    int limit,
+    CancellationToken cancellationToken);
+
   /// <summary>Lists the commits of a repository that have one of the given SHAs, for reading only.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="shas">The SHAs to look for.</param>

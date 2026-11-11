@@ -56,5 +56,11 @@ public static class JobTypes
   /// <summary>Reads a pull request again from its forge and records it.</summary>
   public const string SyncPullRequest = "SyncPullRequest";
 
+  /// <summary>
+  ///   Notifies by force the commits that were never notified long after their last upload: a coordinator on the lane
+  ///   of the instance, and one job of the same type per active organization.
+  /// </summary>
+  public const string SweepPendingCommits = "SweepPendingCommits";
+
   #endregion
 }

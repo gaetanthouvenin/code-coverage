@@ -4,9 +4,14 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
+using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -36,6 +41,12 @@ public sealed class SyncPullRequestCommandHandlerTests
   private readonly IForgeGateway _gateway = A.Fake<IForgeGateway>();
 
   private readonly IPullRequestRepository _pullRequests = A.Fake<IPullRequestRepository>();
+
+  private readonly ICommitRepository _commits = A.Fake<ICommitRepository>();
+
+  private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
+
+  private readonly List<JobRequest> _queued = [];
 
   private readonly TrackedRepository _repository = TrackedRepository.Create(42, "7", RepositorySlug.Parse("octo/repo"), "main", false, "badge", Now.AddDays(-30));
 
@@ -75,7 +86,14 @@ public sealed class SyncPullRequestCommandHandlerTests
          return Task.FromResult(_stored);
        });
 
-    _handler = new SyncPullRequestCommandHandler(_repositories, _directory, gateways, _pullRequests, clock);
+    var notifications = A.Fake<IOptionsMonitor<NotificationOptions>>();
+    A.CallTo(() => notifications.CurrentValue).Returns(new NotificationOptions());
+    A.CallTo(() => _commits.ListByShasAsync(RepositoryId, A<IReadOnlyCollection<GitSha>>._, A<CancellationToken>._)).Returns([]);
+    A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._))
+     .Invokes((JobRequest job, CancellationToken _) => _queued.Add(job))
+     .Returns(1L);
+
+    _handler = new SyncPullRequestCommandHandler(_repositories, _directory, gateways, _pullRequests, _commits, _jobQueue, notifications, clock);
   }
 
   #endregion
@@ -154,6 +172,68 @@ public sealed class SyncPullRequestCommandHandlerTests
     await HandleAsync();
 
     _stored.Version.ShouldBe(version);
+  }
+
+  // M2.23: the upload came before the pull request was opened. Its head is notified now, so that the comment appears.
+  [Fact]
+  public async Task Handle_OpenWithACompleteHead_ShouldQueueTheNotificationOfTheHead()
+  {
+    Reports(Pull(ForgePullState.Open));
+    HeadIs(CommitState.Complete);
+
+    await HandleAsync();
+
+    var job = _queued.ShouldHaveSingleItem();
+    job.Type.ShouldBe(JobTypes.NotifyCommit);
+    // The debounced job, never a forced one: after_n_builds and manual_trigger still apply.
+    job.PayloadJson.ShouldBe("""{"CommitId":77,"Force":false}""");
+    job.DedupKey.ShouldBe("notify:77");
+    job.LockKey.ShouldBe("commit:77");
+    job.RunAfter.ShouldBe(Now.AddSeconds(20));
+    job.OrganizationId.ShouldBeNull();
+    // After the pull request is saved: a notification that ran before it would take the commit for a push.
+    A.CallTo(() => _pullRequests.UpsertAsync(RepositoryId, A<ForgePullInfo>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustHaveHappened()
+     .Then(A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).MustHaveHappened());
+  }
+
+  [Theory]
+  [InlineData(CommitState.Known)]
+  [InlineData(CommitState.Pending)]
+  [InlineData(CommitState.Error)]
+  [InlineData(CommitState.Compacted)]
+  public async Task Handle_OpenWithAHeadThatIsNotComplete_ShouldQueueNothing(CommitState state)
+  {
+    Reports(Pull(ForgePullState.Open));
+    HeadIs(state);
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_OpenWithoutAnyUploadForItsHead_ShouldQueueNothing()
+  {
+    Reports(Pull(ForgePullState.Open));
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+  }
+
+  // Closed: no comment is written any more.
+  [Theory]
+  [InlineData(ForgePullState.Closed)]
+  [InlineData(ForgePullState.Merged)]
+  public async Task Handle_ClosedWithACompleteHead_ShouldQueueNothing(ForgePullState state)
+  {
+    Reports(Pull(state));
+    HeadIs(CommitState.Complete);
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+    A.CallTo(_commits).MustNotHaveHappened();
   }
 
   [Fact]
@@ -237,6 +317,15 @@ public sealed class SyncPullRequestCommandHandlerTests
   }
 
   private static ForgePullInfo Pull(ForgePullState state) => new(12, state, "From the forge", "octocat", Head, "feature/x", "main", Base);
+
+  private void HeadIs(CommitState state)
+  {
+    var head = Commit.Create(RepositoryId, Head, Now);
+
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(head, 77L);
+    typeof(Commit).GetProperty(nameof(Commit.State))!.SetValue(head, state);
+    A.CallTo(() => _commits.ListByShasAsync(RepositoryId, A<IReadOnlyCollection<GitSha>>.That.Contains(Head), A<CancellationToken>._)).Returns([head]);
+  }
 
   private async Task HandleAsync() => await _handler.Handle(new SyncPullRequestCommand(RepositoryId, 12), Ct);
 

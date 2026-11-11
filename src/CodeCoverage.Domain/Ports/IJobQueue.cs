@@ -37,5 +37,19 @@ public interface IJobQueue
   /// </exception>
   Task<long> EnqueueAsync(JobRequest request, CancellationToken cancellationToken);
 
+  /// <summary>Queues a job, saved at once in a transaction of its own, and tells whether it is a new one.</summary>
+  /// <param name="request">The job to run.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>
+  ///   <see langword="true" /> when a new job was queued; <see langword="false" /> when the request was merged into
+  ///   its queued twin, a job waiting for its retry for instance.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="request" /> is <see langword="null" />.</exception>
+  /// <exception cref="InvalidOperationException">
+  ///   The current scope does not allow the organization of the request: see
+  ///   <see cref="JobRequest.ResolveOrganizationId" />.
+  /// </exception>
+  Task<bool> TryEnqueueAsync(JobRequest request, CancellationToken cancellationToken);
+
   #endregion
 }

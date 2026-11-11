@@ -54,14 +54,18 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
   }
 
   /// <inheritdoc />
-  public async Task<IReadOnlyList<PullRequest>> ListOpenByForkPointAsync(long repositoryId, GitSha forkPointSha, CancellationToken cancellationToken)
+  public async Task<IReadOnlyList<PullRequest>> ListOpenByForkPointAsync(long repositoryId, GitSha forkPointSha, int limit, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(forkPointSha);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
 
     return await context.PullRequests
                         .AsNoTracking()
                         .Where(p => p.RepositoryId == repositoryId && p.ForkPointSha == forkPointSha && p.State == PullRequestState.Open)
-                        .OrderBy(static p => p.Number)
+                        .Where(p => p.HeadSha != forkPointSha && (p.ComparedToSha == null || p.ComparedToSha != forkPointSha))
+                        .OrderByDescending(static p => p.UpdatedAt)
+                        .ThenByDescending(static p => p.Number)
+                        .Take(limit)
                         .ToListAsync(cancellationToken)
                         .ConfigureAwait(false);
   }

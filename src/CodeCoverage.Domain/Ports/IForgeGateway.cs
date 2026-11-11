@@ -131,6 +131,11 @@ public interface IForgeGateway
   /// <param name="targetUrl">The address the status links to, or <see langword="null" />.</param>
   /// <param name="cancellationToken">A token to cancel the call.</param>
   /// <returns>A task that completes when the forge took the status.</returns>
+  /// <remarks>
+  ///   A refusal of the forge that sending the status again cannot change (the repository or the commit unknown, the
+  ///   status not allowed) is refused as not found or as unprocessable: the job that publishes fails for good. A rate
+  ///   limit or a failure of the forge can be tried again.
+  /// </remarks>
   /// <exception cref="ArgumentNullException">An argument other than <paramref name="targetUrl" /> is <see langword="null" />.</exception>
   Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken);
 

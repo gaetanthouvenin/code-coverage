@@ -802,7 +802,7 @@ steps:
 **Organisation d'un job (ADR-013)** : chaque job appartient à une voie, choisie par la fabrique de son `JobRequest`.
 - `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle.
 - `JobRequest.ForInstance` reste hors de toute organisation : `Jobs.OrganizationId` est nul, et une lecture d'une table d'organisation y lève.
-- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`), qui ne contient à ce jour que la réception d'un webhook (`ReceiveWebhookCommandHandler`).
+- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`) : la réception d'un webhook (`ReceiveWebhookCommandHandler`) et les coordinateurs (`SyncInstallationsCommandHandler`, `SweepPendingCommitsCommandHandler`).
 - `SqlJobQueue` préfixe `LockKey` et `DedupKey` par la voie, `o{id}:` ou `i:`, en tête d'`EnqueueInTransactionAsync`. Une même clé métier dans deux voies ne fusionne ni ne sérialise. `KeyMaxLength` vaut 178 pour que la clé préfixée tienne dans la colonne de 200 caractères.
 - **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SweepPendingCommits`, `PurgeExpiredData`).
 
@@ -844,7 +844,7 @@ OUTPUT inserted.*;
 |---|---|---|---|
 | `ProcessUpload` | — | — | `ProcessUploadCommand(uploadId)` |
 | `FinalizeCommit` | `commit:{id}` | `finalize:{id}` (fusion) | `FinalizeCommitCommand(commitId)` |
-| `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) ; `notify:{id}:forced` (fusion, sans délai) pour `uploads-complete` | `NotifyCommitCommand(commitId, force)` |
+| `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) ; `notify:{id}:forced` (fusion, sans délai) pour `uploads-complete` et la re-notification manuelle ; `notify:{id}:sweep` (fusion, sans délai) pour un commit bloqué | `NotifyCommitCommand(commitId, force, partial)` |
 | `HandleWebhook` | `repo:{githubRepoId}` | — | `HandleWebhookDeliveryCommand(deliveryId)` |
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
@@ -852,7 +852,7 @@ OUTPUT inserted.*;
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
 | `SyncInstallationRepositories` | `installation:{installationId}` | `sync:installation:{installationId}` (fusion) | `SyncInstallationRepositoriesCommand(installationId)`, dans l'organisation |
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
-| `SweepPendingCommits` | `sweep` | `sweep` | toutes les 5 minutes |
+| `SweepPendingCommits` | `sweep` | `sweep` (fusion) | `SweepPendingCommitsCommand`. Sur la voie d'instance, toutes les 5 minutes : coordinateur, qui met en file un job du même type par organisation `Active`. Dans l'organisation : met en file `NotifyCommit` (`notify:{id}:sweep`) pour ses commits bloqués |
 | `PurgeExpiredData` | `purge` | `purge` | quotidien |
 
 Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `DedupKey`. Plusieurs réplicas ne les dupliquent donc jamais.
@@ -1197,7 +1197,9 @@ Après `FinalizeCommit`, après un webhook PR, ou sur `uploads-complete`, `Notif
 
 `after_n_builds` par flag se vérifie statut par statut (§7.7). Le comptage par flag inclut les sessions reportées du flag.
 
-**Commits bloqués** (`SweepPendingCommits`, toutes les 5 minutes) : un commit dont le dernier upload date de plus de `PendingTimeoutMinutes` (60) et qui n'a jamais été notifié est notifié de force. Le suffixe « (partial: n/m uploads) » est ajouté si `after_n_builds` n'est pas atteint. **Aucun statut `pending` n'est posté**, donc un contexte finalement supprimé ne reste jamais bloqué en attente.
+**Commit déjà notifié** (différence nommée avec Codecov) : un commit notifié une fois, à la main, par le balayage ou par son pipeline sous `manual_trigger`, est notifié de nouveau sans les conditions 2 et 3, à chaque finalisation et quand sa base reçoit son rapport ou que sa pull request s'ouvre ; la condition 1 tient toujours. Une notification écartée parce que des uploads sont en cours est reprise par la finalisation de ces uploads. Sous `after_n_builds` non atteint, ses statuts gardent le suffixe partiel. Codecov, sous `manual_trigger`, ne notifie qu'au déclenchement suivant.
+
+**Commits bloqués** (`SweepPendingCommits`, toutes les 5 minutes) : un commit dont le dernier upload date de plus de `PendingTimeoutMinutes` (60) et qui n'a jamais été notifié est notifié de force. Le suffixe « (partial: n/m uploads) » est ajouté si `after_n_builds` n'est pas atteint. **Aucun statut `pending` n'est posté**, donc un contexte finalement supprimé ne reste jamais bloqué en attente. Le commit est marqué notifié après la publication, ou quand la forge la refuse définitivement (404, 403 hors limite de débit, 422) : le balayage ne le force plus. Une limite de débit ou une panne de la forge le laisse au balayage suivant ; une notification déjà en file (en attente de sa reprise) ne compte pas dans les 200 commits d'un balayage.
 
 **`notify_error`** : si tous les uploads ont échoué, un statut `error` est posté sur chaque contexte attendu (« Coverage upload processing failed, see {url} »).
 

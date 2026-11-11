@@ -16,6 +16,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositor
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
+using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -152,12 +153,23 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.NotifyCommit:
         await sender.Send(
-                      Read(job, static p => new NotifyCommitCommand(p.GetProperty("CommitId").GetInt64(), p.TryGetProperty("Force", out var force) && force.GetBoolean())),
+                      Read(
+                        job,
+                        static p => new NotifyCommitCommand(
+                          p.GetProperty("CommitId").GetInt64(),
+                          p.TryGetProperty("Force", out var force) && force.GetBoolean(),
+                          p.TryGetProperty("Partial", out var partial) && partial.GetBoolean()
+                        )
+                      ),
                       cancellationToken
                     )
                     .ConfigureAwait(false);
 
         break;
+      case JobTypes.SweepPendingCommits:
+        await sender.Send(new SweepPendingCommitsCommand(), cancellationToken).ConfigureAwait(false);
+        break;
+
       case JobTypes.SyncPullRequest:
         await sender.Send(
                       Read(job, static p => new SyncPullRequestCommand(p.GetProperty("RepositoryId").GetInt64(), p.GetProperty("Number").GetInt32())),

@@ -16,7 +16,10 @@ using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Tests.Support;
+
+using ApplicationException = CodeCoverage.Application.Exceptions.ApplicationException;
 
 namespace CodeCoverage.Infrastructure.Tests.GitHub;
 
@@ -105,17 +108,44 @@ public sealed class GitHubAppGatewayStatusTests : IDisposable
     body.RootElement.GetProperty("target_url").ValueKind.ShouldBe(JsonValueKind.Null);
   }
 
-  // A status GitHub did not take must fail the job, which tries again: it is never counted as published.
+  // A status GitHub did not take fails the job: it is never counted as published. A failure of GitHub is tried again.
+  [Fact]
+  public async Task CreateStatus_GitHubFails_ShouldThrowBadGateway()
+  {
+    GivenStatus(500);
+
+    await Should.ThrowAsync<BadGatewayException>(
+      () => _github.Gateway.CreateStatusAsync(Repository, Head, new CommitStatus("coverage/project", StatusState.Success, "ok"), null, Cancellation)
+    );
+  }
+
+  // T1. A refusal no retry can heal is permanent: a repository or a commit GitHub does not know (404), a status it
+  // refuses (403 without a rate limit: a missing permission, an archived repository), a SHA it does not know or a
+  // commit that holds 1000 statuses already (422).
   [Theory]
-  [InlineData(403)]
-  [InlineData(404)]
-  [InlineData(422)]
-  [InlineData(500)]
-  public async Task CreateStatus_Refused_ShouldThrowBadGateway(int status)
+  [InlineData(403, typeof(UnprocessableEntityException))]
+  [InlineData(404, typeof(NotFoundException))]
+  [InlineData(422, typeof(UnprocessableEntityException))]
+  public async Task CreateStatus_RefusedForGood_ShouldThrowAPermanentRefusal(int status, Type expected)
   {
     GivenStatus(status);
 
-    await Should.ThrowAsync<BadGatewayException>(
+    var exception = await Should.ThrowAsync<ApplicationException>(
+      () => _github.Gateway.CreateStatusAsync(Repository, Head, new CommitStatus("coverage/project", StatusState.Success, "ok"), null, Cancellation)
+    );
+
+    exception.ShouldBeOfType(expected);
+    exception.ErrorCode.ShouldBe("GitHub.StatusRefused");
+  }
+
+  // T1. A rate limit stays a rate limit, whatever its status: the job waits for the reset and tries again.
+  [Fact]
+  public async Task CreateStatus_RateLimited_ShouldStayARateLimit()
+  {
+    _github.Server.Given(Request.Create().WithPath(Path).UsingPost())
+           .RespondWith(Response.Create().WithStatusCode(403).WithHeader("x-ratelimit-remaining", "0").WithBody("{}"));
+
+    await Should.ThrowAsync<GitHubRateLimitedException>(
       () => _github.Gateway.CreateStatusAsync(Repository, Head, new CommitStatus("coverage/project", StatusState.Success, "ok"), null, Cancellation)
     );
   }

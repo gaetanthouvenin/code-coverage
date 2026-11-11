@@ -30,11 +30,11 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
 {
   #region Fields
 
-  private const string JobType = "SweepPendingCommits";
+  private const string JobType = "Tick";
 
   private static readonly DateTimeOffset Now = new(2026, 11, 8, 10, 32, 15, TimeSpan.Zero);
 
-  private static readonly RecurringJobDefinition Sweep = new(JobType, TimeSpan.FromMinutes(5), "sweep", "sweep");
+  private static readonly RecurringJobDefinition Sweep = new(JobType, TimeSpan.FromMinutes(5), "tick", "tick");
 
   #endregion
 
@@ -68,8 +68,8 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
     job.Type.ShouldBe(JobType);
     job.State.ShouldBe(JobState.Queued);
     job.OrganizationId.ShouldBeNull();
-    job.DedupKey.ShouldBe("i:sweep");
-    job.LockKey.ShouldBe("i:sweep");
+    job.DedupKey.ShouldBe("i:tick");
+    job.LockKey.ShouldBe("i:tick");
     job.PayloadJson.ShouldBe(RecurringJobDefinition.EmptyPayload);
     job.RunAfter.ShouldBe(new DateTimeOffset(2026, 11, 8, 10, 35, 0, TimeSpan.Zero));
   }
@@ -106,8 +106,8 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
     A.CallTo(() => queue.EnqueueAsync(
                      A<JobRequest>.That.Matches(r => r.Type == JobType
                                                      && r.IsInstance
-                                                     && r.DedupKey == "sweep"
-                                                     && r.LockKey == "sweep"
+                                                     && r.DedupKey == "tick"
+                                                     && r.LockKey == "tick"
                                                      && r.Coalesce
                                                      && r.MaxDelay == null
                                                      && r.RunAfter == new DateTimeOffset(2026, 11, 8, 10, 35, 0, TimeSpan.Zero)),
@@ -172,7 +172,7 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
   [Fact]
   public void Ctor_WithDuplicateDedupKey_ShouldThrowArgumentException()
   {
-    RecurringJobDefinition[] definitions = [Sweep, new RecurringJobDefinition("Other", TimeSpan.FromHours(1), "sweep")];
+    RecurringJobDefinition[] definitions = [Sweep, new RecurringJobDefinition("Other", TimeSpan.FromHours(1), "tick")];
 
     Should.Throw<ArgumentException>(() => new RecurringJobScheduler(
                                             definitions,
@@ -181,7 +181,7 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
                                             TimeProvider.System,
                                             NullLogger<RecurringJobScheduler>.Instance
                                           ))
-          .Message.ShouldContain("'sweep'");
+          .Message.ShouldContain("'tick'");
   }
 
   [Fact]

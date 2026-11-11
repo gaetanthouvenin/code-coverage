@@ -47,6 +47,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string InstallationCoordinator = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/SyncInstallations/SyncInstallationsCommandHandler.cs";
 
+  private const string SweepCoordinator = "src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
+
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
 
   private const string SamplePath = Infrastructure + "Sample.cs";
@@ -105,6 +107,10 @@ public sealed partial class OrganizationIsolationTests
     // The coordinator of the installations (ADR-013): on the lane of the instance, it reads Installations and
     // Organizations only and queues one job per active organization.
     (InstallationCoordinator, "ForOrganization"),
+
+    // The coordinator of the sweep of the stuck commits (ADR-013, ARCHITECTURE §6.1): on the lane of the instance, it
+    // reads Organizations only and queues one sweep per active organization.
+    (SweepCoordinator, "ForOrganization"),
   ];
 
   // A key that omits the organization would serve one organization's value to another: each user is reviewed.

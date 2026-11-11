@@ -25,6 +25,12 @@ public sealed record FinalizationWakeUps(bool Completed, IReadOnlyList<long> Pen
 {
   #region Properties
 
+  /// <summary>
+  ///   Gets the notifications of the heads of the pull requests that forked from the commit and were compared to
+  ///   something else: their comparison changes now that the commit has its report.
+  /// </summary>
+  public IReadOnlyList<JobRequest> DependentNotifications { get; init; } = [];
+
   /// <summary>Gets the finalization that queues nothing.</summary>
   public static FinalizationWakeUps None { get; } = new(false, []);
 

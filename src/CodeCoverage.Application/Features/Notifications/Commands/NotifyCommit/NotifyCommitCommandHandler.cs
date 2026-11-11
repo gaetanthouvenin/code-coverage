@@ -40,7 +40,21 @@ namespace CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 ///     The uploads sent with the SHA of a synthetic merge commit are moved to the head of the pull request
 ///     (ARCHITECTURE §1.4-2), and <c>uploads-complete</c> names the SHA they were sent with. A notification
 ///     asked by hand on a commit of a pull request that holds no upload is therefore handed to that head, which
-///     the forge names: the request could not ask it.
+///     the forge names: the request could not ask it. The hand-over is the notification of the merge commit, which
+///     is marked notified, so that the sweep never hands it over again.
+///   </para>
+///   <para>
+///     A commit notified once, by hand or by the sweep, is notified again whatever <c>manual_trigger</c> and
+///     <c>after_n_builds</c> say: the jobs that ask it again, when its base gets its report or its pull request is
+///     opened, would otherwise leave its statuses and its comment on an older comparison. It still waits for the
+///     uploads in progress. Below <c>after_n_builds</c>, its statuses keep the partial suffix.
+///   </para>
+///   <para>
+///     A commit is marked notified once it is published, or when its notification by the sweep is refused for good: by
+///     the forge (a repository, a commit or a status it refuses whatever the number of tries, see
+///     <see cref="IForgeGateway.CreateStatusAsync" />) or here (the coverage of the base was compacted, a row is
+///     gone). The sweep then never forces it again. A failure a retry can heal (a rate limit, a failure of the forge)
+///     leaves it unmarked; if the job dies of it, the next sweep takes the commit again.
 ///   </para>
 /// </remarks>
 internal sealed class NotifyCommitCommandHandler(
@@ -68,6 +82,22 @@ internal sealed class NotifyCommitCommandHandler(
   /// <summary>Builds the refusal of a commit that can no longer be notified.</summary>
   /// <returns>The exception.</returns>
   private static NotFoundException NotFound() => new(NotificationErrors.CommitNotFound, "The commit to notify no longer exists.");
+
+  /// <summary>Tells whether a failure is one no retry can heal, as the worker tells it.</summary>
+  /// <param name="exception">The failure.</param>
+  /// <returns><see langword="true" /> for a refusal the worker fails for good without retrying it.</returns>
+  private static bool IsPermanent(Exception exception) =>
+    exception is NotFoundException or ValidationException or BadRequestException or UnprocessableEntityException;
+
+  /// <summary>Marks a commit notified, at once.</summary>
+  /// <param name="commit">The commit, read in this scope.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the commit is saved.</returns>
+  private async Task MarkNotifiedAsync(Commit commit, CancellationToken cancellationToken)
+  {
+    commit.MarkNotified(clock.UtcNow);
+    await commits.UpdateAsync(commit, cancellationToken).ConfigureAwait(false);
+  }
 
   #endregion
 
@@ -105,8 +135,13 @@ internal sealed class NotifyCommitCommandHandler(
       {
         if (await commits.FindByShaAsync(repository.Id, headSha, cancellationToken).ConfigureAwait(false) is { } head)
         {
-          await jobQueue.EnqueueAsync(NotifyCommitJobs.CreateForced(head.Id), cancellationToken).ConfigureAwait(false);
+          // Asked by the sweep, the head is notified as the sweep would: with the partial suffix.
+          var handOver = command.Partial ? NotifyCommitJobs.CreateForSweep(head.Id) : NotifyCommitJobs.CreateForced(head.Id);
+
+          await jobQueue.EnqueueAsync(handOver, cancellationToken).ConfigureAwait(false);
         }
+
+        await MarkNotifiedAsync(commit, cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
       }
@@ -114,6 +149,8 @@ internal sealed class NotifyCommitCommandHandler(
       // The commit is the head itself: without any upload it has nothing to notify; its failed uploads are its own.
       if (all.Count == 0)
       {
+        await MarkNotifiedAsync(commit, cancellationToken).ConfigureAwait(false);
+
         return Unit.Value;
       }
     }
@@ -132,7 +169,10 @@ internal sealed class NotifyCommitCommandHandler(
       command.Force
     );
 
-    if (decision is not NotificationDecision.Notify)
+    // Notified once already: what held the first notification back no longer holds the next ones.
+    var again = commit.NotifiedAt is not null && decision is NotificationDecision.ManualTriggerExpected or NotificationDecision.BuildsExpected;
+
+    if (decision is not NotificationDecision.Notify && !again)
     {
       // Asked by hand while uploads are in progress, or before the finalization that merges them ran, the first one
       // as the next ones: it waits for them, as long as the commit is not stuck. Any other wait ends with the
@@ -149,23 +189,37 @@ internal sealed class NotifyCommitCommandHandler(
       return Unit.Value;
     }
 
-    var published = await notifications.NotifyAsync(
-                        repository,
-                        organization.Forge,
-                        commit,
-                        resolved.Config,
-                        all.Count(static upload => upload.State is UploadState.Failed),
-                        resolved.Errors.Count > 0,
-                        cancellationToken
-                      ).ConfigureAwait(false);
+    int published;
+
+    try
+    {
+      published = await notifications.NotifyAsync(
+                    repository,
+                    organization.Forge,
+                    commit,
+                    resolved.Config,
+                    all.Count(static upload => upload.State is UploadState.Failed),
+                    resolved.Errors.Count > 0,
+                    command.Partial || (again && decision is NotificationDecision.BuildsExpected)
+                      ? NotificationGate.PartialSuffix(commit, resolved.Config.Notify, notificationOptions.CurrentValue.AfterNBuildsCountsCarryforward)
+                      : null,
+                    cancellationToken
+                  ).ConfigureAwait(false);
+    }
+    catch (Exception exception) when (command.Partial && commit.NotifiedAt is null && IsPermanent(exception))
+    {
+      // Refused for good, by the forge or here: the sweep would force it again at each round, for nothing.
+      await MarkNotifiedAsync(commit, cancellationToken).ConfigureAwait(false);
+
+      throw;
+    }
 
     if (published > 0 && commit.LastUploadAt is { } lastUpload)
     {
       metrics.NotifyLatency(clock.UtcNow - lastUpload);
     }
 
-    commit.MarkNotified(clock.UtcNow);
-    await commits.UpdateAsync(commit, cancellationToken).ConfigureAwait(false);
+    await MarkNotifiedAsync(commit, cancellationToken).ConfigureAwait(false);
 
     return Unit.Value;
   }

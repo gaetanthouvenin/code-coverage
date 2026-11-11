@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Guards;
+
 namespace CodeCoverage.Domain.Notifications;
 
 /// <summary>A commit status to post on the forge.</summary>
@@ -46,6 +48,30 @@ public sealed record CommitStatus
 
   /// <summary>Gets the description of the status, at most <see cref="DescriptionMaxLength" /> characters long.</summary>
   public string Description { get; }
+
+  #endregion
+
+  #region Methods
+
+  /// <summary>Gives the same status with a text added at the end of its description.</summary>
+  /// <param name="suffix">The text to add, with the space that separates it.</param>
+  /// <returns>The status; the description is cut so that the suffix always fits whole.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="suffix" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="suffix" /> is longer than a description can be.</exception>
+  public CommitStatus WithSuffix(string suffix)
+  {
+    ArgumentNullException.ThrowIfNull(suffix);
+    ArgumentException.ThrowIf(suffix.Length > DescriptionMaxLength, $"A suffix cannot be longer than {DescriptionMaxLength} characters.", nameof(suffix));
+
+    if (suffix.Length == 0 || Description.EndsWith(suffix, StringComparison.Ordinal))
+    {
+      return this;
+    }
+
+    var room = DescriptionMaxLength - suffix.Length;
+
+    return new CommitStatus(Context, State, (Description.Length > room ? Description[..room] : Description) + suffix);
+  }
 
   #endregion
 }

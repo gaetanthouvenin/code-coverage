@@ -33,6 +33,24 @@ public sealed class SyncPullRequestJobsTests
     SyncPullRequestJobs.Create(51, 2).LockKey.ShouldNotBe(SyncPullRequestJobs.Create(5, 12).LockKey);
   }
 
+  // The notification of the sweep keeps its own deduplication key: merged with a notification asked by hand, which
+  // keeps its payload, one of the two would lose its mode.
+  [Fact]
+  public void CreateForSweep_ShouldBeForcedPartialAndApartFromTheOtherNotifications()
+  {
+    var job = NotifyCommitJobs.CreateForSweep(9);
+
+    job.Type.ShouldBe(JobTypes.NotifyCommit);
+    job.PayloadJson.ShouldBe("""{"CommitId":9,"Force":true,"Partial":true}""");
+    job.LockKey.ShouldBe("commit:9");
+    job.DedupKey.ShouldBe("notify:9:sweep");
+    job.Coalesce.ShouldBeTrue();
+    job.OrganizationId.ShouldBeNull();
+    job.IsInstance.ShouldBeFalse();
+    job.DedupKey.ShouldNotBe(NotifyCommitJobs.CreateForced(9).DedupKey);
+    job.LockKey.ShouldBe(NotifyCommitJobs.CreateForced(9).LockKey);
+  }
+
   [Theory]
   [InlineData(0, 1)]
   [InlineData(1, 0)]

@@ -177,6 +177,28 @@ public sealed class NotificationGateTests
     return NotificationGate.Decide(commit, uploadsInProgress, commit?.UploadedSessionCount ?? 0, rule, countCarriedForward, forced);
   }
 
+  [Theory]
+  // sessions, uploaded, after_n_builds, carried forward counted, expected
+  [InlineData(1, 1, 3, true, " (partial: 1/3 uploads)")]
+  [InlineData(2, 1, 3, true, " (partial: 2/3 uploads)")]
+  [InlineData(2, 1, 3, false, " (partial: 1/3 uploads)")]
+  [InlineData(3, 3, 3, true, null)]
+  [InlineData(4, 1, 3, true, null)]
+  [InlineData(1, 1, 0, true, null)]
+  public void PartialSuffix_ShouldCountTheSessionsAsTheGateDoes(int sessions, int uploaded, int afterNBuilds, bool countCarriedForward, string? expected)
+  {
+    var rule = new NotifyRule(afterNBuilds, false, false, false);
+
+    NotificationGate.PartialSuffix(Finalized(sessions, uploaded), rule, countCarriedForward).ShouldBe(expected);
+  }
+
+  [Fact]
+  public void PartialSuffix_Null_ShouldThrow()
+  {
+    Should.Throw<ArgumentNullException>(() => NotificationGate.PartialSuffix(null!, new NotifyRule(1, false, false, false), true));
+    Should.Throw<ArgumentNullException>(() => NotificationGate.PartialSuffix(Finalized(1, 1), null!, true));
+  }
+
   private static Commit Finalized(int sessions, int uploaded, CommitState state = CommitState.Complete)
   {
     var commit = Commit.Create(1, GitSha.Parse(new string('a', GitSha.Length)), Now);

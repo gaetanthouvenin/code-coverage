@@ -118,6 +118,20 @@ public sealed class NotifyCommitCommandHandlerTests
     A.CallTo(() => _metrics.NotifyLatency(TimeSpan.FromMinutes(10))).MustHaveHappenedOnceExactly();
   }
 
+  // The notification of the sweep is forced: after_n_builds does not hold it back, and the commit is marked, so that
+  // the next sweep does not take it again. A commit in error has no evaluated status to mark as partial.
+  [Fact]
+  public async Task Handle_PartialNotificationOfTheSweep_ShouldNotifyAlthoughAfterNBuildsIsNotReached()
+  {
+    Notify(("notify_error", ConfigNode.FromBoolean(true)), ("after_n_builds", ConfigNode.FromNumber(3)));
+
+    await Handler().Handle(new NotifyCommitCommand(9, Force: true, Partial: true), Ct);
+
+    A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, Sha, A<CommitStatus>.That.Matches(s => s.State == StatusState.Error && !s.Description.Contains("partial")), A<string?>._, A<CancellationToken>._))
+     .MustHaveHappenedTwiceExactly();
+    _commit.NotifiedAt.ShouldBe(Now);
+  }
+
   // Nothing new to publish: the commit is still marked, and no latency is measured.
   [Fact]
   public async Task Handle_NothingPublished_ShouldMarkTheCommitWithoutMeasuringALatency()
@@ -223,6 +237,69 @@ public sealed class NotifyCommitCommandHandlerTests
     (_commit.NotifiedAt is not null).ShouldBe(forced);
   }
 
+  // F3. The sweep forces a commit once: it is marked before the forge is called, so that a notification the forge
+  // always refuses is not forced again at every sweep. The job itself is still retried.
+  // S2. A failure a retry can heal leaves the commit unmarked: if the job dies, the next sweep takes the commit again.
+  [Fact]
+  public async Task Handle_SweepWhoseNotificationFailsForAWhile_ShouldLeaveTheCommitForTheNextSweep()
+  {
+    A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._))
+     .Throws(new BadGatewayException("GitHub.Unavailable", "refused"));
+
+    await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(new NotifyCommitCommand(9, Force: true, Partial: true), Ct));
+
+    _commit.NotifiedAt.ShouldBeNull();
+    A.CallTo(() => _commits.UpdateAsync(A<Commit>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // Not the sweep: a failure leaves the commit unmarked, as before.
+  [Fact]
+  public async Task Handle_NotificationThatFails_ShouldNotMarkTheCommit()
+  {
+    A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._))
+     .Throws(new BadGatewayException("GitHub.Unavailable", "refused"));
+
+    await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(new NotifyCommitCommand(9), Ct));
+
+    _commit.NotifiedAt.ShouldBeNull();
+  }
+
+  // F6. A commit notified once, by hand or by the sweep, is notified again when its base gets its report or its pull
+  // request is opened: neither the manual trigger nor the missing builds hold it back any more.
+  [Theory]
+  [InlineData("manual_trigger", true)]
+  [InlineData("after_n_builds", false)]
+  public async Task Handle_CommitAlreadyNotified_ShouldBeNotifiedAgainWhateverTheGate(string key, bool manual)
+  {
+    Notify(("notify_error", ConfigNode.FromBoolean(true)), manual ? (key, ConfigNode.FromBoolean(true)) : (key, ConfigNode.FromNumber(3)));
+    _commit.MarkNotified(Now.AddMinutes(-5));
+
+    await Handler().Handle(new NotifyCommitCommand(9), Ct);
+
+    A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, Sha, A<CommitStatus>._, A<string?>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+    _commit.NotifiedAt.ShouldBe(Now);
+  }
+
+  // F6, S3, T2. Not past the uploads still in progress, whatever the gate: the report would not hold them yet. The job
+  // is dropped without being tried again, and leaves the commit as it was: the finalization of those uploads queues
+  // the next notification (FinalizeCommitCommandHandlerTests, and the chain in NotifyCommitIntegrationTests).
+  [Theory]
+  [InlineData("manual_trigger", true)]
+  [InlineData("after_n_builds", false)]
+  public async Task Handle_CommitAlreadyNotifiedWithUploadsInProgress_ShouldBeDroppedWithoutPublishing(string key, bool manual)
+  {
+    Notify(("notify_error", ConfigNode.FromBoolean(true)), manual ? (key, ConfigNode.FromBoolean(true)) : (key, ConfigNode.FromNumber(3)));
+    _commit.MarkNotified(Now.AddMinutes(-5));
+    Uploads(UploadState.Failed, UploadState.Received);
+
+    await Handler().Handle(new NotifyCommitCommand(9), Ct);
+
+    A.CallTo(_gateway).MustNotHaveHappened();
+    _commit.NotifiedAt.ShouldBe(Now.AddMinutes(-5));
+    A.CallTo(() => _commits.UpdateAsync(A<Commit>._, A<CancellationToken>._)).MustNotHaveHappened();
+    _queued.ShouldBeEmpty();
+  }
+
   [Theory]
   [InlineData(false, 0)]
   [InlineData(true, 2)]
@@ -255,8 +332,27 @@ public sealed class NotifyCommitCommandHandlerTests
     job.OrganizationId.ShouldBeNull();
     job.IsInstance.ShouldBeFalse();
     A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
-    merge.NotifiedAt.ShouldBeNull();
-    A.CallTo(() => _commits.UpdateAsync(A<Commit>._, A<CancellationToken>._)).MustNotHaveHappened();
+    // F4. The hand-over is the notification of the merge commit: marked, it is never taken by the sweep again.
+    merge.NotifiedAt.ShouldBe(Now);
+    A.CallTo(() => _commits.UpdateAsync(merge, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // F4. The sweep takes a merge commit whose uploads were moved: it hands the notification to the head as the sweep
+  // would, partial, and marks the merge commit, so that the next sweep does not force the head again.
+  [Fact]
+  public async Task Handle_SweepOfAMergeCommitWhoseUploadsWereMoved_ShouldHandOverOnceAndKeepThePartialSuffix()
+  {
+    var merge = MergeCommit();
+    merge.RecordFinalization(CommitState.Error, 0, default, 0, 0, CarryforwardStatus.None, "source", Now.AddMinutes(-9));
+    Uploads();
+    A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
+     .Returns(new ForgePullInfo(12, ForgePullState.Open, "title", null, Head, "feature", "main", Base, Sha));
+    A.CallTo(() => _commits.FindByShaAsync(5, Head, A<CancellationToken>._)).Returns(HeadCommit());
+
+    await Handler().Handle(new NotifyCommitCommand(9, Force: true, Partial: true), Ct);
+
+    _queued.ShouldHaveSingleItem().PayloadJson.ShouldBe("""{"CommitId":10,"Force":true,"Partial":true}""");
+    merge.NotifiedAt.ShouldBe(Now);
   }
 
   // The uploader sent the upload again after the first copy was moved: the second copy is refused as a duplicate of
@@ -275,7 +371,7 @@ public sealed class NotifyCommitCommandHandlerTests
 
     _queued.ShouldHaveSingleItem().PayloadJson.ShouldBe("""{"CommitId":10,"Force":true}""");
     A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
-    merge.NotifiedAt.ShouldBeNull();
+    merge.NotifiedAt.ShouldBe(Now);
   }
 
   // The head of a pull request whose uploads all failed is no merge commit: its own error statuses are published.
