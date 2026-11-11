@@ -7,6 +7,7 @@
 using Microsoft.Extensions.DependencyInjection;
 
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 
 namespace CodeCoverage.Infrastructure;
@@ -38,6 +39,8 @@ public static partial class DependencyInjection
     services.AddScoped<IUploadTokenRepository, UploadTokenRepository>();
     services.AddScoped<IUserRepository, UserRepository>();
     services.AddScoped<IUserRepositoryAccessRepository, UserRepositoryAccessRepository>();
+    services.AddScoped<IOrganizationMembershipRepository, OrganizationMembershipRepository>();
+    services.AddScoped<IOrganizationRoleResolver, OrganizationRoleResolver>();
     services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
 
     return services;

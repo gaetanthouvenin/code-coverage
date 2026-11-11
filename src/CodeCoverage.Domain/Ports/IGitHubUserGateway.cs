@@ -25,6 +25,13 @@ public interface IGitHubUserGateway
   /// <exception cref="ArgumentException"><paramref name="accessToken" /> is <see langword="null" />, empty or white space.</exception>
   Task<GitHubUser> GetUserAsync(string accessToken, CancellationToken cancellationToken);
 
+  /// <summary>Lists the installations of the App that the user can reach, read to the last page.</summary>
+  /// <param name="accessToken">The user token.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The installations, suspended ones included, whatever the state of their organization in this instance.</returns>
+  /// <exception cref="ArgumentException"><paramref name="accessToken" /> is <see langword="null" />, empty or white space.</exception>
+  Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(string accessToken, CancellationToken cancellationToken);
+
   /// <summary>Lists the repositories of an installation that the user can reach, read to the last page.</summary>
   /// <param name="accessToken">The user token.</param>
   /// <param name="installationId">The identifier of the installation.</param>

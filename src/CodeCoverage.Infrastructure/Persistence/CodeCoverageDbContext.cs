@@ -138,6 +138,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the organizations hosted by the instance (<c>Organizations</c>).</summary>
   public DbSet<Organization> Organizations => Set<Organization>();
 
+  /// <summary>Gets the memberships of the users in the organizations.</summary>
+  public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
+
   /// <summary>Gets the values saved by the organizations (<c>OrganizationSettings</c>).</summary>
   internal DbSet<StoredOrganizationSetting> OrganizationSettings => Set<StoredOrganizationSetting>();
 

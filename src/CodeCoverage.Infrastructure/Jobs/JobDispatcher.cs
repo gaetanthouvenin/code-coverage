@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
@@ -166,6 +167,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
                     .ConfigureAwait(false);
 
         break;
+      case JobTypes.RefreshUserMemberships:
+        await sender.Send(new RefreshUserMembershipsCommand(Read(job, static p => p.GetProperty("UserId").GetInt64())), cancellationToken).ConfigureAwait(false);
+        break;
+
       case JobTypes.SweepPendingCommits:
         await sender.Send(new SweepPendingCommitsCommand(), cancellationToken).ConfigureAwait(false);
         break;

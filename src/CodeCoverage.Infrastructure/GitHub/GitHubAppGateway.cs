@@ -11,9 +11,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
@@ -29,13 +31,17 @@ namespace CodeCoverage.Infrastructure.GitHub;
 /// <param name="client">The <c>github</c> client, whose pipeline adds the API version and handles the rate limits.</param>
 /// <param name="tokens">The authentication of the server against GitHub.</param>
 /// <param name="options">The settings of the App, read at each use.</param>
+/// <param name="logger">The logger.</param>
 /// <remarks>
 ///   A tracked repository is read by its identifier, through <c>/repositories/{id}</c>, so a renaming never breaks a
 ///   reading; only the search of a repository that is not tracked yet goes by owner and name. A refusal other than the
 ///   absence of what was asked for is an answer no caller can use: it surfaces as a <see cref="BadGatewayException" />.
 /// </remarks>
-internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider tokens, IOptionsMonitor<GitHubOptions> options)
-  : IForgeGateway, IGitHubAppGateway
+internal sealed partial class GitHubAppGateway(
+  HttpClient client,
+  GitHubAppTokenProvider tokens,
+  IOptionsMonitor<GitHubOptions> options,
+  ILogger<GitHubAppGateway> logger) : IForgeGateway, IGitHubAppGateway
 {
   #region Fields
 
@@ -349,6 +355,83 @@ internal sealed class GitHubAppGateway(HttpClient client, GitHubAppTokenProvider
              ? head
              : throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub answered the reading of '{address}' without the commit of the branch.");
   }
+
+  /// <inheritdoc />
+  /// <remarks>
+  ///   A 404 is not a member. A 403 that says the App may not read the members (the permission
+  ///   <c>Organization &gt; Members: read</c>) is read as not a member too, with a warning: the user takes part and
+  ///   never administers. Any other 403 is a refusal of this organization (<see cref="ForbiddenException" />), for
+  ///   instance its SAML enforcement; any other failure is a failure of GitHub.
+  /// </remarks>
+  /// <exception cref="ForbiddenException">GitHub refuses to tell the membership in this organization.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading for another reason, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<GitHubOrganizationMembership?> GetOrganizationMembershipAsync(
+    long installationId,
+    string organizationLogin,
+    string userLogin,
+    CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+    ArgumentException.ThrowIfNullOrWhiteSpace(organizationLogin);
+    ArgumentException.ThrowIfNullOrWhiteSpace(userLogin);
+
+    var address = $"orgs/{Uri.EscapeDataString(organizationLogin)}/memberships/{Uri.EscapeDataString(userLogin)}";
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    if (response.StatusCode is HttpStatusCode.Forbidden)
+    {
+      if (!await IsNotAccessibleByIntegrationAsync(response, cancellationToken).ConfigureAwait(false))
+      {
+        throw new ForbiddenException(SecurityErrors.Forbidden, $"GitHub refused the reading of '{address}': HTTP 403.");
+      }
+
+      LogMembersNotReadable(logger, organizationLogin, installationId);
+
+      return null;
+    }
+
+    // Only an active membership with the admin role administers: an invitation that was not accepted grants nothing.
+    return await ReadAsync(
+             response,
+             address,
+             GitHubJsonContext.Default.GitHubOrganizationMembershipResponse,
+             NotFound,
+             static membership => new GitHubOrganizationMembership(
+               string.Equals(membership.State, "active", StringComparison.Ordinal),
+               string.Equals(membership.Role, "admin", StringComparison.Ordinal),
+               membership.User?.Id?.ToString(CultureInfo.InvariantCulture)
+             ),
+             cancellationToken
+           ).ConfigureAwait(false);
+  }
+
+  /// <summary>Tells whether a 403 says that the App lacks the permission to read a resource.</summary>
+  /// <param name="response">The response.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns><see langword="true" /> for the message <c>Resource not accessible by integration</c>.</returns>
+  private static async Task<bool> IsNotAccessibleByIntegrationAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+  {
+    try
+    {
+      var body = await response.Content.ReadFromJsonAsync(GitHubJsonContext.Default.GitHubErrorResponse, cancellationToken).ConfigureAwait(false);
+
+      return string.Equals(body?.Message, "Resource not accessible by integration", StringComparison.Ordinal);
+    }
+    catch (JsonException)
+    {
+      return false;
+    }
+  }
+
+  [LoggerMessage(
+    EventId = 1500,
+    Level = LogLevel.Warning,
+    Message = "The GitHub App may not read the members of {Organization} (installation {InstallationId}): its owners are participants until the permission Organization > Members: read is granted"
+  )]
+  private static partial void LogMembersNotReadable(ILogger logger, string organization, long installationId);
 
   /// <inheritdoc />
   /// <remarks>

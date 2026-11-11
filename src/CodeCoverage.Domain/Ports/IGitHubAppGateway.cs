@@ -40,5 +40,26 @@ public interface IGitHubAppGateway
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
   Task<IReadOnlyList<ForgeRepositoryInfo>> ListInstallationRepositoriesAsync(long installationId, CancellationToken cancellationToken);
 
+  /// <summary>Reads the membership of a user in the organization an installation serves.</summary>
+  /// <param name="installationId">The identifier of the installation of that organization.</param>
+  /// <param name="organizationLogin">The login of the organization.</param>
+  /// <param name="userLogin">The login of the user.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The membership, or <see langword="null" /> when the user is not a member of the organization: an outside
+  ///   collaborator of one of its repositories, for instance.
+  /// </returns>
+  /// <remarks>
+  ///   Read with the token of the installation (permission <c>Organization: Members: Read</c>), not with the one
+  ///   of the user: the role does not depend on what the user let the App see.
+  /// </remarks>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is zero or negative.</exception>
+  /// <exception cref="ArgumentException">A login is <see langword="null" />, empty or white space.</exception>
+  Task<GitHubOrganizationMembership?> GetOrganizationMembershipAsync(
+    long installationId,
+    string organizationLogin,
+    string userLogin,
+    CancellationToken cancellationToken);
+
   #endregion
 }

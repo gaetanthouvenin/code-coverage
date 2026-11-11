@@ -10,6 +10,7 @@ using System.Text;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using WireMock.Server;
@@ -60,6 +61,7 @@ internal sealed class GitHubApiHarness : IDisposable
     services.AddSingleton(protector).AddSingleton(monitor).AddSingleton(clock);
     services.AddSingleton(new CodeCoverageMeter(_meters));
     services.AddSingleton<GitHubAppTokenProvider>();
+    services.AddSingleton<ILogger<GitHubAppGateway>>(GatewayLog);
     services.AddGitHubHttpClient();
     services.PostConfigure<HttpStandardResilienceOptions>(
       $"{GitHubHttpClientConfiguration.ClientName}-standard",
@@ -76,6 +78,8 @@ internal sealed class GitHubApiHarness : IDisposable
   #endregion
 
   #region Properties
+
+  public CapturingLogger<GitHubAppGateway> GatewayLog { get; } = new();
 
   public GitHubOptions Options { get; }
 

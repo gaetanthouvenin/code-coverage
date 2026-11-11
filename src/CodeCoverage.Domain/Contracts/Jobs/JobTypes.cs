@@ -62,5 +62,8 @@ public static class JobTypes
   /// </summary>
   public const string SweepPendingCommits = "SweepPendingCommits";
 
+  /// <summary>Asks the forge again which organizations a user is linked to, and with which role.</summary>
+  public const string RefreshUserMemberships = "RefreshUserMemberships";
+
   #endregion
 }
