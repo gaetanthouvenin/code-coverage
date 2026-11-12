@@ -46,6 +46,12 @@ public interface IRepositoryRepository
   /// <returns>The repositories, by namespace and name.</returns>
   Task<IReadOnlyList<TrackedRepository>> ListAsync(CancellationToken cancellationToken);
 
+  /// <summary>Lists the active repositories whose name contains a text, whatever its case, for reading only.</summary>
+  /// <param name="search">The text the name must contain, or <see langword="null" /> for every active repository.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The repositories, by namespace and name.</returns>
+  Task<IReadOnlyList<TrackedRepository>> SearchActiveAsync(string? search, CancellationToken cancellationToken);
+
   /// <summary>Adds a repository, saved at once.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>
