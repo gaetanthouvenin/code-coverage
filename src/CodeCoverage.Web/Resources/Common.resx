@@ -204,4 +204,12 @@
   <data name="Card_Change30Days" xml:space="preserve"><value>Change over 30 days</value></data>
   <data name="Card_CarriedForwardFrom" xml:space="preserve"><value>Carried forward from</value></data>
   <data name="Delta_Points" xml:space="preserve"><value>{0} pt</value></data>
+  <data name="History_Title" xml:space="preserve"><value>Coverage history</value></data>
+  <data name="History_Branch" xml:space="preserve"><value>Branch</value></data>
+  <data name="History_Range" xml:space="preserve"><value>Range</value></data>
+  <data name="History_Flags" xml:space="preserve"><value>Series to draw</value></data>
+  <data name="History_Days" xml:space="preserve"><value>{0} d</value></data>
+  <data name="History_EmptyTitle" xml:space="preserve"><value>No coverage in this period</value></data>
+  <data name="History_EmptyText" xml:space="preserve"><value>No report of this branch was completed in the chosen range.</value></data>
+  <data name="Column_Date" xml:space="preserve"><value>Date</value></data>
 </root>

@@ -1,0 +1,59 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcLineChart.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  <div class="cc-chart__box">
+    <svg viewBox="0 0 @Width @Height" role="img" aria-label="@Summary" focusable="false">
+      @foreach (var value in GridValues)
+      {
+        <line x1="@Left" x2="@(Width - Right)" y1="@Num(Y(value))" y2="@Num(Y(value))" stroke-dasharray="3 5" class="cc-chart__grid" />
+        @SvgText(Left - 10, Y(value) + 4, "end", "cc-chart__axis", value.ToString(CultureInfo.CurrentCulture))
+      }
+      @foreach (var at in AxisDates)
+      {
+        @SvgText(X(at), Height - 8, "middle", "cc-chart__axis", FormatDate(at))
+      }
+      @for (var i = 0; i < Series.Count; i++)
+      {
+        var series = Series[i];
+        var index = i;
+        <g data-series="@series.Label">
+          <path d="@PathOf(series)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                stroke-dasharray="@DashOf(index)" style="stroke:@ColorOf(index)" />
+          @if (LastOf(series) is { Value: { } last } point)
+          {
+            <circle cx="@Num(X(point.At))" cy="@Num(Y(last))" r="4" stroke-width="2" style="fill:@ColorOf(index);stroke:var(--cc-card)" />
+            @SvgText(X(point.At) + 10, LabelY(index) + 4, "start", "cc-chart__label", $"{series.Label} {FormatValue(last)}")
+          }
+        </g>
+      }
+    </svg>
+  </div>
+  <table class="cc-sr-only">
+    <caption>@AriaLabel</caption>
+    <thead>
+      <tr>
+        <th scope="col">@DateHeader</th>
+        @foreach (var series in Series)
+        {
+          <th scope="col">@series.Label</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var at in Dates)
+      {
+        <tr>
+          <th scope="row">@FormatDate(at)</th>
+          @foreach (var series in Series)
+          {
+            <td>@ValueAt(series, at)</td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

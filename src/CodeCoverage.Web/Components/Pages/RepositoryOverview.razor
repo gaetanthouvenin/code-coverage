@@ -39,6 +39,8 @@
     else if (Overview is not null)
     {
       <CoverageCards Cards="Overview.Cards" />
+      <CoverageHistoryChart Forge="@Forge" Owner="@Owner" Name="@Name" DefaultBranch="@Overview.DefaultBranch"
+                            Branches="Overview.Branches" Flags="Overview.Flags" Format="Overview.Format" />
     }
   }
 </CcPageContainer>

@@ -1,0 +1,57 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CoverageHistoryChart.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="history">
+  <div class="cc-panel__head">
+    <div><h2 class="cc-panel__title">@L["History_Title"]</h2></div>
+    <div class="cc-panel__tools">
+      <CcSelectField Label="@L["History_Branch"]" Options="BranchOptions" Value="@SelectedBranch" ValueChanged="ChangeBranchAsync"
+                     Pill="true" LeadIcon="CcIconName.Commit" />
+      <CcFolderTabs Tabs="RangeTabs" Value="@SelectedRange" ValueChanged="ChangeRangeAsync" AriaLabel="@L["History_Range"]" />
+    </div>
+  </div>
+  <fieldset class="cc-cluster cc-chart__flags">
+    <legend class="cc-sr-only">@L["History_Flags"]</legend>
+    @foreach (var flag in AllFlags)
+    {
+      var selected = IsSelected(flag);
+      <label class="cc-flag-check" @key="flag">
+        <input type="checkbox" checked="@selected" disabled="@(!selected && IsFull)" data-flag="@flag"
+               @onchange="e => ToggleAsync(flag, e)" />
+        @if (selected)
+        {
+          <svg width="24" height="8" aria-hidden="true" focusable="false">
+            <line x1="1" x2="23" y1="4" y2="4" stroke-width="2" stroke-linecap="round" stroke-dasharray="@CcLineChart.DashOf(SeriesIndexOf(flag))"
+                  style="stroke:@CcLineChart.ColorOf(SeriesIndexOf(flag))" />
+          </svg>
+        }
+        @LabelOf(flag)
+      </label>
+    }
+  </fieldset>
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-status-page">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (!HasPoints)
+  {
+    <div class="cc-status-page" data-state="empty">
+      <CcEmptyState Title="@L["History_EmptyTitle"]" Icon="CcIconName.Chart">@L["History_EmptyText"]</CcEmptyState>
+    </div>
+  }
+  else
+  {
+    <CcLineChart Series="ChartSeries" AriaLabel="@L["History_Title"]" DateHeader="@L["Column_Date"]" ValueFormat="FormatValue" />
+  }
+</section>

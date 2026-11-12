@@ -1856,3 +1856,71 @@ code {
     padding: 0 6px 8px;
   }
 }
+
+/* Panel tools and the line chart of the history (M3.22): the series differ by colour, dash and a direct label. */
+.cc-panel__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cc-chart {
+  position: relative;
+  padding: 0 18px 12px;
+  overflow-x: auto;
+}
+
+.cc-chart__box {
+  position: relative;
+  min-width: 540px;
+}
+
+.cc-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cc-chart__grid {
+  stroke: var(--cc-chart-grid);
+}
+
+.cc-chart__axis {
+  fill: var(--cc-chart-text);
+  font-size: 12px;
+}
+
+.cc-chart__label {
+  fill: var(--cc-fg-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cc-chart__flags {
+  margin: 0;
+  padding: 0 28px 12px;
+  border: 0;
+}
+
+.cc-flag-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cc-card-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cc-flag-check input {
+  margin: 0;
+  accent-color: var(--cc-accent);
+}
+
+.cc-flag-check svg {
+  display: block;
+}
