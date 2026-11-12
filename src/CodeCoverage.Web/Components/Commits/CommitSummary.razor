@@ -1,0 +1,63 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitSummary.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-grid cc-grid--4">
+  <CcKpiCard Label="@L["Column_Coverage"]" Value="@Commit.Coverage" Icon="CcIconName.Target" Accent="true">
+    <Trend>
+      @if (Commit.Delta is { } delta)
+      {
+        <CcBadge Chip="true" Tone="@(Commit.Trend > 0 ? CcTone.Success : Commit.Trend < 0 ? CcTone.Danger : CcTone.Neutral)">@L["Delta_Points", delta]</CcBadge>
+      }
+    </Trend>
+    <Footer>
+      @if (Commit.BaseSha is { } baseSha)
+      {
+        @L["Commit_Base"] <code>@baseSha</code> <b>@Commit.BaseCoverage</b>
+      }
+      else
+      {
+        @L["Commit_NoBase"]
+      }
+    </Footer>
+  </CcKpiCard>
+  @if (Commit.BaseFiles is { } baseFiles)
+  {
+    <CcKpiCard Label="@L["Commit_Files"]" Value="@Commit.Files" Icon="CcIconName.File" IconStyle="CcKpiIconStyle.Ink">
+      <Footer>@L["Commit_BaseFiles"] <b>@baseFiles</b></Footer>
+    </CcKpiCard>
+  }
+  else
+  {
+    <CcKpiCard Label="@L["Commit_Files"]" Value="@Commit.Files" Icon="CcIconName.File" IconStyle="CcKpiIconStyle.Ink" />
+  }
+  <CcKpiCard Label="@L["Column_Lines"]" Value="@Commit.Lines" Icon="CcIconName.Lines" IconStyle="CcKpiIconStyle.Gradient">
+    <Footer>@L["Commit_LineCounts", Commit.Hits, Commit.Partials, Commit.Misses]</Footer>
+  </CcKpiCard>
+  @if (Commit.CarriedOrigins.Count > 0)
+  {
+    <CcKpiCard Label="@L["Column_Sessions"]" Value="@Commit.Sessions.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.Layers">
+      <Trend><CcBadge Chip="true">@L["Commit_CarriedSessions", Commit.CarriedSessions]</CcBadge></Trend>
+      <Footer>
+        @for (var i = 0; i < Commit.CarriedOrigins.Count; i++)
+        {
+          var origin = Commit.CarriedOrigins[i];
+          @($"{(i > 0 ? ", " : string.Empty)}{origin.Flags} {L["Commit_CarriedFrom"]} ")<code>@origin.ShortSha</code>
+        }
+      </Footer>
+    </CcKpiCard>
+  }
+  else
+  {
+    <CcKpiCard Label="@L["Column_Sessions"]" Value="@Commit.Sessions.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.Layers">
+      <Trend>
+        @if (Commit.CarriedSessions > 0)
+        {
+          <CcBadge Chip="true">@L["Commit_CarriedSessions", Commit.CarriedSessions]</CcBadge>
+        }
+      </Trend>
+    </CcKpiCard>
+  }
+</div>

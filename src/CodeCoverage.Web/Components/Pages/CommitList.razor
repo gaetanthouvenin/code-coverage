@@ -62,7 +62,7 @@
             {
               <tr @key="row.Sha" data-sha="@row.Sha">
                 <td class="cc-commit-cell">
-                  <span class="cc-ellip">@(row.Message ?? row.ShortSha)</span>
+                  <a class="cc-ellip" href="@CommitHref(row.Sha)">@(row.Message ?? row.ShortSha)</a>
                   <code>@row.ShortSha</code>
                 </td>
                 <td class="cc-nowrap">@(row.Author ?? DisplayFormatter.Dash)</td>

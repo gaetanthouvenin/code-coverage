@@ -235,4 +235,37 @@
   <data name="Filter_All" xml:space="preserve"><value>All</value></data>
   <data name="Pulls_EmptyTitle" xml:space="preserve"><value>No pull request</value></data>
   <data name="Pulls_EmptyText" xml:space="preserve"><value>Pull requests appear here when GitHub reports them.</value></data>
+  <data name="Commit_Base" xml:space="preserve"><value>Base</value></data>
+  <data name="Commit_NoBase" xml:space="preserve"><value>No base compared yet</value></data>
+  <data name="Commit_BaseFiles" xml:space="preserve"><value>Base:</value></data>
+  <data name="Commit_CarriedFrom" xml:space="preserve"><value>from</value></data>
+  <data name="Commit_Files" xml:space="preserve"><value>Files</value></data>
+  <data name="Column_Lines" xml:space="preserve"><value>Lines</value></data>
+  <data name="Commit_LineCounts" xml:space="preserve"><value>{0} hits · {1} partials · {2} misses</value></data>
+  <data name="Commit_CarriedSessions" xml:space="preserve"><value>{0} carried</value></data>
+  <data name="Column_Flags" xml:space="preserve"><value>Flags</value></data>
+  <data name="Column_Flag" xml:space="preserve"><value>Flag</value></data>
+  <data name="Column_Origin" xml:space="preserve"><value>Origin</value></data>
+  <data name="Commit_NoFlag" xml:space="preserve"><value>This commit has no flag.</value></data>
+  <data name="Session_CarriedForward" xml:space="preserve"><value>Carried forward</value></data>
+  <data name="Commit_UploadOfThisCommit" xml:space="preserve"><value>Upload of this commit</value></data>
+  <data name="Commit_PublishedStatuses" xml:space="preserve"><value>Published statuses</value></data>
+  <data name="Commit_NoStatus" xml:space="preserve"><value>No status posted yet.</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>Success</value></data>
+  <data name="Status_Failure" xml:space="preserve"><value>Failure</value></data>
+  <data name="Status_Error" xml:space="preserve"><value>Error</value></data>
+  <data name="Commit_Configuration" xml:space="preserve"><value>Configuration</value></data>
+  <data name="Commit_ConfigErrors" xml:space="preserve"><value>Errors: {0}</value></data>
+  <data name="Commit_ConfigWarnings" xml:space="preserve"><value>Warnings: {0}</value></data>
+  <data name="Commit_ConfigSource" xml:space="preserve"><value>Source</value></data>
+  <data name="Commit_ConfigErrorTitle" xml:space="preserve"><value>The configuration of this commit could not be read</value></data>
+  <data name="Commit_OnBranch" xml:space="preserve"><value>{0} on {1}</value></data>
+  <data name="ConfigSource_Commit" xml:space="preserve"><value>File of the commit</value></data>
+  <data name="ConfigSource_RepositoryDefault" xml:space="preserve"><value>File of the default branch</value></data>
+  <data name="ConfigSource_Organization" xml:space="preserve"><value>Configuration of the organization</value></data>
+  <data name="ConfigSource_Builtin" xml:space="preserve"><value>Built-in defaults</value></data>
+  <data name="Config.InvalidValue" xml:space="preserve"><value>Invalid value, ignored:</value></data>
+  <data name="Config.UnsupportedPattern" xml:space="preserve"><value>Unsupported pattern, ignored:</value></data>
+  <data name="Config.ClampedValue" xml:space="preserve"><value>Value out of range, clamped:</value></data>
+  <data name="Config.WithoutEffectKey" xml:space="preserve"><value>Key without effect, ignored:</value></data>
 </root>

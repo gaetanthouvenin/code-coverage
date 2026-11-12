@@ -49,6 +49,8 @@ public sealed class CommitsControllerTests
 
   private readonly IComparisonRepository _comparisons = A.Fake<IComparisonRepository>();
 
+  private readonly ICommitConfigRepository _configs = A.Fake<ICommitConfigRepository>();
+
   private readonly ICommitReportRepository _reports = A.Fake<ICommitReportRepository>();
 
   private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
@@ -223,6 +225,7 @@ public sealed class CommitsControllerTests
                                   s.AddScoped(_ => _commits);
                                   s.AddScoped(_ => _gitCommits);
                                   s.AddScoped(_ => _comparisons);
+                                  s.AddScoped(_ => _configs);
                                   s.AddScoped(_ => _reports);
                                   s.AddScoped(_ => _codec);
                                   s.AddScoped(_ => _uploads);
