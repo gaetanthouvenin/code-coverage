@@ -12,4 +12,8 @@ namespace CodeCoverage.Api.Contracts.Repositories;
 /// <param name="Name">Its name.</param>
 /// <param name="DefaultBranch">Its default branch.</param>
 /// <param name="IsPrivate">Whether it is private on its forge.</param>
-public sealed record RepositoryResponse(string Forge, string Owner, string Name, string DefaultBranch, bool IsPrivate);
+/// <param name="Active">
+///   Whether its coverage is processed; <see langword="false" /> once an administrator disabled it: uploads are then
+///   refused, while its history, its API and its badge stay readable.
+/// </param>
+public sealed record RepositoryResponse(string Forge, string Owner, string Name, string DefaultBranch, bool IsPrivate, bool Active);

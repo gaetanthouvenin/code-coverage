@@ -60,10 +60,6 @@ internal sealed class ReceiveUploadCommandHandler(
 {
   #region Methods
 
-  /// <summary>Builds the refusal of a repository that cannot be reached.</summary>
-  /// <returns>The exception.</returns>
-  private static NotFoundException RepositoryNotFound() => new(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
-
   /// <summary>Computes the key of an upload sent without one.</summary>
   /// <param name="metadata">What the text fields describe.</param>
   /// <param name="fileHashes">The SHA-256 of the parts.</param>
@@ -105,51 +101,37 @@ internal sealed class ReceiveUploadCommandHandler(
     {
       await foreach (var part in parts.WithCancellation(cancellationToken).ConfigureAwait(false))
       {
-        if (part.Kind is UploadPartKind.Report && ++reportCount > maxReports)
+        if (part.Kind is UploadPartKind.Report)
         {
-          throw new BadRequestException(
-            UploadErrors.TooManyFiles,
-            string.Create(CultureInfo.InvariantCulture, $"An upload holds at most {maxReports} reports.")
-          );
+          BadRequestException.ThrowIfTooManyReports(++reportCount, maxReports);
         }
 
         // ARCHITECTURE §5.1: network is one optional part, and the 100 000 lines are counted per part.
-        if (part.Kind is UploadPartKind.Network && ++networkCount > 1)
+        if (part.Kind is UploadPartKind.Network)
         {
-          throw new BadRequestException(UploadErrors.InvalidPart, "An upload holds at most one network part.");
+          BadRequestException.ThrowIfSecondNetworkPart(++networkCount);
         }
 
-        if (part.FileName.Length > UploadPart.FileNameMaxLength)
-        {
-          throw new BadRequestException(
-            UploadErrors.InvalidPart,
-            string.Create(CultureInfo.InvariantCulture, $"The name of a part cannot be longer than {UploadPart.FileNameMaxLength} characters.")
-          );
-        }
+        BadRequestException.ThrowIfPartNameTooLong(part.FileName);
 
         var stored = await rawStore.WriteAsync(publicId, part, cancellationToken).ConfigureAwait(false);
 
         hashes.Add(Convert.ToHexStringLower(stored.Sha256));
       }
 
-      if (reportCount == 0)
-      {
-        throw new BadRequestException(UploadErrors.NoReport, "An upload holds at least one report.");
-      }
-
-      return hashes;
+      BadRequestException.ThrowIfNoReport(reportCount);
     }
     catch (UploadTooLargeException exception)
     {
       await rawStore.DeleteAsync(publicId, CancellationToken.None).ConfigureAwait(false);
 
-      throw new PayloadTooLargeException(UploadErrors.TooLarge, "The content of the upload exceeds a limit.", exception);
+      PayloadTooLargeException.ThrowUploadTooLarge(exception);
     }
     catch (InvalidDataException exception)
     {
       await rawStore.DeleteAsync(publicId, CancellationToken.None).ConfigureAwait(false);
 
-      throw new BadRequestException(UploadErrors.InvalidPart, "A part of the upload is not valid gzip.", exception);
+      BadRequestException.ThrowUploadNotGzip(exception);
     }
     catch (Exception)
     {
@@ -157,6 +139,8 @@ internal sealed class ReceiveUploadCommandHandler(
 
       throw;
     }
+
+    return hashes;
   }
 
   /// <summary>Finds the tracked repository of an upload, creating it for an account that installed the App.</summary>
@@ -181,15 +165,14 @@ internal sealed class ReceiveUploadCommandHandler(
 
     var gateway = gateways.GetGateway(metadata.Forge);
     var connection = authorization.Connection
-                     ?? await gateway.GetRepositoryConnectionAsync(metadata.Slug.Owner, metadata.Slug.Name, cancellationToken).ConfigureAwait(false)
-                     ?? throw RepositoryNotFound();
+                     ?? await gateway.GetRepositoryConnectionAsync(metadata.Slug.Owner, metadata.Slug.Name, cancellationToken).ConfigureAwait(false);
 
-    var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false) ?? throw RepositoryNotFound();
+    NotFoundException.ThrowIfRepositoryUnreachable(connection);
 
-    if (!string.Equals(connection.ExternalAccountId, organization.ExternalAccountId, StringComparison.OrdinalIgnoreCase))
-    {
-      throw RepositoryNotFound();
-    }
+    var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfRepositoryUnreachable(organization);
+    NotFoundException.ThrowIfRepositoryNotReadable(string.Equals(connection.ExternalAccountId, organization.ExternalAccountId, StringComparison.OrdinalIgnoreCase));
 
     // Tracked under another name: renamed on its forge since the last upload.
     var renamed = await repositories.FindByExternalIdAsync(connection.RepositoryExternalId, cancellationToken).ConfigureAwait(false);
@@ -212,7 +195,10 @@ internal sealed class ReceiveUploadCommandHandler(
     CancellationToken cancellationToken)
   {
     var address = new ForgeRepositoryRef(forge, connection.ConnectionId, connection.RepositoryExternalId);
-    var info = await gateway.GetRepositoryAsync(address, cancellationToken).ConfigureAwait(false) ?? throw RepositoryNotFound();
+    var info = await gateway.GetRepositoryAsync(address, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfRepositoryUnreachable(info);
+
     var installationId = long.Parse(connection.ConnectionId, NumberStyles.None, CultureInfo.InvariantCulture);
 
     await EnsureInstallationAsync(installationId, organization.Id, cancellationToken).ConfigureAwait(false);
@@ -235,7 +221,11 @@ internal sealed class ReceiveUploadCommandHandler(
     }
     catch (ConflictException exception) when (exception.ErrorCode == GeneralErrors.ConcurrentChange)
     {
-      return await repositories.FindByExternalIdAsync(info.ExternalId, cancellationToken).ConfigureAwait(false) ?? throw RepositoryNotFound();
+      var winner = await repositories.FindByExternalIdAsync(info.ExternalId, cancellationToken).ConfigureAwait(false);
+
+      NotFoundException.ThrowIfRepositoryUnreachable(winner);
+
+      return winner;
     }
   }
 
@@ -263,10 +253,7 @@ internal sealed class ReceiveUploadCommandHandler(
       }
     }
 
-    if (installation?.OrganizationId != organizationId)
-    {
-      throw RepositoryNotFound();
-    }
+    NotFoundException.ThrowIfRepositoryNotReadable(installation?.OrganizationId == organizationId);
   }
 
   #endregion
@@ -282,10 +269,7 @@ internal sealed class ReceiveUploadCommandHandler(
     var authorization = await authenticator.AuthenticateAsync(command.Credential, metadata.Forge, metadata.Slug, cancellationToken).ConfigureAwait(false);
     var repository = await ResolveRepositoryAsync(authorization, metadata, cancellationToken).ConfigureAwait(false);
 
-    if (!repository.IsActive)
-    {
-      throw new UnprocessableEntityException(RepositoryErrors.Inactive, "The coverage of this repository is not tracked.");
-    }
+    UnprocessableEntityException.ThrowIfRepositoryNotTracked(repository);
 
     var now = clock.UtcNow;
     var commit = await commits.GetOrCreateAsync(repository.Id, metadata.Sha, now, cancellationToken).ConfigureAwait(false);
@@ -326,8 +310,9 @@ internal sealed class ReceiveUploadCommandHandler(
     // A replay: the first reception keeps its row and its parts, those just written are orphans.
     await rawStore.DeleteAsync(publicId, CancellationToken.None).ConfigureAwait(false);
 
-    var existing = await uploads.FindByIdempotencyKeyAsync(commit.Id, key, cancellationToken).ConfigureAwait(false)
-                   ?? throw new ConflictException(GeneralErrors.ConcurrentChange, "The upload was removed in the meantime; send it again.");
+    var existing = await uploads.FindByIdempotencyKeyAsync(commit.Id, key, cancellationToken).ConfigureAwait(false);
+
+    ConflictException.ThrowIfReplayedUploadRemoved(existing);
 
     return new ReceivedUpload(existing, true);
   }

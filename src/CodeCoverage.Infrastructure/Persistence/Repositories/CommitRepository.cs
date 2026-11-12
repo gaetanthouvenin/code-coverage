@@ -83,7 +83,7 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
                                     && c.LastUploadAt >= from
                                     && c.LastUploadAt < before
                                     && (c.State == CommitState.Complete || c.State == CommitState.Error)
-                                    && context.Repositories.Any(r => r.Id == c.RepositoryId && r.IsActive)
+                                    && context.Repositories.Any(r => r.Id == c.RepositoryId && r.IsActive && r.DisabledAt == null)
                                     && !context.Uploads.Any(u => u.CommitId == c.Id && (u.State == UploadState.Received || u.State == UploadState.Processing)))
                         .OrderBy(static c => c.LastUploadAt)
                         .ThenBy(static c => c.Id)

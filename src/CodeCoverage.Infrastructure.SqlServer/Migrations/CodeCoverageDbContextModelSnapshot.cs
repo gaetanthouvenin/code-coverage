@@ -826,6 +826,9 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("ExternalId")
                         .IsRequired()
                         .HasMaxLength(40)

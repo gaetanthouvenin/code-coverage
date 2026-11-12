@@ -91,7 +91,7 @@ internal sealed class SyncPullRequestCommandHandler(
 
     var repository = await repositories.FindAsync(command.RepositoryId, cancellationToken).ConfigureAwait(false);
 
-    if (repository is not { IsActive: true })
+    if (repository is not { IsTracked: true })
     {
       return Unit.Value;
     }

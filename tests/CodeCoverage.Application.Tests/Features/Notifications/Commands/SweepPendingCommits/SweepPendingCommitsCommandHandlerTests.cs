@@ -234,6 +234,17 @@ public sealed class SweepPendingCommitsCommandHandlerTests
     A.CallTo(() => _jobQueue.TryEnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).MustHaveHappened(SweepPendingCommitsCommandHandler.MaxCommits + 1, Times.Exactly);
   }
 
+  [Fact]
+  public async Task Handle_RepositoryDisabled_ShouldBeLeftOut()
+  {
+    Tracked(5).Disable(Now);
+    Stuck(Commit(9, 5));
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
+  }
+
   [Theory]
   [InlineData(true)]
   [InlineData(false)]

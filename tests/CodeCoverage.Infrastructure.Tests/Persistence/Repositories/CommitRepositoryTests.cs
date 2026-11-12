@@ -203,6 +203,33 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
     (await new CommitRepository(second).ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), null, 50, Ct)).ShouldHaveSingleItem().Id.ShouldBe(other);
   }
 
+  // M3.07: a repository an administrator disabled keeps its row and its state, and the sweep leaves its commits out.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListStuck_DisabledRepository_ShouldLeaveItsCommitsOut(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var first = seed.Organizations.FirstId;
+    long disabled;
+
+    await using (var setup = seed.Organizations.ContextOf(first))
+    {
+      disabled = await AddRepositoryAsync(setup, FirstInstallation, "78", "first-org/disabled", Ct);
+      (await setup.Repositories.SingleAsync(r => r.Id == disabled, Ct)).Disable(Now);
+      await setup.SaveChangesAsync(Ct);
+    }
+
+    var stuck = await AddCommitAsync(seed, first, seed.FirstRepository, 1, CommitState.Complete, Now.AddHours(-3));
+    await AddCommitAsync(seed, first, disabled, 2, CommitState.Complete, Now.AddHours(-3));
+
+    await using var context = seed.Organizations.ContextOf(first);
+    var read = await context.Repositories.AsNoTracking().SingleAsync(r => r.Id == disabled, Ct);
+
+    read.DisabledAt.ShouldBe(Now);
+    read.IsActive.ShouldBeTrue();
+    (await new CommitRepository(context).ListStuckAsync(Now.AddDays(-7), Now.AddHours(-1), null, 50, Ct)).ShouldHaveSingleItem().Id.ShouldBe(stuck);
+  }
+
   // F5. Pages after a commit, in the same order: commits with the same last upload are told apart by their identifier.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]

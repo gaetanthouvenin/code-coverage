@@ -12,6 +12,8 @@ using CodeCoverage.Api.Contracts.Repositories;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Repositories;
+using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
+using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
@@ -33,6 +35,7 @@ internal static class RepositoryMapper
   /// <param name="forge">The forge segment of the address.</param>
   /// <param name="organization">The login of the organization.</param>
   /// <param name="search">A text the name must contain, or <see langword="null" />.</param>
+  /// <param name="active">The state of the repositories listed, or <see langword="null" /> for both.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
   /// <returns>The repositories.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
@@ -41,12 +44,13 @@ internal static class RepositoryMapper
     string forge,
     string organization,
     string? search,
+    bool? active,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(sender);
 
     var parsed = AddressSegments.ToOrganizationForge(forge);
-    var repositories = await sender.Send(new ListRepositoriesQuery(parsed, organization, search), cancellationToken).ConfigureAwait(false);
+    var repositories = await sender.Send(new ListRepositoriesQuery(parsed, organization, search, active), cancellationToken).ConfigureAwait(false);
 
     return [.. repositories.Select(r => ToResponse(r, parsed))];
   }
@@ -99,6 +103,36 @@ internal static class RepositoryMapper
     var branches = await sender.Send(new ListBranchesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
 
     return [.. branches.Select(ToResponse)];
+  }
+
+  /// <summary>Enables a repository an administrator disabled.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>A task that completes when the repository is enabled.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task ActivateRepositoryAsync(this ISender sender, string forge, string owner, string repo, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    await sender.Send(new ActivateRepositoryCommand(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Disables a repository.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>A task that completes when the repository is disabled.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task DeactivateRepositoryAsync(this ISender sender, string forge, string owner, string repo, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    await sender.Send(new DeactivateRepositoryCommand(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Reads the coverage history of a branch and converts it for the API.</summary>
@@ -186,7 +220,8 @@ internal static class RepositoryMapper
       repository.Namespace.Length == 0 ? repository.Owner : $"{repository.Owner}:{repository.Namespace.Replace('/', ':')}",
       repository.Name,
       repository.DefaultBranch,
-      repository.IsPrivate
+      repository.IsPrivate,
+      repository.DisabledAt is null
     );
 
   private static BranchResponse ToResponse(Branch branch) => new(branch.Name, branch.HeadSha.Value, branch.HeadUpdatedAt, branch.CoveredAt);

@@ -195,6 +195,17 @@ public sealed class ReceiveUploadCommandHandlerTests
     A.CallTo(() => _commits.GetOrCreateAsync(A<long>._, A<GitSha>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // The acceptance of M3.07: an upload to a repository an administrator disabled answers 422.
+  [Fact]
+  public async Task Handle_DisabledRepo_ShouldThrowUnprocessable()
+  {
+    Tracked(true).Disable(Now);
+
+    await ShouldRefuse<UnprocessableEntityException>(RepositoryErrors.Inactive);
+
+    A.CallTo(() => _commits.GetOrCreateAsync(A<long>._, A<GitSha>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   [Fact]
   public async Task Handle_SameIdempotencyKey_ShouldReturnExistingAndDeleteOrphanRaw()
   {
@@ -377,7 +388,7 @@ public sealed class ReceiveUploadCommandHandlerTests
     ((CodeCoverage.Application.Exceptions.ApplicationException)(object)exception).ErrorCode.ShouldBe(errorCode);
   }
 
-  private void Tracked(bool active)
+  private TrackedRepository Tracked(bool active)
   {
     var repository = TrackedRepository.Create(1, RepositoryExternalId, Slug, "main", true, "protected", Now);
     typeof(TrackedRepository).GetProperty(nameof(TrackedRepository.Id))!.SetValue(repository, 5L);
@@ -389,6 +400,8 @@ public sealed class ReceiveUploadCommandHandlerTests
 
     A.CallTo(() => _repositories.FindBySlugAsync(Slug, A<CancellationToken>._)).Returns(repository);
     A.CallTo(() => _repositories.FindAsync(5, A<CancellationToken>._)).Returns(repository);
+
+    return repository;
   }
 
   private void Connected(ForgeConnectionInfo? connection) =>

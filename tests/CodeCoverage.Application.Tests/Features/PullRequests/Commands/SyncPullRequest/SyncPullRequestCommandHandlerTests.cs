@@ -266,6 +266,17 @@ public sealed class SyncPullRequestCommandHandlerTests
     A.CallTo(_pullRequests).MustNotHaveHappened();
   }
 
+  [Fact]
+  public async Task Handle_RepositoryDisabled_ShouldReadNothing()
+  {
+    _repository.Disable(Now);
+
+    await HandleAsync();
+
+    A.CallTo(_gateway).MustNotHaveHappened();
+    A.CallTo(_pullRequests).MustNotHaveHappened();
+  }
+
   // A branch is never cut to fit, and the job must end: replayed, it would fail the same way eight times.
   [Theory]
   [InlineData(true)]

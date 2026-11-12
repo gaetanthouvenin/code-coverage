@@ -16,8 +16,12 @@ namespace CodeCoverage.Application.Features.Repositories.Queries.ListRepositorie
 /// <param name="Forge">The forge of the organization.</param>
 /// <param name="Login">The login of the organization.</param>
 /// <param name="Search">A text the name must contain, whatever its case, or <see langword="null" />.</param>
+/// <param name="Active">
+///   <see langword="true" /> for the enabled repositories only, <see langword="false" /> for the disabled ones, or
+///   <see langword="null" /> for both.
+/// </param>
 /// <remarks>A repository the user cannot read is left out, as if it did not exist; the instance administrator sees no more.</remarks>
-public sealed record ListRepositoriesQuery(Forge Forge, string Login, string? Search) : IQuery<IReadOnlyList<TrackedRepository>>, IOrganizationScoped
+public sealed record ListRepositoriesQuery(Forge Forge, string Login, string? Search, bool? Active = null) : IQuery<IReadOnlyList<TrackedRepository>>, IOrganizationScoped
 {
   #region Properties
 

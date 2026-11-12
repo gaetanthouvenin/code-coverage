@@ -26,13 +26,16 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
 
   /// <summary>List the repositories of an organization</summary>
   /// <remarks>
-  ///   The active repositories of the organization that the user of the token may read on its forge, by namespace and
-  ///   name. <c>search</c> keeps the names that contain it, whatever its case. A repository the user cannot read is left
-  ///   out as if it did not exist; an organization the user takes no part in answers 404.
+  ///   The repositories its installation serves that the user of the token may read on its forge, by namespace and
+  ///   name, each with its <c>active</c> state. <c>search</c> keeps the names that contain it, whatever its case;
+  ///   <c>active</c> keeps the enabled (<c>true</c>) or the disabled (<c>false</c>) ones, as <c>repos?active=</c> of
+  ///   Codecov. A repository the user cannot read is left out as if it did not exist; an organization the user takes no
+  ///   part in answers 404.
   /// </remarks>
   /// <param name="forge">The forge of the organization.</param>
   /// <param name="org">The login of the organization.</param>
   /// <param name="search">A text the name must contain.</param>
+  /// <param name="active">true for the enabled repositories, false for the disabled ones; both by default.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
   /// <returns>The repositories.</returns>
   [HttpGet("orgs/{forge}/{org}/repos", Name = "ListRepositories")]
@@ -43,8 +46,9 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
     string forge,
     string org,
     [FromQuery] string? search,
+    [FromQuery] bool? active,
     CancellationToken cancellationToken) =>
-    Ok(await sender.ListRepositoriesResponseAsync(forge, org, search, cancellationToken).ConfigureAwait(false));
+    Ok(await sender.ListRepositoriesResponseAsync(forge, org, search, active, cancellationToken).ConfigureAwait(false));
 
   /// <summary>Read a repository</summary>
   /// <remarks>
@@ -111,6 +115,54 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
     [FromQuery] string? interval,
     CancellationToken cancellationToken) =>
     Ok(await sender.GetCoverageHistoryResponseAsync(forge, owner, repo, branch, flag, from, to, interval, cancellationToken).ConfigureAwait(false));
+
+  /// <summary>Activate a repository</summary>
+  /// <remarks>
+  ///   Enables a repository an administrator disabled: its uploads are accepted and its commits notified again. Already
+  ///   enabled, nothing changes and nothing is audited. Requires an administrator of the repository; a reader gets 403.
+  ///   A repository its installation no longer serves answers 404.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>No content.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/activate", Name = "ActivateRepository")]
+  [ProducesResponseType(StatusCodes.Status204NoContent)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+  public async Task<IActionResult> ActivateAsync(string forge, string owner, string repo, CancellationToken cancellationToken)
+  {
+    await sender.ActivateRepositoryAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false);
+
+    return NoContent();
+  }
+
+  /// <summary>Deactivate a repository</summary>
+  /// <remarks>
+  ///   Disables a repository: its uploads answer 422 <c>Repository.Inactive</c> and it is no longer notified, while its
+  ///   history, its API and its badge stay readable. The synchronization of the installation never enables it again.
+  ///   Already disabled, nothing changes and nothing is audited. Requires an administrator of the repository.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>No content.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/deactivate", Name = "DeactivateRepository")]
+  [ProducesResponseType(StatusCodes.Status204NoContent)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+  public async Task<IActionResult> DeactivateAsync(string forge, string owner, string repo, CancellationToken cancellationToken)
+  {
+    await sender.DeactivateRepositoryAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false);
+
+    return NoContent();
+  }
 
   /// <summary>Rotate the badge token of a repository</summary>
   /// <remarks>
