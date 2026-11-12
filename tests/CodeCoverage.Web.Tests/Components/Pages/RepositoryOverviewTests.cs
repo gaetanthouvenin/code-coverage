@@ -54,6 +54,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
   public RepositoryOverviewTests()
   {
     Services.AddFakeSenderRunner(_sender);
+    Services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
 
     _head = Commit.Create(5, HeadSha, Now);
     _head.MarkPending("main", null, Now);
@@ -156,7 +157,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
-  // Every flag gets its card and its change: the history is asked 20 flags at a time.
+  // Every flag gets its card and its change: the history of the cards (no start given) is asked 20 flags at a time.
   [Fact]
   public void Render_MoreThanTwentyFlags_ShouldAskTheChangesInChunks()
   {
@@ -166,7 +167,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
     var cut = Render<OverviewPage>(Address());
 
     cut.FindAll(".cc-kpi").Count.ShouldBe(26);
-    A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>.That.Matches(q => q.Flags.Count <= GetCoverageHistoryQuery.MaxFlags && q.Interval == "day" && q.Branch == "main"), A<CancellationToken>._))
+    A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>.That.Matches(q => q.From == null && q.Flags.Count <= GetCoverageHistoryQuery.MaxFlags && q.Interval == "day" && q.Branch == "main"), A<CancellationToken>._))
      .MustHaveHappenedTwiceExactly();
     cut.FindAll(".cc-kpi__value")[1].TextContent.ShouldBe("—");
   }

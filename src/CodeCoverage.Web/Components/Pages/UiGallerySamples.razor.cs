@@ -83,6 +83,14 @@ public partial class UiGallerySamples
   /// <summary>Gets every icon of the set.</summary>
   private static IReadOnlyList<CcIconName> Icons { get; } = Enum.GetValues<CcIconName>();
 
+  // Three series over ten days; the second has a gap, which the chart leaves undrawn.
+  private static IReadOnlyList<CcChartSeries> ChartSamples { get; } =
+  [
+    new("Project", [.. Enumerable.Range(0, 10).Select(static d => new CcChartPoint(new DateTimeOffset(2026, 11, 1 + d, 0, 0, 0, TimeSpan.Zero), 80 + (d * 0.25)))]),
+    new("backend", [.. Enumerable.Range(0, 10).Select(static d => new CcChartPoint(new DateTimeOffset(2026, 11, 1 + d, 0, 0, 0, TimeSpan.Zero), d == 4 ? (double?)null : 84 + (d * 0.1)))]),
+    new("frontend", [.. Enumerable.Range(0, 10).Select(static d => new CcChartPoint(new DateTimeOffset(2026, 11, 1 + d, 0, 0, 0, TimeSpan.Zero), 71 - (d * 0.05)))]),
+  ];
+
   /// <summary>Gets the identifier of the panel of the folder tabs.</summary>
   private string PanelId => _panelId;
 

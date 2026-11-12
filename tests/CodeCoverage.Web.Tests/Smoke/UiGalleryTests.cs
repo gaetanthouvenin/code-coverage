@@ -53,6 +53,7 @@ public sealed class UiGalleryTests
     html.ShouldContain("class=\"cc-topnav\"");
     html.ShouldContain("cc-kpi cc-kpi--accent");
     html.ShouldContain("role=\"tablist\"");
+    html.ShouldContain("class=\"cc-chart\"");
     html.ShouldContain("data-theme=\"light\"");
     html.ShouldContain("data-theme=\"dark\"");
   }

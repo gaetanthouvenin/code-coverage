@@ -15,8 +15,9 @@ using CodeCoverage.Web.ViewModels.Repositories;
 namespace CodeCoverage.Web.Components.Pages;
 
 /// <summary>
-///   The overview of a repository: the cards of the project and of every flag, with their change over 30 days. An
-///   unknown, unreadable or foreign repository, and a forge the console does not serve, show the same inaccessible state.
+///   The overview of a repository: the cards of the project and of every flag, with their change over 30 days, and the
+///   chart of the history of a branch. An unknown, unreadable or foreign repository, and a forge the console does not
+///   serve, show the same inaccessible state.
 /// </summary>
 public partial class RepositoryOverview
 {

@@ -6,10 +6,18 @@
 
 namespace CodeCoverage.Web.ViewModels.Repositories;
 
-/// <summary>The overview of a repository: its default branch and the cards of the project and of each flag.</summary>
+/// <summary>The overview of a repository: its default branch, the cards of the project and of each flag, its branches and flags.</summary>
 /// <param name="DefaultBranch">The default branch.</param>
 /// <param name="Cards">The project first, then every flag in ordinal order; empty when no report covers the default branch.</param>
-public sealed record RepositoryOverviewViewModel(string DefaultBranch, IReadOnlyList<FlagCardViewModel> Cards)
+/// <param name="Branches">The branches of the repository, for the chart of history.</param>
+/// <param name="Flags">The flags of the repository in ordinal order, without the project.</param>
+/// <param name="Format">How the repository writes a coverage, for the values of the chart.</param>
+public sealed record RepositoryOverviewViewModel(
+  string DefaultBranch,
+  IReadOnlyList<FlagCardViewModel> Cards,
+  IReadOnlyList<string> Branches,
+  IReadOnlyList<string> Flags,
+  CoverageFormatViewModel Format)
 {
   #region Properties
 
