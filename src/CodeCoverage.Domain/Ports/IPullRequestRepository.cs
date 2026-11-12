@@ -23,6 +23,23 @@ public interface IPullRequestRepository
   /// <exception cref="ArgumentNullException"><paramref name="headSha" /> is <see langword="null" />.</exception>
   Task<PullRequest?> FindOpenByHeadShaAsync(long repositoryId, GitSha headSha, CancellationToken cancellationToken);
 
+  /// <summary>Finds a pull request of a repository by its number, which can then be updated.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="number">The number of the pull request.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The pull request, or <see langword="null" />.</returns>
+  Task<PullRequest?> FindByNumberAsync(long repositoryId, int number, CancellationToken cancellationToken);
+
+  /// <summary>Lists one page of the pull requests of a repository, the most recently updated first.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="state">The state the pull requests are in, or <see langword="null" /> for every state.</param>
+  /// <param name="page">The number of the page, from 1.</param>
+  /// <param name="pageSize">The number of pull requests of a page.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The page, for reading only; the pull requests updated at the same time come by decreasing number.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="page" /> or <paramref name="pageSize" /> is zero or negative.</exception>
+  Task<PullRequestPage> ListPageAsync(long repositoryId, PullRequestState? state, int page, int pageSize, CancellationToken cancellationToken);
+
   /// <summary>Lists the open pull requests that forked from a commit and are not compared to it yet.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="forkPointSha">The SHA of the commit.</param>

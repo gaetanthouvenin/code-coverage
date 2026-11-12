@@ -20,6 +20,13 @@ public interface IComparisonRepository
   /// <returns>The comparison, or <see langword="null" />.</returns>
   Task<CommitComparison?> FindAsync(long commitId, int? pullNumber, CancellationToken cancellationToken);
 
+  /// <summary>Lists the comparisons stored for commits, those of their push builds and of every pull request.</summary>
+  /// <param name="commitIds">The identifiers of the head commits.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The comparisons, in no particular order; a commit of another organization has none.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="commitIds" /> is <see langword="null" />.</exception>
+  Task<IReadOnlyList<CommitComparison>> ListByCommitsAsync(IReadOnlyCollection<long> commitIds, CancellationToken cancellationToken);
+
   /// <summary>Stores a comparison, in the place of the one already stored for the same commit and pull request.</summary>
   /// <param name="comparison">The comparison.</param>
   /// <param name="cancellationToken">A token to cancel the saving.</param>

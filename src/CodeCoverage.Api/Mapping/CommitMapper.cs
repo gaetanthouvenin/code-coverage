@@ -52,7 +52,7 @@ internal static class CommitMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var query = new ListCommitsQuery(ToForge(forge), owner, repo, branch, page ?? 1, pageSize ?? ListCommitsQuery.DefaultPageSize);
+    var query = new ListCommitsQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, branch, page ?? 1, pageSize ?? ListCommitsQuery.DefaultPageSize);
     var commits = await sender.Send(query, cancellationToken).ConfigureAwait(false);
 
     return new CommitPageResponse([.. commits.Items.Select(static c => ToResponse(c, null))], commits.Page, commits.PageSize, commits.TotalCount);
@@ -77,7 +77,7 @@ internal static class CommitMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var detail = await sender.Send(new GetCommitQuery(ToForge(forge), owner, repo, ToSha(sha)), cancellationToken).ConfigureAwait(false);
+    var detail = await sender.Send(new GetCommitQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha)), cancellationToken).ConfigureAwait(false);
 
     return ToResponse(detail.Commit, detail);
   }
@@ -105,7 +105,7 @@ internal static class CommitMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var files = await sender.Send(new GetCommitFilesQuery(ToForge(forge), owner, repo, ToSha(sha), flag, path), cancellationToken).ConfigureAwait(false);
+    var files = await sender.Send(new GetCommitFilesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha), flag, path), cancellationToken).ConfigureAwait(false);
 
     return [.. files.Select(static f => new FileTotalsResponse(f.Path, ToModel(f.Totals)))];
   }
@@ -133,29 +133,11 @@ internal static class CommitMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var view = await sender.Send(new GetFileCoverageQuery(ToForge(forge), owner, repo, ToSha(sha), path, flag), cancellationToken).ConfigureAwait(false);
+    var view = await sender.Send(new GetFileCoverageQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha), path, flag), cancellationToken).ConfigureAwait(false);
     var file = view.File;
 
     return new FileCoverageResponse(file.Path, view.Flag, ToModel(file.Totals), [.. file.Lines.Select(ToModel)]);
   }
-
-  /// <summary>Reads the forge segment of an address: an unknown forge is an unknown repository.</summary>
-  /// <param name="forge">The segment.</param>
-  /// <returns>The forge.</returns>
-  /// <exception cref="NotFoundException">The segment names no forge.</exception>
-  private static Forge ToForge(string forge) =>
-    ForgeSegments.TryParse(forge, out var parsed)
-      ? parsed
-      : throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
-
-  /// <summary>Reads the SHA segment of an address: a malformed SHA is an unknown commit.</summary>
-  /// <param name="sha">The segment.</param>
-  /// <returns>The SHA.</returns>
-  /// <exception cref="NotFoundException">The segment is not a full SHA.</exception>
-  private static GitSha ToSha(string sha) =>
-    GitSha.TryParse(sha, out var parsed)
-      ? parsed
-      : throw new NotFoundException(CommitErrors.NotFound, "The commit does not exist.");
 
   private static CommitResponse ToResponse(Commit commit, CommitDetail? detail) =>
     new(

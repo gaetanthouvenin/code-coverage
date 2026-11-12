@@ -150,6 +150,36 @@ public sealed class ComparisonRepositoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByCommits_ShouldGiveEveryComparisonOfTheCommits(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    await SaveAsync(seed, seed.Organizations.FirstId, Stored(seed.FirstCommit, pullNumber: null, headRevision: 1));
+    await SaveAsync(seed, seed.Organizations.FirstId, Stored(seed.FirstCommit, pullNumber: 12, headRevision: 2));
+
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var found = await new ComparisonRepository(context).ListByCommitsAsync([seed.FirstCommit], Ct);
+
+    found.OrderBy(static c => c.HeadRevision).Select(static c => c.PullNumber).ShouldBe([null, 12]);
+    ComparisonDataSerializerTests.ShouldBeTheSame(found[0].Result, ComparisonSamples.Full);
+    (await new ComparisonRepository(context).ListByCommitsAsync([], Ct)).ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByCommits_OtherOrganization_ShouldGiveNothing(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    await SaveAsync(seed, seed.Organizations.FirstId, Stored(seed.FirstCommit, pullNumber: 12));
+    await SaveAsync(seed, seed.Organizations.SecondId, Stored(seed.SecondCommit, pullNumber: 12, headRevision: 9));
+
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    var found = await new ComparisonRepository(context).ListByCommitsAsync([seed.FirstCommit, seed.SecondCommit], Ct);
+
+    found.ShouldHaveSingleItem().HeadRevision.ShouldBe(9);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task Find_WithoutOrganization_ShouldThrow(DatabaseProvider provider)
   {
     var seed = await SeededAsync(provider);

@@ -42,9 +42,7 @@ internal static class RepositoryMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var parsed = ForgeSegments.TryParse(forge, out var f)
-                   ? f
-                   : throw new NotFoundException(OrganizationErrors.NotFound, "The organization does not exist or cannot be read.");
+    var parsed = AddressSegments.ToOrganizationForge(forge);
     var repositories = await sender.Send(new ListRepositoriesQuery(parsed, organization, search), cancellationToken).ConfigureAwait(false);
 
     return [.. repositories.Select(r => ToResponse(r, parsed))];
@@ -67,7 +65,7 @@ internal static class RepositoryMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var parsed = ToForge(forge);
+    var parsed = AddressSegments.ToRepositoryForge(forge);
     var overview = await sender.Send(new GetRepositoryQuery(parsed, owner, repo), cancellationToken).ConfigureAwait(false);
 
     return new RepositoryDetailResponse(
@@ -95,19 +93,10 @@ internal static class RepositoryMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var branches = await sender.Send(new ListBranchesQuery(ToForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
+    var branches = await sender.Send(new ListBranchesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
 
     return [.. branches.Select(ToResponse)];
   }
-
-  /// <summary>Reads the forge segment of the address of a repository: an unknown forge is an unknown repository.</summary>
-  /// <param name="forge">The segment.</param>
-  /// <returns>The forge.</returns>
-  /// <exception cref="NotFoundException">The segment names no forge.</exception>
-  private static Forge ToForge(string forge) =>
-    ForgeSegments.TryParse(forge, out var parsed)
-      ? parsed
-      : throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
 
   private static RepositoryResponse ToResponse(TrackedRepository repository, Forge forge) =>
     new(

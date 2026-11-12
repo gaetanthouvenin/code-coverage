@@ -320,6 +320,62 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
     (await reader.PullRequests.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListPage_ShouldFilterByStateAndGiveTheMostRecentlyUpdatedFirst(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+
+    await using (var context = seed.Organizations.ContextOf(seed.Organizations.FirstId))
+    {
+      var repository = new PullRequestRepository(context);
+      await repository.UpsertAsync(seed.FirstRepository, Info(7), Now.AddMinutes(3), Ct);
+      await repository.UpsertAsync(seed.FirstRepository, Info(8), Now.AddMinutes(1), Ct);
+      await repository.UpsertAsync(seed.FirstRepository, Info(9), Now.AddMinutes(2), Ct);
+      await repository.UpsertAsync(seed.FirstRepository, Info(10) with { State = ForgePullState.Merged }, Now.AddMinutes(4), Ct);
+    }
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var pulls = new PullRequestRepository(reader);
+
+    var open = await pulls.ListPageAsync(seed.FirstRepository, PullRequestState.Open, 1, 2, Ct);
+    open.Items.Select(static p => p.Number).ShouldBe([7, 9]);
+    open.TotalCount.ShouldBe(3);
+    (await pulls.ListPageAsync(seed.FirstRepository, PullRequestState.Open, 2, 2, Ct)).Items.Select(static p => p.Number).ShouldBe([8]);
+    (await pulls.ListPageAsync(seed.FirstRepository, PullRequestState.Merged, 1, 25, Ct)).Items.Select(static p => p.Number).ShouldBe([10]);
+    (await pulls.ListPageAsync(seed.FirstRepository, null, 1, 25, Ct)).Items.Select(static p => p.Number).ShouldBe([10, 7, 9, 8]);
+    reader.ChangeTracker.Entries().ShouldBeEmpty();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListPage_OtherOrganization_ShouldBeEmpty(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await UpsertAsync(seed, Info(7));
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    var page = await new PullRequestRepository(other).ListPageAsync(seed.FirstRepository, null, 1, 25, Ct);
+
+    page.Items.ShouldBeEmpty();
+    page.TotalCount.ShouldBe(0);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindByNumber_ShouldReadOnlyTheOrganizationOfTheScope(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await UpsertAsync(seed, Info(7));
+
+    await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+
+    (await new PullRequestRepository(first).FindByNumberAsync(seed.FirstRepository, 7, Ct)).ShouldNotBeNull().Title.ShouldBe("title");
+    (await new PullRequestRepository(first).FindByNumberAsync(seed.FirstRepository, 8, Ct)).ShouldBeNull();
+    (await new PullRequestRepository(other).FindByNumberAsync(seed.FirstRepository, 7, Ct)).ShouldBeNull();
+  }
+
   private static ForgePullInfo Info(int number) => new(number, ForgePullState.Open, "title", "octocat", Head, "feature", "main", Base);
 
   // The resolution of the fork point comes with BaseResolver (M2.10).

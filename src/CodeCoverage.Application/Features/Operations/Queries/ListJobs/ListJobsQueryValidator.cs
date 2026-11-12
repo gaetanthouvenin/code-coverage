@@ -16,7 +16,7 @@ internal sealed class ListJobsQueryValidator : AbstractValidator<ListJobsQuery>
   /// <summary>Initializes a new instance of the <see cref="ListJobsQueryValidator" /> class.</summary>
   public ListJobsQueryValidator()
   {
-    RuleFor(static q => q.Page).GreaterThanOrEqualTo(1).WithErrorCode(OperationsErrors.InvalidPage);
+    RuleFor(static q => q.Page).InclusiveBetween(1, ListJobsQuery.MaxPage).WithErrorCode(OperationsErrors.InvalidPage);
     RuleFor(static q => q.PageSize).InclusiveBetween(1, ListJobsQuery.MaxPageSize).WithErrorCode(OperationsErrors.InvalidPage);
   }
 

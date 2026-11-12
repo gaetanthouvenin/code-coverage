@@ -31,6 +31,12 @@ public sealed record ListCommitsQuery(Forge Forge, string Owner, string Name, st
   /// <summary>The largest page that can be asked.</summary>
   public const int MaxPageSize = 100;
 
+  /// <summary>
+  ///   The largest page that can be asked: its offset, <c>(page - 1) * MaxPageSize</c>, stays within an
+  ///   <see cref="int" />.
+  /// </summary>
+  public const int MaxPage = int.MaxValue / MaxPageSize;
+
   #endregion
 
   #region Properties

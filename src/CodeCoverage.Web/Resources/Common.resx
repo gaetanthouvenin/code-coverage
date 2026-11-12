@@ -25,7 +25,11 @@
   <data name="Commit.NoUpload" xml:space="preserve"><value>This commit has no upload to process again.</value></data>
   <data name="Commit.NotFound" xml:space="preserve"><value>This commit does not exist.</value></data>
   <data name="Commit.FileNotFound" xml:space="preserve"><value>This file is not in the coverage report of the commit.</value></data>
-  <data name="Commit.InvalidPage" xml:space="preserve"><value>The page must be 1 or more, and a page holds 1 to 100 commits.</value></data>
+  <data name="Commit.InvalidPage" xml:space="preserve"><value>The page goes from 1 to 21474836, and a page holds 1 to 100 commits.</value></data>
+  <data name="PullRequest.NotFound" xml:space="preserve"><value>This pull request does not exist.</value></data>
+  <data name="PullRequest.InvalidState" xml:space="preserve"><value>The state of a pull request is open, closed, merged or all.</value></data>
+  <data name="PullRequest.InvalidPage" xml:space="preserve"><value>The page goes from 1 to 21474836, and a page holds 1 to 100 pull requests.</value></data>
+  <data name="Comparison.NotComputed" xml:space="preserve"><value>This comparison is not computed yet: it is computed when the head commit is notified.</value></data>
   <data name="Commit.Compacted" xml:space="preserve"><value>The coverage of an upload of this commit no longer exists.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>This commit was finalized in the meantime. Finalize it again.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>The raw files of an upload of this commit are no longer kept: it cannot be processed again.</value></data>
@@ -101,6 +105,6 @@
   <data name="SignIn_Continue" xml:space="preserve"><value>Continue</value></data>
   <data name="Operations.JobNotFound" xml:space="preserve"><value>This job does not exist.</value></data>
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Only a failed or dead job can be retried, and not while the same work already waits.</value></data>
-  <data name="Operations.InvalidPage" xml:space="preserve"><value>The page must be 1 or more, and a page holds 1 to 100 jobs.</value></data>
+  <data name="Operations.InvalidPage" xml:space="preserve"><value>The page goes from 1 to 21474836, and a page holds 1 to 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>A badge token holds 1 to 64 letters, digits, underscores or hyphens.</value></data>
 </root>

@@ -27,6 +27,22 @@ internal sealed class ComparisonRepository(CodeCoverageDbContext context) : ICom
 
   #region Methods
 
+  /// <summary>Converts a row into the comparison it stores.</summary>
+  /// <param name="row">The row.</param>
+  /// <returns>The comparison.</returns>
+  private static CommitComparison ToComparison(ComparisonRecord row) =>
+    new(
+      row.CommitId,
+      row.PullNumber == 0 ? null : row.PullNumber,
+      row.ForkPointSha,
+      row.ComparedToSha,
+      row.HeadRevision,
+      row.BaseRevision,
+      row.DiffSource,
+      ComparisonDataSerializer.Deserialize(row.Data),
+      row.ComputedAt
+    );
+
   /// <summary>Copies a comparison to the columns of its row.</summary>
   /// <param name="row">The row.</param>
   /// <param name="comparison">The comparison.</param>
@@ -64,19 +80,26 @@ internal sealed class ComparisonRepository(CodeCoverageDbContext context) : ICom
                            .SingleOrDefaultAsync(c => c.CommitId == commitId && c.PullNumber == number, cancellationToken)
                            .ConfigureAwait(false);
 
-    return row is null
-             ? null
-             : new CommitComparison(
-               row.CommitId,
-               row.PullNumber == 0 ? null : row.PullNumber,
-               row.ForkPointSha,
-               row.ComparedToSha,
-               row.HeadRevision,
-               row.BaseRevision,
-               row.DiffSource,
-               ComparisonDataSerializer.Deserialize(row.Data),
-               row.ComputedAt
-             );
+    return row is null ? null : ToComparison(row);
+  }
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<CommitComparison>> ListByCommitsAsync(IReadOnlyCollection<long> commitIds, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(commitIds);
+
+    if (commitIds.Count == 0)
+    {
+      return [];
+    }
+
+    var rows = await context.Comparisons
+                            .AsNoTracking()
+                            .Where(c => commitIds.Contains(c.CommitId))
+                            .ToListAsync(cancellationToken)
+                            .ConfigureAwait(false);
+
+    return [.. rows.Select(ToComparison)];
   }
 
   /// <inheritdoc />
