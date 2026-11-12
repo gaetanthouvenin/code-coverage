@@ -87,7 +87,11 @@ public sealed class CreateApiTokenCommandHandlerTests
     token.Name.ShouldBe("ci");
     token.Hint.ShouldBe("cvp_abcd");
     token.ExpiresAt.ShouldBe(Now.AddDays(30));
-    A.CallTo(() => _auditLog.RecordAsync(CreateApiTokenCommandHandler.AuditAction, A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+
+    // Fail-closed: the event of a token bound to an organization belongs to that organization, never to the instance.
+    A.CallTo(() => _auditLog.RecordAsync(_organization.Id, CreateApiTokenCommandHandler.AuditAction, A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _auditLog.RecordAsync(A<string>._, A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -120,6 +124,7 @@ public sealed class CreateApiTokenCommandHandlerTests
     await _handler.Handle(new CreateApiTokenCommand("ops", null, null, null), Ct);
 
     _added.ShouldNotBeNull().IsInstanceToken.ShouldBeTrue();
+    A.CallTo(() => _auditLog.RecordAsync(CreateApiTokenCommandHandler.AuditAction, A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]

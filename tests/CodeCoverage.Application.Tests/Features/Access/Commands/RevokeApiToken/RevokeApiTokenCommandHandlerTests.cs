@@ -60,6 +60,18 @@ public sealed class RevokeApiTokenCommandHandlerTests
 
     token.RevokedAt.ShouldBe(Now);
     A.CallTo(() => _tokens.UpdateAsync(token, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _auditLog.RecordAsync(9, RevokeApiTokenCommandHandler.AuditAction, "5", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _auditLog.RecordAsync(A<string>._, A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // An instance token is an event of the instance.
+  [Fact]
+  public async Task Handle_InstanceToken_ShouldRecordItForTheInstance()
+  {
+    Owned(5, organizationId: null);
+
+    await _handler.Handle(new RevokeApiTokenCommand(5), Ct);
+
     A.CallTo(() => _auditLog.RecordAsync(RevokeApiTokenCommandHandler.AuditAction, "5", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 

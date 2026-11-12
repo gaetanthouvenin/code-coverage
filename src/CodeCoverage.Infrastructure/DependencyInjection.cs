@@ -180,6 +180,7 @@ public static partial class DependencyInjection
     services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.SectionName);
     services.AddDbContext<CodeCoverageDbContext>(static (sp, options) => ConfigureDatabase(sp, options));
     services.AddScoped<IAuditLog, AuditLog>();
+    services.AddScoped<IAuditReader, SqlAuditTrail>();
     services.TryAddSingleton<IJobClaimDialect>(static sp => ResolveJobClaimDialect(sp));
     services.TryAddSingleton<JobWakeUpSignal>();
     services.AddScoped<SqlJobQueue>();

@@ -57,7 +57,17 @@ internal sealed class RevokeApiTokenCommandHandler(
 
     token.Revoke(clock.UtcNow);
     await tokens.UpdateAsync(token, cancellationToken).ConfigureAwait(false);
-    await auditLog.RecordAsync(AuditAction, token.Id.ToString(CultureInfo.InvariantCulture), null, cancellationToken).ConfigureAwait(false);
+    // A token bound to an organization is an event of that organization, never of the instance (fail-closed).
+    var target = token.Id.ToString(CultureInfo.InvariantCulture);
+
+    if (token.OrganizationId is { } organization)
+    {
+      await auditLog.RecordAsync(organization, AuditAction, target, null, cancellationToken).ConfigureAwait(false);
+    }
+    else
+    {
+      await auditLog.RecordAsync(AuditAction, target, null, cancellationToken).ConfigureAwait(false);
+    }
 
     return Unit.Value;
   }

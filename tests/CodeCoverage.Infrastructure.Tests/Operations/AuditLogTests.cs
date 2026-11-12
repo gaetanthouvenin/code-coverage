@@ -193,6 +193,26 @@ public sealed class AuditLogTests(DatabaseFixture database)
     (await RecordAndReadOrganizationAsync(provider, new OrganizationContext())).ShouldBeNull();
   }
 
+  // An API token bound to an organization is recorded under it although the scope entered none (M3.41, fail-closed).
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Record_ForAnOrganization_ShouldStampItOutsideItsScope(DatabaseProvider provider)
+  {
+    var connectionString = await database.NewDatabaseAsync(provider, Ct);
+    var user = new CurrentUserContext();
+    user.SetSystem();
+
+    await using (var context = DatabaseFixture.CreateContext(provider, connectionString))
+    {
+      await context.Database.MigrateAsync(Ct);
+      await new AuditLog(context, user, new OrganizationContext(), Clock()).RecordAsync(9, "ApiTokens.Create", "5", null, Ct);
+    }
+
+    await using var check = DatabaseFixture.CreateContext(provider, connectionString);
+
+    (await check.AuditEntries.Select(static e => EF.Property<long?>(e, OrganizationOwnedExtensions.ColumnName)).SingleAsync(Ct)).ShouldBe(9);
+  }
+
   private async Task<long?> RecordAndReadOrganizationAsync(DatabaseProvider provider, OrganizationContext organization)
   {
     var connectionString = await database.NewDatabaseAsync(provider, Ct);

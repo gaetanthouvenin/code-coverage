@@ -1,0 +1,73 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AdminAudit.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/admin/audit"
+
+<PageTitle>@L["PageTitle_Format", L["Tab_Audit"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["Tab_Audit"]" Icon="CcIconName.List" Subtitle="@L["AdminAudit_Subtitle"]">
+    <Tabs><AdminTabs /></Tabs>
+  </CcHeader>
+
+  @if (State is PageState.Denied)
+  {
+    <div class="cc-panel cc-status-page" data-state="denied">
+      <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["AdminAudit_Denied"]</CcEmptyState>
+    </div>
+  }
+  else
+  {
+    <section class="cc-panel">
+      <div class="cc-panel__head">
+        <h2 class="cc-panel__title">@L["AdminAudit_Events"]</h2>
+        <div class="cc-panel__tools">
+          <CcSearchBar Value="@Search" ValueChanged="ChangeSearchAsync" Placeholder="@L["AdminAudit_Search"]" AriaLabel="@L["AdminAudit_Search"]" />
+          <CcSelectField Label="@L["Column_Type"]" Options="FamilyOptions" Value="@Family" ValueChanged="ChangeFamilyAsync" Pill="true" LeadIcon="CcIconName.Filter" />
+        </div>
+      </div>
+      @if (State is PageState.Loading)
+      {
+        <div class="cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+      }
+      else if (State is PageState.Failed)
+      {
+        <div class="cc-status-page">
+          <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+            <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+          </CcEmptyState>
+        </div>
+      }
+      else if (Entries is { Entries.Count: 0 })
+      {
+        <div class="cc-status-page" data-state="empty"><CcEmptyState Title="@L["AdminAudit_Empty"]" Icon="CcIconName.List" /></div>
+      }
+      else if (Entries is not null)
+      {
+        <CcTable AriaLabel="@L["AdminAudit_Events"]">
+          <Head>
+            <th>@L["Column_Date"]</th>
+            <th>@L["AdminAudit_User"]</th>
+            <th>@L["AdminAudit_Action"]</th>
+            <th>@L["AdminAudit_Target"]</th>
+          </Head>
+          <ChildContent>
+            @foreach (var entry in Entries.Entries)
+            {
+              <tr @key="entry.Id" data-action="@entry.Action">
+                <td class="cc-muted cc-num cc-nowrap">@entry.At.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</td>
+                <td class="cc-nowrap">@entry.Actor</td>
+                <td><CcBadge Tone="@ToneOf(entry.Family)">@(entry.Label is { } label ? L[label] : entry.Action)</CcBadge></td>
+                <td><code>@entry.Target</code></td>
+              </tr>
+            }
+          </ChildContent>
+        </CcTable>
+        <CcPager Page="Entries.Page" PageSize="Entries.PageSize" TotalCount="Entries.TotalCount" PageChanged="ChangePageAsync" />
+      }
+    </section>
+  }
+</CcPageContainer>

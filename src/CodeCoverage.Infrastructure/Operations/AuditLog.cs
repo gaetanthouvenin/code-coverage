@@ -41,6 +41,27 @@ internal sealed class AuditLog(
   ICurrentOrganization currentOrganization,
   IClock clock) : IAuditLog
 {
+  #region Methods
+
+  private async Task SaveAsync(long? organizationId, string action, string target, IReadOnlyDictionary<string, string>? details, CancellationToken cancellationToken)
+  {
+    var entry = AuditEntry.Create(clock.UtcNow, currentUser.GetActorName(), action, target, details);
+
+    context.AuditEntries.Add(entry).Property<long?>(OrganizationOwnedExtensions.ColumnName).CurrentValue = organizationId;
+
+    try
+    {
+      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch
+    {
+      context.Entry(entry).State = EntityState.Detached;
+      throw;
+    }
+  }
+
+  #endregion
+
   #region Implementation of IAuditLog
 
   /// <inheritdoc />
@@ -53,20 +74,21 @@ internal sealed class AuditLog(
     ArgumentNullException.ThrowIfNull(action);
     ArgumentNullException.ThrowIfNull(target);
 
-    var entry = AuditEntry.Create(clock.UtcNow, currentUser.GetActorName(), action, target, details);
+    await SaveAsync(currentOrganization.IsKnown ? currentOrganization.Id : null, action, target, details, cancellationToken).ConfigureAwait(false);
+  }
 
-    context.AuditEntries.Add(entry).Property<long?>(OrganizationOwnedExtensions.ColumnName).CurrentValue =
-      currentOrganization.IsKnown ? currentOrganization.Id : null;
+  /// <inheritdoc />
+  public async Task RecordAsync(
+    long organizationId,
+    string action,
+    string target,
+    IReadOnlyDictionary<string, string>? details,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(action);
+    ArgumentNullException.ThrowIfNull(target);
 
-    try
-    {
-      await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
-    catch
-    {
-      context.Entry(entry).State = EntityState.Detached;
-      throw;
-    }
+    await SaveAsync(organizationId, action, target, details, cancellationToken).ConfigureAwait(false);
   }
 
   #endregion
