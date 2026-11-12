@@ -58,7 +58,16 @@ public sealed class OperationsControllerTests
     A.CallTo(() => _monitor.ListAsync(A<JobState?>._, A<int>._, A<int>._, A<CancellationToken>._))
      .ReturnsLazily((JobState? _, int page, int size, CancellationToken _) => new JobPage([job], page, size, 1));
     A.CallTo(() => _monitor.GetStatusAsync(A<CancellationToken>._))
-     .Returns(new SystemStatus(1, 0, 0, 1, TimeSpan.FromSeconds(90), Now, new Dictionary<string, long> { ["42"] = 4000 }));
+     .Returns(new SystemStatus(
+               1,
+               0,
+               0,
+               1,
+               TimeSpan.FromSeconds(90),
+               Now,
+               new Dictionary<string, long> { ["42"] = 4000 },
+               [WorkerHeartbeat.Create("api-1:42", Now.AddHours(-1), Now)],
+               [GitHubQuota.Create("42", 4000, 5000, Now.AddMinutes(30), Now)]));
   }
 
   #endregion
@@ -98,6 +107,11 @@ public sealed class OperationsControllerTests
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
     body.RootElement.GetProperty("oldestQueuedAgeSeconds").GetDouble().ShouldBe(90);
     body.RootElement.GetProperty("gitHubRemaining").GetProperty("42").GetInt64().ShouldBe(4000);
+    body.RootElement.GetProperty("workerLastSeenAt").GetDateTimeOffset().ShouldBe(Now);
+    body.RootElement.GetProperty("workers")[0].GetProperty("host").GetString().ShouldBe("api-1:42");
+    var quota = body.RootElement.GetProperty("gitHubQuotas")[0];
+    quota.GetProperty("limit").GetInt64().ShouldBe(5000);
+    quota.GetProperty("remaining").GetInt64().ShouldBe(4000);
   }
 
   // Second review S5: a page whose offset would overflow is refused, as for the commits and the pull requests.

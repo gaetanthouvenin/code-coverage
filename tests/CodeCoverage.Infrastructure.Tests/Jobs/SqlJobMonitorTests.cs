@@ -52,19 +52,43 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
       Record(JobState.Dead, Now.AddMinutes(-60)),
       Record(JobState.Failed, Now.AddMinutes(-60)),
       Record(JobState.Succeeded, Now.AddMinutes(-60)));
-    var pulse = new WorkerPulse();
-    pulse.Beat(Now.AddSeconds(-2));
-    var meter = new CodeCoverageMeter(_meterFactory);
-    meter.ReportGitHubRateLimit("42", 4321);
 
     await using var context = DatabaseFixture.CreateContext(provider, connectionString);
-    var status = await new SqlJobMonitor(context, pulse, meter, Clock()).GetStatusAsync(Ct);
+    var status = await new SqlJobMonitor(context, Clock()).GetStatusAsync(Ct);
 
     // The job not due yet does not count in the age.
     status.OldestQueuedAge.ShouldBe(TimeSpan.FromMinutes(10));
     (status.Queued, status.Running, status.Failed, status.Dead).ShouldBe((3, 1, 1, 1));
+    status.WorkerLastSeenAt.ShouldBeNull();
+    status.Workers.ShouldBeEmpty();
+  }
+
+  // M3.13a: a context without any WorkerPulse (the Web) reads the heartbeats and the quotas the worker of the Api wrote.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task GetStatus_FromAnotherProcess_ShouldReadPersistedHeartbeat(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+
+    await using (var writer = DatabaseFixture.CreateContext(provider, connectionString))
+    {
+      writer.WorkerHeartbeats.AddRange(
+        WorkerHeartbeat.Create("api-1:42", Now.AddHours(-1), Now.AddSeconds(-2)),
+        WorkerHeartbeat.Create("api-2:7", Now.AddHours(-2), Now.AddMinutes(-10)));
+      writer.GitHubQuotas.AddRange(
+        GitHubQuota.Create("42", 4321, 5000, Now.AddMinutes(30), Now.AddSeconds(-5)),
+        GitHubQuota.Create(GitHubQuota.AppInstallation, 4999, null, null, Now.AddSeconds(-5)));
+      await writer.SaveChangesAsync(Ct);
+    }
+
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var status = await new SqlJobMonitor(context, Clock()).GetStatusAsync(Ct);
+
     status.WorkerLastSeenAt.ShouldBe(Now.AddSeconds(-2));
-    status.GitHubRemaining.ShouldBe(new Dictionary<string, long> { ["42"] = 4321 });
+    status.Workers.Select(static w => w.Host).ShouldBe(["api-1:42", "api-2:7"]);
+    status.GitHubRemaining.ShouldBe(new Dictionary<string, long> { ["42"] = 4321, [GitHubQuota.AppInstallation] = 4999 });
+    var quota = status.GitHubQuotas.Single(static q => q.Installation == "42");
+    (quota.Limit, quota.ResetAt).ShouldBe(((long?)5000, (DateTimeOffset?)Now.AddMinutes(30)));
   }
 
   // M3.41a: the depth of the queue of each organization, queued and running jobs, without the lane of the instance.
@@ -83,7 +107,7 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
       Owned(JobState.Queued, null));
 
     await using var context = DatabaseFixture.CreateContext(provider, connectionString);
-    var counts = await new SqlJobMonitor(context, new WorkerPulse(), new CodeCoverageMeter(_meterFactory), Clock()).CountQueuedByOrganizationAsync(Ct);
+    var counts = await new SqlJobMonitor(context, Clock()).CountQueuedByOrganizationAsync(Ct);
 
     counts.ShouldBe(new Dictionary<long, int> { [7] = 2, [8] = 1 }, ignoreOrder: true);
   }
@@ -104,7 +128,7 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
     await AddAsync(provider, connectionString, Record(JobState.Dead, Now), Record(JobState.Queued, Now), Record(JobState.Dead, Now));
 
     await using var context = DatabaseFixture.CreateContext(provider, connectionString);
-    var monitor = new SqlJobMonitor(context, new WorkerPulse(), new CodeCoverageMeter(_meterFactory), Clock());
+    var monitor = new SqlJobMonitor(context, Clock());
 
     var dead = await monitor.ListAsync(JobState.Dead, 1, 1, Ct);
     var all = await monitor.ListAsync(null, 1, 10, Ct);

@@ -409,7 +409,7 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 | Classe | Tables |
 |---|---|
 | **D'organisation, filtrées (22)** | `Repositories`, `RepositoryFlags`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06) |
-| **Opérationnelles, `OrganizationId` nullable, sans filtre (3)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` |
+| **Opérationnelles, sans filtre (5)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` (`OrganizationId` nullable) ; `WorkerHeartbeats`, `GitHubQuotas` (sans colonne d'organisation, M3.13a) |
 | **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
 
 **État à ce jour.** Ce classement et le tableau des colonnes décrivent le modèle cible. Seules `Organizations`, `OrganizationSettings`, `Jobs`, `AuditEntries`, `Settings`, `SettingsRevision` et `DataProtectionKeys` existent en base, et `TableClassification` ne liste que celles-là : chaque micro-feature y ajoute ses tables (M1.17 pour `Repositories`, `Branches` et `Installations`).
@@ -458,6 +458,8 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **SettingsRevision** | **Id** (=1), Revision bigint | Incrémenté dans la transaction de chaque sauvegarde. |
 | **DataProtectionKeys** | table EF standard | Partagée par les deux hôtes. |
 | **AuditEntries** | **Id**, OrganizationId?, At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
+| **WorkerHeartbeats** (M3.13a) | **Host** (machine et processus), StartedAt, LastBeatAt | Écrite toutes les 15 s par le worker de l'Api ; lignes de plus de 24 h supprimées. Lue par `GetSystemStatus` depuis n'importe quel processus. |
+| **GitHubQuotas** (M3.13a) | **Installation** (`app` pour l'App), Remaining, Limit?, ResetAt?, ObservedAt | Quotas changés écrits toutes les 15 s, jamais une écriture par requête GitHub. |
 | **CodecovImports** (M5.06) | **Id**, credential Codecov chiffré par Data Protection | Référencée par identifiant depuis le payload de `ImportCodecovHistory`, supprimée en fin d'import. |
 
 ### 4.3 Format de blob `CCR1` (`CcrCodec : ICoverageReportCodec`, Infrastructure)
@@ -1606,7 +1608,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `DELETE /api/v1/settings/{key}` | Settings | ApiToken (admin d'instance) | — | 204 (retour au défaut ; un secret enregistré depuis la console est effacé) | `ResetSetting` |
 | `GET /api/v1/ops/jobs`, `POST /api/v1/ops/jobs/{id}/retry` | Operations | ApiToken (admin d'instance) | `?state=` | `JobPageResponse` / 202 | `ListJobs`, `RetryJob` |
 | `GET /api/v1/ops/webhooks` | Operations | ApiToken (admin d'instance) | — | `IReadOnlyList<WebhookDeliveryResponse>` | `ListWebhookDeliveries` |
-| `GET /api/v1/ops/status` | Operations | ApiToken (admin d'instance) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats) | `GetSystemStatus` |
+| `GET /api/v1/ops/status` | Operations | ApiToken (admin d'instance) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats ; `Workers` et `GitHubQuotas` ajoutés en M3.13a, lus dans les tables opérationnelles) | `GetSystemStatus` |
 | `POST /api/v1/github/webhooks` | GitHubWebhooks | HMAC | événement GitHub | 202 | `ReceiveWebhook` |
 | `GET /api/v1/badges/{forge}/{owner}/{repo}.{ext:regex(^(svg\|txt)$)}` | Badges | anonyme et jeton | `?branch=&flag=&token=&precision=` | SVG / texte | `GetBadge` |
 | `GET /{service:regex(^(gh\|github)$)}/{owner}/{repo}/{graph:regex(^graphs?$)}/badge.{ext}` | Badges | idem | idem | idem | `GetBadge` |

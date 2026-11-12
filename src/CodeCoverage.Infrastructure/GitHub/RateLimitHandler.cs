@@ -22,6 +22,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 ///   pipeline could not absorb into the exceptions of the application.
 /// </summary>
 /// <param name="meter">The metrics of the application.</param>
+/// <param name="quotas">The last quotas reported, with their limit and reset, which the publisher writes to the database.</param>
 /// <param name="clock">The clock.</param>
 /// <param name="logger">The logger.</param>
 /// <remarks>
@@ -30,6 +31,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 /// </remarks>
 internal sealed partial class RateLimitHandler(
   CodeCoverageMeter meter,
+  GitHubQuotaTracker quotas,
   IClock clock,
   ILogger<RateLimitHandler> logger) : DelegatingHandler
 {
@@ -51,6 +53,8 @@ internal sealed partial class RateLimitHandler(
   public static readonly HttpRequestOptionsKey<bool> UserToken = new("CodeCoverage.GitHub.UserToken");
 
   private const string RemainingHeader = "x-ratelimit-remaining";
+
+  private const string LimitHeader = "x-ratelimit-limit";
 
   private const string ResetHeader = "x-ratelimit-reset";
 
@@ -175,6 +179,10 @@ internal sealed partial class RateLimitHandler(
                          : AppQuota;
 
     meter.ReportGitHubRateLimit(installation, remaining);
+
+    // In memory only: the publisher writes the changed quotas every 15 seconds, never one row per request.
+    var reset = ReadNumber(response, ResetHeader) is { } seconds ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
+    quotas.Report(installation, remaining, ReadNumber(response, LimitHeader), reset, clock.UtcNow);
   }
 
   /// <summary>Works out when GitHub accepts requests again, following the order documented by GitHub.</summary>

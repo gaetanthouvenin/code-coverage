@@ -8,21 +8,18 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Jobs;
 
-/// <summary>Reads the job queue for the administrators, from the <c>Jobs</c> table, the worker heartbeat and the quota meter.</summary>
+/// <summary>Reads the job queue for the administrators, from the <c>Jobs</c>, <c>WorkerHeartbeats</c> and <c>GitHubQuotas</c> tables.</summary>
 /// <param name="context">The database context of the scope.</param>
-/// <param name="pulse">The heartbeat of the worker loops of this process.</param>
-/// <param name="meter">The meter that keeps the last GitHub quota read.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   <c>Jobs</c> is an operational table, never filtered by organization: the reads work outside any organization, as
 ///   <c>IAdminOnly</c> requires. They project metadata only: never the payload, the keys or the error text.
 /// </remarks>
-internal sealed class SqlJobMonitor(CodeCoverageDbContext context, WorkerPulse pulse, CodeCoverageMeter meter, IClock clock) : IJobMonitor
+internal sealed class SqlJobMonitor(CodeCoverageDbContext context, IClock clock) : IJobMonitor
 {
   #region Implementation of IJobMonitor
 
@@ -69,6 +66,10 @@ internal sealed class SqlJobMonitor(CodeCoverageDbContext context, WorkerPulse p
                               .FirstOrDefaultAsync(cancellationToken)
                               .ConfigureAwait(false);
 
+    // Read from the operational tables, whichever process answers: the worker of the Api writes them every 15 seconds.
+    var workers = await context.WorkerHeartbeats.AsNoTracking().OrderByDescending(static h => h.LastBeatAt).ToListAsync(cancellationToken).ConfigureAwait(false);
+    var quotas = await context.GitHubQuotas.AsNoTracking().OrderBy(static q => q.Installation).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     int Count(JobState state) => counts.FirstOrDefault(c => c.State == state)?.Count ?? 0;
 
     return new SystemStatus(
@@ -77,8 +78,10 @@ internal sealed class SqlJobMonitor(CodeCoverageDbContext context, WorkerPulse p
       Count(JobState.Failed),
       Count(JobState.Dead),
       oldest is { } runAfter ? now - runAfter : null,
-      pulse.LastBeatAt,
-      meter.GitHubRateLimits()
+      workers.Count == 0 ? null : workers[0].LastBeatAt,
+      new SortedDictionary<string, long>(quotas.ToDictionary(static q => q.Installation, static q => q.Remaining, StringComparer.Ordinal), StringComparer.Ordinal),
+      workers,
+      quotas
     );
   }
 

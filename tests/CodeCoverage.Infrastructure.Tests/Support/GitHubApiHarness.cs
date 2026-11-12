@@ -93,6 +93,8 @@ internal sealed class GitHubApiHarness : IDisposable
 
   public GitHubUserGateway UserGateway => _services.GetRequiredService<GitHubUserGateway>();
 
+  public GitHubQuotaTracker Quotas => _services.GetRequiredService<GitHubQuotaTracker>();
+
   #endregion
 
   #region Methods
