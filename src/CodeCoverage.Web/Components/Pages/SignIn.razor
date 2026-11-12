@@ -1,0 +1,54 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="SignIn.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/signin"
+@layout EmptyLayout
+
+<PageTitle>@L["PageTitle_Format", L["SignIn_Title"]]</PageTitle>
+
+<div class="cc-signin">
+  <div class="cc-signin__card">
+    <div class="cc-signin__hero">
+      <span class="cc-topnav__brand-mark cc-signin__mark" aria-hidden="true">
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar"></span>
+        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--partial"></span>
+        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--miss"></span>
+      </span>
+      <h1>@U["ProductName"]</h1>
+    </div>
+    <div class="cc-signin__body">
+      @if (Expired)
+      {
+        <CcBanner Tone="CcTone.Warning">@L["Access.Unauthenticated"]</CcBanner>
+      }
+      else if (Failed)
+      {
+        <CcBanner Tone="CcTone.Danger">@L["SignIn_Failed"]</CcBanner>
+      }
+
+      @if (CurrentUser is not null)
+      {
+        <p>@L["SignIn_SignedInAs", CurrentUser.Login]</p>
+        <a class="cc-signin__github" href="@ReturnHref">@L["SignIn_Continue"]</a>
+        <form method="post" action="signout" class="cc-signin__signout">
+          <AntiforgeryToken />
+          <CcButton Type="submit">@L["Nav_SignOut"]</CcButton>
+        </form>
+      }
+      else
+      {
+        @* A full page load: the challenge is an endpoint of the authentication handler, not a component. *@
+        <a class="cc-signin__github" href="@ChallengeHref" target="_top" data-enhance-nav="false">
+          <CcIcon Name="CcIconName.GitHub" />
+          @L["Action_SignIn"]
+        </a>
+        <p class="cc-signin__hint">@L["SignIn_Hint"]</p>
+      }
+    </div>
+  </div>
+</div>

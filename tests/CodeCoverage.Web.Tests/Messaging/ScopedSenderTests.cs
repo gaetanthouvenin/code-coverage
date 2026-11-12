@@ -80,7 +80,8 @@ public sealed class ScopedSenderTests : IAsyncDisposable
 
     probe.User.UserId.ShouldBe(42);
     probe.User.Login.ShouldBe("octocat");
-    probe.User.IsAdmin.ShouldBeTrue();
+    // Only the identity is copied: the administration of the instance is decided for each request.
+    probe.User.IsAdmin.ShouldBeFalse();
     probe.User.IsSystem.ShouldBeFalse();
   }
 

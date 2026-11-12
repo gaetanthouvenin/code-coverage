@@ -14,6 +14,7 @@ using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.SqlServer;
 using CodeCoverage.Web.Components;
 using CodeCoverage.Web.Configuration;
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Configuration.Security;
 using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Extensions;
@@ -42,6 +43,8 @@ try
 
   // The key ring is shared with the other host through the database; Production refuses unprotected keys.
   builder.Services.AddCodeCoverageDataProtection(builder.Configuration, builder.Environment);
+  // The session cookie and the sign-in with GitHub, protected by the key ring above.
+  builder.Services.AddCodeCoverageAuthentication();
   builder.Services.AddCoverageUi();
   builder.Services.AddUiMessaging();
   builder.Services.AddHealthProbes();
@@ -63,6 +66,10 @@ try
   // Until the GitHub App exists, every page leads to the first-start wizard.
   app.UseMiddleware<SetupRedirectMiddleware>();
 
+  // The session of the request, before the antiforgery check that relies on it.
+  app.UseAuthentication();
+  app.UseAuthorization();
+
   // The interface speaks English and French, from the language of the browser.
   app.UseRequestLocalization(o => o.AddSupportedCultures("en", "fr")
                                    .AddSupportedUICultures("en", "fr")
@@ -72,6 +79,7 @@ try
 
   app.MapStaticAssets();
   app.MapHealthProbes();
+  app.MapAuthenticationEndpoints();
 
   // The frame-ancestors directive comes from SecurityHeadersMiddleware alone, for every response.
   app.MapRazorComponents<App>()
