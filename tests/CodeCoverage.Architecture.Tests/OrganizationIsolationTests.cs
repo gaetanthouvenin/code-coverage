@@ -49,6 +49,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string SweepCoordinator = "src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
 
+  private const string PurgeCoordinator = "src/CodeCoverage.Application/Features/Operations/Commands/PurgeExpiredData/PurgeExpiredDataCommandHandler.cs";
+
   private const string MembershipRefresh = "src/CodeCoverage.Application/Features/Access/Commands/RefreshUserMemberships/RefreshUserMembershipsCommandHandler.cs";
 
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
@@ -117,6 +119,10 @@ public sealed partial class OrganizationIsolationTests
     // The refresh of the memberships of a user (M3.04): on the lane of the instance, it reads global tables only and
     // queues the refresh of the access of that user in each active organization it is linked to.
     (MembershipRefresh, "ForOrganization"),
+
+    // The coordinator of the daily purge (M3.17, ARCHITECTURE §4.4): on the lane of the instance, it purges the
+    // operational tables (Jobs, WebhookDeliveries), reads Organizations only and queues one purge per active organization.
+    (PurgeCoordinator, "ForOrganization"),
   ];
 
   // A key that omits the organization would serve one organization's value to another: each user is reviewed.

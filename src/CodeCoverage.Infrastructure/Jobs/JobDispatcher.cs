@@ -20,6 +20,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRe
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
+using CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -179,6 +180,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 
       case JobTypes.RewriteRepositoryOwner:
         await sender.Send(new RewriteRepositoryOwnerCommand(), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.PurgeExpiredData:
+        await sender.Send(new PurgeExpiredDataCommand(), cancellationToken).ConfigureAwait(false);
         break;
 
       case JobTypes.SweepPendingCommits:
