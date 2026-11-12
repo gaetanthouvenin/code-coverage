@@ -121,6 +121,25 @@ public sealed class RepositoryAccessServiceTests
     (await _service.CanAsync(UserId, "ABC", RepositoryPermission.Read, Ct)).ShouldBeTrue();
   }
 
+  [Fact]
+  public async Task ListReadable_ShouldKeepTheRowsWithinTheHardExpiry()
+  {
+    A.CallTo(() => _accesses.ListOfUserAsync(UserId, A<CancellationToken>._))
+     .Returns([RepositoryAccess.Create(UserId, "100", RepositoryPermission.Read, Now.AddMinutes(-5)), RepositoryAccess.Create(UserId, "200", RepositoryPermission.Admin, Now.AddMinutes(-61))]);
+
+    (await _service.ListReadableAsync(UserId, Ct)).ShouldBe(["100"]);
+    _queued.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task ListReadable_NoFreshRow_ShouldEnqueueRefresh()
+  {
+    A.CallTo(() => _accesses.ListOfUserAsync(UserId, A<CancellationToken>._)).Returns([RepositoryAccess.Create(UserId, "100", RepositoryPermission.Read, Now.AddMinutes(-30))]);
+
+    (await _service.ListReadableAsync(UserId, Ct)).ShouldBe(["100"]);
+    _queued.ShouldHaveSingleItem();
+  }
+
   private void Row(RepositoryPermission permission, DateTimeOffset refreshedAt)
   {
     A.CallTo(() => _accesses.FindAsync(UserId, "100", A<CancellationToken>._)).Returns(RepositoryAccess.Create(UserId, "100", permission, refreshedAt));

@@ -88,6 +88,24 @@ internal sealed class RepositoryRepository(CodeCoverageDbContext context, SqlJob
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<TrackedRepository>> SearchActiveAsync(string? search, CancellationToken cancellationToken)
+  {
+    var repositories = context.Repositories.AsNoTracking().Where(static r => r.IsActive);
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+      // The normalized name is in lower case on both engines: the search does not depend on a collation.
+      var text = search.Trim().ToLowerInvariant();
+      repositories = repositories.Where(r => r.NormalizedName.Contains(text));
+    }
+
+    return await repositories.OrderBy(static r => r.NormalizedNamespace)
+                             .ThenBy(static r => r.NormalizedName)
+                             .ToListAsync(cancellationToken)
+                             .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<long?> RewriteOwnerAsync(string owner, long afterId, int batchSize, CancellationToken cancellationToken)
   {
     ArgumentException.ThrowIf(!Organization.IsWellFormedLogin(owner), $"The login '{owner}' is not well formed.", nameof(owner));

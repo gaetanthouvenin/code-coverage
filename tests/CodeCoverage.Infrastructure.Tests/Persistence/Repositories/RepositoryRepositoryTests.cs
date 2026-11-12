@@ -169,6 +169,38 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     listed.ShouldHaveSingleItem().Id.ShouldBe(firstId);
   }
 
+  // M3.06: a case-insensitive "name contains", active repositories only, within the organization of the scope.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SearchActive_ShouldMatchTheNameWhateverItsCaseAndSkipInactive(DatabaseProvider provider)
+  {
+    var organizations = await SeededAsync(provider);
+    await AddToBothAsync(organizations);
+
+    long app;
+    long inactive;
+
+    await using (var context = organizations.ContextOf(organizations.FirstId))
+    {
+      app = await AddRepositoryAsync(context, FirstInstallation, "7001", "octo-org/My-App", Ct);
+      await AddRepositoryAsync(context, FirstInstallation, "7002", "octo-org/tools", Ct);
+      inactive = await AddRepositoryAsync(context, FirstInstallation, "7003", "octo-org/old-app", Ct);
+      var old = await context.Repositories.SingleAsync(r => r.Id == inactive, Ct);
+      old.Deactivate(Now);
+      await context.SaveChangesAsync(Ct);
+    }
+
+    await using var first = organizations.ContextOf(organizations.FirstId);
+    var repositories = TestRepositories.Repositories(first);
+
+    (await repositories.SearchActiveAsync("APP", Ct)).Select(static r => r.Id).ShouldBe([app]);
+    (await repositories.SearchActiveAsync("%", Ct)).ShouldBeEmpty();
+    (await repositories.SearchActiveAsync(null, Ct)).ShouldNotContain(r => r.Id == inactive);
+
+    await using var second = organizations.ContextOf(organizations.SecondId);
+    (await TestRepositories.Repositories(second).SearchActiveAsync("app", Ct)).ShouldBeEmpty();
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task List_ShouldNotTrackTheRows(DatabaseProvider provider)

@@ -113,5 +113,22 @@ internal sealed class RepositoryAccessService(
     return age < hardExpiry && access.Permission >= permission;
   }
 
+  /// <inheritdoc />
+  public async Task<IReadOnlySet<string>> ListReadableAsync(long userId, CancellationToken cancellationToken)
+  {
+    var settings = options.CurrentValue;
+    var now = clock.UtcNow;
+    var cache = TimeSpan.FromMinutes(Math.Max(0, settings.CacheMinutes));
+    var hardExpiry = TimeSpan.FromMinutes(Math.Max(0, settings.HardExpiryMinutes));
+    var known = await accesses.ListOfUserAsync(userId, cancellationToken).ConfigureAwait(false);
+
+    if (!known.Any(a => now - a.RefreshedAt < cache))
+    {
+      await RefreshAsync(userId, cancellationToken).ConfigureAwait(false);
+    }
+
+    return known.Where(a => now - a.RefreshedAt < hardExpiry).Select(static a => a.RepositoryExternalId).ToHashSet(StringComparer.Ordinal);
+  }
+
   #endregion
 }

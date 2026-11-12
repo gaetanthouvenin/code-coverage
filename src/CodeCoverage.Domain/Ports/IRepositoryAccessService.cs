@@ -33,5 +33,12 @@ public interface IRepositoryAccessService
   /// <exception cref="ArgumentNullException"><paramref name="repositoryExternalId" /> is <see langword="null" />.</exception>
   Task<bool> CanAsync(long userId, string repositoryExternalId, RepositoryPermission permission, CancellationToken cancellationToken);
 
+  /// <summary>Lists the repositories of the organization of the scope that a user may read now.</summary>
+  /// <param name="userId">The identifier of the user.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The identifiers the forge gives these repositories, in lower case.</returns>
+  /// <remarks>One read for a whole list; a stale cache queues its refresh, as <see cref="CanAsync" /> does.</remarks>
+  Task<IReadOnlySet<string>> ListReadableAsync(long userId, CancellationToken cancellationToken);
+
   #endregion
 }
