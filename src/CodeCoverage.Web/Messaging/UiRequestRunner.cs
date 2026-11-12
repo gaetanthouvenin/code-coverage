@@ -129,6 +129,11 @@ public sealed class UiRequestRunner(
     {
       return UiResult<T>.Missing();
     }
+    catch (ForbiddenException)
+    {
+      // The page shows its denied state: a toast would only repeat it.
+      return UiResult<T>.Denied();
+    }
     catch (UnauthorizedException)
     {
       // A full load: the request that follows checks the session cookie again.
