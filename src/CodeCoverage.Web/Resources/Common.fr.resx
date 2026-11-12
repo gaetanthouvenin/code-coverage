@@ -99,4 +99,7 @@
   <data name="SignIn_Failed" xml:space="preserve"><value>La connexion avec GitHub n’a pas abouti. Réessayez.</value></data>
   <data name="SignIn_SignedInAs" xml:space="preserve"><value>Session ouverte au nom de {0}.</value></data>
   <data name="SignIn_Continue" xml:space="preserve"><value>Continuer</value></data>
+  <data name="Operations.JobNotFound" xml:space="preserve"><value>Ce job n’existe pas.</value></data>
+  <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Seul un job en échec ou mort peut être relancé, et pas tant que le même travail attend déjà.</value></data>
+  <data name="Operations.InvalidPage" xml:space="preserve"><value>La page vaut 1 ou plus, et une page contient de 1 à 100 jobs.</value></data>
 </root>

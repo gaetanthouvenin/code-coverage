@@ -356,6 +356,7 @@ public sealed class JobWorkerTests(DatabaseFixture database)
       options,
       new JobWakeUpSignal(TimeProvider.System),
       new JobHeartbeat(scopeFactory, TimeProvider.System, NullLogger<JobHeartbeat>.Instance),
+      new WorkerPulse(),
       A.Fake<IClock>(),
       TimeProvider.System,
       NullLogger<JobWorker>.Instance

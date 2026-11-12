@@ -106,6 +106,8 @@ internal sealed partial class JobWorker : BackgroundService
 
   private readonly JobHeartbeat _heartbeat;
 
+  private readonly WorkerPulse _pulse;
+
   private readonly string _instanceId = Guid.NewGuid().ToString("N")[..8];
 
   private readonly ILogger<JobWorker> _logger;
@@ -128,6 +130,7 @@ internal sealed partial class JobWorker : BackgroundService
   /// <param name="options">The worker options, read once at startup.</param>
   /// <param name="signal">The signal of the jobs queued in this process.</param>
   /// <param name="heartbeat">The heartbeat that renews the lease of the running jobs.</param>
+  /// <param name="pulse">The heartbeat of the loops, shown to the administrators.</param>
   /// <param name="clock">The clock that dates the retries.</param>
   /// <param name="timeProvider">The time provider of the timeouts.</param>
   /// <param name="logger">The logger.</param>
@@ -138,6 +141,7 @@ internal sealed partial class JobWorker : BackgroundService
     IOptions<WorkerOptions> options,
     JobWakeUpSignal signal,
     JobHeartbeat heartbeat,
+    WorkerPulse pulse,
     IClock clock,
     TimeProvider timeProvider,
     ILogger<JobWorker> logger)
@@ -156,6 +160,7 @@ internal sealed partial class JobWorker : BackgroundService
     _options = options;
     _signal = signal;
     _heartbeat = heartbeat;
+    _pulse = pulse;
     _clock = clock;
     _timeProvider = timeProvider;
     _logger = logger;
@@ -329,6 +334,8 @@ internal sealed partial class JobWorker : BackgroundService
     {
       try
       {
+        _pulse.Beat(_clock.UtcNow);
+
         if (await RunOnceAsync(workerId, stoppingToken).ConfigureAwait(false))
         {
           continue;

@@ -10,8 +10,9 @@ namespace CodeCoverage.Domain.Operations;
 
 /// <summary>A background job as the administrators see it: a read model of the job queue.</summary>
 /// <remarks>
-///   Built by <see cref="Ports.IJobMonitor" /> from the <c>Jobs</c> table. It never carries the payload
-///   of the job: the payload may name private repositories or files, and the screens do not need it.
+///   Built by <see cref="Ports.IJobMonitor" /> from the <c>Jobs</c> table. It never carries the payload, the keys or
+///   the text of the last error of the job: they may name private repositories or files, or hold data of an
+///   organization, and the screens do not need them (M3.13).
 /// </remarks>
 public sealed class JobSummary
 {
@@ -20,17 +21,14 @@ public sealed class JobSummary
   /// <summary>Gets the identifier of the job.</summary>
   public required long Id { get; init; }
 
+  /// <summary>Gets the organization of the lane of the job, or <see langword="null" /> on the lane of the instance.</summary>
+  public long? OrganizationId { get; init; }
+
   /// <summary>Gets the type of the job, one of <see cref="JobTypes" />.</summary>
   public required string Type { get; init; }
 
   /// <summary>Gets where the job stands.</summary>
   public required JobState State { get; init; }
-
-  /// <summary>Gets the key that serializes the job, or <see langword="null" />.</summary>
-  public string? LockKey { get; init; }
-
-  /// <summary>Gets the key that merges the job with its queued twin, or <see langword="null" />.</summary>
-  public string? DedupKey { get; init; }
 
   /// <summary>Gets how many times a worker claimed the job.</summary>
   public required int Attempts { get; init; }
@@ -50,8 +48,8 @@ public sealed class JobSummary
   /// <summary>Gets when the lease of the worker ends, in UTC, or <see langword="null" />.</summary>
   public DateTimeOffset? LockedUntil { get; init; }
 
-  /// <summary>Gets the error of the last failed attempt, or <see langword="null" />.</summary>
-  public string? LastError { get; init; }
+  /// <summary>Gets a value indicating whether the last attempt failed; its text is not exposed.</summary>
+  public required bool HasError { get; init; }
 
   /// <summary>Gets the correlation identifier of the request that queued the job.</summary>
   public required string CorrelationId { get; init; }

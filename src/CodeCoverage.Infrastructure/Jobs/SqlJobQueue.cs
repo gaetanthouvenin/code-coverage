@@ -831,5 +831,46 @@ internal sealed class SqlJobQueue(
     return !(await EnqueueAloneAsync(request, cancellationToken).ConfigureAwait(false)).Merged;
   }
 
+  /// <inheritdoc />
+  public async Task<JobRetryResult> RetryAsync(long id, CancellationToken cancellationToken)
+  {
+    var now = clock.UtcNow;
+    int updated;
+
+    try
+    {
+      // One conditional update: a job claimed, retried or purged in the meantime is left as it is.
+      updated = await context.Jobs
+                             .Where(j => j.Id == id && (j.State == JobState.Failed || j.State == JobState.Dead))
+                             .ExecuteUpdateAsync(
+                               s => s.SetProperty(j => j.State, JobState.Queued)
+                                     .SetProperty(j => j.Attempts, 0)
+                                     .SetProperty(j => j.RunAfter, now)
+                                     .SetProperty(j => j.FirstQueuedAt, now)
+                                     .SetProperty(j => j.LockedBy, (string?)null)
+                                     .SetProperty(j => j.LockedUntil, (DateTimeOffset?)null)
+                                     .SetProperty(j => j.CompletedAt, (DateTimeOffset?)null),
+                               cancellationToken
+                             )
+                             .ConfigureAwait(false);
+    }
+    catch (Exception exception) when (UniqueIndexViolation.Is(exception, JobRecordConfiguration.DedupIndexName))
+    {
+      // A queued twin already does the same work.
+      return JobRetryResult.NotRetryable;
+    }
+
+    if (updated == 1)
+    {
+      wakeUpSignal.Notify(id);
+
+      return JobRetryResult.Retried;
+    }
+
+    return await context.Jobs.AnyAsync(j => j.Id == id, cancellationToken).ConfigureAwait(false)
+             ? JobRetryResult.NotRetryable
+             : JobRetryResult.NotFound;
+  }
+
   #endregion
 }

@@ -198,6 +198,11 @@ public sealed class CodeCoverageMeter
     _githubRateLimit[installation] = remaining;
   }
 
+  /// <summary>Gives the requests left on the GitHub quota, by installation, as last read in this process.</summary>
+  /// <returns>A copy, sorted by installation.</returns>
+  public IReadOnlyDictionary<string, long> GitHubRateLimits() =>
+    new SortedDictionary<string, long>(_githubRateLimit.ToDictionary(static p => p.Key, static p => p.Value, StringComparer.Ordinal), StringComparer.Ordinal);
+
   /// <summary>Counts the report paths of an upload that match no file of the repository.</summary>
   /// <param name="count">The number of unresolved paths; nothing is counted when it is 0 or less.</param>
   public void UnresolvedPaths(long count)

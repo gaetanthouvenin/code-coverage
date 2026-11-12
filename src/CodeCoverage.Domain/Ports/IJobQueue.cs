@@ -51,5 +51,16 @@ public interface IJobQueue
   /// </exception>
   Task<bool> TryEnqueueAsync(JobRequest request, CancellationToken cancellationToken);
 
+  /// <summary>Puts a failed or dead job back in the queue, to run at once, and wakes a worker.</summary>
+  /// <param name="id">The identifier of the job.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>What became of the retry.</returns>
+  /// <remarks>
+  ///   The row itself is reset, never copied: its attempts go back to zero, its lease is cleared and it keeps its
+  ///   organization. A job that is not failed or dead, or whose twin with the same deduplication key already waits, is
+  ///   left as it is.
+  /// </remarks>
+  Task<Operations.JobRetryResult> RetryAsync(long id, CancellationToken cancellationToken);
+
   #endregion
 }
