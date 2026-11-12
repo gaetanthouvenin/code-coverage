@@ -49,7 +49,7 @@ internal static class TokenMapper
     ArgumentNullException.ThrowIfNull(sender);
     ArgumentNullException.ThrowIfNull(request);
 
-    var command = new CreateOrganizationUploadTokenCommand(ToOrganizationForge(forge), organization, request.Label, request.ImportedValue, request.ExpiresAt);
+    var command = new CreateOrganizationUploadTokenCommand(AddressSegments.ToOrganizationForge(forge), organization, request.Label, request.ImportedValue, request.ExpiresAt);
 
     return ToResponse(await sender.Send(command, cancellationToken).ConfigureAwait(false));
   }
@@ -74,7 +74,7 @@ internal static class TokenMapper
     ArgumentNullException.ThrowIfNull(sender);
     ArgumentNullException.ThrowIfNull(request);
 
-    var command = new CreateRepositoryUploadTokenCommand(ToRepositoryForge(forge), owner, repo, request.Label, request.ImportedValue, request.ExpiresAt);
+    var command = new CreateRepositoryUploadTokenCommand(AddressSegments.ToRepositoryForge(forge), owner, repo, request.Label, request.ImportedValue, request.ExpiresAt);
 
     return ToResponse(await sender.Send(command, cancellationToken).ConfigureAwait(false));
   }
@@ -94,7 +94,7 @@ internal static class TokenMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var tokens = await sender.Send(new ListOrganizationUploadTokensQuery(ToOrganizationForge(forge), organization), cancellationToken).ConfigureAwait(false);
+    var tokens = await sender.Send(new ListOrganizationUploadTokensQuery(AddressSegments.ToOrganizationForge(forge), organization), cancellationToken).ConfigureAwait(false);
 
     return [.. tokens.Select(ToResponse)];
   }
@@ -116,7 +116,7 @@ internal static class TokenMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var tokens = await sender.Send(new ListRepositoryUploadTokensQuery(ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
+    var tokens = await sender.Send(new ListRepositoryUploadTokensQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
 
     return [.. tokens.Select(ToResponse)];
   }
@@ -133,7 +133,7 @@ internal static class TokenMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    await sender.Send(new RevokeOrganizationUploadTokenCommand(ToOrganizationForge(forge), organization, id), cancellationToken).ConfigureAwait(false);
+    await sender.Send(new RevokeOrganizationUploadTokenCommand(AddressSegments.ToOrganizationForge(forge), organization, id), cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Revokes an upload token of a repository.</summary>
@@ -149,7 +149,7 @@ internal static class TokenMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    await sender.Send(new RevokeRepositoryUploadTokenCommand(ToRepositoryForge(forge), owner, repo, id), cancellationToken).ConfigureAwait(false);
+    await sender.Send(new RevokeRepositoryUploadTokenCommand(AddressSegments.ToRepositoryForge(forge), owner, repo, id), cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Creates a personal API token and converts it for the API.</summary>
@@ -205,24 +205,6 @@ internal static class TokenMapper
 
     await sender.Send(new RevokeApiTokenCommand(id), cancellationToken).ConfigureAwait(false);
   }
-
-  /// <summary>Reads the forge segment of the address of an organization: an unknown forge is an unknown organization.</summary>
-  /// <param name="forge">The segment.</param>
-  /// <returns>The forge.</returns>
-  /// <exception cref="NotFoundException">The segment names no forge.</exception>
-  private static Forge ToOrganizationForge(string forge) =>
-    ForgeSegments.TryParse(forge, out var parsed)
-      ? parsed
-      : throw new NotFoundException(OrganizationErrors.NotFound, "The organization does not exist or cannot be read.");
-
-  /// <summary>Reads the forge segment of the address of a repository: an unknown forge is an unknown repository.</summary>
-  /// <param name="forge">The segment.</param>
-  /// <returns>The forge.</returns>
-  /// <exception cref="NotFoundException">The segment names no forge.</exception>
-  private static Forge ToRepositoryForge(string forge) =>
-    ForgeSegments.TryParse(forge, out var parsed)
-      ? parsed
-      : throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
 
   private static IssuedUploadTokenResponse ToResponse(IssuedToken issued) =>
     new(issued.Token.Id, issued.Value, issued.Token.Hint, issued.Token.Label, issued.Token.ExpiresAt);

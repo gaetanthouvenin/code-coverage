@@ -51,7 +51,7 @@ internal static class OrganizationMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    var settings = await sender.Send(new GetOrganizationSettingsQuery(ToForge(forge), organization), cancellationToken).ConfigureAwait(false);
+    var settings = await sender.Send(new GetOrganizationSettingsQuery(AddressSegments.ToOrganizationForge(forge), organization), cancellationToken).ConfigureAwait(false);
 
     return
     [
@@ -86,7 +86,7 @@ internal static class OrganizationMapper
     ArgumentNullException.ThrowIfNull(sender);
     ArgumentNullException.ThrowIfNull(request);
 
-    await sender.Send(new UpdateOrganizationSettingCommand(ToForge(forge), organization, key, request.Value), cancellationToken).ConfigureAwait(false);
+    await sender.Send(new UpdateOrganizationSettingCommand(AddressSegments.ToOrganizationForge(forge), organization, key, request.Value), cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Puts a setting of an organization back to its default.</summary>
@@ -101,17 +101,8 @@ internal static class OrganizationMapper
   {
     ArgumentNullException.ThrowIfNull(sender);
 
-    await sender.Send(new ResetOrganizationSettingCommand(ToForge(forge), organization, key), cancellationToken).ConfigureAwait(false);
+    await sender.Send(new ResetOrganizationSettingCommand(AddressSegments.ToOrganizationForge(forge), organization, key), cancellationToken).ConfigureAwait(false);
   }
-
-  /// <summary>Reads the forge segment of the address of an organization: an unknown forge is an unknown organization.</summary>
-  /// <param name="forge">The segment.</param>
-  /// <returns>The forge.</returns>
-  /// <exception cref="NotFoundException">The segment names no forge.</exception>
-  private static Forge ToForge(string forge) =>
-    ForgeSegments.TryParse(forge, out var parsed)
-      ? parsed
-      : throw new NotFoundException(OrganizationErrors.NotFound, "The organization does not exist or cannot be read.");
 
   #endregion
 }

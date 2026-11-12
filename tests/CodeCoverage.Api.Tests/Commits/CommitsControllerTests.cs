@@ -110,6 +110,7 @@ public sealed class CommitsControllerTests
   [Theory]
   [InlineData("page=0")]
   [InlineData("pageSize=101")]
+  [InlineData("page=21474838&pageSize=100")]
   public async Task Get_ListOutOfBounds_ShouldReturn400(string query)
   {
     using var client = Client();

@@ -100,6 +100,17 @@ public sealed class OperationsControllerTests
     body.RootElement.GetProperty("gitHubRemaining").GetProperty("42").GetInt64().ShouldBe(4000);
   }
 
+  // Second review S5: a page whose offset would overflow is refused, as for the commits and the pull requests.
+  [Fact]
+  public async Task Get_JobsPageTooLarge_ShouldReturn400()
+  {
+    using var client = Client(organizationId: null);
+
+    using var response = await client.GetAsync(new Uri("/api/v1/ops/jobs?page=21474838&pageSize=100", UriKind.Relative), Ct);
+    response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    A.CallTo(() => _monitor.ListAsync(A<JobState?>._, A<int>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   [Fact]
   public async Task Post_Retry_ShouldReturn202()
   {

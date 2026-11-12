@@ -117,6 +117,36 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
   }
 
   /// <inheritdoc />
+  public async Task<PullRequest?> FindByNumberAsync(long repositoryId, int number, CancellationToken cancellationToken) =>
+    await context.PullRequests
+                 .SingleOrDefaultAsync(p => p.RepositoryId == repositoryId && p.Number == number, cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<PullRequestPage> ListPageAsync(long repositoryId, PullRequestState? state, int page, int pageSize, CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+    var pulls = context.PullRequests.AsNoTracking().Where(p => p.RepositoryId == repositoryId);
+
+    if (state is { } wanted)
+    {
+      pulls = pulls.Where(p => p.State == wanted);
+    }
+
+    var total = await pulls.CountAsync(cancellationToken).ConfigureAwait(false);
+    var items = await pulls.OrderByDescending(static p => p.UpdatedAt)
+                           .ThenByDescending(static p => p.Number)
+                           .Skip((page - 1) * pageSize)
+                           .Take(pageSize)
+                           .ToListAsync(cancellationToken)
+                           .ConfigureAwait(false);
+
+    return new PullRequestPage(items, page, pageSize, total);
+  }
+
+  /// <inheritdoc />
   public async Task UpdateAsync(PullRequest pullRequest, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(pullRequest);
@@ -139,16 +169,6 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
   #endregion
 
   #region Methods
-
-  /// <summary>Reads a pull request by its number.</summary>
-  /// <param name="repositoryId">The identifier of the repository.</param>
-  /// <param name="number">The number of the pull request.</param>
-  /// <param name="cancellationToken">A token to cancel the reading.</param>
-  /// <returns>The pull request, or <see langword="null" />.</returns>
-  private async Task<PullRequest?> FindByNumberAsync(long repositoryId, int number, CancellationToken cancellationToken) =>
-    await context.PullRequests
-                 .SingleOrDefaultAsync(p => p.RepositoryId == repositoryId && p.Number == number, cancellationToken)
-                 .ConfigureAwait(false);
 
   /// <summary>Applies what the forge reports to a row read in this scope, and saves it.</summary>
   /// <param name="pullRequest">The pull request.</param>
