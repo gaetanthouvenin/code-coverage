@@ -102,4 +102,5 @@
   <data name="Operations.JobNotFound" xml:space="preserve"><value>Ce job n’existe pas.</value></data>
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Seul un job en échec ou mort peut être relancé, et pas tant que le même travail attend déjà.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>La page vaut 1 ou plus, et une page contient de 1 à 100 jobs.</value></data>
+  <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>Un jeton de badge contient de 1 à 64 lettres, chiffres, tirets bas ou tirets.</value></data>
 </root>

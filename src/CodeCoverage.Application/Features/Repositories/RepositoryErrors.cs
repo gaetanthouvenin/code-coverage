@@ -20,5 +20,8 @@ public static class RepositoryErrors
   /// <summary>The repository is known and its coverage is not tracked.</summary>
   public const string Inactive = "Repository.Inactive";
 
+  /// <summary>An imported badge token is not 1 to 64 characters of <c>[A-Za-z0-9_-]</c>. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidBadgeToken = "Repository.InvalidBadgeToken";
+
   #endregion
 }
