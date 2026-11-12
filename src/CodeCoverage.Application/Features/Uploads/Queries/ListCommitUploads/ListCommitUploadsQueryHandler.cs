@@ -33,10 +33,7 @@ internal sealed class ListCommitUploadsQueryHandler(IRepositoryRepository reposi
                        ? await repositories.FindBySlugAsync(slug, cancellationToken).ConfigureAwait(false)
                        : null;
 
-    if (repository is null)
-    {
-      throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
-    }
+    NotFoundException.ThrowIfRepositoryNotFound(repository);
 
     var commit = await commits.FindByShaAsync(repository.Id, query.Sha, cancellationToken).ConfigureAwait(false);
 

@@ -44,10 +44,6 @@ internal sealed class ReceiveWebhookCommandHandler(
 {
   #region Fields
 
-  private const string InvalidSignatureMessage = "The signature of the delivery is missing or invalid.";
-
-  private const string InvalidPayloadMessage = "The body of the delivery is not a JSON object GitHub would send.";
-
   /// <summary>The events kept for an organization that is not active, or for an installation not known yet.</summary>
   private static readonly FrozenSet<string> InstanceEvents =
     new[] { "installation", "installation_repositories", "installation_target" }.ToFrozenSet(StringComparer.Ordinal);
@@ -95,13 +91,11 @@ internal sealed class ReceiveWebhookCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    if (!signatures.IsValid(command.Payload, command.Signature))
-    {
-      throw new UnauthorizedException(GitHubEventErrors.InvalidSignature, InvalidSignatureMessage);
-    }
+    UnauthorizedException.ThrowIfWebhookSignatureInvalid(signatures.IsValid(command.Payload, command.Signature));
 
-    var delivery = GitHubWebhookEvent.TryParse(command.DeliveryId, command.Event, command.Payload)
-                   ?? throw new BadRequestException(GitHubEventErrors.InvalidPayload, InvalidPayloadMessage);
+    var delivery = GitHubWebhookEvent.TryParse(command.DeliveryId, command.Event, command.Payload);
+
+    BadRequestException.ThrowIfWebhookPayloadInvalid(delivery);
 
     var owner = delivery.InstallationId is { } installationId
       ? await installations.FindOwnerAsync(installationId, cancellationToken).ConfigureAwait(false)

@@ -37,17 +37,11 @@ internal sealed class AdmitOrganizationCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    if (ReservedLogins.IsReserved(command.Login))
-    {
-      throw new UnprocessableEntityException(OrganizationErrors.ReservedLogin, $"The login '{command.Login}' cannot be admitted.");
-    }
+    UnprocessableEntityException.ThrowIfOrganizationLoginReserved(ReservedLogins.IsReserved(command.Login), command.Login);
 
     var existing = await directory.FindByAccountIdAsync(command.Forge, command.ExternalAccountId, cancellationToken).ConfigureAwait(false);
 
-    if (existing is { State: not OrganizationState.Pending })
-    {
-      throw new ConflictException(OrganizationErrors.NotPending, $"The organization is {existing.State}: only a pending one can be admitted.");
-    }
+    ConflictException.ThrowIfOrganizationNotPending(existing);
 
     // A new account is taken for an organization: the next synchronization with the forge corrects a personal one.
     var accountType = existing?.AccountType ?? OrganizationAccountType.Organization;
@@ -60,10 +54,7 @@ internal sealed class AdmitOrganizationCommandHandler(
     var admitted = await directory.ChangeAsync(command.Forge, pending.ExternalAccountId, organization => organization.Admit(actor, now), cancellationToken)
                                   .ConfigureAwait(false);
 
-    if (admitted is null)
-    {
-      throw new NotFoundException(OrganizationErrors.NotFound, "The organization no longer exists.");
-    }
+    NotFoundException.ThrowIfOrganizationGone(admitted);
 
     await auditLog.RecordAsync("Organization.Admit", $"{command.Forge}/{admitted.Login}", null, cancellationToken).ConfigureAwait(false);
 

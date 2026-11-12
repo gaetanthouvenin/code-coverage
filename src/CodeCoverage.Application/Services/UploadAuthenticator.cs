@@ -170,10 +170,7 @@ internal sealed class UploadAuthenticator(
 
     var repository = await repositories.FindBySlugAsync(slug, cancellationToken).ConfigureAwait(false);
 
-    if (identity.Scope is UploadTokenScope.Repository && repository?.Id != identity.RepositoryId)
-    {
-      throw new ForbiddenException(UploadErrors.TokenNotForRepository, "The upload token belongs to another repository.");
-    }
+    ForbiddenException.ThrowIfUploadTokenNotForRepository(identity.Scope is UploadTokenScope.Repository && repository?.Id != identity.RepositoryId);
 
     var kind = identity.Scope is UploadTokenScope.Repository ? PrincipalKind.RepositoryToken : PrincipalKind.OrganizationToken;
 
