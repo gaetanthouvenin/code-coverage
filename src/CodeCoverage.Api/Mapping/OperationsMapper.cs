@@ -94,7 +94,9 @@ internal static class OperationsMapper
       status.Dead,
       status.OldestQueuedAge?.TotalSeconds,
       status.WorkerLastSeenAt,
-      status.GitHubRemaining
+      status.GitHubRemaining,
+      [.. status.Workers.Select(static w => new WorkerHeartbeatModel(w.Host, w.StartedAt, w.LastBeatAt))],
+      [.. status.GitHubQuotas.Select(static q => new GitHubQuotaModel(q.Installation, q.Remaining, q.Limit, q.ResetAt, q.ObservedAt))]
     );
   }
 

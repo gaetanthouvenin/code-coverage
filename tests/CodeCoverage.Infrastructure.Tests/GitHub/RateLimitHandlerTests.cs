@@ -165,6 +165,20 @@ public sealed class RateLimitHandlerTests : IDisposable
     measurement.Tags["installation"].ShouldBe("42");
   }
 
+  // M3.13a: the limit and the reset are kept with the remaining requests, in memory only, for the publisher.
+  [Fact]
+  public async Task Send_ShouldTrackLimitAndReset()
+  {
+    Given(Response.Create().WithStatusCode(200).WithHeader("x-ratelimit-remaining", "4321").WithHeader("x-ratelimit-limit", "5000").WithHeader("x-ratelimit-reset", "1893456000"));
+
+    using var response = await SendAsync(42);
+
+    var quota = _github.Quotas.ChangedSince(0).Changed.ShouldHaveSingleItem();
+    (quota.Installation, quota.Remaining, quota.Limit).ShouldBe(("42", 4321L, (long?)5000));
+    quota.ResetAt.ShouldBe(DateTimeOffset.FromUnixTimeSeconds(1893456000));
+    _github.Quotas.ChangedSince(_github.Quotas.ChangedSince(0).Version).Changed.ShouldBeEmpty();
+  }
+
   [Fact]
   public async Task Send_AsTheApp_ShouldPublishTheQuotaOfTheApp()
   {
@@ -211,7 +225,7 @@ public sealed class RateLimitHandlerTests : IDisposable
     var inner = A.Fake<HttpMessageHandler>();
     A.CallTo(inner).WithReturnType<Task<HttpResponseMessage>>().Throws(failure);
     using var invoker = new HttpMessageInvoker(
-      new RateLimitHandler(new CodeCoverageMeter(meters), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
+      new RateLimitHandler(new CodeCoverageMeter(meters), new GitHubQuotaTracker(), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
     );
     using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("https://github.test/repositories/1"));
 

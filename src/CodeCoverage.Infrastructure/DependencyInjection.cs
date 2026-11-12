@@ -98,6 +98,7 @@ public static partial class DependencyInjection
     }
 
     services.AddHostedService<RecurringJobScheduler>();
+    services.AddHostedService<OperationalStatusPublisher>();
     services.AddHostedService<JobQueueMetricsSampler>();
 
     return services;
@@ -185,7 +186,6 @@ public static partial class DependencyInjection
     services.TryAddSingleton<JobWakeUpSignal>();
     services.AddScoped<SqlJobQueue>();
     services.AddScoped<IJobQueue>(static sp => sp.GetRequiredService<SqlJobQueue>());
-    services.TryAddSingleton<WorkerPulse>();
     services.AddScoped<IJobMonitor, SqlJobMonitor>();
     services.AddScoped<ISettingsStore, ConfigurationSettingsStore>();
 

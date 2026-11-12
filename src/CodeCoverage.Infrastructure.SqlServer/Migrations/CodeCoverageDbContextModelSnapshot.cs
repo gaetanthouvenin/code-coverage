@@ -534,6 +534,48 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.ToTable("AuditEntries", (string)null);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Operations.GitHubQuota", b =>
+                {
+                    b.Property<string>("Installation")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<long?>("Limit")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("Remaining")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("ResetAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Installation")
+                        .HasName("PK_GitHubQuotas");
+
+                    b.ToTable("GitHubQuotas", (string)null);
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Operations.WorkerHeartbeat", b =>
+                {
+                    b.Property<string>("Host")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("LastBeatAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Host")
+                        .HasName("PK_WorkerHeartbeats");
+
+                    b.ToTable("WorkerHeartbeats", (string)null);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Organizations.Organization", b =>
                 {
                     b.Property<long>("Id")

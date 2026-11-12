@@ -12,13 +12,13 @@ namespace CodeCoverage.Domain.Operations;
 /// <param name="Failed">The number of jobs that failed for good.</param>
 /// <param name="Dead">The number of jobs that used up their attempts.</param>
 /// <param name="OldestQueuedAge">How long the oldest job due has been waiting, or <see langword="null" /> when none is.</param>
-/// <param name="WorkerLastSeenAt">
-///   When a worker loop of this process last turned, in UTC, or <see langword="null" /> when no worker runs here.
-/// </param>
-/// <param name="GitHubRemaining">The requests left on the GitHub quota, by installation, as last read in this process.</param>
+/// <param name="WorkerLastSeenAt">The latest beat of any worker, in UTC, or <see langword="null" /> when none was ever written.</param>
+/// <param name="GitHubRemaining">The requests left on the GitHub quota, by installation, as last written.</param>
+/// <param name="Workers">The heartbeat of each worker process of the last 24 hours, the most recent first.</param>
+/// <param name="GitHubQuotas">The last GitHub quota of each installation, with its limit and its reset, by installation.</param>
 /// <remarks>
-///   A read model for the administrators. The heartbeat and the quota are those of the process that answers: one Api
-///   replica runs the worker and calls GitHub, a documented limit (ARCHITECTURE §12.6).
+///   A read model for the administrators. The heartbeats and the quotas are read from the operational tables the worker
+///   of the Api writes every 15 seconds (M3.13a): any process, the Web included, reads the same values.
 /// </remarks>
 public sealed record SystemStatus(
   int Queued,
@@ -27,4 +27,6 @@ public sealed record SystemStatus(
   int Dead,
   TimeSpan? OldestQueuedAge,
   DateTimeOffset? WorkerLastSeenAt,
-  IReadOnlyDictionary<string, long> GitHubRemaining);
+  IReadOnlyDictionary<string, long> GitHubRemaining,
+  IReadOnlyList<WorkerHeartbeat> Workers,
+  IReadOnlyList<GitHubQuota> GitHubQuotas);

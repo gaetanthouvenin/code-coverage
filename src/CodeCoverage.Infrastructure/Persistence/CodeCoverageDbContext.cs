@@ -177,6 +177,12 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the uploads of the commits (<c>Uploads</c>).</summary>
   public DbSet<Upload> Uploads => Set<Upload>();
 
+  /// <summary>Gets the heartbeats of the worker processes (operational).</summary>
+  public DbSet<WorkerHeartbeat> WorkerHeartbeats => Set<WorkerHeartbeat>();
+
+  /// <summary>Gets the last GitHub quotas of the installations (operational).</summary>
+  public DbSet<GitHubQuota> GitHubQuotas => Set<GitHubQuota>();
+
   /// <summary>Gets the users who signed in (<c>Users</c>).</summary>
   public DbSet<AppUser> Users => Set<AppUser>();
 

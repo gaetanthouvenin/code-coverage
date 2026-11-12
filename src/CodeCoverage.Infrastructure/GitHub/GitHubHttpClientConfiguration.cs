@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http.Headers;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
@@ -72,6 +73,7 @@ internal static class GitHubHttpClientConfiguration
   {
     ArgumentNullException.ThrowIfNull(services);
 
+    services.TryAddSingleton<GitHubQuotaTracker>();
     services.AddTransient<RateLimitHandler>();
     services.AddHttpClient(ClientName, static (provider, client) => Configure(provider, client))
             .AddHttpMessageHandler<RateLimitHandler>()
