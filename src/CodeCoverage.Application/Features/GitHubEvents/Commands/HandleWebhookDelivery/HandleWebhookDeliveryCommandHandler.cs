@@ -402,8 +402,9 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var delivery = await deliveries.FindForProcessingAsync(command.DeliveryId, cancellationToken).ConfigureAwait(false)
-                   ?? throw new NotFoundException(GitHubEventErrors.DeliveryNotFound, "The delivery to handle does not exist.");
+    var delivery = await deliveries.FindForProcessingAsync(command.DeliveryId, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfWebhookDeliveryNotFound(delivery);
 
     switch (delivery.Event)
     {

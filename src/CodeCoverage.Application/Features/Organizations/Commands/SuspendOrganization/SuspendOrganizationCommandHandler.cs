@@ -27,8 +27,9 @@ internal sealed class SuspendOrganizationCommandHandler(IOrganizationDirectory d
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var organization = await directory.FindByLoginAsync(command.Forge, command.Login, cancellationToken).ConfigureAwait(false)
-                       ?? throw new NotFoundException(OrganizationErrors.NotFound, "The organization does not exist.");
+    var organization = await directory.FindByLoginAsync(command.Forge, command.Login, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfOrganizationNotFound(organization);
 
     // A suspension that followed the removal of the application is taken over, so that a reinstallation does not lift it.
     if (organization is { State: OrganizationState.Suspended, SuspensionReason: not SuspensionReason.AppUninstalled })
@@ -46,10 +47,7 @@ internal sealed class SuspendOrganizationCommandHandler(IOrganizationDirectory d
                       )
                       .ConfigureAwait(false);
 
-    if (suspended is null)
-    {
-      throw new NotFoundException(OrganizationErrors.NotFound, "The organization no longer exists.");
-    }
+    NotFoundException.ThrowIfOrganizationGone(suspended);
 
     await auditLog.RecordAsync("Organization.Suspend", $"{command.Forge}/{organization.Login}", null, cancellationToken).ConfigureAwait(false);
 

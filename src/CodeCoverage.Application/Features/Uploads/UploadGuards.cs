@@ -149,5 +149,19 @@ internal static class UploadGuards
       }
     }
   }
+
+  extension(ForbiddenException)
+  {
+    /// <summary>Throws when a repository upload token is used for another repository.</summary>
+    /// <param name="otherRepository">Whether the token belongs to another repository than the one of the upload.</param>
+    /// <exception cref="ForbiddenException"><paramref name="otherRepository" /> is <see langword="true" />.</exception>
+    public static void ThrowIfUploadTokenNotForRepository([DoesNotReturnIf(true)] bool otherRepository)
+    {
+      if (otherRepository)
+      {
+        throw new ForbiddenException(UploadErrors.TokenNotForRepository, "The upload token belongs to another repository.");
+      }
+    }
+  }
   #endregion
 }

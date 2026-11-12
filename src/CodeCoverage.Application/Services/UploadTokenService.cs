@@ -82,10 +82,9 @@ internal sealed class UploadTokenService(
     var hint = importedValue is null ? value[..GeneratedHintLength] : value[^ImportedHintLength..];
     var token = UploadToken.Create(scope, repositoryId, label, hint, hasher.Hash(value), importedValue is not null, ActorName, clock.UtcNow, expiresAt);
 
-    if (!await tokens.TryAddAsync(token, cancellationToken).ConfigureAwait(false))
-    {
-      throw new ConflictException(UploadTokenErrors.AlreadyImported, "This value is already a token of the organization.");
-    }
+    var added = await tokens.TryAddAsync(token, cancellationToken).ConfigureAwait(false);
+
+    ConflictException.ThrowIfUploadTokenAlreadyImported(added);
 
     await RecordAsync(CreateAuditAction, token, cancellationToken).ConfigureAwait(false);
 
@@ -103,10 +102,7 @@ internal sealed class UploadTokenService(
   {
     var token = await tokens.FindAsync(id, cancellationToken).ConfigureAwait(false);
 
-    if (token is null || token.Scope != scope || token.RepositoryId != repositoryId)
-    {
-      throw new NotFoundException(UploadTokenErrors.NotFound, "This token does not exist.");
-    }
+    NotFoundException.ThrowIfUploadTokenNotFound(token, scope, repositoryId);
 
     if (token.RevokedAt is not null)
     {
@@ -130,7 +126,9 @@ internal sealed class UploadTokenService(
                        ? await repositories.FindBySlugAsync(slug, cancellationToken).ConfigureAwait(false)
                        : null;
 
-    return repository?.Id ?? throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
+    NotFoundException.ThrowIfRepositoryNotFound(repository);
+
+    return repository.Id;
   }
 
   /// <summary>Records a change of a token, without its value.</summary>

@@ -60,8 +60,9 @@ internal sealed class ComparisonBuilder(
 
     var resolution = await resolver.ResolveAsync(repository, forge, commit, config.AllowPseudoCompare, cancellationToken).ConfigureAwait(false);
 
-    var headSessions = await reader.ReadAsync(commit.Id, cancellationToken).ConfigureAwait(false)
-                       ?? throw new UnprocessableEntityException(CommitErrors.Compacted, "The coverage of a session of this commit no longer exists.");
+    var headSessions = await reader.ReadAsync(commit.Id, cancellationToken).ConfigureAwait(false);
+
+    UnprocessableEntityException.ThrowIfCommitCompacted(headSessions is null);
 
     // A base whose report went away since it was chosen is no base: the comparison says so instead of failing.
     var comparedTo = resolution.ComparedTo;
