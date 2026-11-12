@@ -1,0 +1,21 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitStateBadge.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@switch (Status)
+{
+  case CommitStatus.Complete:
+    <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["Commit_Complete"]</CcBadge>
+    break;
+  case CommitStatus.Compacted:
+    <span title="@L["Commit_CompactedHint"]"><CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["Commit_Complete"]</CcBadge></span>
+    break;
+  case CommitStatus.Error:
+    <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["Commit_Error"]</CcBadge>
+    break;
+  default:
+    <CcBadge Tone="CcTone.Info" Icon="CcIconName.Clock">@L["Commit_Pending"]</CcBadge>
+    break;
+}

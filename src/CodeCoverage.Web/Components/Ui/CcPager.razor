@@ -1,0 +1,13 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcPager.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<nav class="@CssClass" aria-label="@L["Pagination"]">
+  <span class="cc-muted cc-num cc-small" aria-live="polite">@RangeText</span>
+  <div class="cc-cluster">
+    <CcButton Size="CcButtonSize.Small" Disabled="@(!HasPrevious)" OnClick="PreviousAsync">@L["Previous"]</CcButton>
+    <CcButton Size="CcButtonSize.Small" Variant="@(HasNext ? CcButtonVariant.Primary : CcButtonVariant.Secondary)" Disabled="@(!HasNext)" OnClick="NextAsync">@L["Next"]</CcButton>
+  </div>
+</nav>

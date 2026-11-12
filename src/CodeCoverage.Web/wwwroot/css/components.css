@@ -1924,3 +1924,42 @@ code {
 .cc-flag-check svg {
   display: block;
 }
+
+/* Paged lists of the repository pages (M3.24): pager foot, commit cell and change of coverage. */
+.cc-panel--table {
+  padding-top: 18px;
+}
+
+.cc-panel__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 28px 24px;
+}
+
+.cc-ellip {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cc-strong {
+  font-weight: 600;
+}
+
+.cc-commit-cell {
+  max-width: 420px;
+}
+
+.cc-delta--up {
+  color: var(--cc-ok-fg);
+  font-weight: 600;
+}
+
+.cc-delta--down {
+  color: var(--cc-err-fg);
+  font-weight: 600;
+}

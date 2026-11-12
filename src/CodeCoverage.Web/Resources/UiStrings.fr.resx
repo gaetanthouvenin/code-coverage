@@ -30,4 +30,9 @@
   <data name="SkipToContent" xml:space="preserve"><value>Aller au contenu</value></data>
   <data name="ThemeToDark" xml:space="preserve"><value>Passer en thème sombre</value></data>
   <data name="ThemeToLight" xml:space="preserve"><value>Passer en thème clair</value></data>
+  <data name="Pagination" xml:space="preserve"><value>Pagination</value></data>
+  <data name="Previous" xml:space="preserve"><value>Précédent</value></data>
+  <data name="Next" xml:space="preserve"><value>Suivant</value></data>
+  <data name="PagerRange" xml:space="preserve"><value>{0} – {1} sur {2}</value></data>
+  <data name="PagerEmpty" xml:space="preserve"><value>0 sur 0</value></data>
 </root>

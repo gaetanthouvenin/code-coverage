@@ -21,7 +21,7 @@ namespace CodeCoverage.Application.Features.Commits.Queries.ListCommits;
 /// <param name="Page">The number of the page, from 1.</param>
 /// <param name="PageSize">The number of commits of a page, 1 to <see cref="MaxPageSize" />.</param>
 public sealed record ListCommitsQuery(Forge Forge, string Owner, string Name, string? Branch, int Page = 1, int PageSize = ListCommitsQuery.DefaultPageSize)
-  : IQuery<CommitPage>, IRepositoryScoped
+  : IQuery<CommitSummaryPage>, IRepositoryScoped
 {
   #region Fields
 

@@ -57,7 +57,7 @@ internal static class CommitMapper
     var query = new ListCommitsQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, branch, page ?? 1, pageSize ?? ListCommitsQuery.DefaultPageSize);
     var commits = await sender.Send(query, cancellationToken).ConfigureAwait(false);
 
-    return new CommitPageResponse([.. commits.Items.Select(static c => ToResponse(c, null))], commits.Page, commits.PageSize, commits.TotalCount);
+    return new CommitPageResponse([.. commits.Items.Select(static c => ToResponse(c.Commit, null))], commits.Page, commits.PageSize, commits.TotalCount);
   }
 
   /// <summary>Reads a commit and converts it for the API.</summary>

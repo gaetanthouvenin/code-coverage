@@ -6,6 +6,8 @@
 
 using System.Globalization;
 
+using Microsoft.Extensions.Localization;
+
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
@@ -74,6 +76,27 @@ internal static class DisplayFormatter
     ArgumentNullException.ThrowIfNull(sha);
 
     return sha.Value[..ShortShaLength];
+  }
+
+  /// <summary>Writes how long ago something happened: minutes, hours, then days.</summary>
+  /// <param name="at">When it happened.</param>
+  /// <param name="now">The current time.</param>
+  /// <param name="localizer">The texts of the console.</param>
+  /// <returns>The age, e.g. « 12 min ago ».</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="localizer" /> is <see langword="null" />.</exception>
+  public static string Age(DateTimeOffset at, DateTimeOffset now, IStringLocalizer localizer)
+  {
+    ArgumentNullException.ThrowIfNull(localizer);
+
+    var age = now - at;
+
+    return age switch
+    {
+      { TotalMinutes: < 1 } => localizer["Age_JustNow"],
+      { TotalHours: < 1 } => localizer["Age_Minutes", (int)age.TotalMinutes],
+      { TotalDays: < 1 } => localizer["Age_Hours", (int)age.TotalHours],
+      var _ => localizer["Age_Days", (int)age.TotalDays],
+    };
   }
 
   /// <summary>Replaces the invariant decimal point of a formatted number by the one of the culture.</summary>

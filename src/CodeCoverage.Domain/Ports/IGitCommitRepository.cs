@@ -24,6 +24,14 @@ public interface IGitCommitRepository
   /// <exception cref="ArgumentNullException"><paramref name="sha" /> is <see langword="null" />.</exception>
   Task<GitCommit?> FindAsync(long repositoryId, GitSha sha, CancellationToken cancellationToken);
 
+  /// <summary>Lists the cached metadata of some commits of a repository, for reading only; a commit not cached is left out.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="shas">The SHAs of the commits.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The metadata found, in no particular order.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="shas" /> is <see langword="null" />.</exception>
+  Task<IReadOnlyList<GitCommit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken);
+
   /// <summary>Adds the commits that are not cached yet, each saved at once.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="commits">The commits, as the forge reported them.</param>

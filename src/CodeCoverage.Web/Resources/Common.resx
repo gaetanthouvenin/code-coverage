@@ -212,4 +212,18 @@
   <data name="History_EmptyTitle" xml:space="preserve"><value>No coverage in this period</value></data>
   <data name="History_EmptyText" xml:space="preserve"><value>No report of this branch was completed in the chosen range.</value></data>
   <data name="Column_Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Column_Commit" xml:space="preserve"><value>Commit</value></data>
+  <data name="Column_Author" xml:space="preserve"><value>Author</value></data>
+  <data name="Column_Coverage" xml:space="preserve"><value>Coverage</value></data>
+  <data name="Column_Sessions" xml:space="preserve"><value>Sessions</value></data>
+  <data name="Commit_Complete" xml:space="preserve"><value>Complete</value></data>
+  <data name="Commit_Pending" xml:space="preserve"><value>Processing</value></data>
+  <data name="Commit_Error" xml:space="preserve"><value>Error</value></data>
+  <data name="Commit_CompactedHint" xml:space="preserve"><value>Compacted: only the totals of this commit are kept.</value></data>
+  <data name="Commits_EmptyTitle" xml:space="preserve"><value>No commit on this branch</value></data>
+  <data name="Commits_EmptyText" xml:space="preserve"><value>Commits appear here once an upload has been received.</value></data>
+  <data name="Age_JustNow" xml:space="preserve"><value>just now</value></data>
+  <data name="Age_Minutes" xml:space="preserve"><value>{0} min ago</value></data>
+  <data name="Age_Hours" xml:space="preserve"><value>{0} h ago</value></data>
+  <data name="Age_Days" xml:space="preserve"><value>{0} d ago</value></data>
 </root>
