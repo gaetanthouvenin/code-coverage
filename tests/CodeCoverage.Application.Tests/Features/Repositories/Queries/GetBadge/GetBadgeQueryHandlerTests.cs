@@ -199,6 +199,21 @@ public sealed class GetBadgeQueryHandlerTests
     new ImportBadgeTokenCommand(Forge.GitHub, "octo-org", "app", BadgeToken).ToString().ShouldNotContain(BadgeToken);
   }
 
+  // Review R4: a control character never reaches the database (PostgreSQL refuses a NUL with 22021): unknown at once.
+  [Theory]
+  [InlineData("octo\0org", "app", "main", null)]
+  [InlineData("octo-org", "a\u0001pp", "main", null)]
+  [InlineData("octo-org", "app", "a\0b", null)]
+  [InlineData("octo-org", "app", null, "un\0it")]
+  public async Task Handle_ControlCharacter_ShouldReturnUnknownWithoutReading(string owner, string name, string? branch, string? flag)
+  {
+    var badge = await _handler.Handle(new GetBadgeQuery(Forge.GitHub, owner, name, branch, flag, BadgeToken), Ct);
+
+    badge.IsUnknown.ShouldBeTrue();
+    A.CallTo(_repositories).MustNotHaveHappened();
+    A.CallTo(_branches).MustNotHaveHappened();
+  }
+
   private static CoverageTotals Totals(int hits, int lines) => new(hits, lines - hits, 0, 0, 0);
 
   private static TrackedRepository Repository(bool isPrivate)

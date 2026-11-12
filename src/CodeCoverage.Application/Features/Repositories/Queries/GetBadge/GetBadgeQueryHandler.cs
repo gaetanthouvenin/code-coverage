@@ -73,6 +73,11 @@ internal sealed class GetBadgeQueryHandler(
     return hasher.FixedTimeEquals(hasher.Hash(token ?? string.Empty), hasher.Hash(stored)) && !string.IsNullOrEmpty(token);
   }
 
+  /// <summary>Tells whether a text holds a control character, which no branch nor flag can hold.</summary>
+  /// <param name="text">The text, or <see langword="null" />.</param>
+  /// <returns><see langword="true" /> when one character at least is a control character.</returns>
+  private static bool HasControlCharacter(string? text) => text is not null && text.Any(char.IsControl);
+
   /// <summary>Reads the range of the badge from the raw YAML of the default branch.</summary>
   /// <param name="yaml">The raw YAML, or <see langword="null" />.</param>
   /// <returns>The range named by the YAML, or <see langword="null" /> for <c>[70, 100]</c>.</returns>
@@ -95,8 +100,11 @@ internal sealed class GetBadgeQueryHandler(
   {
     ArgumentNullException.ThrowIfNull(query);
 
-    // The gate leaves the scope unset for an organization that is not active: nothing of it is read.
+    // The gate leaves the scope unset for an organization that is not active: nothing of it is read. A control character
+    // names no branch nor flag, and PostgreSQL refuses a NUL: nothing is read either.
     if (!organization.IsKnown
+        || HasControlCharacter(query.Branch)
+        || HasControlCharacter(query.Flag)
         || !RepositorySlug.TryFromAddress(query.Owner, query.Name, out var slug)
         || await repositories.FindBySlugAsync(slug, cancellationToken).ConfigureAwait(false) is not { } repository
         || !MayRead(repository, query.Token))
