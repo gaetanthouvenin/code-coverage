@@ -95,7 +95,7 @@ public sealed class BadgesControllerTests
     response.Content.Headers.ContentType!.MediaType.ShouldBe("image/svg+xml");
     response.Headers.CacheControl!.NoCache.ShouldBeTrue();
     response.Headers.ETag.ShouldNotBeNull();
-    svg.ShouldContain(">85%<");
+    svg.ShouldContain(">86%<");
     A.CallTo(() => _branches.FindAsync(5, "feature/x", A<CancellationToken>._)).MustHaveHappened();
   }
 
@@ -111,7 +111,7 @@ public sealed class BadgesControllerTests
 
     using var response = await client.GetAsync(new Uri("/gh/octo-org/app/branch/fix%2541/graph/badge.svg", UriKind.Relative), Ct);
 
-    (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">85%<");
+    (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">86%<");
     A.CallTo(() => _branches.FindAsync(5, "fixA", A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -142,18 +142,18 @@ public sealed class BadgesControllerTests
     using var response = await client.GetAsync(new Uri(path, UriKind.Relative), Ct);
 
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
-    (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">85%<");
+    (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">86%<");
   }
 
-  // Rounded down (decision 13); the text is the number alone, as the badge.txt of Codecov (review R10); an invalid
+  // Rounded to the nearest as Codecov; the text is the number alone, as the badge.txt of Codecov (review R10); an invalid
   // precision falls back to 0 (a named difference with Codecov).
   [Theory]
-  [InlineData("", "85")]
-  [InlineData("?precision=1", "85.6")]
-  [InlineData("?precision=2", "85.67")]
-  [InlineData("?precision=7", "85")]
-  [InlineData("?precision=abc", "85")]
-  public async Task Get_Text_ShouldRoundDown(string query, string expected)
+  [InlineData("", "86")]
+  [InlineData("?precision=1", "85.7")]
+  [InlineData("?precision=2", "85.68")]
+  [InlineData("?precision=7", "86")]
+  [InlineData("?precision=abc", "86")]
+  public async Task Get_Text_ShouldRoundToTheNearest(string query, string expected)
   {
     using var client = Client();
 

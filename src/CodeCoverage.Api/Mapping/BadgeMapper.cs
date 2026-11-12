@@ -32,6 +32,9 @@ internal static class BadgeMapper
   /// <summary>The largest number of decimals shown.</summary>
   public const int MaxPrecision = 2;
 
+  /// <summary>The format that writes the exact binary value of a coverage, which never exceeds 100, within a decimal.</summary>
+  private const string ExactFormat = "F24";
+
   #endregion
 
   #region Methods
@@ -114,7 +117,10 @@ internal static class BadgeMapper
     await sender.Send(new ImportBadgeTokenCommand(AddressSegments.ToRepositoryForge(forge), owner, repo, request.Value), cancellationToken).ConfigureAwait(false);
   }
 
-  /// <summary>Writes the coverage of a badge, rounded down (decision 13; Codecov rounds to the nearest, a named difference).</summary>
+  /// <summary>
+  ///   Writes the coverage of a badge rounded to the nearest at the precision asked, as Codecov writes it with
+  ///   <c>"%.{p}f" % coverage</c>: the value is read as a binary double, and an exact tie goes to the even digit.
+  /// </summary>
   /// <param name="badge">The badge.</param>
   /// <param name="precision">The number of decimals.</param>
   /// <returns>The coverage without a percent sign, or <see langword="null" /> when it is unknown.</returns>
@@ -125,10 +131,11 @@ internal static class BadgeMapper
       return null;
     }
 
-    var scale = (decimal)Math.Pow(10, precision);
-    var floored = Math.Floor(coverage * scale) / scale;
+    // The exact decimal expansion of the double, cut far below any shown digit, keeps the ties of Python formatting.
+    var exact = decimal.Parse(((double)coverage).ToString(ExactFormat, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture);
+    var rounded = Math.Round(exact, precision, MidpointRounding.ToEven);
 
-    return floored.ToString("F" + precision.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+    return rounded.ToString("F" + precision.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
   }
 
   /// <summary>Reads the precision asked: 0, 1 or 2; anything else is the default, a named difference with Codecov.</summary>

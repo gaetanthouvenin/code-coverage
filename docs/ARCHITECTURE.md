@@ -1707,7 +1707,7 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 ### 11.2 Badge (`GetBadgeQuery` puis `Badge`, `BadgeSvgRenderer` dans Api)
 
 - **Routes :** `/gh/...` et `/github/...`, `graph` ou `graphs`, `.svg` ou `.txt`, et `/api/v1/badges/{forge}/{owner}/{repo}.{ext}`. Paramètres : `token`, `flag`, `branch`, `precision` (0, 1 ou 2, défaut 0). Seule la route `/api/v1/badges` figure dans le document OpenAPI ; les routes Codecov en sont exclues. Une autre extension n'est pas une adresse de badge : 404 ordinaire.
-- **Valeur affichée :** arrondie vers le bas à la précision demandée (`85,678` donne `85%`, `85.6%` ou `85.67%`). Le texte (`.txt`) est le nombre seul, sans `%`, comme le `badge.txt` de Codecov (`85`, `85.6`) ; `unknown` quand la couverture est inconnue.
+- **Valeur affichée :** arrondie au plus proche à la précision demandée, comme le `"%.{p}f" % coverage` de Codecov (`85,678` donne `86%`, `85.7%` ou `85.68%`) : la valeur est lue comme un double binaire et une égalité exacte va au chiffre pair, comme en Python ; la couleur se calcule sur la couverture non arrondie. Le texte (`.txt`) est le nombre seul, sans `%`, comme le `badge.txt` de Codecov (`86`, `85.7`) ; `unknown` quand la couverture est inconnue.
 - **Valeur :** `CommitFlagTotals` du `CoveredCommitId` de la branche (branche par défaut si aucune n'est donnée), pour le flag demandé (`''` sans flag).
 - **Dépôt privé :** `token` doit égaler le jeton de badge (comparaison en temps constant). Un jeton importé depuis Codecov rend le changement d'URL du README possible en changeant seulement l'hôte.
 - **Dépôt, branche, flag ou jeton inconnu :** badge gris « unknown » avec **200, jamais 404 ni 403**, pour ne rien révéler.
@@ -1719,7 +1719,6 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 - **En-têtes :** `Content-Type: image/svg+xml` (ou `text/plain`), `Cache-Control: no-cache, max-age=0, must-revalidate`, `ETag` = hash(format, libellé, valeur affichée, couleur), 304 sur correspondance (`If-None-Match`, liste, `W/` et `*` acceptés).
 - **Écarts avec Codecov, non configurables :**
   - une `precision` invalide (autre que 0, 1 ou 2) donne la précision par défaut avec 200, là où Codecov répond 404 ; un badge ne répond jamais 404 pour un paramètre ;
-  - la valeur est arrondie vers le bas, là où Codecov la formate avec `"%.{p}f"` (arrondi au plus proche : `85,678` donne `86` chez Codecov, `85` ici) ;
   - le `.txt` d'une couverture inconnue est `unknown`, là où Codecov ne renvoie pas de nombre (`format_coverage_precision` rend `None`).
 
 ### 11.3 Historique (`GetCoverageHistoryQuery` puis `CoverageSeries`)
