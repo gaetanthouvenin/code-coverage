@@ -41,6 +41,25 @@ internal sealed class GitCommitRepository(CodeCoverageDbContext context) : IGitC
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<GitCommit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(shas);
+
+    if (shas.Count == 0)
+    {
+      return [];
+    }
+
+    var wanted = shas.Distinct().ToList();
+
+    return await context.GitCommits
+                        .AsNoTracking()
+                        .Where(g => g.RepositoryId == repositoryId && wanted.Contains(g.Sha))
+                        .ToListAsync(cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   /// <exception cref="NotFoundException">The repository is not one of the organization of the scope.</exception>
   /// <remarks>
   ///   Each row is saved alone: in a batch, the one row a concurrent call added would refuse all the others.

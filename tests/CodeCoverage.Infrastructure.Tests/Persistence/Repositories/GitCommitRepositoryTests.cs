@@ -176,6 +176,35 @@ public sealed class GitCommitRepositoryTests(DatabaseFixture database)
     (await new GitCommitRepository(first).FindAsync(seed.FirstRepository, Head, Ct)).ShouldBeNull();
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByShas_ShouldReturnTheCachedOnesOnly(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var commits = new GitCommitRepository(context);
+    await commits.AddMissingAsync(seed.FirstRepository, [Info(Head), Info(NewHead)], Now, Ct);
+
+    var listed = await commits.ListByShasAsync(seed.FirstRepository, [Head, Third, Head], Ct);
+
+    listed.Select(static g => g.Sha).ShouldBe([Head]);
+    (await commits.ListByShasAsync(seed.FirstRepository, [], Ct)).ShouldBeEmpty();
+  }
+
+  // The same SHA cached by the other organization is not read, even through its repository identifier.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListByShas_OtherOrganization_ShouldReturnNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await AddAsync(seed.Organizations, seed.Organizations.SecondId, seed.SecondRepository);
+
+    await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    (await new GitCommitRepository(first).ListByShasAsync(seed.SecondRepository, [Head], Ct)).ShouldBeEmpty();
+    (await new GitCommitRepository(first).ListByShasAsync(seed.FirstRepository, [Head], Ct)).ShouldBeEmpty();
+  }
+
   private static ForgeCommitInfo Info(GitSha sha) => new(sha, [], "message", null, Now);
 
   private static async Task AddAsync(TwoOrganizationDatabase organizations, long organizationId, long repositoryId)

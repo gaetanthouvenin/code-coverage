@@ -38,6 +38,8 @@ public partial class UiGallerySamples
 
   private bool _dialog;
 
+  private int _page = 1;
+
   #endregion
 
   #region Parameters
@@ -112,6 +114,8 @@ public partial class UiGallerySamples
   private void Fail() => _fail = true;
 
   private void OpenDialog() => _dialog = true;
+
+  private void ChangePage(int page) => _page = page;
 
   private void CloseDialog() => _dialog = false;
 
