@@ -99,6 +99,26 @@ internal static class DisplayFormatter
     };
   }
 
+  /// <summary>Writes how long until something happens: minutes, then hours.</summary>
+  /// <param name="at">When it happens.</param>
+  /// <param name="now">The current time.</param>
+  /// <param name="localizer">The texts of the console.</param>
+  /// <returns>The time left, e.g. « 38 min ».</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="localizer" /> is <see langword="null" />.</exception>
+  public static string Until(DateTimeOffset at, DateTimeOffset now, IStringLocalizer localizer)
+  {
+    ArgumentNullException.ThrowIfNull(localizer);
+
+    var left = at - now;
+
+    return left switch
+    {
+      { TotalMinutes: < 1 } => localizer["Until_Soon"],
+      { TotalHours: < 1 } => localizer["Until_Minutes", (int)left.TotalMinutes],
+      var _ => localizer["Until_Hours", (int)left.TotalHours],
+    };
+  }
+
   /// <summary>Replaces the invariant decimal point of a formatted number by the one of the culture.</summary>
   /// <param name="invariant">The number, as <see cref="CoverageMath" /> writes it.</param>
   /// <param name="culture">The culture.</param>

@@ -226,6 +226,9 @@
   <data name="Age_Minutes" xml:space="preserve"><value>il y a {0} min</value></data>
   <data name="Age_Hours" xml:space="preserve"><value>il y a {0} h</value></data>
   <data name="Age_Days" xml:space="preserve"><value>il y a {0} j</value></data>
+  <data name="Until_Soon" xml:space="preserve"><value>moins d’1 min</value></data>
+  <data name="Until_Minutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Until_Hours" xml:space="preserve"><value>{0} h</value></data>
   <data name="Column_PullRequest" xml:space="preserve"><value>Pull request</value></data>
   <data name="Column_Patch" xml:space="preserve"><value>Patch</value></data>
   <data name="Column_ProjectDelta" xml:space="preserve"><value>Δ projet</value></data>
@@ -319,4 +322,33 @@
   <data name="AuditAction_ApiTokens_Create" xml:space="preserve"><value>Jeton API d’instance créé</value></data>
   <data name="AuditAction_ApiTokens_Revoke" xml:space="preserve"><value>Jeton API d’instance révoqué</value></data>
   <data name="AuditAction_Jobs_Retry" xml:space="preserve"><value>Job relancé</value></data>
+  <data name="AdminOperations_Subtitle" xml:space="preserve"><value>File, workers, webhooks et quota GitHub. Métadonnées seulement.</value></data>
+  <data name="AdminOperations_Denied" xml:space="preserve"><value>Seuls les administrateurs de l’instance peuvent consulter son exploitation.</value></data>
+  <data name="Action_Refresh" xml:space="preserve"><value>Actualiser</value></data>
+  <data name="Operations_Oldest" xml:space="preserve"><value>Plus ancien :</value></data>
+  <data name="Operations_Seconds" xml:space="preserve"><value>{0} s</value></data>
+  <data name="Operations_DeadJobs" xml:space="preserve"><value>Jobs morts</value></data>
+  <data name="Operations_FailedJobs" xml:space="preserve"><value>{0} en échec définitif</value></data>
+  <data name="Operations_GitHubQuota" xml:space="preserve"><value>Quota GitHub</value></data>
+  <data name="Operations_ResetsIn" xml:space="preserve"><value>Réinitialisé dans</value></data>
+  <data name="Operations_QuotaRefilled" xml:space="preserve"><value>Fenêtre recommencée depuis la dernière réponse</value></data>
+  <data name="Operations_NoQuota" xml:space="preserve"><value>Aucun quota signalé pour l’instant</value></data>
+  <data name="Operations_Workers" xml:space="preserve"><value>Workers</value></data>
+  <data name="Operations_NoHeartbeat" xml:space="preserve"><value>Silencieux</value></data>
+  <data name="Operations_LastHeartbeat" xml:space="preserve"><value>Dernier heartbeat :</value></data>
+  <data name="Operations_FailedAndDead" xml:space="preserve"><value>Jobs en échec ou morts</value></data>
+  <data name="Operations_NoFailedJob" xml:space="preserve"><value>Aucun job en échec</value></data>
+  <data name="Operations_Attempts" xml:space="preserve"><value>Tentatives</value></data>
+  <data name="Operations_Dead" xml:space="preserve"><value>Mort</value></data>
+  <data name="Operations_Failed" xml:space="preserve"><value>En échec</value></data>
+  <data name="Operations_Retried" xml:space="preserve"><value>Job remis en file</value></data>
+  <data name="Operations_RemainingRequests" xml:space="preserve"><value>Requêtes restantes</value></data>
+  <data name="Operations_Remaining" xml:space="preserve"><value>Restantes</value></data>
+  <data name="Operations_Limit" xml:space="preserve"><value>Limite</value></data>
+  <data name="Operations_Webhooks" xml:space="preserve"><value>Webhooks GitHub</value></data>
+  <data name="Operations_WebhooksSub" xml:space="preserve"><value>Dernière livraison par événement</value></data>
+  <data name="Operations_NoWebhook" xml:space="preserve"><value>Aucune livraison reçue pour l’instant.</value></data>
+  <data name="Operations_Event" xml:space="preserve"><value>Événement</value></data>
+  <data name="Operations_WorkerHeartbeats" xml:space="preserve"><value>Heartbeats des workers</value></data>
+  <data name="Operations_NoWorker" xml:space="preserve"><value>Aucun worker n’a battu ces dernières 24 heures.</value></data>
 </root>

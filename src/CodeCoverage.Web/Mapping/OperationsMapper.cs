@@ -6,8 +6,14 @@
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Operations.Commands.RetryJob;
+using CodeCoverage.Application.Features.Operations.Queries.GetSystemStatus;
 using CodeCoverage.Application.Features.Operations.Queries.ListAuditEntries;
+using CodeCoverage.Application.Features.Operations.Queries.ListJobs;
+using CodeCoverage.Application.Features.Operations.Queries.ListWebhookDeliveries;
+using CodeCoverage.Application.Features.Organizations.Queries.ListOrganizations;
 using CodeCoverage.Domain.Audit;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Web.ViewModels.Operations;
 
 namespace CodeCoverage.Web.Mapping;
@@ -22,6 +28,9 @@ internal static class OperationsMapper
 
   /// <summary>The value of the filter that keeps every family.</summary>
   public const string AllFamilies = "all";
+
+  /// <summary>How long a worker may stay silent before it shows as not beating: the threshold of the suggested alert.</summary>
+  public static readonly TimeSpan HeartbeatThreshold = TimeSpan.FromMinutes(2);
 
   // The actions with a label of their own; any other one is shown with its raw code.
   private static readonly HashSet<string> LabelledActions = new(StringComparer.Ordinal)
@@ -78,6 +87,77 @@ internal static class OperationsMapper
     var entries = await sender.Send(query, cancellationToken).ConfigureAwait(false);
 
     return new AuditPageViewModel([.. entries.Items.Select(ToViewModel)], entries.Page, entries.PageSize, entries.TotalCount);
+  }
+
+  /// <summary>
+  ///   Reads the operations of the instance: status, failed and dead jobs (with the login of their organization), the
+  ///   latest delivery of each webhook event, workers and quotas; metadata only.
+  /// </summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="now">The current time, to tell a silent worker.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The operations.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<OperationsViewModel> GetOperationsViewModelAsync(this ISender sender, DateTimeOffset now, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var status = await sender.Send(new GetSystemStatusQuery(), cancellationToken).ConfigureAwait(false);
+    var dead = await sender.Send(new ListJobsQuery(JobState.Dead), cancellationToken).ConfigureAwait(false);
+    var failed = await sender.Send(new ListJobsQuery(JobState.Failed), cancellationToken).ConfigureAwait(false);
+    var deliveries = await sender.Send(new ListWebhookDeliveriesQuery(ListWebhookDeliveriesQuery.MaxCount), cancellationToken).ConfigureAwait(false);
+    var organizations = (await sender.Send(new ListOrganizationsQuery(), cancellationToken).ConfigureAwait(false))
+                        .ToDictionary(static o => o.Organization.Id, static o => o.Organization.Login);
+
+    return new OperationsViewModel(
+      status.Queued,
+      status.Running,
+      status.Failed,
+      status.Dead,
+      status.OldestQueuedAge,
+      status.WorkerLastSeenAt,
+      [
+        .. dead.Items.Concat(failed.Items)
+               .OrderByDescending(static j => j.Id)
+               .Select(j => new JobRowViewModel(
+                         j.Id,
+                         j.Type,
+                         j.OrganizationId is { } id ? organizations.GetValueOrDefault(id) : null,
+                         j.State is JobState.Dead,
+                         j.Attempts,
+                         j.MaxAttempts,
+                         j.CompletedAt ?? j.CreatedAt)),
+      ],
+      [
+        .. deliveries.GroupBy(static d => d.Event, StringComparer.Ordinal)
+                     .Select(static g => g.MaxBy(static d => d.ReceivedAt)!)
+                     .OrderByDescending(static d => d.ReceivedAt)
+                     .Select(static d => new WebhookEventViewModel(d.Event, d.ReceivedAt, d.ProcessedAt is not null, d.HasError)),
+      ],
+      [.. status.Workers.Select(w => new WorkerViewModel(w.Host, w.LastBeatAt, now - w.LastBeatAt <= HeartbeatThreshold))],
+      [
+        // The current quotas first, the most consumed first; a quota whose window started again since is refilled, last.
+        .. status.GitHubQuotas.Select(q => new QuotaViewModel(q.Installation, q.Remaining, q.Limit, q.ResetAt, q.ResetAt <= now))
+                 .OrderBy(static q => q.IsExpired)
+                 .ThenBy(static q => q.RemainingPercent ?? double.MaxValue)
+                 .ThenBy(static q => q.Installation, StringComparer.Ordinal),
+      ]
+    );
+  }
+
+  /// <summary>Retries a failed or dead job, under its own organization.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="id">The identifier of the job.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the job is queued again.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> RetryJobAsync(this ISender sender, long id, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    await sender.Send(new RetryJobCommand(id), cancellationToken).ConfigureAwait(false);
+
+    return true;
   }
 
   private static AuditEntryViewModel ToViewModel(AuditEntrySummary entry)

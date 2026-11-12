@@ -1,0 +1,50 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="JobTable.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="jobs">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Operations_FailedAndDead"]</h2></div>
+  @if (Jobs.Count == 0)
+  {
+    <div class="cc-status-page" data-state="nojob"><CcEmptyState Title="@L["Operations_NoFailedJob"]" Icon="CcIconName.Check" /></div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Operations_FailedAndDead"]">
+      <Head>
+        <th>@L["Column_Type"]</th>
+        <th>@L["Column_Organization"]</th>
+        <th>@L["Column_State"]</th>
+        <th>@L["Operations_Attempts"]</th>
+        <th>@L["Column_Date"]</th>
+        <th><span class="cc-sr-only">@L["Column_Actions"]</span></th>
+      </Head>
+      <ChildContent>
+        @foreach (var job in Jobs)
+        {
+          <tr @key="job.Id" data-job="@job.Id">
+            <td><code>@job.Type</code></td>
+            <td>@if (job.Organization is { } login) { @login } else { <span class="cc-dim">@L["Nav_Instance"]</span> }</td>
+            <td>
+              @if (job.IsDead)
+              {
+                <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["Operations_Dead"]</CcBadge>
+              }
+              else
+              {
+                <CcBadge Tone="CcTone.Warning" Icon="CcIconName.Alert">@L["Operations_Failed"]</CcBadge>
+              }
+            </td>
+            <td class="cc-num cc-nowrap">@job.Attempts / @job.MaxAttempts</td>
+            <td class="cc-muted cc-nowrap">@AgeOf(job.At)</td>
+            <td class="cc-r">
+              <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary" Disabled="@Busy" OnClick="() => OnRetry.InvokeAsync(job)">@L["Action_Retry"]</CcButton>
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+  }
+</section>
