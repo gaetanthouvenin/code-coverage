@@ -17,4 +17,7 @@ public enum SettingOrigin
 
   /// <summary>The default of the catalog.</summary>
   Default,
+
+  /// <summary>The value stored for the organization of the page.</summary>
+  Organization,
 }

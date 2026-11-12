@@ -1,0 +1,54 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="OrganizationSettings.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/orgs/{Forge}/{Login}/settings"
+
+<PageTitle>@L["PageTitle_Format", L["OrganizationSettings_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <CcHeader Title="@L["OrganizationSettings_Title"]" Icon="CcIconName.Gear" Subtitle="@L["OrganizationSettings_Subtitle"]" Breadcrumb="Crumbs">
+      <Tabs><OrganizationTabs Forge="@Forge" Login="@Login" /></Tabs>
+    </CcHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Denied)
+    {
+      <div class="cc-panel cc-status-page" data-state="denied">
+        <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["OrganizationSettings_Denied"]</CcEmptyState>
+      </div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Settings is not null)
+    {
+      <section class="cc-panel">
+        <div class="cc-panel__head"><h2 class="cc-panel__title">@L["OrganizationSettings_Panel"]</h2></div>
+        <div class="cc-list">
+          @foreach (var setting in Settings)
+          {
+            <SettingEditor @key="EditorKey(setting)" Setting="setting" Save="SaveAsync" Reset="ResetAsync" OnChanged="LoadAsync" OnDenied="Deny"
+                           OnMissing="Lose" />
+          }
+        </div>
+      </section>
+    }
+  }
+</CcPageContainer>

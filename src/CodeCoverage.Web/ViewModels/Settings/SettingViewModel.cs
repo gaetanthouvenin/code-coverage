@@ -26,7 +26,7 @@ public sealed record SettingViewModel(
   #region Properties
 
   /// <summary>Gets a value indicating whether the value saved from the console can be removed.</summary>
-  public bool CanReset => IsEditable && Origin is SettingOrigin.Database;
+  public bool CanReset => IsEditable && Origin is SettingOrigin.Database or SettingOrigin.Organization;
 
   #endregion
 }
