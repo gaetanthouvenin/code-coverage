@@ -285,4 +285,11 @@
   <data name="Home_NoMatchTitle" xml:space="preserve"><value>No repository matches</value></data>
   <data name="Home_NoMatchText" xml:space="preserve"><value>Change the search or the filter.</value></data>
   <data name="Action_ClearFilters" xml:space="preserve"><value>Clear the filters</value></data>
+  <data name="Tabs_Organization" xml:space="preserve"><value>Organization sections</value></data>
+  <data name="Tab_OrgSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Setting_SourceOrganization" xml:space="preserve"><value>Organization</value></data>
+  <data name="OrganizationSettings_Title" xml:space="preserve"><value>Organization settings</value></data>
+  <data name="OrganizationSettings_Subtitle" xml:space="preserve"><value>Applied to this organization only. No secret is stored here.</value></data>
+  <data name="OrganizationSettings_Panel" xml:space="preserve"><value>Coverage and notifications</value></data>
+  <data name="OrganizationSettings_Denied" xml:space="preserve"><value>Only the administrators of this organization can change its settings.</value></data>
 </root>

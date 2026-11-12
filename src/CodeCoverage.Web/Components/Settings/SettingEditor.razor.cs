@@ -51,9 +51,25 @@ public partial class SettingEditor
   [Parameter]
   public EventCallback OnDenied { get; set; }
 
+  /// <summary>
+  ///   Gets or sets what happens when the server answers that the target of the change no longer exists for the user (an
+  ///   organization suspended, a membership lost): the page shows its inaccessible state. Unset, as on the settings of the
+  ///   instance, nothing more happens.
+  /// </summary>
+  [Parameter]
+  public EventCallback OnMissing { get; set; }
+
   /// <summary>Gets or sets what happens when the user asks to replace the secret of the row.</summary>
   [Parameter]
   public EventCallback<string> OnReplace { get; set; }
+
+  /// <summary>Gets or sets how a value is saved: by default, as a setting of the instance.</summary>
+  [Parameter]
+  public Func<Mediator.ISender, string, string, CancellationToken, Task<bool>>? Save { get; set; }
+
+  /// <summary>Gets or sets how a value is reset: by default, as a setting of the instance.</summary>
+  [Parameter]
+  public Func<Mediator.ISender, string, CancellationToken, Task<bool>>? Reset { get; set; }
 
   #endregion
 
@@ -83,7 +99,7 @@ public partial class SettingEditor
   private CcTone OriginTone =>
     Setting.Origin switch
     {
-      SettingOrigin.Database => CcTone.Info,
+      SettingOrigin.Database or SettingOrigin.Organization => CcTone.Info,
       SettingOrigin.Environment => CcTone.Warning,
       var _ => CcTone.Neutral,
     };
@@ -93,6 +109,7 @@ public partial class SettingEditor
     {
       SettingOrigin.Database => L["Setting_SourceDatabase"],
       SettingOrigin.Environment => L["Setting_SourceEnvironment"],
+      SettingOrigin.Organization => L["Setting_SourceOrganization"],
       var _ => L["Setting_SourceDefault"],
     };
 
@@ -111,12 +128,17 @@ public partial class SettingEditor
 
   #region Methods
 
-  private Task SaveAsync() => SendAsync(L["Setting_Saved"], (sender, ct) => sender.UpdateSettingAsync(Setting.Key, _form.Value, ct));
+  private Task SaveAsync() => SendAsync(L["Setting_Saved"], (sender, ct) => SaveValueAsync(sender, _form.Value, ct));
 
-  private Task ToggleAsync(bool on) => SendAsync(L["Setting_Saved"], (sender, ct) => sender.UpdateSettingAsync(Setting.Key, on ? "true" : "false", ct));
+  private Task ToggleAsync(bool on) => SendAsync(L["Setting_Saved"], (sender, ct) => SaveValueAsync(sender, on ? "true" : "false", ct));
 
   private Task ResetAsync() =>
-    SendAsync(Setting.Kind is SettingEditorKind.Secret ? L["Secret_Cleared"] : L["Setting_Reset"], (sender, ct) => sender.ResetSettingAsync(Setting.Key, ct));
+    SendAsync(
+      Setting.Kind is SettingEditorKind.Secret ? L["Secret_Cleared"] : L["Setting_Reset"],
+      (sender, ct) => Reset is { } reset ? reset(sender, Setting.Key, ct) : sender.ResetSettingAsync(Setting.Key, ct));
+
+  private Task<bool> SaveValueAsync(Mediator.ISender sender, string value, CancellationToken cancellationToken) =>
+    Save is { } save ? save(sender, Setting.Key, value, cancellationToken) : sender.UpdateSettingAsync(Setting.Key, value, cancellationToken);
 
   private Task OnReplaceClickedAsync() => OnReplace.InvokeAsync(Setting.Key);
 
@@ -139,6 +161,10 @@ public partial class SettingEditor
         _form = new SettingForm { Value = Setting.Value ?? string.Empty };
         _editContext = new EditContext(_form);
         await OnDenied.InvokeAsync().ConfigureAwait(true);
+      }
+      else if (result.NotFound)
+      {
+        await OnMissing.InvokeAsync().ConfigureAwait(true);
       }
     }
     finally

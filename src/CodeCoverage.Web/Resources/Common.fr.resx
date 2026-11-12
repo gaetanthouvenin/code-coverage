@@ -285,4 +285,11 @@
   <data name="Home_NoMatchTitle" xml:space="preserve"><value>Aucun dépôt ne correspond</value></data>
   <data name="Home_NoMatchText" xml:space="preserve"><value>Modifiez la recherche ou le filtre.</value></data>
   <data name="Action_ClearFilters" xml:space="preserve"><value>Effacer les filtres</value></data>
+  <data name="Tabs_Organization" xml:space="preserve"><value>Sections de l’organisation</value></data>
+  <data name="Tab_OrgSettings" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="Setting_SourceOrganization" xml:space="preserve"><value>Organisation</value></data>
+  <data name="OrganizationSettings_Title" xml:space="preserve"><value>Paramètres de l’organisation</value></data>
+  <data name="OrganizationSettings_Subtitle" xml:space="preserve"><value>Appliqués à cette organisation seulement. Aucun secret n’y est stocké.</value></data>
+  <data name="OrganizationSettings_Panel" xml:space="preserve"><value>Couverture et notifications</value></data>
+  <data name="OrganizationSettings_Denied" xml:space="preserve"><value>Seuls les administrateurs de cette organisation peuvent modifier ses paramètres.</value></data>
 </root>
