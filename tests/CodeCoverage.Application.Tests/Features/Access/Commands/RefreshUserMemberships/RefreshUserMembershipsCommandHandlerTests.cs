@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
+using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Organizations;
@@ -60,16 +61,9 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     A.CallTo(() => _memberships.ReplaceAsync(UserId, A<IReadOnlyDictionary<long, OrganizationRole>>._, Now, A<CancellationToken>._))
      .Invokes((long _, IReadOnlyDictionary<long, OrganizationRole> roles, DateTimeOffset _, CancellationToken _) => _saved = roles);
 
-    _handler = new RefreshUserMembershipsCommandHandler(
-      _users,
-      _tokens,
-      _userGateway,
-      _appGateway,
-      _directory,
-      _memberships,
-      clock,
-      NullLogger<RefreshUserMembershipsCommandHandler>.Instance
-    );
+    var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
+
+    _handler = new RefreshUserMembershipsCommandHandler(_users, _tokens, _userGateway, updater);
   }
 
   #endregion

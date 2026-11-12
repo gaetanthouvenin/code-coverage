@@ -32,6 +32,7 @@ public static partial class DependencyInjection
     services.AddOptions<ProcessingOptions>().BindConfiguration(ProcessingOptions.SectionName).ValidateOnStart();
     services.AddOptions<NotificationOptions>().BindConfiguration(NotificationOptions.SectionName).ValidateOnStart();
     services.AddOptions<AccessOptions>().BindConfiguration(AccessOptions.SectionName).ValidateOnStart();
+    services.AddOptions<BootstrapOptions>().BindConfiguration(BootstrapOptions.SectionName);
     services.AddOptions<BadgeOptions>().BindConfiguration(BadgeOptions.SectionName).ValidateOnStart();
     services.AddOptions<RetentionOptions>().BindConfiguration(RetentionOptions.SectionName).ValidateOnStart();
 
