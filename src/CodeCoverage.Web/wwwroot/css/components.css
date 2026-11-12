@@ -1963,3 +1963,20 @@ code {
   color: var(--cc-err-fg);
   font-weight: 600;
 }
+
+/* The thumbnail of a row (M3.30): the icon of a pull request, a repository or a delivery. */
+.cc-thumb {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--cc-card-2);
+  color: var(--cc-fg-2);
+}
+
+.cc-thumb .cc-icon {
+  width: 18px;
+  height: 18px;
+}

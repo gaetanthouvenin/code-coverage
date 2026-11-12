@@ -226,4 +226,13 @@
   <data name="Age_Minutes" xml:space="preserve"><value>il y a {0} min</value></data>
   <data name="Age_Hours" xml:space="preserve"><value>il y a {0} h</value></data>
   <data name="Age_Days" xml:space="preserve"><value>il y a {0} j</value></data>
+  <data name="Column_PullRequest" xml:space="preserve"><value>Pull request</value></data>
+  <data name="Column_Patch" xml:space="preserve"><value>Patch</value></data>
+  <data name="Column_ProjectDelta" xml:space="preserve"><value>Δ projet</value></data>
+  <data name="Pull_Open" xml:space="preserve"><value>Ouverte</value></data>
+  <data name="Pull_Merged" xml:space="preserve"><value>Fusionnée</value></data>
+  <data name="Pull_Closed" xml:space="preserve"><value>Fermée</value></data>
+  <data name="Filter_All" xml:space="preserve"><value>Tous</value></data>
+  <data name="Pulls_EmptyTitle" xml:space="preserve"><value>Aucune pull request</value></data>
+  <data name="Pulls_EmptyText" xml:space="preserve"><value>Les pull requests apparaissent ici lorsque GitHub les signale.</value></data>
 </root>
