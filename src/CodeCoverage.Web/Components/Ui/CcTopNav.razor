@@ -6,16 +6,19 @@
 
 <div class="@CssClass">
   <header class="cc-topnav__bar">
-    <a class="cc-topnav__brand" href="@HomeHref" aria-label="@HomeLabel">
-      <span class="cc-topnav__brand-mark" aria-hidden="true">
-        <span class="cc-topnav__brand-bar"></span>
-        <span class="cc-topnav__brand-bar"></span>
-        <span class="cc-topnav__brand-bar"></span>
-        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--partial"></span>
-        <span class="cc-topnav__brand-bar cc-topnav__brand-bar--miss"></span>
-      </span>
-      @EffectiveProductName
-    </a>
+    <div class="cc-topnav__start">
+      <a class="cc-topnav__brand" href="@HomeHref" aria-label="@HomeLabel">
+        <span class="cc-topnav__brand-mark" aria-hidden="true">
+          <span class="cc-topnav__brand-bar"></span>
+          <span class="cc-topnav__brand-bar"></span>
+          <span class="cc-topnav__brand-bar"></span>
+          <span class="cc-topnav__brand-bar cc-topnav__brand-bar--partial"></span>
+          <span class="cc-topnav__brand-bar cc-topnav__brand-bar--miss"></span>
+        </span>
+        @EffectiveProductName
+      </a>
+      @Start
+    </div>
 
     <nav class="cc-topnav__tabs" aria-label="@L["MainNavigation"]">
       @foreach (var item in Items)
@@ -59,6 +62,7 @@
   <nav id="@_mobileId"
        class="@(_menuOpen ? "cc-topnav__mobile cc-topnav__mobile--open" : "cc-topnav__mobile")"
        aria-label="@L["MobileNavigation"]">
+    @Start
     @foreach (var item in Items)
     {
       var active = CcNavMatcher.IsActive(Navigation, item);

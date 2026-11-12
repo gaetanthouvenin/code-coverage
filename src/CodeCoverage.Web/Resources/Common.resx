@@ -48,6 +48,23 @@
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>The commit to notify no longer exists.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Repositories</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Repositories</value></data>
+  <data name="Nav_Organization" xml:space="preserve"><value>Organization</value></data>
+  <data name="Nav_Instance" xml:space="preserve"><value>Instance</value></data>
+  <data name="Nav_Account" xml:space="preserve"><value>My account</value></data>
+  <data name="Org_Switcher" xml:space="preserve"><value>Organization</value></data>
+  <data name="Org_All" xml:space="preserve"><value>All organizations</value></data>
+  <data name="Org_Choose" xml:space="preserve"><value>Choose an organization</value></data>
+  <data name="Role_Participant" xml:space="preserve"><value>Participant</value></data>
+  <data name="Role_OrganizationAdmin" xml:space="preserve"><value>Organization admin</value></data>
+  <data name="Role_InstanceAdmin" xml:space="preserve"><value>Instance admin</value></data>
+  <data name="Tabs_Repository" xml:space="preserve"><value>Repository sections</value></data>
+  <data name="Tab_Overview" xml:space="preserve"><value>Overview</value></data>
+  <data name="Tab_Commits" xml:space="preserve"><value>Commits</value></data>
+  <data name="Tab_Pulls" xml:space="preserve"><value>Pull requests</value></data>
+  <data name="Forge_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="Forge_AzureDevOps" xml:space="preserve"><value>Azure DevOps</value></data>
+  <data name="Forge_Bitbucket" xml:space="preserve"><value>Bitbucket</value></data>
+  <data name="Forge_GitLab" xml:space="preserve"><value>GitLab</value></data>
   <data name="NotFound_Description" xml:space="preserve"><value>The address matches no page. Check the link, or start again from the repositories.</value></data>
   <data name="NotFound_Title" xml:space="preserve"><value>Page not found</value></data>
   <data name="Organization.InvalidAccountId" xml:space="preserve"><value>The account identifier is required, and cannot be that long.</value></data>

@@ -6,10 +6,16 @@
 
 using Bunit;
 
+using Mediator;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
+using CodeCoverage.Application.Features.Access.Queries.GetCurrentUserAccess;
+using CodeCoverage.Application.Features.Organizations.Queries.ListMyOrganizations;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Users;
 using CodeCoverage.Web.Components.Layout;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
@@ -18,7 +24,49 @@ namespace CodeCoverage.Web.Tests.Components.Layout;
 
 public sealed class MainLayoutTests : UiTestContext
 {
+  #region Fields
+
+  private readonly ISender _sender = A.Fake<ISender>();
+
+  #endregion
+
+  #region Ctors
+
+  public MainLayoutTests()
+  {
+    Services.AddFakeSenderRunner(_sender);
+  }
+
+  #endregion
+
   #region Methods
+
+  // Signed in, the bar shows what the user administers, read once through the runner.
+  [Fact]
+  public void Render_SignedIn_ShouldShowTheNavigationOfTheUser()
+  {
+    var user = AppUser.Create(Forge.GitHub, "583231", "octocat", null);
+    A.CallTo(() => _sender.Send(A<GetCurrentUserAccessQuery>._, A<CancellationToken>._)).Returns(new ValueTask<UserAccess>(new UserAccess(user, true)));
+    A.CallTo(() => _sender.Send(A<ListMyOrganizationsQuery>._, A<CancellationToken>._)).Returns(new ValueTask<IReadOnlyList<MemberOrganization>>([]));
+    AddAuthorization().SetAuthorized("octocat");
+
+    var cut = Render<MainLayout>(p => p.Add(l => l.Body, Page(() => false)));
+
+    cut.WaitForAssertion(() => cut.Find(".cc-user-menu__name").TextContent.ShouldBe("octocat"));
+    cut.FindAll(".cc-topnav__tabs a").Count.ShouldBe(3);
+  }
+
+  // Signed out (an error page), nothing is read.
+  [Fact]
+  public void Render_SignedOut_ShouldReadNothing()
+  {
+    AddAuthorization();
+
+    var cut = Render<MainLayout>(p => p.Add(l => l.Body, Page(() => false)));
+
+    cut.FindAll(".cc-user-menu").ShouldBeEmpty();
+    A.CallTo(_sender).MustNotHaveHappened();
+  }
 
   [Fact]
   public void Render_ShouldShowTheShellWithTheNavigationAndThePage()

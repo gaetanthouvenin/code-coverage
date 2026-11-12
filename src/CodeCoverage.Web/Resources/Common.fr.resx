@@ -48,6 +48,23 @@
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>Le commit à notifier n’existe plus.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Dépôts</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Dépôts</value></data>
+  <data name="Nav_Organization" xml:space="preserve"><value>Organisation</value></data>
+  <data name="Nav_Instance" xml:space="preserve"><value>Instance</value></data>
+  <data name="Nav_Account" xml:space="preserve"><value>Mon compte</value></data>
+  <data name="Org_Switcher" xml:space="preserve"><value>Organisation</value></data>
+  <data name="Org_All" xml:space="preserve"><value>Toutes les organisations</value></data>
+  <data name="Org_Choose" xml:space="preserve"><value>Choisir une organisation</value></data>
+  <data name="Role_Participant" xml:space="preserve"><value>Participant</value></data>
+  <data name="Role_OrganizationAdmin" xml:space="preserve"><value>Administrateur d’organisation</value></data>
+  <data name="Role_InstanceAdmin" xml:space="preserve"><value>Administrateur d’instance</value></data>
+  <data name="Tabs_Repository" xml:space="preserve"><value>Sections du dépôt</value></data>
+  <data name="Tab_Overview" xml:space="preserve"><value>Vue d’ensemble</value></data>
+  <data name="Tab_Commits" xml:space="preserve"><value>Commits</value></data>
+  <data name="Tab_Pulls" xml:space="preserve"><value>Pull requests</value></data>
+  <data name="Forge_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="Forge_AzureDevOps" xml:space="preserve"><value>Azure DevOps</value></data>
+  <data name="Forge_Bitbucket" xml:space="preserve"><value>Bitbucket</value></data>
+  <data name="Forge_GitLab" xml:space="preserve"><value>GitLab</value></data>
   <data name="NotFound_Description" xml:space="preserve"><value>Cette adresse ne correspond à aucune page. Vérifiez le lien, ou repartez de la liste des dépôts.</value></data>
   <data name="NotFound_Title" xml:space="preserve"><value>Page introuvable</value></data>
   <data name="Organization.InvalidAccountId" xml:space="preserve"><value>L’identifiant du compte est obligatoire et ne peut pas être aussi long.</value></data>

@@ -18,7 +18,12 @@ namespace CodeCoverage.Web.Components.Ui.Models;
 ///   How the current address activates the link: <see cref="NavLinkMatch.Prefix" /> (the default)
 ///   also activates it on the pages below its address.
 /// </param>
+/// <param name="Active">
+///   Whether the link is active, when the caller knows it better than the address (an entry that covers several
+///   addresses); <see langword="null" /> lets <paramref name="Match" /> decide.
+/// </param>
 public sealed record CcNavItem(string Href,
                                string Label,
                                CcIconName? Icon = null,
-                               NavLinkMatch Match = NavLinkMatch.Prefix);
+                               NavLinkMatch Match = NavLinkMatch.Prefix,
+                               bool? Active = null);

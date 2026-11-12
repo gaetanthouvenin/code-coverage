@@ -40,5 +40,16 @@ public sealed class CcNavMatcherTests : UiTestContext
     Should.Throw<ArgumentNullException>(() => CcNavMatcher.IsActive(Navigation, null!));
   }
 
+  // An entry that covers several addresses says itself whether it is active.
+  [Theory]
+  [InlineData(true)]
+  [InlineData(false)]
+  public void IsActive_WithAnExplicitState_ShouldFollowIt(bool active)
+  {
+    Navigation.NavigateTo("somewhere/else");
+
+    CcNavMatcher.IsActive(Navigation, new CcNavItem("other", "Other", Active: active)).ShouldBe(active);
+  }
+
   #endregion
 }

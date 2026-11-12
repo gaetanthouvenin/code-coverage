@@ -5,12 +5,13 @@
 // ------------------------------------------------------------------------------------------------
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
-using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Ui;
-using CodeCoverage.Web.Components.Ui.Models;
-using CodeCoverage.Web.Resources;
+using CodeCoverage.Web.Mapping;
+using CodeCoverage.Web.Messaging;
+using CodeCoverage.Web.ViewModels.Access;
 
 namespace CodeCoverage.Web.Components.Layout;
 
@@ -30,31 +31,50 @@ public partial class MainLayout : IDisposable
 
   #endregion
 
+  #region Parameters
+
+  /// <summary>Gets or sets the state of the authentication, cascaded by the router.</summary>
+  [CascadingParameter]
+  public Task<AuthenticationState>? AuthenticationState { get; set; }
+
+  #endregion
+
   #region Injected services
 
   [Inject]
   private NavigationManager Navigation { get; set; } = null!;
 
   [Inject]
-  private IStringLocalizer<Common> L { get; set; } = null!;
+  private UiRequestRunner Runner { get; set; } = null!;
 
   #endregion
 
   #region Properties
 
-  /// <summary>Gets the entries of the main navigation.</summary>
-  /// <remarks>The business sections join with their pages; the home page lists the repositories.</remarks>
-  private IReadOnlyList<CcNavItem> NavItems { get; set; } = [];
+  /// <summary>
+  ///   Gets the navigation of the signed-in user, or <see langword="null" />: signed out, or its reading failed, the bar
+  ///   keeps the entry of the repositories only.
+  /// </summary>
+  private NavigationViewModel? UserNavigation { get; set; }
 
   #endregion
 
   #region Lifecycle
 
   /// <inheritdoc />
-  protected override void OnInitialized()
+  protected override async Task OnInitializedAsync()
   {
-    NavItems = [new CcNavItem(string.Empty, L["Nav_Repositories"])];
     Navigation.LocationChanged += OnLocationChanged;
+
+    // The error pages render this layout too, possibly signed out: nothing is read without a session.
+    if (AuthenticationState is null || (await AuthenticationState.ConfigureAwait(true)).User.Identity is not { IsAuthenticated: true })
+    {
+      return;
+    }
+
+    var result = await Runner.RunAsync(static (sender, ct) => sender.GetNavigationViewModelAsync(ct)).ConfigureAwait(true);
+
+    UserNavigation = result.Succeeded ? result.Value : null;
   }
 
   #endregion
