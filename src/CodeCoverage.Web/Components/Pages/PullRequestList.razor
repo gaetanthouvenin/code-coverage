@@ -1,0 +1,110 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="PullRequestList.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/pulls"
+@using CodeCoverage.Web.Mapping
+
+<PageTitle>@L["PageTitle_Format", L["Tab_Pulls"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@L["Tab_Pulls"]" Crumbs="Crumbs">
+      <Actions>
+        <CcFolderTabs Tabs="StateTabs" Value="@(Pulls?.State ?? StateFilter ?? "open")" ValueChanged="ChangeState" AriaLabel="@L["Column_State"]" />
+      </Actions>
+    </RepositoryHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Pulls is { Rows.Count: 0 })
+    {
+      <div class="cc-panel cc-status-page" data-state="empty">
+        <CcEmptyState Title="@L["Pulls_EmptyTitle"]" Icon="CcIconName.PullRequest">@L["Pulls_EmptyText"]</CcEmptyState>
+      </div>
+    }
+    else if (Pulls is not null)
+    {
+      <section class="cc-panel cc-panel--table">
+        <CcTable AriaLabel="@L["Tab_Pulls"]">
+          <Head>
+            <th>@L["Column_PullRequest"]</th>
+            <th>@L["Column_Author"]</th>
+            <th>@L["Column_State"]</th>
+            <th class="cc-r">@L["Column_Patch"]</th>
+            <th class="cc-r">@L["Column_ProjectDelta"]</th>
+          </Head>
+          <ChildContent>
+            @foreach (var row in Pulls.Rows)
+            {
+              <tr @key="row.Number" data-number="@row.Number">
+                <td class="cc-commit-cell">
+                  <div class="cc-cell">
+                    <span class="cc-thumb" aria-hidden="true"><CcIcon Name="CcIconName.PullRequest" /></span>
+                    <div>
+                      <span class="cc-ellip cc-strong">#@row.Number @row.Title</span>
+                      <span class="cc-dim cc-small cc-mono">@row.HeadBranch → @row.BaseBranch</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="cc-nowrap">@(row.Author ?? DisplayFormatter.Dash)</td>
+                <td>
+                  @switch (row.State)
+                  {
+                    case PullRequestStatus.Merged:
+                      <CcBadge Tone="CcTone.Info">@L["Pull_Merged"]</CcBadge>
+                      break;
+                    case PullRequestStatus.Closed:
+                      <CcBadge>@L["Pull_Closed"]</CcBadge>
+                      break;
+                    default:
+                      <CcBadge Tone="CcTone.Success">@L["Pull_Open"]</CcBadge>
+                      break;
+                  }
+                </td>
+                <td class="cc-r">
+                  @if (row.Patch is { } patch)
+                  {
+                    <span class="cc-num cc-strong">@patch</span>
+                  }
+                  else
+                  {
+                    <CcBadge>@L["Commit_Pending"]</CcBadge>
+                  }
+                </td>
+                <td class="cc-r">
+                  @if (row.Delta is { } delta)
+                  {
+                    <span class="@DeltaClass(row.Trend) cc-num">@delta</span>
+                  }
+                  else
+                  {
+                    <span class="cc-dim">@DisplayFormatter.Dash</span>
+                  }
+                </td>
+              </tr>
+            }
+          </ChildContent>
+        </CcTable>
+        <CcPager Page="Pulls.Page" PageSize="Pulls.PageSize" TotalCount="Pulls.TotalCount" PageChanged="ChangePage" />
+      </section>
+    }
+  }
+</CcPageContainer>

@@ -226,4 +226,13 @@
   <data name="Age_Minutes" xml:space="preserve"><value>{0} min ago</value></data>
   <data name="Age_Hours" xml:space="preserve"><value>{0} h ago</value></data>
   <data name="Age_Days" xml:space="preserve"><value>{0} d ago</value></data>
+  <data name="Column_PullRequest" xml:space="preserve"><value>Pull request</value></data>
+  <data name="Column_Patch" xml:space="preserve"><value>Patch</value></data>
+  <data name="Column_ProjectDelta" xml:space="preserve"><value>Project Δ</value></data>
+  <data name="Pull_Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Pull_Merged" xml:space="preserve"><value>Merged</value></data>
+  <data name="Pull_Closed" xml:space="preserve"><value>Closed</value></data>
+  <data name="Filter_All" xml:space="preserve"><value>All</value></data>
+  <data name="Pulls_EmptyTitle" xml:space="preserve"><value>No pull request</value></data>
+  <data name="Pulls_EmptyText" xml:space="preserve"><value>Pull requests appear here when GitHub reports them.</value></data>
 </root>
