@@ -23,5 +23,11 @@ public static class OperationsErrors
   /// <summary>A page, a page size or a count is out of its bounds. Maps to HTTP 400 Bad Request.</summary>
   public const string InvalidPage = "Operations.InvalidPage";
 
+  /// <summary>The page or the page size of the audit log is out of bounds. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidAuditPage = "Operations.InvalidAuditPage";
+
+  /// <summary>The search or the family of the audit log is not one that can be asked. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidAuditSearch = "Operations.InvalidAuditSearch";
+
   #endregion
 }

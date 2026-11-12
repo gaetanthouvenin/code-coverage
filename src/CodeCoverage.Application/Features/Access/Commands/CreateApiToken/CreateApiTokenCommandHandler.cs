@@ -124,7 +124,17 @@ internal sealed class CreateApiTokenCommandHandler(
       ["Organization"] = organizationId?.ToString(CultureInfo.InvariantCulture) ?? "instance",
     };
 
-    await auditLog.RecordAsync(AuditAction, token.Id.ToString(CultureInfo.InvariantCulture), details, cancellationToken).ConfigureAwait(false);
+    // A token bound to an organization is an event of that organization, never of the instance (fail-closed).
+    var target = token.Id.ToString(CultureInfo.InvariantCulture);
+
+    if (organizationId is { } organization)
+    {
+      await auditLog.RecordAsync(organization, AuditAction, target, details, cancellationToken).ConfigureAwait(false);
+    }
+    else
+    {
+      await auditLog.RecordAsync(AuditAction, target, details, cancellationToken).ConfigureAwait(false);
+    }
 
     return new IssuedApiToken(token, value);
   }

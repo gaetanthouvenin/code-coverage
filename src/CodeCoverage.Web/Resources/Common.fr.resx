@@ -292,4 +292,31 @@
   <data name="OrganizationSettings_Subtitle" xml:space="preserve"><value>Appliqués à cette organisation seulement. Aucun secret n’y est stocké.</value></data>
   <data name="OrganizationSettings_Panel" xml:space="preserve"><value>Couverture et notifications</value></data>
   <data name="OrganizationSettings_Denied" xml:space="preserve"><value>Seuls les administrateurs de cette organisation peuvent modifier ses paramètres.</value></data>
+  <data name="Operations.InvalidAuditPage" xml:space="preserve"><value>La page va de 1 à 21474836, et une page contient de 1 à 100 entrées.</value></data>
+  <data name="Operations.InvalidAuditSearch" xml:space="preserve"><value>Une recherche contient au plus 200 caractères, et la famille doit être l’une de la liste.</value></data>
+  <data name="AdminAudit_Subtitle" xml:space="preserve"><value>Actions au niveau de l’instance seulement.</value></data>
+  <data name="AdminAudit_Events" xml:space="preserve"><value>Événements</value></data>
+  <data name="AdminAudit_Search" xml:space="preserve"><value>Rechercher</value></data>
+  <data name="AdminAudit_User" xml:space="preserve"><value>Utilisateur</value></data>
+  <data name="AdminAudit_Action" xml:space="preserve"><value>Action</value></data>
+  <data name="AdminAudit_Target" xml:space="preserve"><value>Cible</value></data>
+  <data name="AdminAudit_Empty" xml:space="preserve"><value>Aucun événement</value></data>
+  <data name="AdminAudit_Denied" xml:space="preserve"><value>Seuls les administrateurs de l’instance peuvent lire son journal d’audit.</value></data>
+  <data name="AuditFamily_All" xml:space="preserve"><value>Tous les types</value></data>
+  <data name="AuditFamily_Secrets" xml:space="preserve"><value>Secrets</value></data>
+  <data name="AuditFamily_Settings" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="AuditFamily_Organizations" xml:space="preserve"><value>Organisations</value></data>
+  <data name="AuditFamily_Tokens" xml:space="preserve"><value>Jetons</value></data>
+  <data name="AuditFamily_Retries" xml:space="preserve"><value>Relances</value></data>
+  <data name="AuditAction_Settings_ReplaceSecret" xml:space="preserve"><value>Secret remplacé</value></data>
+  <data name="AuditAction_Settings_ClearSecret" xml:space="preserve"><value>Secret effacé</value></data>
+  <data name="AuditAction_Settings_Reset" xml:space="preserve"><value>Paramètre réinitialisé</value></data>
+  <data name="AuditAction_Settings_Update" xml:space="preserve"><value>Paramètre modifié</value></data>
+  <data name="AuditAction_Settings_CompleteSetup" xml:space="preserve"><value>Mise en place terminée</value></data>
+  <data name="AuditAction_Settings_CompleteGitHubAppManifest" xml:space="preserve"><value>App GitHub créée</value></data>
+  <data name="AuditAction_Organization_Admit" xml:space="preserve"><value>Organisation admise</value></data>
+  <data name="AuditAction_Organization_Suspend" xml:space="preserve"><value>Organisation suspendue</value></data>
+  <data name="AuditAction_ApiTokens_Create" xml:space="preserve"><value>Jeton API d’instance créé</value></data>
+  <data name="AuditAction_ApiTokens_Revoke" xml:space="preserve"><value>Jeton API d’instance révoqué</value></data>
+  <data name="AuditAction_Jobs_Retry" xml:space="preserve"><value>Job relancé</value></data>
 </root>

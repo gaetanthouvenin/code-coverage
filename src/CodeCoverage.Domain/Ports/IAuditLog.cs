@@ -43,5 +43,23 @@ public interface IAuditLog
     IReadOnlyDictionary<string, string>? details,
     CancellationToken cancellationToken);
 
+  /// <summary>
+  ///   Records an action done for an organization while the scope has entered none: the entry belongs to that
+  ///   organization, never to the instance (an API token bound to an organization).
+  /// </summary>
+  /// <param name="organizationId">The identifier of the organization.</param>
+  /// <param name="action">The action, e.g. <c>ApiTokens.Create</c>.</param>
+  /// <param name="target">What it was done to.</param>
+  /// <param name="details">Details without secret, or <see langword="null" />.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the entry is saved.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="action" /> or <paramref name="target" /> is <see langword="null" />.</exception>
+  Task RecordAsync(
+    long organizationId,
+    string action,
+    string target,
+    IReadOnlyDictionary<string, string>? details,
+    CancellationToken cancellationToken);
+
   #endregion
 }
