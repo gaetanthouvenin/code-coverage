@@ -1,0 +1,44 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositoryOverview.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}"
+
+<PageTitle>@L["PageTitle_Format", Name]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name"
+                      Subtitle="@Subtitle" />
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Overview is { HasCoverage: false })
+    {
+      <div class="cc-panel cc-status-page" data-state="nodata">
+        <CcEmptyState Title="@L["Overview_NoDataTitle"]" Icon="CcIconName.Upload">@L["Overview_NoDataText"]</CcEmptyState>
+      </div>
+    }
+    else if (Overview is not null)
+    {
+      <CoverageCards Cards="Overview.Cards" />
+    }
+  }
+</CcPageContainer>

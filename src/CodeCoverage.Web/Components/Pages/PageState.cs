@@ -20,4 +20,9 @@ public enum PageState
 
   /// <summary>The reading failed: the page offers to try again.</summary>
   Failed,
+
+  /// <summary>
+  ///   What the address names is unknown or cannot be read: the page shows one state, whatever the cause (ADR-013).
+  /// </summary>
+  Missing,
 }

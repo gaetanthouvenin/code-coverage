@@ -195,4 +195,13 @@
   <data name="Operations.InvalidPage" xml:space="preserve"><value>La page va de 1 à 21474836, et une page contient de 1 à 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>Un jeton de badge contient de 1 à 64 lettres, chiffres, tirets bas ou tirets.</value></data>
   <data name="Repository.InvalidHistory" xml:space="preserve"><value>Un historique demande commit, day ou week, un début avant sa fin, et au plus 20 flags.</value></data>
+  <data name="Inaccessible_Title" xml:space="preserve"><value>Introuvable ou inaccessible</value></data>
+  <data name="Inaccessible_Description" xml:space="preserve"><value>Cette adresse n’existe pas, ou votre compte GitHub ne peut pas la lire.</value></data>
+  <data name="Repository_DefaultBranch" xml:space="preserve"><value>Branche par défaut : {0}</value></data>
+  <data name="Overview_NoDataTitle" xml:space="preserve"><value>Aucun rapport de couverture</value></data>
+  <data name="Overview_NoDataText" xml:space="preserve"><value>Ce dépôt est suivi, et aucun upload n’a été reçu pour sa branche par défaut.</value></data>
+  <data name="Flag_Project" xml:space="preserve"><value>Projet</value></data>
+  <data name="Card_Change30Days" xml:space="preserve"><value>Évolution sur 30 jours</value></data>
+  <data name="Card_CarriedForwardFrom" xml:space="preserve"><value>Reporté de</value></data>
+  <data name="Delta_Points" xml:space="preserve"><value>{0} pt</value></data>
 </root>
