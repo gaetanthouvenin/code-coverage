@@ -51,8 +51,9 @@ public sealed partial class BadgesController(ISender sender, IOptionsMonitor<Bad
   /// <remarks>
   ///   The coverage of the covered head of a branch (the default one unless <c>branch</c> names another) as an SVG badge
   ///   or as text, for the whole project or one <c>flag</c>. A private repository needs its badge <c>token</c>.
-  ///   <c>precision</c> is 0 (the default), 1 or 2 decimals, rounded down; another value gives the default. Never 404
-  ///   nor 403: anything unknown gives the grey « unknown » badge. Answers 304 to a matching <c>If-None-Match</c>.
+  ///   <c>precision</c> is 0 (the default), 1 or 2 decimals, rounded to the nearest as Codecov; another value gives the
+  ///   default. Never 404 nor 403: anything unknown gives the grey « unknown » badge. Answers 304 to a matching
+  ///   <c>If-None-Match</c>.
   /// </remarks>
   /// <param name="forge">The forge of the repository.</param>
   /// <param name="owner">The owner of the repository.</param>
