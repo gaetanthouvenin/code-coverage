@@ -11,6 +11,7 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
@@ -39,6 +40,10 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
   private readonly IOrganizationMembershipRepository _memberships = A.Fake<IOrganizationMembershipRepository>();
 
+  private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
+
+  private readonly List<JobRequest> _queued = [];
+
   private readonly RefreshUserMembershipsCommandHandler _handler;
 
   private IReadOnlyDictionary<long, OrganizationRole>? _saved;
@@ -63,7 +68,9 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
     var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
 
-    _handler = new RefreshUserMembershipsCommandHandler(_users, _tokens, _userGateway, updater);
+    A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).Invokes((JobRequest job, CancellationToken _) => _queued.Add(job)).Returns(1L);
+
+    _handler = new RefreshUserMembershipsCommandHandler(_users, _tokens, _userGateway, updater, _jobQueue);
   }
 
   #endregion
@@ -267,6 +274,31 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
 
     A.CallTo(_memberships).MustNotHaveHappened();
+  }
+
+  // The access to the repositories is an organization table: it is refreshed inside each organization of the user.
+  [Fact]
+  public async Task Handle_LinkedOrganizations_ShouldQueueTheAccessRefreshInEachOfThem()
+  {
+    var first = _directory.Add("1001", "first-org", admitted: true);
+    var second = _directory.Add("2002", "second-org", admitted: true);
+    _directory.Add("3003", "pending-org");
+    Reaches(Installed(42, "1001", "first-org"), Installed(43, "2002", "second-org"), Installed(44, "3003", "pending-org"));
+
+    await HandleAsync();
+
+    _queued.Select(static j => j.OrganizationId).ShouldBe([first.Id, second.Id], ignoreOrder: true);
+    _queued.ShouldAllBe(j => j.Type == JobTypes.RefreshUserAccess && j.LockKey == "user:7" && j.DedupKey == "access:7" && j.Coalesce);
+  }
+
+  [Fact]
+  public async Task Handle_NoMembershipLeft_ShouldQueueNothing()
+  {
+    A.CallTo(() => _tokens.GetTokenAsync(UserId, A<CancellationToken>._)).Throws(new UnauthorizedException("Access.Unauthenticated", "expired"));
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
   }
 
   [Fact]

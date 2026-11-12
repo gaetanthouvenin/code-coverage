@@ -32,6 +32,17 @@ internal static class RepositoryGuards
         throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
       }
     }
+
+    /// <summary>Throws when the user may not read a repository, with the refusal of a missing one (ADR-013).</summary>
+    /// <param name="readable">Whether the user may read the repository.</param>
+    /// <exception cref="NotFoundException"><paramref name="readable" /> is <see langword="false" />.</exception>
+    public static void ThrowIfRepositoryNotReadable([DoesNotReturnIf(false)] bool readable)
+    {
+      if (!readable)
+      {
+        throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
+      }
+    }
   }
 
   #endregion

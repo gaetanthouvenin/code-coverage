@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Web.Configuration.Authentication;
 
@@ -42,7 +43,7 @@ public sealed class TestAuthenticationHandler(IOptionsMonitor<AuthenticationSche
       return await Context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     }
 
-    Context.RequestServices.GetRequiredService<CurrentUserContext>().SetUser(userId, Login, isAdmin: false);
+    Context.RequestServices.GetRequiredService<CurrentUserContext>().SetUser(userId, Login, Forge.GitHub, "583231");
 
     return AuthenticateResult.Success(new AuthenticationTicket(SessionPrincipal.Create(userId, DateTimeOffset.UnixEpoch), SchemeName));
   }

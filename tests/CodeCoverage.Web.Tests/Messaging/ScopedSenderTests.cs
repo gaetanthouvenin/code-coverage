@@ -8,8 +8,10 @@ using System.Runtime.CompilerServices;
 
 using Mediator;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Web.Configuration;
@@ -34,6 +36,8 @@ public sealed class ScopedSenderTests : IAsyncDisposable
   public ScopedSenderTests()
   {
     var services = new ServiceCollection();
+    // The principal reads the lists of administrators from the configuration, which the hosts always register.
+    services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
     services.AddInfrastructure();
     services.AddUiMessaging();
     services.AddScoped<ScopeProbe>();
@@ -74,7 +78,7 @@ public sealed class ScopedSenderTests : IAsyncDisposable
   [Fact]
   public async Task Send_WithCircuitUser_ShouldRunAsThatUser()
   {
-    _circuit.ServiceProvider.GetRequiredService<CurrentUserContext>().SetUser(42, "octocat", isAdmin: true);
+    _circuit.ServiceProvider.GetRequiredService<CurrentUserContext>().SetUser(42, "octocat", Forge.GitHub, "583231");
 
     var probe = await Sender.Send(new ProbeQuery(), Token);
 

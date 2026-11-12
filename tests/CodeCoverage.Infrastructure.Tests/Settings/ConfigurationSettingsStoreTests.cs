@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Identity;
@@ -245,7 +246,7 @@ public sealed class ConfigurationSettingsStoreTests(DatabaseFixture database)
   private static ConfigurationSettingsStore CreateStore(CodeCoverageDbContext context, IConfiguration configuration)
   {
     var user = new CurrentUserContext();
-    user.SetUser(7, "octocat", isAdmin: true);
+    user.SetUser(7, "octocat", Forge.GitHub, "583231");
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now);
 
