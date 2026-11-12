@@ -139,6 +139,22 @@ public interface ICommitReportRepository
     int limit,
     CancellationToken cancellationToken);
 
+  /// <summary>Lists the project totals of the commits finalized on the default branch of some repositories, in one read.</summary>
+  /// <param name="repositoryIds">The identifiers of the repositories.</param>
+  /// <param name="from">The first finalization date read.</param>
+  /// <param name="to">The last finalization date read.</param>
+  /// <param name="limit">The number of totals read at most, the most recently finalized kept.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The totals of the whole project (flag <see cref="CommitFlagTotals.ProjectFlag" />), the most recently finalized first.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repositoryIds" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit" /> is zero or negative.</exception>
+  Task<IReadOnlyList<CommitFlagTotals>> ListDefaultBranchHistoryAsync(
+    IReadOnlyCollection<long> repositoryIds,
+    DateTimeOffset from,
+    DateTimeOffset to,
+    int limit,
+    CancellationToken cancellationToken);
+
   /// <summary>Gets the blob of the merged report of a commit.</summary>
   /// <param name="commitId">The identifier of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>

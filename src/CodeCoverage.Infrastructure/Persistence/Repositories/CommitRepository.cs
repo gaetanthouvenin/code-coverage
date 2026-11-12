@@ -93,6 +93,27 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<Commit>> ListCoveredDefaultHeadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repositoryIds);
+
+    if (repositoryIds.Count == 0)
+    {
+      return [];
+    }
+
+    var wanted = repositoryIds.Distinct().ToList();
+
+    return await (from repository in context.Repositories.AsNoTracking()
+                  where wanted.Contains(repository.Id)
+                  join branch in context.Branches.AsNoTracking()
+                    on new { RepositoryId = repository.Id, Name = repository.DefaultBranch } equals new { branch.RepositoryId, branch.Name }
+                  join commit in context.Commits.AsNoTracking() on branch.CoveredCommitId equals commit.Id
+                  select commit).ToListAsync(cancellationToken)
+                                .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<CommitPage> ListPageAsync(long repositoryId, string? branch, int page, int pageSize, CancellationToken cancellationToken)
   {
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);

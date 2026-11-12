@@ -70,6 +70,28 @@ internal sealed class RepositoryFlagRepository(CodeCoverageDbContext context) : 
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyDictionary<long, IReadOnlyList<string>>> ListByRepositoriesAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repositoryIds);
+
+    if (repositoryIds.Count == 0)
+    {
+      return new Dictionary<long, IReadOnlyList<string>>();
+    }
+
+    var wanted = repositoryIds.Distinct().ToList();
+    var rows = await context.RepositoryFlags
+                            .AsNoTracking()
+                            .Where(f => wanted.Contains(f.RepositoryId))
+                            .Select(static f => new { f.RepositoryId, f.Flag })
+                            .ToListAsync(cancellationToken)
+                            .ConfigureAwait(false);
+
+    return rows.GroupBy(static r => r.RepositoryId)
+               .ToDictionary(static g => g.Key, static g => (IReadOnlyList<string>)[.. g.Select(static r => r.Flag).Order(StringComparer.Ordinal)]);
+  }
+
+  /// <inheritdoc />
   /// <exception cref="NotFoundException">The repository is not one of the organization of the scope.</exception>
   public async Task AddMissingAsync(long repositoryId, IReadOnlyCollection<string> flags, DateTimeOffset at, CancellationToken cancellationToken)
   {

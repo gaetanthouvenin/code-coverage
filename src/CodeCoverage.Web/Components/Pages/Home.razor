@@ -5,9 +5,129 @@
    ---------------------------------------------------------------------------------------------- *@
 
 @page "/"
+@using CodeCoverage.Web.Mapping
 
 <PageTitle>@L["PageTitle_Format", L["Home_Title"]]</PageTitle>
 
 <CcPageContainer>
-  <CcHeader Title="@L["Home_Title"]" Icon="CcIconName.Repo" />
+  <CcHeader Title="@L["Nav_Repositories"]" Icon="CcIconName.Repo" Subtitle="@L["Home_Subtitle"]">
+    <Actions>
+      <CcSearchBar @bind-Value="Filter" Placeholder="@L["Search_Repositories"]" AriaLabel="@L["Search_Repositories"]" />
+      <CcFolderTabs Tabs="StateTabs" Value="@StateFilter" ValueChanged="ChangeState" AriaLabel="@L["Column_State"]" />
+    </Actions>
+  </CcHeader>
+
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Organizations is not { Count: > 0 } || Organizations.All(static o => o.Repositories.Count == 0))
+  {
+    <div class="cc-panel cc-status-page" data-state="empty">
+      <CcEmptyState Title="@L["Home_EmptyTitle"]" Icon="CcIconName.Repo">
+        <ChildContent>@(IsInstanceAdminWithoutOrganization ? L["Home_EmptyInstanceAdmin"] : L["Home_EmptyText"])</ChildContent>
+        <Actions>
+          @if (IsInstanceAdminWithoutOrganization)
+          {
+            <CcButton Variant="CcButtonVariant.Primary" Href="admin/organizations">@L["Nav_Instance"]</CcButton>
+          }
+        </Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (!VisibleOrganizations.Any())
+  {
+    <div class="cc-panel cc-status-page" data-state="nomatch">
+      <CcEmptyState Title="@L["Home_NoMatchTitle"]" Icon="CcIconName.Search">
+        <ChildContent>@L["Home_NoMatchText"]</ChildContent>
+        <Actions><CcButton OnClick="ClearFilters">@L["Action_ClearFilters"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else
+  {
+    @foreach (var (organization, repositories) in VisibleOrganizations)
+    {
+      <section class="cc-panel" @key="organization.ForgeName + organization.Login" data-organization="@organization.Login">
+        <div class="cc-panel__head">
+          <h2 class="cc-panel__title">@organization.Login</h2>
+          <div class="cc-panel__tools"><CcBadge Chip="true">@L["Home_RepositoryCount", repositories.Count]</CcBadge></div>
+        </div>
+        @if (repositories.Count == 0)
+        {
+          <div class="cc-status-page" data-state="empty"><CcEmptyState Title="@L["Home_EmptyTitle"]" Icon="CcIconName.Repo" /></div>
+        }
+        else
+        {
+          <CcTable AriaLabel="@organization.Login">
+            <Head>
+              <th>@L["Column_Repository"]</th>
+              <th>@L["Column_Coverage"]</th>
+              <th>@L["Home_Trend"]</th>
+              <th>@L["Column_LastCommit"]</th>
+              <th>@L["Column_Flags"]</th>
+            </Head>
+            <ChildContent>
+              @foreach (var repository in repositories)
+              {
+                <tr @key="repository.Name" data-repository="@repository.Name" data-active="@(!repository.IsInactive)">
+                  <td>
+                    <div class="cc-cell">
+                      <span class="cc-thumb" aria-hidden="true"><CcIcon Name="CcIconName.Repo" /></span>
+                      <div>
+                        <a class="cc-strong" href="@HrefOf(repository)">@repository.Name</a>
+                        @if (repository.IsInactive)
+                        {
+                          <CcBadge>@L["Repository_Inactive"]</CcBadge>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                  <td><CcCoverageBar Hits="@CoverageOf(repository)" Misses="@MissesOf(repository)" Text="@repository.Coverage" /></td>
+                  <td><CcSparkline Values="TrendOf(repository)" AriaLabel="@TrendLabel(repository)" /></td>
+                  <td class="cc-nowrap">
+                    @if (repository.LastStatus is { } status)
+                    {
+                      <CommitStateBadge Status="status" /> <code>@repository.LastSha</code>
+                      @if (repository.LastAt is { } at)
+                      {
+                        <div class="cc-dim cc-small">@DisplayFormatter.Age(at, Time.GetUtcNow(), L)</div>
+                      }
+                    }
+                    else
+                    {
+                      <span class="cc-dim">—</span>
+                    }
+                  </td>
+                  <td>
+                    @if (repository.Flags.Count == 0)
+                    {
+                      <span class="cc-dim">—</span>
+                    }
+                    else
+                    {
+                      <div class="cc-cluster">
+                        @foreach (var flag in repository.Flags)
+                        {
+                          <CcBadge Tone="CcTone.Info">@flag</CcBadge>
+                        }
+                      </div>
+                    }
+                  </td>
+                </tr>
+              }
+            </ChildContent>
+          </CcTable>
+        }
+      </section>
+    }
+  }
 </CcPageContainer>

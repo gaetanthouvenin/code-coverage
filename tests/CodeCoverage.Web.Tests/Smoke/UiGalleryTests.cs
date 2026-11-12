@@ -55,6 +55,7 @@ public sealed class UiGalleryTests
     html.ShouldContain("role=\"tablist\"");
     html.ShouldContain("class=\"cc-chart\"");
     html.ShouldContain("class=\"cc-panel__foot\"");
+    html.ShouldContain("class=\"cc-spark\"");
     html.ShouldContain("data-theme=\"light\"");
     html.ShouldContain("data-theme=\"dark\"");
   }

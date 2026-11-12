@@ -61,8 +61,9 @@ public partial class RepositoryHeader
   {
     var root = $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}";
 
-    // The owner leads to the repositories of its organization, the repository to its overview.
-    Breadcrumb = [new CcBreadcrumbItem(Owner, $"./?org={Uri.EscapeDataString(Owner)}"), new CcBreadcrumbItem(Name, root), .. Crumbs ?? []];
+    // The owner leads to the repositories of its organization on the home page (?org={forge}/{login}), the repository
+    // to its overview.
+    Breadcrumb = [new CcBreadcrumbItem(Owner, $"./?org={Uri.EscapeDataString($"{Forge}/{Owner}")}"), new CcBreadcrumbItem(Name, root), .. Crumbs ?? []];
   }
 
   #endregion

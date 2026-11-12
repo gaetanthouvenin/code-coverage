@@ -268,4 +268,21 @@
   <data name="Config.UnsupportedPattern" xml:space="preserve"><value>Motif non pris en charge, ignoré :</value></data>
   <data name="Config.ClampedValue" xml:space="preserve"><value>Valeur hors limites, bornée :</value></data>
   <data name="Config.WithoutEffectKey" xml:space="preserve"><value>Clé sans effet, ignorée :</value></data>
+  <data name="Home_Subtitle" xml:space="preserve"><value>Les dépôts que votre compte GitHub peut lire.</value></data>
+  <data name="Search_Repositories" xml:space="preserve"><value>Rechercher un dépôt</value></data>
+  <data name="Filter_Active" xml:space="preserve"><value>Actifs</value></data>
+  <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
+  <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
+  <data name="Column_Repository" xml:space="preserve"><value>Dépôt</value></data>
+  <data name="Column_LastCommit" xml:space="preserve"><value>Dernier commit</value></data>
+  <data name="Home_Trend" xml:space="preserve"><value>30 jours</value></data>
+  <data name="Home_TrendLabel" xml:space="preserve"><value>Tendance sur 30 jours, de {0} % à {1} %</value></data>
+  <data name="Home_TrendNone" xml:space="preserve"><value>Aucune couverture sur 30 jours</value></data>
+  <data name="Home_RepositoryCount" xml:space="preserve"><value>{0} dépôts</value></data>
+  <data name="Home_EmptyTitle" xml:space="preserve"><value>Aucun dépôt</value></data>
+  <data name="Home_EmptyText" xml:space="preserve"><value>Votre compte GitHub ne peut lire aucun dépôt des organisations admises sur cette instance.</value></data>
+  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>Votre compte n’appartient à aucune organisation. L’administration de l’instance n’affiche pas les dépôts des organisations.</value></data>
+  <data name="Home_NoMatchTitle" xml:space="preserve"><value>Aucun dépôt ne correspond</value></data>
+  <data name="Home_NoMatchText" xml:space="preserve"><value>Modifiez la recherche ou le filtre.</value></data>
+  <data name="Action_ClearFilters" xml:space="preserve"><value>Effacer les filtres</value></data>
 </root>

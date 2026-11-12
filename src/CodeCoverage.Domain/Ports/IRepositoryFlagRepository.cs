@@ -22,6 +22,13 @@ public interface IRepositoryFlagRepository
   /// <returns>The flags, case-sensitive, in ordinal order.</returns>
   Task<IReadOnlyList<string>> ListAsync(long repositoryId, CancellationToken cancellationToken);
 
+  /// <summary>Lists the flags known to some repositories, in one read.</summary>
+  /// <param name="repositoryIds">The identifiers of the repositories.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The flags of each repository that has one, case-sensitive, in ordinal order.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repositoryIds" /> is <see langword="null" />.</exception>
+  Task<IReadOnlyDictionary<long, IReadOnlyList<string>>> ListByRepositoriesAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken);
+
   /// <summary>Records the flags of a repository that are not known yet.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="flags">The flags its sessions carry, case-sensitive; the ones already known are left as they are.</param>

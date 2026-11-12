@@ -69,6 +69,13 @@ public interface ICommitRepository
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="page" /> or <paramref name="pageSize" /> is not positive.</exception>
   Task<CommitPage> ListPageAsync(long repositoryId, string? branch, int page, int pageSize, CancellationToken cancellationToken);
 
+  /// <summary>Lists the covered head of the default branch of some repositories, for reading only, in one read.</summary>
+  /// <param name="repositoryIds">The identifiers of the repositories.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>One commit per repository whose default branch is covered, with its project totals; in no particular order.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repositoryIds" /> is <see langword="null" />.</exception>
+  Task<IReadOnlyList<Commit>> ListCoveredDefaultHeadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken);
+
   /// <summary>Lists the commits of a repository that have one of the given SHAs, for reading only.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="shas">The SHAs to look for.</param>
