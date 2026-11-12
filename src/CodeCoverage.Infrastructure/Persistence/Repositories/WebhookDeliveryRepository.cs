@@ -173,7 +173,7 @@ internal sealed class WebhookDeliveryRepository(
                                   d.RepositoryGitHubId,
                                   d.ReceivedAt,
                                   d.ProcessedAt,
-                                  d.Error))
+                                  d.Error != null))
                         .ToListAsync(cancellationToken)
                         .ConfigureAwait(false);
   }

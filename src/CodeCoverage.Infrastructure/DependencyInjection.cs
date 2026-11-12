@@ -87,6 +87,7 @@ public static partial class DependencyInjection
     services.TryAddSingleton(TimeProvider.System);
     services.TryAddSingleton<JobWakeUpSignal>();
     services.TryAddSingleton<JobHeartbeat>();
+    services.TryAddSingleton<WorkerPulse>();
     services.TryAddScoped<IJobDispatcher, JobDispatcher>();
     services.AddHostedService<JobWorker>();
     services.AddHostedService<LeaseSweeper>();
@@ -183,6 +184,8 @@ public static partial class DependencyInjection
     services.TryAddSingleton<JobWakeUpSignal>();
     services.AddScoped<SqlJobQueue>();
     services.AddScoped<IJobQueue>(static sp => sp.GetRequiredService<SqlJobQueue>());
+    services.TryAddSingleton<WorkerPulse>();
+    services.AddScoped<IJobMonitor, SqlJobMonitor>();
     services.AddScoped<ISettingsStore, ConfigurationSettingsStore>();
 
     services.AddOptions<SettingsWatcherOptions>()

@@ -15,7 +15,7 @@ namespace CodeCoverage.Domain.Operations;
 /// <param name="RepositoryGitHubId">The identifier of the repository on GitHub, or <see langword="null" />.</param>
 /// <param name="ReceivedAt">When it was received, in UTC.</param>
 /// <param name="ProcessedAt">When it was handled, in UTC, or <see langword="null" />.</param>
-/// <param name="Error">Why it could not be handled, or <see langword="null" />.</param>
+/// <param name="HasError">Whether it could not be handled; the text of the error is not exposed, it may hold data.</param>
 public sealed record WebhookDeliverySummary(
   string DeliveryId,
   string Event,
@@ -25,4 +25,4 @@ public sealed record WebhookDeliverySummary(
   long? RepositoryGitHubId,
   DateTimeOffset ReceivedAt,
   DateTimeOffset? ProcessedAt,
-  string? Error);
+  bool HasError);
