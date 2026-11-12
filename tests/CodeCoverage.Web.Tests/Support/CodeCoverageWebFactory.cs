@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -12,6 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Serilog;
 
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Users;
 using CodeCoverage.Web.Configuration;
 
 namespace CodeCoverage.Web.Tests.Support;
@@ -21,6 +25,10 @@ namespace CodeCoverage.Web.Tests.Support;
 public sealed class CodeCoverageWebFactory : WebApplicationFactory<Program>
 {
   #region Fields
+
+  public const string ClientId = "Iv1.testclient";
+
+  public const long KnownUserId = 42;
 
   private const string UnreachableDatabase = "Host=127.0.0.1;Port=1;Database=codecoverage;Timeout=2";
 
@@ -70,10 +78,32 @@ public sealed class CodeCoverageWebFactory : WebApplicationFactory<Program>
 
     // An instance already set up: SetupRedirectMiddlewareTests covers the first start.
     builder.UseSetting("GitHub:AppId", "1");
+    builder.UseSetting("GitHub:ClientId", ClientId);
 
     // The key ring of the unreachable database (antiforgery) is replaced by an in-memory one; the
     // shared key ring is covered by the Infrastructure tests.
-    builder.ConfigureTestServices(services => services.AddDataProtection().UseEphemeralDataProtectionProvider());
+    builder.ConfigureTestServices(services =>
+    {
+      services.AddDataProtection().UseEphemeralDataProtectionProvider();
+
+      // A header stands for the session cookie (TestAuthenticationHandler); without it, the cookie scheme decides.
+      services.AddAuthentication(o => o.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName)
+              .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestAuthenticationHandler.SchemeName, null);
+
+      // The one user of the host tests, since the database is unreachable.
+      services.AddScoped(_ => KnownUsers());
+    });
+  }
+
+  private static IUserRepository KnownUsers()
+  {
+    var users = A.Fake<IUserRepository>();
+    var user = AppUser.Create(Forge.GitHub, "583231", TestAuthenticationHandler.Login, null);
+
+    typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, KnownUserId);
+    A.CallTo(() => users.FindAsync(KnownUserId, A<CancellationToken>._)).Returns(user);
+
+    return users;
   }
 
   #endregion

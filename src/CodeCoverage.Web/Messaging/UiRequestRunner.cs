@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 
 using Mediator;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Localization;
 
@@ -42,6 +43,12 @@ namespace CodeCoverage.Web.Messaging;
 ///     </item>
 ///     <item>
 ///       <description>
+///         an <see cref="UnauthorizedException" /> means the session ended (a renewal GitHub refused, a
+///         user removed): the page leaves for the sign-in page, which says so;
+///       </description>
+///     </item>
+///     <item>
+///       <description>
 ///         any other <see cref="ApplicationException" /> shows a danger toast, whose message is the
 ///         translation of its <see cref="ApplicationException.ErrorCode" />;
 ///       </description>
@@ -62,13 +69,18 @@ namespace CodeCoverage.Web.Messaging;
 /// <param name="toasts">The toasts of the circuit.</param>
 /// <param name="errors">Translates the error codes.</param>
 /// <param name="localizer">The strings of the application.</param>
+/// <param name="navigation">The navigation of the circuit.</param>
 public sealed class UiRequestRunner(
   ScopedSender sender,
   IToastService toasts,
   ErrorCodeLocalizer errors,
-  IStringLocalizer<Common> localizer)
+  IStringLocalizer<Common> localizer,
+  NavigationManager navigation)
 {
   #region Fields
+
+  /// <summary>Where a page goes when its session ended: the sign-in page, which says so.</summary>
+  internal const string ExpiredSessionUri = "signin?expired=true";
 
   // The messages the runner put on each form, cleared by the next request on the same form.
   private readonly ConditionalWeakTable<EditContext, ValidationMessageStore> _stores = [];
@@ -116,6 +128,12 @@ public sealed class UiRequestRunner(
     catch (NotFoundException)
     {
       return UiResult<T>.Missing();
+    }
+    catch (UnauthorizedException)
+    {
+      // A full load: the request that follows checks the session cookie again.
+      navigation.NavigateTo(ExpiredSessionUri, forceLoad: true);
+      return UiResult<T>.Refused();
     }
     catch (ApplicationException exception)
     {

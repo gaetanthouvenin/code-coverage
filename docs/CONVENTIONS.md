@@ -1041,8 +1041,9 @@ Swagger UI) + **Scalar**.
 - Blazor Server, rendu `InteractiveServer` ; pas de WebAssembly.
 - Pipeline (`src/CodeCoverage.Web/Program.cs`) : `SecurityHeadersMiddleware` →
   `UseExceptionHandler("/error", true)` → `UseStatusCodePagesWithReExecute("/not-found")` →
+  `SetupRedirectMiddleware` → `UseAuthentication` → `UseAuthorization` →
   `UseRequestLocalization` (`en`, `fr`) → `UseAntiforgery` → `MapStaticAssets` →
-  `MapHealthProbes` → `MapRazorComponents<App>()`.
+  `MapHealthProbes` → `MapAuthenticationEndpoints` → `MapRazorComponents<App>()`.
 
 ### 11.2 Pages et ViewModels
 

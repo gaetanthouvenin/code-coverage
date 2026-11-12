@@ -8,6 +8,7 @@ using System.Reflection;
 
 using FluentValidation.Results;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
@@ -48,6 +49,7 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
     services.AddInfrastructure();
     services.AddCoverageUi();
     services.AddUiMessaging();
+    services.AddScoped<NavigationManager, RecordingNavigationManager>();
 
     _services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     _circuit = _services.CreateAsyncScope();
@@ -165,6 +167,20 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
     result.NotFound.ShouldBeTrue();
     result.Succeeded.ShouldBeFalse();
     Toasts.Toasts.ShouldBeEmpty("the page shows its « not found » empty state instead");
+  }
+
+  // The session ended: the page leaves for the sign-in page, with a full load that checks the cookie again.
+  [Fact]
+  public async Task RunAsync_WithUnauthorized_ShouldLeaveForTheSignInPage()
+  {
+    var result = await Runner.RunAsync<int>((_, _) => throw new UnauthorizedException(SecurityErrors.Unauthenticated, "No user."), cancellationToken: Token);
+
+    result.Succeeded.ShouldBeFalse();
+    result.NotFound.ShouldBeFalse();
+    Toasts.Toasts.ShouldBeEmpty();
+    var navigation = (RecordingNavigationManager)_circuit.ServiceProvider.GetRequiredService<NavigationManager>();
+    navigation.Uri.ShouldBe("http://localhost/signin?expired=true");
+    navigation.ForcedLoad.ShouldBeTrue();
   }
 
   [Fact]

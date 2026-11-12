@@ -86,4 +86,11 @@
   <data name="Setting.ProvidedByEnvironment" xml:space="preserve"><value>Ce paramètre est fourni par l’environnement et ne peut pas être modifié ici.</value></data>
   <data name="Setting.Unknown" xml:space="preserve"><value>Ce paramètre n’existe pas.</value></data>
   <data name="Toast_RequestFailed" xml:space="preserve"><value>L’action n’a pas pu aboutir</value></data>
+  <data name="Action_SignIn" xml:space="preserve"><value>Se connecter avec GitHub</value></data>
+  <data name="Nav_SignOut" xml:space="preserve"><value>Se déconnecter</value></data>
+  <data name="SignIn_Title" xml:space="preserve"><value>Connexion</value></data>
+  <data name="SignIn_Hint" xml:space="preserve"><value>Vous ne verrez que les dépôts que votre compte GitHub peut lire.</value></data>
+  <data name="SignIn_Failed" xml:space="preserve"><value>La connexion avec GitHub n’a pas abouti. Réessayez.</value></data>
+  <data name="SignIn_SignedInAs" xml:space="preserve"><value>Session ouverte au nom de {0}.</value></data>
+  <data name="SignIn_Continue" xml:space="preserve"><value>Continuer</value></data>
 </root>

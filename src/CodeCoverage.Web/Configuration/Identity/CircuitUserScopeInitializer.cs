@@ -15,9 +15,13 @@ namespace CodeCoverage.Web.Configuration.Identity;
 /// </summary>
 /// <remarks>
 ///   <para>
-///     Scoped to the circuit: it holds the <see cref="CurrentUserContext" /> of the circuit, set once
-///     the user is known (by the sign-in, M3). Until then, the circuit is anonymous and so is every
-///     request scope.
+///     Scoped to the circuit: it holds the <see cref="CurrentUserContext" /> of the circuit, set by
+///     <see cref="CircuitIdentityHandler" /> when the circuit opens (or, while a page prerenders, by the
+///     session cookie of the request). An anonymous circuit gives anonymous request scopes.
+///   </para>
+///   <para>
+///     Only the identity is copied: the administration of the instance is decided for each request,
+///     never taken from the circuit.
 ///   </para>
 ///   <para>
 ///     Only a signed-in user is copied: a circuit never runs for the system principal, which the
@@ -37,7 +41,7 @@ internal sealed class CircuitUserScopeInitializer(CurrentUserContext circuitUser
 
     if (circuitUser is { UserId: { } userId, Login: { } login })
     {
-      scopeServices.GetRequiredService<CurrentUserContext>().SetUser(userId, login, circuitUser.IsAdmin);
+      scopeServices.GetRequiredService<CurrentUserContext>().SetUser(userId, login, isAdmin: false);
     }
   }
 
