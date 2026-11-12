@@ -135,6 +135,8 @@ public sealed class PipelineOrderTests
     services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.UrlOptions>>());
     services.AddScoped(_ => A.Fake<IReportViewCache>());
     services.AddScoped(_ => A.Fake<IComparisonRepository>());
+    services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.AccessOptions>>());
+    services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.BootstrapOptions>>());
     services.AddApplication();
     services.AddScoped<IValidator<PingQuery>>(sp => new TracingPingQueryValidator(
                                                 sp.GetRequiredService<PipelineTrace>(),

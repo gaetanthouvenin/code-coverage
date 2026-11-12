@@ -6,13 +6,10 @@
 
 using Mediator;
 
-using Microsoft.Extensions.Logging;
-
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Contracts.GitHub;
-using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 
@@ -20,34 +17,23 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMembershi
 /// <param name="users">The repository of the users.</param>
 /// <param name="tokens">What gives the token GitHub issued for a user.</param>
 /// <param name="userGateway">The gateway that calls GitHub in the name of a user.</param>
-/// <param name="appGateway">The gateway of the App.</param>
-/// <param name="directory">The directory of the organizations.</param>
-/// <param name="memberships">The repository of the memberships.</param>
-/// <param name="clock">The clock.</param>
-/// <param name="logger">The logger.</param>
+/// <param name="updater">What writes the memberships of a user.</param>
 /// <remarks>
 ///   <para>
-///     A user is linked to the organizations whose installation of the App it can reach on GitHub, as long as the
-///     organization is active here: a pending or suspended organization gets no row. The role is decided by
-///     <see cref="OrganizationRoles.Of" />. A membership that is no longer found is removed.
+///     The rule of the memberships is the one of <see cref="MembershipUpdater" />, shared with the sign-in.
 ///   </para>
 ///   <para>
 ///     It fails closed. When GitHub cannot be asked, nothing is written: the rows keep their date and stop granting
 ///     anything once <c>Access:HardExpiryMinutes</c> has passed. When the user has no token GitHub accepts any
-///     more, its memberships are removed at once. An organization that refuses to tell the membership gets no row,
-///     with a warning; the others are refreshed all the same.
+///     more, its memberships are removed at once.
 ///   </para>
 ///   <para>It reads and writes global tables only, so it runs outside any organization.</para>
 /// </remarks>
-internal sealed partial class RefreshUserMembershipsCommandHandler(
+internal sealed class RefreshUserMembershipsCommandHandler(
   IUserRepository users,
   IGitHubUserTokenProvider tokens,
   IGitHubUserGateway userGateway,
-  IGitHubAppGateway appGateway,
-  IOrganizationDirectory directory,
-  IOrganizationMembershipRepository memberships,
-  IClock clock,
-  ILogger<RefreshUserMembershipsCommandHandler> logger) : ICommandHandler<RefreshUserMembershipsCommand>
+  MembershipUpdater updater) : ICommandHandler<RefreshUserMembershipsCommand>
 {
   #region Methods
 
@@ -69,33 +55,6 @@ internal sealed partial class RefreshUserMembershipsCommandHandler(
     }
   }
 
-  /// <summary>Decides the role of the user in the organization of one installation.</summary>
-  /// <param name="user">The user.</param>
-  /// <param name="installation">The installation, as GitHub lists it for the user.</param>
-  /// <param name="organization">The organization of its account, active.</param>
-  /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>The role.</returns>
-  private async Task<OrganizationRole> ResolveRoleAsync(
-    AppUser user,
-    GitHubInstallationInfo installation,
-    Organization organization,
-    CancellationToken cancellationToken)
-  {
-    // GitHub has no membership for a personal account: its owner administers it, anyone else takes part.
-    var membership = organization.AccountType is OrganizationAccountType.Organization
-                       ? await appGateway.GetOrganizationMembershipAsync(installation.Id, organization.Login, user.Login, cancellationToken).ConfigureAwait(false)
-                       : null;
-
-    return OrganizationRoles.Of(user, organization, membership);
-  }
-
-  [LoggerMessage(
-    EventId = 1600,
-    Level = LogLevel.Warning,
-    Message = "GitHub refused to tell the membership of user {UserId} in {Organization}: no membership is kept for it"
-  )]
-  private static partial void LogMembershipRefused(ILogger logger, long userId, string organization);
-
   #endregion
 
   #region Implementation of ICommandHandler<RefreshUserMembershipsCommand>
@@ -110,40 +69,9 @@ internal sealed partial class RefreshUserMembershipsCommandHandler(
       return Unit.Value;
     }
 
-    var roles = new Dictionary<long, OrganizationRole>();
+    var installations = await ListInstallationsAsync(user.Id, cancellationToken).ConfigureAwait(false);
 
-    if (await ListInstallationsAsync(user.Id, cancellationToken).ConfigureAwait(false) is { } installations)
-    {
-      // GitHub refuses every call made for a suspended installation: it links nobody.
-      foreach (var installation in installations.Where(static i => !i.Suspended))
-      {
-        var organization = await directory.FindByAccountIdAsync(Forge.GitHub, installation.AccountId, cancellationToken).ConfigureAwait(false);
-
-        if (organization is not { State: OrganizationState.Active })
-        {
-          continue;
-        }
-
-        OrganizationRole role;
-
-        try
-        {
-          role = await ResolveRoleAsync(user, installation, organization, cancellationToken).ConfigureAwait(false);
-        }
-        catch (ForbiddenException)
-        {
-          // Fail closed for this organization alone: no row, and the others go on.
-          LogMembershipRefused(logger, user.Id, organization.Login);
-
-          continue;
-        }
-
-        // Two installations of the same account cannot be told apart here: the highest role is kept.
-        roles[organization.Id] = roles.TryGetValue(organization.Id, out var known) && known is OrganizationRole.Admin ? known : role;
-      }
-    }
-
-    await memberships.ReplaceAsync(user.Id, roles, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+    await updater.ReplaceAsync(user, installations, cancellationToken).ConfigureAwait(false);
 
     return Unit.Value;
   }
