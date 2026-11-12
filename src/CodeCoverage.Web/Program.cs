@@ -31,6 +31,9 @@ try
 
   builder.Host.UseSerilog(SerilogConfiguration.ConfigureLogger);
 
+  // The scheme and the client address the TLS proxy received, from the known proxies only (ARCHITECTURE §4bis.2).
+  builder.Services.AddForwardedHeaders(builder.Configuration);
+
   // Traces and metrics, exported in OTLP only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
   builder.Services.AddTelemetry(builder.Configuration);
 
@@ -55,6 +58,9 @@ try
   builder.Services.AddAntiforgery(o => o.SuppressXFrameOptionsHeader = true);
 
   var app = builder.Build();
+
+  // First: everything after it, the sign-in callback included, sees the scheme of the proxy.
+  app.UseForwardedHeaders();
 
   app.UseMiddleware<SecurityHeadersMiddleware>();
 

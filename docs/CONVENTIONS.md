@@ -1039,7 +1039,7 @@ Swagger UI) + **Scalar**.
 ### 11.1 Socle
 
 - Blazor Server, rendu `InteractiveServer` ; pas de WebAssembly.
-- Pipeline (`src/CodeCoverage.Web/Program.cs`) : `SecurityHeadersMiddleware` →
+- Pipeline (`src/CodeCoverage.Web/Program.cs`) : `UseForwardedHeaders` → `SecurityHeadersMiddleware` →
   `UseExceptionHandler("/error", true)` → `UseStatusCodePagesWithReExecute("/not-found")` →
   `SetupRedirectMiddleware` → `UseAuthentication` → `UseAuthorization` →
   `UseRequestLocalization` (`en`, `fr`) → `UseAntiforgery` → `MapStaticAssets` →

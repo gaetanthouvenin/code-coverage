@@ -529,7 +529,7 @@ corps compressé Brotli (qualité 5) :
 | `Worker__Enabled` | `true` sur l'Api (par défaut), `false` sur un réplica purement public |
 | `Settings__PollSeconds` | 5 |
 | `DataProtection__CertificatePath` / `DataProtection__CertificatePassword` **ou** `DataProtection__KeyVaultKeyId` | **obligatoire en Production** : l'hôte refuse de démarrer sans protection du trousseau, sauf `DataProtection__AllowUnprotectedKeys=true` explicite |
-| `ForwardedHeaders__KnownProxies` | adresses du reverse proxy |
+| `ForwardedHeaders__KnownProxies` | adresses du reverse proxy, lues par l'Api **et** le Web (le Web en déduit le schéma `https` de l'URL de rappel de la connexion GitHub) ; derrière la publication de ports de Docker, l'adresse vue est la passerelle du réseau bridge (par exemple `172.18.0.1`), pas `127.0.0.1` ; avec Caddy en conteneur, son adresse sur le réseau compose |
 | `CodeCoverage__Bootstrap__AdminUserIds` | identifiants GitHub numériques des administrateurs d'instance initiaux |
 | `GitHub__*` | surcharge optionnelle de tout réglage GitHub, qui devient alors en lecture seule dans l'UI (déploiement « infra as code ») |
 

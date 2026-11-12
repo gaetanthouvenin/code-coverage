@@ -88,6 +88,8 @@ services:
     environment:
       ConnectionStrings__CodeCoverage: "Host=db;Port=5432;Database=codecoverage;Username=cc;Password=${DB_PASSWORD}"
       CodeCoverage__Database__Provider: PostgreSql
+      # The same proxies as the Api: the sign-in with GitHub builds its https callback from X-Forwarded-Proto.
+      ForwardedHeaders__KnownProxies: "${FORWARDED_KNOWN_PROXIES:-}"
       # The same certificate as the Api: both hosts share the key ring stored in the database.
       DataProtection__CertificatePath: /run/secrets/dp.pfx
       DataProtection__CertificatePassword: "${DP_CERT_PASSWORD:?Set DP_CERT_PASSWORD in .env}"
