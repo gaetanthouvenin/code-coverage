@@ -6,6 +6,7 @@
 
 using System.Net;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 using CodeCoverage.Web.Configuration.Authentication;
@@ -37,6 +38,24 @@ public sealed class AuthenticationEndpointsTests(CodeCoverageWebFactory factory)
     location.ShouldContain($"client_id={CodeCoverageWebFactory.ClientId}");
     location.ShouldContain("redirect_uri=http%3A%2F%2Flocalhost%2Fsignin-github");
     location.ShouldNotContain("scope=user");
+  }
+
+  // Behind the TLS proxy of Caddyfile.example: GitHub only accepts the https callback of the App.
+  [Fact]
+  public async Task Get_Challenge_BehindKnownProxy_ShouldBuildAnHttpsRedirectUri()
+  {
+    var location = await ChallengeThroughAsync(IPAddress.Loopback);
+
+    location.ShouldContain("redirect_uri=https%3A%2F%2Flocalhost%2Fsignin-github");
+  }
+
+  // A client that is not a configured proxy cannot choose the scheme.
+  [Fact]
+  public async Task Get_Challenge_BehindUnknownProxy_ShouldKeepTheSchemeOfTheConnection()
+  {
+    var location = await ChallengeThroughAsync(IPAddress.Parse("10.9.9.9"));
+
+    location.ShouldContain("redirect_uri=http%3A%2F%2Flocalhost%2Fsignin-github");
   }
 
   [Fact]
@@ -95,6 +114,22 @@ public sealed class AuthenticationEndpointsTests(CodeCoverageWebFactory factory)
   public void LocalOrHome_ShouldKeepLocalPathsOnly(string? returnUrl, string expected)
   {
     AuthenticationEndpoints.LocalOrHome(returnUrl).ShouldBe(expected);
+  }
+
+  private async Task<string> ChallengeThroughAsync(IPAddress remote)
+  {
+    var context = await factory.Server.SendAsync(c =>
+                                                 {
+                                                   c.Request.Method = HttpMethods.Get;
+                                                   c.Request.Path = "/signin/github";
+                                                   c.Request.Headers["X-Forwarded-Proto"] = "https";
+                                                   c.Connection.RemoteIpAddress = remote;
+                                                 },
+                                                 Ct);
+
+    context.Response.StatusCode.ShouldBe(StatusCodes.Status302Found);
+
+    return context.Response.Headers.Location.ToString();
   }
 
   #endregion

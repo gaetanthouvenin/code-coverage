@@ -7,8 +7,11 @@
 # - Caddy as a container on the compose network: set CC_API_UPSTREAM=api:8080 and
 #   CC_WEB_UPSTREAM=web:8080.
 #
-# Then declare the address Caddy connects from in FORWARDED_KNOWN_PROXIES (.env), e.g. 127.0.0.1
-# or the Caddy container address, so that the Api trusts its X-Forwarded-For / X-Forwarded-Proto.
+# Then declare the address Caddy connects from in FORWARDED_KNOWN_PROXIES (.env), so that the Api and
+# the Web trust its X-Forwarded-For / X-Forwarded-Proto (the Web needs it to build the https callback of
+# the sign-in with GitHub). Caddy on the VM goes through the ports Docker publishes, which usually
+# rewrites the source address: name the gateway of the compose bridge network (e.g. 172.18.0.1), not
+# 127.0.0.1. Caddy as a container: name its address on the compose network.
 {
   # Contact address for the ACME account (certificate expiry notices).
   email {$ACME_EMAIL:admin@example.com}
