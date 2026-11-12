@@ -79,10 +79,6 @@ internal sealed class NotifyCommitCommandHandler(
 
   #region Methods
 
-  /// <summary>Builds the refusal of a commit that can no longer be notified.</summary>
-  /// <returns>The exception.</returns>
-  private static NotFoundException NotFound() => new(NotificationErrors.CommitNotFound, "The commit to notify no longer exists.");
-
   /// <summary>Tells whether a failure is one no retry can heal, as the worker tells it.</summary>
   /// <param name="exception">The failure.</param>
   /// <returns><see langword="true" /> for a refusal the worker fails for good without retrying it.</returns>
@@ -113,16 +109,23 @@ internal sealed class NotifyCommitCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var commit = await commits.FindAsync(command.CommitId, cancellationToken).ConfigureAwait(false) ?? throw NotFound();
-    var repository = await repositories.FindAsync(commit.RepositoryId, cancellationToken).ConfigureAwait(false) ?? throw NotFound();
+    var commit = await commits.FindAsync(command.CommitId, cancellationToken).ConfigureAwait(false);
 
-    // A repository that is no longer tracked receives nothing.
-    if (!repository.IsActive)
+    NotFoundException.ThrowIfNotifiedTargetGone(commit);
+
+    var repository = await repositories.FindAsync(commit.RepositoryId, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfNotifiedTargetGone(repository);
+
+    // A repository whose coverage is no longer processed (left, or disabled by an administrator) receives nothing.
+    if (!repository.IsTracked)
     {
       return Unit.Value;
     }
 
-    var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false) ?? throw NotFound();
+    var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfNotifiedTargetGone(organization);
     var address = repository.ToForgeRef(organization.Forge);
     var all = await uploads.ListByCommitAsync(commit.Id, cancellationToken).ConfigureAwait(false);
 

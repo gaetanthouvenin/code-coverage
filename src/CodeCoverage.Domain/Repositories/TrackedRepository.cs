@@ -125,8 +125,23 @@ public sealed class TrackedRepository
   /// <summary>Gets a value indicating whether the repository is private on its forge.</summary>
   public bool IsPrivate { get; private set; }
 
-  /// <summary>Gets a value indicating whether the coverage of the repository is tracked.</summary>
+  /// <summary>
+  ///   Gets a value indicating whether the installation serves the repository: false once it stopped serving it, its
+  ///   forge deleted it or it was transferred. An administrator disabling the repository does not change it.
+  /// </summary>
   public bool IsActive { get; private set; }
+
+  /// <summary>
+  ///   Gets when an administrator disabled the repository, in UTC, or <see langword="null" /> when it is enabled. The
+  ///   synchronization of the installation and the webhooks never change it.
+  /// </summary>
+  public DateTimeOffset? DisabledAt { get; private set; }
+
+  /// <summary>
+  ///   Gets a value indicating whether the coverage of the repository is processed: served by its installation and not
+  ///   disabled by an administrator. Uploads, notifications, sweeps and the synchronization of pull requests read it.
+  /// </summary>
+  public bool IsTracked => IsActive && DisabledAt is null;
 
   /// <summary>
   ///   Gets the moment the row was closed because its repository was transferred to another account, or
@@ -274,6 +289,39 @@ public sealed class TrackedRepository
 
     IsActive = false;
     Touch(at);
+  }
+
+  /// <summary>Disables the repository at the request of an administrator: its coverage is no longer processed.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <returns>Whether the repository changed: <see langword="false" /> when it was already disabled.</returns>
+  /// <remarks>Its history, its API and its badge stay readable; uploads are refused until it is enabled again.</remarks>
+  public bool Disable(DateTimeOffset at)
+  {
+    if (DisabledAt is not null)
+    {
+      return false;
+    }
+
+    DisabledAt = at.ToUniversalTime();
+    Touch(at);
+
+    return true;
+  }
+
+  /// <summary>Enables a repository an administrator disabled.</summary>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <returns>Whether the repository changed: <see langword="false" /> when it was not disabled.</returns>
+  public bool Enable(DateTimeOffset at)
+  {
+    if (DisabledAt is null)
+    {
+      return false;
+    }
+
+    DisabledAt = null;
+    Touch(at);
+
+    return true;
   }
 
   /// <summary>Tracks the repository again, under the installation that serves it now.</summary>

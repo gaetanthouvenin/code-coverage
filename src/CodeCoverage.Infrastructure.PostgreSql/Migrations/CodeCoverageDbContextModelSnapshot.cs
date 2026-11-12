@@ -825,6 +825,9 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ExternalId")
                         .IsRequired()
                         .HasMaxLength(40)

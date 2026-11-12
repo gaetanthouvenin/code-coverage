@@ -151,7 +151,7 @@ internal sealed class SweepPendingCommitsCommandHandler(
       tracked[commit.RepositoryId] = repository;
     }
 
-    if (repository is not { IsActive: true })
+    if (repository is not { IsTracked: true })
     {
       return false;
     }

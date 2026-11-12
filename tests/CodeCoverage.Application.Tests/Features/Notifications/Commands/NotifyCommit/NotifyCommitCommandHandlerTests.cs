@@ -460,6 +460,17 @@ public sealed class NotifyCommitCommandHandlerTests
   }
 
   [Fact]
+  public async Task Handle_DisabledRepository_ShouldPublishNothing()
+  {
+    _repository.Disable(Now);
+
+    await Handler().Handle(new NotifyCommitCommand(9, Force: true), Ct);
+
+    A.CallTo(_gateway).MustNotHaveHappened();
+    _commit.NotifiedAt.ShouldBeNull();
+  }
+
+  [Fact]
   public async Task Handle_CommitNotFinalizedYet_ShouldNotNotify()
   {
     var pending = Commit.Create(5, Sha, Now.AddMinutes(-10));
@@ -604,4 +615,4 @@ public sealed class NotifyCommitCommandHandlerTests
   }
 
   #endregion
-}
+}

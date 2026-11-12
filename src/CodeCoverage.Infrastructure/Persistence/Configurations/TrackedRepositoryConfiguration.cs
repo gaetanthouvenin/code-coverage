@@ -64,6 +64,8 @@ internal sealed class TrackedRepositoryConfiguration : IEntityTypeConfiguration<
     builder.Property(static r => r.IsPrivate).IsRequired();
     builder.Property(static r => r.IsActive).IsRequired();
     builder.Property(static r => r.TransferredAt);
+    builder.Property(static r => r.DisabledAt);
+    builder.Ignore(static r => r.IsTracked);
     builder.Property(static r => r.BadgeTokenProtected).IsRequired();
     builder.Property(static r => r.DefaultBranchYaml);
     builder.Property(static r => r.DefaultBranchYamlSha).HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();

@@ -36,7 +36,8 @@ internal sealed class ListRepositoriesQueryHandler(
     var readable = await access.ListReadableAsync(userId.Value, cancellationToken).ConfigureAwait(false);
     var active = await repositories.SearchActiveAsync(query.Search, cancellationToken).ConfigureAwait(false);
 
-    return [.. active.Where(r => readable.Contains(r.ExternalId))];
+    // A repository disabled by an administrator stays listed (Codecov API v2 repos?active=): its state tells it apart.
+    return [.. active.Where(r => readable.Contains(r.ExternalId) && (query.Active is not { } wanted || (r.DisabledAt is null) == wanted))];
   }
 
   #endregion
