@@ -16,6 +16,7 @@ using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Application;
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Diagnostics.Queries.Ping;
 using CodeCoverage.Application.Security;
 using CodeCoverage.Infrastructure;
@@ -93,18 +94,31 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
   public async Task RunAsync_WithApplicationException_ShouldShowLocalizedToast()
   {
     var result = await Runner.RunAsync<int>(
-                   (_, _) => throw new ForbiddenException(SecurityErrors.Forbidden, "Forbidden for the developers."),
+                   (_, _) => throw new ConflictException(GeneralErrors.ConcurrentChange, "Conflict for the developers."),
                    cancellationToken: Token);
 
     result.Succeeded.ShouldBeFalse();
     result.NotFound.ShouldBeFalse();
+    result.Forbidden.ShouldBeFalse();
     result.Value.ShouldBe(0);
     var toast = Toasts.Toasts.ShouldHaveSingleItem();
     toast.Tone.ShouldBe(CcTone.Danger);
     toast.Title.ShouldBe(L["Toast_RequestFailed"].Value);
-    toast.Message.ShouldBe(L[SecurityErrors.Forbidden].Value);
-    toast.Message.ShouldNotBe(SecurityErrors.Forbidden, "the user never sees a raw error code");
+    toast.Message.ShouldBe(L[GeneralErrors.ConcurrentChange].Value);
+    toast.Message.ShouldNotBe(GeneralErrors.ConcurrentChange, "the user never sees a raw error code");
     toast.Message!.ShouldNotContain("developers", Case.Insensitive, "the message of the exception is for the developers");
+  }
+
+  // M3.37: a refusal of access is a state of the page, not a toast.
+  [Fact]
+  public async Task RunAsync_WithForbidden_ShouldReturnADeniedResultWithoutToast()
+  {
+    var result = await Runner.RunAsync<int>((_, _) => throw new ForbiddenException(SecurityErrors.Forbidden, "Forbidden."), cancellationToken: Token);
+
+    result.Succeeded.ShouldBeFalse();
+    result.Forbidden.ShouldBeTrue();
+    result.NotFound.ShouldBeFalse();
+    Toasts.Toasts.ShouldBeEmpty();
   }
 
   [Fact]

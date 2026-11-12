@@ -1,0 +1,13 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcSwitch.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<button type="button"
+        class="@CssClass"
+        role="switch"
+        aria-checked="@(Value ? "true" : "false")"
+        aria-label="@Label"
+        disabled="@Disabled"
+        @onclick="ToggleAsync"></button>

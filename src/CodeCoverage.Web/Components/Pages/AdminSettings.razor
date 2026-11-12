@@ -1,0 +1,64 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AdminSettings.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/admin/settings"
+
+<PageTitle>@L["PageTitle_Format", L["AdminSettings_Title"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["AdminSettings_Title"]" Icon="CcIconName.Gear" Subtitle="@L["AdminSettings_Subtitle"]">
+    <Tabs><AdminTabs /></Tabs>
+    <Actions>
+      @if (Groups is not null)
+      {
+        <CcSearchBar @bind-Value="Filter" Placeholder="@L["AdminSettings_Search"]" AriaLabel="@L["AdminSettings_Search"]" />
+      }
+    </Actions>
+  </CcHeader>
+
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Denied)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["AdminSettings_Denied"]</CcEmptyState>
+    </div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Groups is not null)
+  {
+    @foreach (var group in VisibleGroups)
+    {
+      <section class="cc-panel">
+        <div class="cc-panel__head">
+          <h2 class="cc-panel__title">@L[$"SettingGroup_{group.Group}"]</h2>
+          <div class="cc-panel__tools"><CcBadge Chip="true">@group.Settings.Count</CcBadge></div>
+        </div>
+        <div class="cc-list">
+          @foreach (var setting in group.Settings)
+          {
+            <SettingEditor @key="setting.Key" Setting="setting" OnChanged="LoadAsync" OnReplace="OpenReplace" OnDenied="Deny" />
+          }
+        </div>
+      </section>
+    }
+    @if (!VisibleGroups.Any())
+    {
+      <div class="cc-panel cc-status-page"><CcEmptyState Title="@L["AdminSettings_NoMatch"]" Icon="CcIconName.Search" /></div>
+    }
+  }
+</CcPageContainer>
+
+<SecretReplaceDialog Key="@ReplacedKey" OnClosed="OnReplaceClosedAsync" OnDenied="Deny" />

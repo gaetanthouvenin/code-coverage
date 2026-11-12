@@ -1,0 +1,110 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="SettingEditor.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-setting" data-key="@Setting.Key.ToLowerInvariant()">
+  <div>
+    <code class="cc-setting__key">@Setting.Key</code>
+    <CcBadge Tone="@OriginTone">@OriginLabel</CcBadge>
+    @if (Setting.RequiresRestart)
+    {
+      <CcBadge Tone="CcTone.Warning">@L["Setting_RequiresRestart"]</CcBadge>
+    }
+  </div>
+  <div class="cc-setting__control">
+    @switch (Setting.Kind)
+    {
+      case SettingEditorKind.Secret:
+        @if (Setting.IsDefined)
+        {
+          <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["Setting_Defined"]</CcBadge>
+        }
+        else
+        {
+          <CcBadge>@L["Setting_NotDefined"]</CcBadge>
+        }
+        @if (Setting.IsEditable)
+        {
+          <CcButton Size="CcButtonSize.Small" OnClick="OnReplaceClickedAsync">@L["Action_Replace"]</CcButton>
+          @if (Setting.CanReset && Setting.IsDefined)
+          {
+            <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Danger" OnClick="ResetAsync">@L["Action_Clear"]</CcButton>
+          }
+        }
+        break;
+
+      case SettingEditorKind.Boolean:
+        <CcSwitch Value="@IsOn" ValueChanged="ToggleAsync" Label="@Setting.Key" Disabled="@(!Setting.IsEditable || _busy)" />
+        break;
+
+      case SettingEditorKind.Multiline:
+        <div class="cc-stack cc-setting__area">
+          <textarea class="@InputClass"
+                    rows="8"
+                    aria-label="@Setting.Key"
+                    readonly="@(!Setting.IsEditable)"
+                    @bind="_form.Value"
+                    @bind:event="oninput"></textarea>
+          @if (Error is { } error)
+          {
+            <p class="cc-field__error">@error</p>
+          }
+          @if (Setting.IsEditable)
+          {
+            <div class="cc-cluster">
+              <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="SaveAsync">@L["Action_Save"]</CcButton>
+              @if (Setting.CanReset)
+              {
+                <CcButton Size="CcButtonSize.Small" Disabled="@_busy" OnClick="ResetAsync">@L["Action_Reset"]</CcButton>
+              }
+            </div>
+          }
+        </div>
+        break;
+
+      default:
+        <div class="cc-stack cc-setting__area">
+          <div class="@FieldClass">
+            <input class="@InputClass"
+                   aria-label="@Setting.Key"
+                   readonly="@(!Setting.IsEditable)"
+                   @bind="_form.Value"
+                   @bind:event="oninput" />
+            @if (!Setting.IsEditable)
+            {
+              <span class="cc-setting__btn cc-setting__btn--lock" title="@L["Setting_SetByEnvironment"]"><CcIcon Name="CcIconName.Shield" /></span>
+            }
+            else
+            {
+              <button type="button"
+                      class="cc-setting__btn cc-setting__btn--save"
+                      aria-label="@($"{L["Action_Save"]} {Setting.Key}")"
+                      title="@L["Action_Save"]"
+                      disabled="@_busy"
+                      @onclick="SaveAsync">
+                <CcIcon Name="CcIconName.Check" />
+              </button>
+              @if (Setting.CanReset)
+              {
+                <button type="button"
+                        class="cc-setting__btn"
+                        aria-label="@($"{L["Action_Reset"]} {Setting.Key}")"
+                        title="@L["Action_Reset"]"
+                        disabled="@_busy"
+                        @onclick="ResetAsync">
+                  <CcIcon Name="CcIconName.Undo" />
+                </button>
+              }
+            }
+          </div>
+          @if (Error is { } fieldError)
+          {
+            <p class="cc-field__error">@fieldError</p>
+          }
+        </div>
+        break;
+    }
+  </div>
+</div>

@@ -115,6 +115,45 @@
   <data name="Toast_RequestFailed" xml:space="preserve"><value>L’action n’a pas pu aboutir</value></data>
   <data name="Action_SignIn" xml:space="preserve"><value>Se connecter avec GitHub</value></data>
   <data name="Nav_SignOut" xml:space="preserve"><value>Se déconnecter</value></data>
+  <data name="Loading" xml:space="preserve"><value>Chargement…</value></data>
+  <data name="Action_Retry" xml:space="preserve"><value>Réessayer</value></data>
+  <data name="Action_Cancel" xml:space="preserve"><value>Annuler</value></data>
+  <data name="Action_Save" xml:space="preserve"><value>Enregistrer</value></data>
+  <data name="Action_Reset" xml:space="preserve"><value>Réinitialiser</value></data>
+  <data name="Action_Replace" xml:space="preserve"><value>Remplacer</value></data>
+  <data name="Action_Clear" xml:space="preserve"><value>Effacer</value></data>
+  <data name="Tabs_Instance" xml:space="preserve"><value>Sections de l’instance</value></data>
+  <data name="Tab_Organizations" xml:space="preserve"><value>Organisations</value></data>
+  <data name="Tab_InstanceSettings" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="Tab_Operations" xml:space="preserve"><value>Opérations</value></data>
+  <data name="Tab_Audit" xml:space="preserve"><value>Journal d’audit</value></data>
+  <data name="AdminSettings_Title" xml:space="preserve"><value>Paramètres de l’instance</value></data>
+  <data name="AdminSettings_Subtitle" xml:space="preserve"><value>Stockés en base et appliqués sans redémarrage, sauf mention contraire.</value></data>
+  <data name="AdminSettings_Search" xml:space="preserve"><value>Rechercher une clé</value></data>
+  <data name="AdminSettings_NoMatch" xml:space="preserve"><value>Aucun paramètre ne correspond à cette recherche</value></data>
+  <data name="AdminSettings_Denied" xml:space="preserve"><value>Les paramètres de l’instance sont réservés à ses administrateurs.</value></data>
+  <data name="Setting_SourceDatabase" xml:space="preserve"><value>Base de données</value></data>
+  <data name="Setting_SourceEnvironment" xml:space="preserve"><value>Environnement</value></data>
+  <data name="Setting_SourceDefault" xml:space="preserve"><value>Défaut</value></data>
+  <data name="Setting_RequiresRestart" xml:space="preserve"><value>Redémarrage requis</value></data>
+  <data name="Setting_Defined" xml:space="preserve"><value>Défini</value></data>
+  <data name="Setting_NotDefined" xml:space="preserve"><value>Non défini</value></data>
+  <data name="Setting_SetByEnvironment" xml:space="preserve"><value>Défini par l’environnement</value></data>
+  <data name="Setting_Saved" xml:space="preserve"><value>Paramètre enregistré</value></data>
+  <data name="Setting_Reset" xml:space="preserve"><value>Valeur réinitialisée</value></data>
+  <data name="Secret_Replaced" xml:space="preserve"><value>Secret remplacé</value></data>
+  <data name="Secret_Cleared" xml:space="preserve"><value>Secret effacé</value></data>
+  <data name="SecretDialog_Text" xml:space="preserve"><value>La valeur actuelle n’est jamais affichée. La nouvelle est chiffrée et appliquée sans redémarrage.</value></data>
+  <data name="SecretDialog_NewValue" xml:space="preserve"><value>Nouvelle valeur</value></data>
+  <data name="SettingGroup_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="SettingGroup_Urls" xml:space="preserve"><value>Adresses</value></data>
+  <data name="SettingGroup_Uploads" xml:space="preserve"><value>Uploads</value></data>
+  <data name="SettingGroup_Processing" xml:space="preserve"><value>Traitement</value></data>
+  <data name="SettingGroup_Notifications" xml:space="preserve"><value>Notifications</value></data>
+  <data name="SettingGroup_Coverage" xml:space="preserve"><value>Couverture</value></data>
+  <data name="SettingGroup_Badges" xml:space="preserve"><value>Badges</value></data>
+  <data name="SettingGroup_Access" xml:space="preserve"><value>Accès</value></data>
+  <data name="SettingGroup_Retention" xml:space="preserve"><value>Rétention</value></data>
   <data name="SignIn_Title" xml:space="preserve"><value>Connexion</value></data>
   <data name="SignIn_Hint" xml:space="preserve"><value>Vous ne verrez que les dépôts que votre compte GitHub peut lire.</value></data>
   <data name="SignIn_Failed" xml:space="preserve"><value>La connexion avec GitHub n’a pas abouti. Réessayez.</value></data>

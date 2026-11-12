@@ -36,11 +36,13 @@ public sealed class UiResult<T>
   /// <param name="succeeded">Whether the request returned a value.</param>
   /// <param name="value">The value returned, or <see langword="default" />.</param>
   /// <param name="notFound">Whether the requested resource was not found.</param>
-  private UiResult(bool succeeded, T? value, bool notFound)
+  /// <param name="forbidden">Whether the server refused the user.</param>
+  private UiResult(bool succeeded, T? value, bool notFound, bool forbidden = false)
   {
     Succeeded = succeeded;
     Value = value;
     NotFound = notFound;
+    Forbidden = forbidden;
   }
 
   #endregion
@@ -63,6 +65,12 @@ public sealed class UiResult<T>
   /// </summary>
   public bool NotFound { get; }
 
+  /// <summary>
+  ///   Gets a value indicating whether the server refused the user: the page shows its denied state. The navigation
+  ///   only hides entries, the server stays the authority.
+  /// </summary>
+  public bool Forbidden { get; }
+
   #endregion
 
   #region Methods
@@ -79,6 +87,10 @@ public sealed class UiResult<T>
   /// <summary>Creates the result of a request refused and already reported to the user.</summary>
   /// <returns>A result neither <see cref="Succeeded" /> nor <see cref="NotFound" />.</returns>
   internal static UiResult<T> Refused() => new(false, default, false);
+
+  /// <summary>Creates the result of a request the server refused to the user, reported by the page itself.</summary>
+  /// <returns>A <see cref="Forbidden" /> result.</returns>
+  internal static UiResult<T> Denied() => new(false, default, false, true);
 
   #endregion
 }

@@ -34,6 +34,10 @@ public partial class UiGallerySamples
 
   private bool _fail;
 
+  private bool _switch = true;
+
+  private bool _dialog;
+
   #endregion
 
   #region Parameters
@@ -98,6 +102,10 @@ public partial class UiGallerySamples
   #region Methods
 
   private void Fail() => _fail = true;
+
+  private void OpenDialog() => _dialog = true;
+
+  private void CloseDialog() => _dialog = false;
 
   private void ShowSuccessToast() =>
     Toasts.Show(CcTone.Success, "Token revoked", "ci-main can no longer be used.");
