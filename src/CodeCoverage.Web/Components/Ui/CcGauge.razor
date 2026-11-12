@@ -1,0 +1,15 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcGauge.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<svg class="@CssClass" viewBox="0 0 320 180" role="img" aria-label="@($"{Caption}: {ValueText}")" focusable="false">
+  @for (var i = 0; i < Segments; i++)
+  {
+    <rect x="@(CenterX + Radius - 20)" y="@(CenterY - 8.5)" width="40" height="17" rx="6"
+          transform="@($"rotate({Num(-AngleOf(i))} {CenterX} {CenterY})")" style="@($"fill:{FillOf(i)}")" />
+  }
+  @SvgText(CenterY - 12, "cc-gauge__value", ValueText)
+  @SvgText(CenterY + 14, "cc-gauge__caption", Caption)
+</svg>

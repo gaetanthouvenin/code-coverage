@@ -1,0 +1,102 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AdminOperations.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/admin/operations"
+@using CodeCoverage.Web.Mapping
+
+<PageTitle>@L["PageTitle_Format", L["Tab_Operations"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["Tab_Operations"]" Icon="CcIconName.Activity" Subtitle="@L["AdminOperations_Subtitle"]">
+    <Tabs><AdminTabs /></Tabs>
+    <Actions>
+      @if (State is PageState.Ready)
+      {
+        <CcButton Variant="CcButtonVariant.Pill" Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Refresh"]</CcButton>
+      }
+    </Actions>
+  </CcHeader>
+
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Denied)
+  {
+    <div class="cc-panel cc-status-page" data-state="denied">
+      <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["AdminOperations_Denied"]</CcEmptyState>
+    </div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Status is not null)
+  {
+    <SystemStatusCards Status="Status" />
+    <div class="cc-grid cc-grid--main">
+      <JobTable Jobs="Status.Jobs" OnRetry="RetryAsync" Busy="_busy" />
+      <section class="cc-panel" data-panel="quota">
+        <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Operations_GitHubQuota"]</h2></div>
+        <div class="cc-panel__body">
+          @if (Status.Quotas.FirstOrDefault() is { IsExpired: false, RemainingPercent: { } percent } quota)
+          {
+            <CcGauge Value="percent" Caption="@L["Operations_RemainingRequests"]" />
+            <div class="cc-mini-grid">
+              <div class="cc-mini"><span class="cc-mini__label">@L["Operations_Remaining"]</span><span class="cc-mini__value">@quota.Remaining.ToString("N0", CultureInfo.CurrentCulture)</span></div>
+              <div class="cc-mini"><span class="cc-mini__label">@L["Operations_Limit"]</span><span class="cc-mini__value">@quota.Limit?.ToString("N0", CultureInfo.CurrentCulture)</span></div>
+            </div>
+          }
+          else if (Status.Quotas.FirstOrDefault() is { IsExpired: true })
+          {
+            <p class="cc-muted">@L["Operations_QuotaRefilled"]</p>
+          }
+          else
+          {
+            <p class="cc-muted">@L["Operations_NoQuota"]</p>
+          }
+          @if (Status.Quotas.Count > 1)
+          {
+            <dl class="cc-kv cc-quota-list">
+              @foreach (var other in Status.Quotas)
+              {
+                <dt><code>@other.Installation</code></dt>
+                <dd class="cc-num">@other.Remaining.ToString("N0", CultureInfo.CurrentCulture)@(other.Limit is { } limit ? " / " + limit.ToString("N0", CultureInfo.CurrentCulture) : string.Empty)</dd>
+              }
+            </dl>
+          }
+        </div>
+      </section>
+    </div>
+    <div class="cc-grid cc-grid--2">
+      <WebhookDeliveries Webhooks="Status.Webhooks" />
+      <section class="cc-panel" data-panel="workers">
+        <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Operations_WorkerHeartbeats"]</h2></div>
+        @if (Status.Workers.Count == 0)
+        {
+          <div class="cc-panel__body cc-muted">@L["Operations_NoWorker"]</div>
+        }
+        else
+        {
+          <div class="cc-list">
+            @foreach (var worker in Status.Workers)
+            {
+              <div class="cc-list__row" @key="worker.Host">
+                <span class="@(worker.IsAlive ? "cc-thumb cc-thumb--ok" : "cc-thumb cc-thumb--warn")" aria-hidden="true"><CcIcon Name="CcIconName.Activity" /></span>
+                <div class="cc-list__grow"><code>@worker.Host</code></div>
+                <span class="cc-muted cc-small">@DisplayFormatter.Age(worker.LastBeatAt, Time.GetUtcNow(), L)</span>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    </div>
+  }
+</CcPageContainer>

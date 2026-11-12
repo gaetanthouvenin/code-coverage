@@ -1,0 +1,43 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="SystemStatusCards.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-grid cc-grid--4">
+  <CcKpiCard Label="@L["Column_QueueDepth"]" Value="@Status.Queued.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.List" Accent="true">
+    <Footer>@L["Operations_Oldest"] <b>@(Status.OldestQueuedAge is { } age ? L["Operations_Seconds", (long)age.TotalSeconds].Value : "—")</b></Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Operations_DeadJobs"]" Value="@Status.Dead.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.Alert" IconStyle="CcKpiIconStyle.Ink">
+    <Footer>@L["Operations_FailedJobs", Status.Failed]</Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Operations_GitHubQuota"]" Value="@(Status.Quotas.FirstOrDefault() is { IsExpired: false } quota ? quota.Remaining.ToString("N0", CultureInfo.CurrentCulture) : "—")" Icon="CcIconName.GitHub" IconStyle="CcKpiIconStyle.Gradient">
+    <Footer>
+      @if (Status.Quotas.FirstOrDefault() is { IsExpired: true })
+      {
+        @L["Operations_QuotaRefilled"]
+      }
+      else if (Status.Quotas.FirstOrDefault() is { ResetAt: { } reset })
+      {
+        @L["Operations_ResetsIn"] <b>@UntilOf(reset)</b>
+      }
+      else
+      {
+        @L["Operations_NoQuota"]
+      }
+    </Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Operations_Workers"]" Value="@($"{Status.Workers.Count(static w => w.IsAlive)} / {Status.Workers.Count}")" Icon="CcIconName.Activity">
+    <Trend>
+      @if (Status.Workers.Count > 0 && Status.Workers.All(static w => w.IsAlive))
+      {
+        <CcBadge Chip="true" Tone="CcTone.Success">OK</CcBadge>
+      }
+      else
+      {
+        <CcBadge Chip="true" Tone="CcTone.Warning">@L["Operations_NoHeartbeat"]</CcBadge>
+      }
+    </Trend>
+    <Footer>@L["Operations_LastHeartbeat"] <b>@(Status.LastBeatAt is { } beat ? AgeOf(beat) : "—")</b></Footer>
+  </CcKpiCard>
+</div>

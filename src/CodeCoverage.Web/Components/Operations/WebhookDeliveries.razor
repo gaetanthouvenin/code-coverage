@@ -1,0 +1,51 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="WebhookDeliveries.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="webhooks">
+  <div class="cc-panel__head">
+    <div>
+      <h2 class="cc-panel__title">@L["Operations_Webhooks"]</h2>
+      <div class="cc-panel__sub">@L["Operations_WebhooksSub"]</div>
+    </div>
+  </div>
+  @if (Webhooks.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Operations_NoWebhook"]</div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Operations_Webhooks"]">
+      <Head>
+        <th>@L["Operations_Event"]</th>
+        <th>@L["Column_Date"]</th>
+        <th>@L["Column_State"]</th>
+      </Head>
+      <ChildContent>
+        @foreach (var delivery in Webhooks)
+        {
+          <tr @key="delivery.Event" data-event="@delivery.Event">
+            <td><code>@delivery.Event</code></td>
+            <td class="cc-muted cc-nowrap">@AgeOf(delivery.ReceivedAt)</td>
+            <td>
+              @if (delivery.HasError)
+              {
+                <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["Status_Error"]</CcBadge>
+              }
+              else if (delivery.IsProcessed)
+              {
+                <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["Status_Success"]</CcBadge>
+              }
+              else
+              {
+                <CcBadge Tone="CcTone.Info" Icon="CcIconName.Clock">@L["Commit_Pending"]</CcBadge>
+              }
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+  }
+</section>

@@ -2051,3 +2051,84 @@ code {
 .cc-covbar__m {
   background: var(--cc-miss-edge);
 }
+
+/* The operations of the instance (M3.40): gauge of the GitHub quota, small statistics, thumbnails by state. */
+.cc-grid--main {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.cc-panel__sub {
+  margin-top: 2px;
+  color: var(--cc-fg-2);
+  font-size: 13px;
+}
+
+.cc-gauge {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.cc-gauge__value {
+  fill: var(--cc-fg);
+  font-size: 38px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+}
+
+.cc-gauge__caption {
+  fill: var(--cc-fg-2);
+  font-size: 12.5px;
+}
+
+.cc-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.cc-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: var(--cc-r-lg);
+  background: var(--cc-card-2);
+}
+
+.cc-mini__label {
+  color: var(--cc-fg-2);
+  font-size: 13px;
+}
+
+.cc-mini__value {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+
+.cc-quota-list {
+  margin-top: 16px;
+}
+
+.cc-thumb--ok {
+  background: var(--cc-ok-bg);
+  color: var(--cc-ok-fg);
+}
+
+.cc-thumb--warn {
+  background: var(--cc-warn-bg);
+  color: var(--cc-warn-fg);
+}
+
+@media (max-width: 900px) {
+  .cc-grid--main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
