@@ -28,7 +28,9 @@ public sealed class SqlRawUploadStoreTests(DatabaseFixture database)
 
   private const long TwoHundredMegabytes = 200L * 1024 * 1024;
 
-  private const long MemoryCeiling = 32L * 1024 * 1024;
+  private const long MemoryCeiling = TwoHundredMegabytes / 2;
+
+  private const int Samples = 10;
 
   private static readonly DateTimeOffset Now = new(2026, 11, 9, 8, 0, 0, TimeSpan.Zero);
 
@@ -53,18 +55,31 @@ public sealed class SqlRawUploadStoreTests(DatabaseFixture database)
     // The first write compiles the queries of the store, which stay in memory for the rest of the process.
     await store.WriteAsync(Guid.NewGuid(), Part(UploadPartKind.Report, [1, 2, 3]), Ct);
 
+    // A second context counts, while the stream is read, the chunks already committed: no transaction wraps a part.
+    await using var observer = organizations.ContextOf(organizations.FirstId);
+    var uploadId = Guid.NewGuid();
     var baseline = GC.GetTotalMemory(forceFullCollection: true);
+    var samples = 0;
     var peak = 0L;
+    var maxLag = 0L;
     var content = new GeneratedReadStream(
       TwoHundredMegabytes,
-      TwoHundredMegabytes / 10,
-      () => peak = Math.Max(peak, GC.GetTotalMemory(forceFullCollection: true) - baseline)
+      TwoHundredMegabytes / Samples,
+      bytesRead =>
+      {
+        samples++;
+        var committed = observer.UploadRawChunks.AsNoTracking()
+                                .Count(c => observer.UploadRawFiles.Where(f => f.UploadPublicId == uploadId).Select(static f => f.Id).Contains(c.RawFileId));
+        maxLag = Math.Max(maxLag, bytesRead - (committed * (long)SqlRawUploadStore.ChunkSize));
+        peak = Math.Max(peak, GC.GetTotalMemory(forceFullCollection: true) - baseline);
+      }
     );
 
-    var stored = await store.WriteAsync(Guid.NewGuid(), new UploadPart(UploadPartKind.Report, "big.xml", content), Ct);
+    var stored = await store.WriteAsync(uploadId, new UploadPart(UploadPartKind.Report, "big.xml", content), Ct);
 
     stored.UncompressedSize.ShouldBe(TwoHundredMegabytes);
-    peak.ShouldBeGreaterThan(0);
+    samples.ShouldBe(Samples);
+    maxLag.ShouldBeLessThanOrEqualTo(2L * SqlRawUploadStore.ChunkSize);
     peak.ShouldBeLessThan(MemoryCeiling);
     (await context.UploadRawChunks.AsNoTracking().CountAsync(c => c.RawFileId == stored.Id, Ct)).ShouldBeGreaterThan(190);
     context.ChangeTracker.Entries<UploadRawChunkRecord>().ShouldBeEmpty();

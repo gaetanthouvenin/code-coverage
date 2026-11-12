@@ -6,8 +6,9 @@
 
 namespace CodeCoverage.Infrastructure.Tests.Support;
 
-// A long stream of incompressible bytes that is never held in memory, with a callback at regular intervals.
-public sealed class GeneratedReadStream(long length, long sampleEvery, Action onSample) : Stream
+// A long stream of incompressible bytes that is never held in memory, with a callback at regular intervals that receives
+// the number of bytes read so far.
+public sealed class GeneratedReadStream(long length, long sampleEvery, Action<long> onSample) : Stream
 {
   #region Fields
 
@@ -15,7 +16,7 @@ public sealed class GeneratedReadStream(long length, long sampleEvery, Action on
 
   private long _position;
 
-  private long _sampled;
+  private long _samples;
 
   #endregion
 
@@ -61,10 +62,11 @@ public sealed class GeneratedReadStream(long length, long sampleEvery, Action on
     _random.NextBytes(buffer[..count]);
     _position += count;
 
-    if (_position - _sampled >= sampleEvery)
+    // Each multiple of the interval fires once, whatever the size of the reads: a stream of n intervals samples n times.
+    while (_position >= (_samples + 1) * sampleEvery)
     {
-      _sampled = _position;
-      onSample();
+      _samples++;
+      onSample(_position);
     }
 
     return count;
