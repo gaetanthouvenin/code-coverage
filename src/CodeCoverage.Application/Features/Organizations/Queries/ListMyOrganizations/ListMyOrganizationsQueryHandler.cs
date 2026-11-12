@@ -43,6 +43,12 @@ internal sealed class ListMyOrganizationsQueryHandler(
 
     foreach (var membership in await memberships.ListOfUserAsync(userId, cancellationToken).ConfigureAwait(false))
     {
+      // A token of an organization stays within it (M3.05): the other organizations of its user are not listed.
+      if (currentUser.TokenOrganizationId is { } tokenOrganization && tokenOrganization != membership.OrganizationId)
+      {
+        continue;
+      }
+
       if (await roles.ResolveAsync(userId, membership.OrganizationId, cancellationToken).ConfigureAwait(false) is { } role
           && await directory.FindAsync(membership.OrganizationId, cancellationToken).ConfigureAwait(false) is { State: OrganizationState.Active } organization)
       {
