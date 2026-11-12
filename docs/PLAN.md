@@ -359,6 +359,7 @@ graph TD
   M3_19 --> M3_21["M3.21 Vue d'ensemble : cartes"]
   M3_06 --> M3_21
   M3_16 --> M3_21
+  M3_12 --> M3_21
   M3_21 --> M3_22["M3.22 Vue d'ensemble : graphique"]
   M3_16 --> M3_22
   M3_21 --> M3_23["M3.23 Vue d'ensemble : listes et badge"]
@@ -399,8 +400,9 @@ graph TD
   M3_35 --> M3_38
   M3_19 --> M3_39["M3.39 Dépôts d'organisation"]
   M3_07 --> M3_39
+  M3_13 --> M3_13a["M3.13a Heartbeat et quota persistés"]
   M3_19 --> M3_40["M3.40 Admin opérations"]
-  M3_13 --> M3_40
+  M3_13a --> M3_40
   M3_19 --> M3_41["M3.41 Admin audit"]
   M3_19 --> M3_41a["M3.41a Admin organisations"]
   M3_42["M3.42 Setup : backend"] --> M3_43["M3.43 Page /setup"]
@@ -2122,8 +2124,23 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - UC `Features/Operations/Commands/RetryJob` (409 si le job n'est pas relançable), à `/api/v1/ops/jobs/{id}/retry`, exécutée sous l'organisation du job ;
   - `Api/Controllers/OperationsController.cs` ; contrats `JobPageResponse`, `WebhookDeliveryResponse`, `SystemStatusResponse` ; `Api/Mapping/OperationsMapper.cs`.
 - **Tests :** `RetryJobCommandHandlerTests` — `Handle_RunningJob_ShouldThrowConflict` ; `SqlJobMonitorTests` — `GetStatus_ShouldReportOldestQueuedAge` ; `Infrastructure.Tests/Operations/OperationalReadModelTests` — `ReadModels_ShouldExposeNoPayloadOrKeys`.
-- **Acceptation :** heartbeats du worker et quota GitHub restant visibles.
+- **Acceptation :** heartbeats du worker et quota GitHub restant visibles depuis l'Api qui fait tourner le worker ; la lecture depuis un autre processus arrive en M3.13a.
 - **Dépend de :** M3.05, M0.24, M2.02
+
+#### M3.13a — Heartbeat du worker et quota GitHub persistés
+- **Objectif :** rendre le heartbeat du worker et le quota GitHub lisibles depuis n'importe quel processus. Aujourd'hui, `WorkerPulse` et le dictionnaire de `CodeCoverageMeter` ne vivent que dans la mémoire de l'Api, et le Web, autre processus, affiche un heartbeat nul et un quota vide. La profondeur de file et l'âge du plus ancien job, déjà lus dans `Jobs`, ne changent pas.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api.
+- **Fichiers :**
+  - `Domain/Operations/WorkerHeartbeat.cs` (`Host`, `StartedAt`, `LastBeatAt`) et `GitHubQuota.cs` (`Installation`, `Remaining`, `Limit`, `ResetAt`, `ObservedAt`) ; `SystemStatus` garde `WorkerLastSeenAt` (dernier battement) et `GitHubRemaining`, et ajoute `IReadOnlyList<WorkerHeartbeat> Workers` et `IReadOnlyList<GitHubQuota> GitHubQuotas` (changement additif) ;
+  - tables opérationnelles `WorkerHeartbeats` (clé `Host`, nom de machine et identifiant de processus) et `GitHubQuotas` (clé `Installation`, `app` pour le quota de l'App), ajoutées à `TableClassification.Operational`, sans `IsOrganizationOwned` ; `Persistence/Configurations/WorkerHeartbeatConfiguration.cs`, `GitHubQuotaConfiguration.cs` ; deux migrations `AddOperationalStatus` (PostgreSQL et SQL Server) ;
+  - `Infrastructure/GitHub/GitHubQuotaTracker.cs` (singleton) : `RateLimitHandler` y publie aussi `x-ratelimit-limit` et `x-ratelimit-reset` ; la jauge `github_ratelimit_remaining` reste ;
+  - `Infrastructure/Jobs/OperationalStatusPublisher.cs` : service hébergé enregistré par `AddJobProcessing` (Api seulement) ; toutes les 15 s, il écrit le battement de `WorkerPulse` et les quotas changés depuis le passage précédent (`ExecuteUpdateAsync`, puis insertion si aucune ligne, sans SQL propre à un fournisseur), et supprime les heartbeats de plus de 24 h ;
+  - `SqlJobMonitor.GetStatusAsync` lit les deux tables au lieu de `WorkerPulse` et du compteur ; `WorkerPulse` quitte `AddInfrastructure` (`DependencyInjection.cs:187`) ;
+  - `GetSystemStatus` (`IAdminOnly`) est inchangée : c'est elle que le Web lira en M3.40 ; `Api/Contracts/Operations/SystemStatusResponse.cs` et `OperationsMapper` gardent `WorkerLastSeenAt` et `GitHubRemaining` et ajoutent `Workers` (`WorkerHeartbeatModel`) et `GitHubQuotas` (`GitHubQuotaModel`) ; route propre au produit, sans parité Codecov.
+- **Tests :** `OperationalStatusPublisherTests` — `Publish_ShouldUpsertHeartbeatAndChangedQuotas` ; `SqlJobMonitorTests` — `GetStatus_FromAnotherProcess_ShouldReadPersistedHeartbeat` (contexte sans `WorkerPulse`, deux fournisseurs) ; `RateLimitHandlerTests` — `Send_ShouldTrackLimitAndReset` ; test de classement des tables et « pas de changement de modèle sans migration » verts.
+- **Acceptation :** un hôte sans worker (le Web) lit le dernier battement et le quota de chaque installation, avec sa limite et sa remise à zéro, à 15 s près ; aucune écriture en base par requête GitHub ; aucune donnée métier ni identifiant d'organisation dans ces tables.
+- **Dépend de :** M3.13, M0.26, M1.25
+- **Issue :** TBD
 
 ### 6.3 Badges, historique et rétention
 
@@ -2153,8 +2170,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.16 — Historique de couverture
 - **Objectif :** séries par branche et par flag (§11.3).
-- **Couches :** Domain, Application, Api.
-- **Fichiers :** `Domain/History/CoveragePoint.cs`, `CoverageSeries.cs`, `HistoryInterval.cs` ; UC `Features/Repositories/Queries/GetCoverageHistory` `+V` (agrégation en C#, 10 000 lignes au plus) ; endpoint `GET …/history` ; `Api/Contracts/Repositories/CoverageSeriesResponse.cs`.
+- **Couches :** Domain, Application, Infrastructure, Api.
+- **Fichiers :** `Domain/History/CoveragePoint.cs`, `CoverageSeries.cs`, `HistoryInterval.cs`, `HistoryEntry.cs` ; `ICommitReportRepository.ListHistoryAsync` (jointure gauche sur `GitCommits`, plafond par commits entiers) ; UC `Features/Repositories/Queries/GetCoverageHistory` `+V` (agrégation en C#, 10 000 lignes au plus) ; endpoint `GET …/history` ; `Api/Contracts/Repositories/CoverageSeriesResponse.cs`.
 - **Tests :** `GetCoverageHistoryQueryHandlerTests` — `Handle_WeekInterval_ShouldKeepLastValuePerWeek`, `Handle_ShouldUseCommitterDateThenCompletedAt`.
 - **Acceptation :** résultats identiques sur les deux fournisseurs.
 - **Dépend de :** M3.05, M1.36, M3.06
@@ -2181,27 +2198,27 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.19 — Navigation et gabarit de dépôt
 - **Objectif :** menu latéral, onglets de dépôt, menu utilisateur et sélecteur d'organisation (navigation seule).
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Layout/MainLayout.razor` (`CcTopNav`, `CcPillTabs`, `CcUserMenu`) ; `Web/Components/Layout/NavMenu.razor(.cs)` (section Organisation visible par ses administrateurs, section Instance visible par les administrateurs d'instance) ; `Web/Components/Repositories/RepositoryTabs.razor(.cs)` (`CcFolderTabs`) ; `Web/ViewModels/Access/NavigationViewModel.cs`.
+- **Couches :** Application, Web.
+- **Fichiers :** `Web/Components/Layout/MainLayout.razor` (`CcTopNav`, `CcPillTabs`, `CcUserMenu`) ; `Web/Components/Layout/NavMenu.razor(.cs)` (section Organisation visible par ses administrateurs, section Instance visible par les administrateurs d'instance) ; `Web/Components/Repositories/RepositoryTabs.razor(.cs)` (`CcPillTabs`) ; `Web/ViewModels/Access/NavigationViewModel.cs`, `NavigationOrganizationViewModel.cs` ; UC `Features/Access/Queries/GetCurrentUserAccess` (`IUserScoped`, read model Domain `UserAccess` : l'administrateur d'instance se lit dans `ICurrentUser.IsAdmin`) ; `CcNavItem.Active` et slot `Start` de `CcTopNav`.
 - **Tests :** `Web.Tests/Components/Layout/NavMenuTests` — `Render_NonAdmin_ShouldHideAdministration`, `Render_OrganizationAdmin_ShouldShowOrganizationSection`, `Render_InstanceAdmin_ShouldShowInstanceSection`.
 - **Acceptation :** conforme à la maquette M3.18.
 - **Dépend de :** M3.18, M3.04, M3.03a
 
 #### M3.20 — Page d'accueil `/`
 - **Objectif :** dépôts accessibles, couverture, sparkline de 30 jours, dernier commit et flags.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/Home.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySummaryViewModel.cs` ; `Web/Mapping/RepositoryMapper.cs` (`ListRepositoriesViewModelsAsync`) ; la page appelle `ListMyOrganizations`, puis envoie une requête par organisation ; recherche (`CcSearchBar`) et filtre actifs/inactifs.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** `Domain/Repositories/RepositorySummary.cs` (dépôt, totaux projet de la tête couverte de la branche par défaut, ce commit comme dernier commit, flags, points quotidiens des 30 derniers jours) ; UC `Features/Repositories/Queries/ListRepositorySummaries` (`IOrganizationScoped`, `Participant`, filtrée par `IRepositoryAccessService.ListReadableAsync` comme `ListRepositories`, avant toute lecture) ; des méthodes de dépôt qui prennent plusieurs identifiants de dépôt (tête couverte et totaux, flags, historique quotidien borné), testées sur deux organisations et les deux fournisseurs, sans envoi par dépôt ; `Web/Components/Pages/Home.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySummaryViewModel.cs` ; `Web/Mapping/RepositoryMapper.cs` (`ListRepositorySummaryViewModelsAsync`) ; la page appelle `ListMyOrganizations`, puis envoie une requête par organisation ; recherche (`CcSearchBar`) et filtre actifs/inactifs.
 - **Tests :** `Web.Tests/Components/Pages/HomeTests` — `Render_Empty_ShouldShowEmptyState`, `Search_ShouldFilterList`.
 - **Acceptation :** aucun type du Domain dans la page (Architecture.Tests).
 - **Dépend de :** M3.19, M3.06, M3.16, M3.03a
 
 #### M3.21 — Vue d'ensemble : cartes projet et flags
-- **Objectif :** `CcStatCard` pour le projet et par flag, avec Δ sur 30 jours.
+- **Objectif :** `CcKpiCard` (maquette validée) pour le projet et pour chaque flag, avec Δ sur 30 jours.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/RepositoryOverview.razor(.cs)` ; `Web/Components/Repositories/CoverageCards.razor(.cs)` ; `Web/ViewModels/Repositories/RepositoryOverviewViewModel.cs`, `FlagCardViewModel.cs`.
 - **Tests :** `RepositoryOverviewTests` — `Render_NotFound_ShouldShowInaccessibleState`.
 - **Acceptation :** valeurs formatées selon `precision` et `round`.
-- **Dépend de :** M3.19, M3.06, M3.16
+- **Dépend de :** M3.19, M3.06, M3.16, M3.12 (`precision` et `round` viennent de `GetEffectiveConfig`)
 
 #### M3.22 — Vue d'ensemble : graphique d'historique
 - **Objectif :** `CcLineChart` avec sélecteur de branche, multi-sélection de flags et plage de 30, 90 ou 365 jours.
@@ -2221,19 +2238,19 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.24 — Liste des commits
 - **Objectif :** liste paginée par branche.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/CommitList.razor(.cs)` ; `Web/ViewModels/Commits/CommitRowViewModel.cs`, `CommitPageViewModel.cs` ; `Web/Mapping/CommitMapper.cs`.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** `IGitCommitRepository.ListByShasAsync` (métadonnées git de la page) ; read model de page `CommitSummary` (commit, message, auteur, Δ) ; Δ lu dans la comparaison de push enregistrée (`IComparisonRepository.ListByCommitsAsync`, `PullNumber` nul), testé sur deux organisations et les deux fournisseurs ; `Web/Components/Pages/CommitList.razor(.cs)` ; `Web/ViewModels/Commits/CommitRowViewModel.cs`, `CommitPageViewModel.cs` ; `Web/Mapping/CommitMapper.cs`.
 - **Tests :** `CommitListTests` — `ChangeBranch_ShouldReload`.
 - **Acceptation :** affiche état, Δ et nombre de sessions.
 - **Dépend de :** M3.19, M3.08, M3.06
 
 #### M3.25 — Détail d'un commit : synthèse
 - **Objectif :** totaux, tableau des flags (avec marqueur de report), statuts publiés, source et avertissements de configuration.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/CommitDetail.razor(.cs)` ; `Web/Components/Commits/CommitSummary.razor(.cs)`, `CommitFlags.razor(.cs)`, `PostedStatuses.razor(.cs)`, `ConfigWarnings.razor(.cs)` ; `Web/ViewModels/Commits/CommitDetailViewModel.cs`.
+- **Couches :** Application, Web.
+- **Fichiers :** `CommitDetail` porte aussi les métadonnées git, la ligne `CommitConfigs` enregistrée (source, chemin et avertissements réellement appliqués, sans relire la configuration au SHA) et la comparaison de push ; `Web/Components/Pages/CommitDetail.razor(.cs)` ; `Web/Components/Commits/CommitSummary.razor(.cs)`, `CommitFlags.razor(.cs)`, `PostedStatuses.razor(.cs)`, `ConfigWarnings.razor(.cs)` ; `Web/ViewModels/Commits/CommitDetailViewModel.cs`.
 - **Tests :** `CommitDetailTests` — `Render_ConfigError_ShouldShowBanner`.
 - **Acceptation :** conforme à la maquette.
-- **Dépend de :** M3.24
+- **Dépend de :** M3.24, M2.19a (statuts publiés de `CommitDetail.Statuses`)
 
 #### M3.26 — Détail d'un commit : uploads, sessions et journal
 - **Objectif :** lien CI, flags, état, origine du report et journal de traitement.
@@ -2277,11 +2294,11 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.31 — Page PR : bases et synthèse
 - **Objectif :** expliquer les bases (tête, point de fourche, `comparedTo`, retard), patch, Δ et tableau `diff`.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/PullRequestDetail.razor(.cs)` ; `Web/Components/Comparisons/BaseExplanation.razor(.cs)`, `ComparisonSummary.razor(.cs)`, `DiffTable.razor(.cs)` ; `Web/ViewModels/Comparisons/ComparisonViewModel.cs` ; `Web/Mapping/ComparisonMapper.cs`.
-- **Tests :** `PullRequestDetailTests` — `Render_ComparedToDiffersFromForkPoint_ShouldExplain`.
+- **Couches :** Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api, Web.
+- **Fichiers :** colonnes `BehindBy` et `Hops` de `Comparisons` (nullables, deux migrations ; une comparaison existante les laisse nulles), lues dans `ComparisonView` et ajoutées à `BaseResolutionModel` ; `Web/Components/Pages/PullRequestDetail.razor(.cs)` ; `Web/Components/Comparisons/BaseExplanation.razor(.cs)`, `ComparisonSummary.razor(.cs)`, `DiffTable.razor(.cs)` ; `Web/ViewModels/Comparisons/ComparisonViewModel.cs` ; `Web/Mapping/ComparisonMapper.cs`.
+- **Tests :** `PullRequestDetailTests` — `Render_ComparedToDiffersFromForkPoint_ShouldExplain` ; `ComparisonRepositoryTests` — `Save_ShouldRoundTripHopsAndBehindBy` (deux fournisseurs).
 - **Acceptation :** lien vers le commentaire GitHub.
-- **Dépend de :** M3.30
+- **Dépend de :** M3.30, M3.10
 
 #### M3.32 — Page PR : flags, fichiers impactés, changements indirects et avertissements
 - **Objectif :** compléter la page PR, avec liens vers la source annotée.
@@ -2342,15 +2359,15 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.38 — Organisation : jetons d'upload
 - **Objectif :** `/orgs/{forge}/{org}/upload-tokens` : créer, importer et révoquer les jetons d'organisation, avec un bandeau quand `RotationAdvisedAt` est posé.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (`IOrganizationScoped(Admin)`, réutilise `Tokens/*`).
+- **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (messages `IOrganizationScoped(Admin)` de M1.22, réutilise `Tokens/*`).
 - **Tests :** `OrganizationUploadTokensTests` — `Render_RotationAdvised_ShouldShowBanner`, `Render_Participant_ShouldBeDenied`.
 - **Acceptation :** réservé aux administrateurs de l'organisation.
 - **Dépend de :** M3.19, M1.22, M3.35
 
 #### M3.39 — Organisation : dépôts
 - **Objectif :** `/orgs/{forge}/{org}/repositories` : tous les dépôts de l'installation de l'organisation, activation et synchronisation.
-- **Couches :** Web, Application.
-- **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`), à la place du job global ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs`.
+- **Couches :** Application, Web.
+- **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`), à la place du job global : elle met en file le job existant `SyncInstallationRepositories` pour l'installation de l'organisation, sans nouveau type de job ; UC `Features/Repositories/Queries/ListOrganizationRepositories` (`IOrganizationScoped(Admin)`, tous les dépôts de l'installation avec leur dernier upload, `MAX(Commits.LastUploadAt)` par dépôt ; `ListRepositorySummaries` de M3.20 ne convient pas, car elle est `Participant` et filtrée par les dépôts lisibles) ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs`.
 - **Tests :** `OrganizationRepositoriesTests` — `Click_Sync_ShouldEnqueue`.
 - **Acceptation :** affiche le dernier upload.
 - **Dépend de :** M3.19, M3.07, M2.03
@@ -2358,23 +2375,23 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.40 — Administration : opérations
 - **Objectif :** `/admin/operations`, métadonnées seulement : file, jobs morts, webhooks, heartbeats, quota GitHub et relance. Les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27).
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/AdminOperations.razor(.cs)` ; `Web/Components/Operations/JobTable.razor(.cs)`, `WebhookDeliveries.razor(.cs)`, `SystemStatusCards.razor(.cs)` ; `Web/ViewModels/Operations/*` ; `Web/Mapping/OperationsMapper.cs`.
+- **Fichiers :** `Web/Components/Pages/AdminOperations.razor(.cs)` ; `Web/Components/Operations/JobTable.razor(.cs)`, `WebhookDeliveries.razor(.cs)`, `SystemStatusCards.razor(.cs)` ; `CcGauge` (quota GitHub, sur `Remaining / Limit`) dans `Web/Components/Ui` ; `Web/ViewModels/Operations/*` ; `Web/Mapping/OperationsMapper.cs`.
 - **Tests :** `AdminOperationsTests` — `Click_RetryDeadJob_ShouldEnqueue`.
 - **Acceptation :** les indicateurs sont les mêmes que les métriques de §12.6.
-- **Dépend de :** M3.19, M3.13
+- **Dépend de :** M3.19, M3.13, M3.13a
 
 #### M3.41 — Administration : journal d'audit
 - **Objectif :** `/admin/audit` : consulter et filtrer l'audit de l'instance (lignes à `OrganizationId` nul seulement).
-- **Couches :** Application, Web.
-- **Fichiers :** UC `Features/Operations/Queries/ListAuditEntries` (ajout, §10) ; `Web/Components/Pages/AdminAudit.razor(.cs)` ; `Web/ViewModels/Operations/AuditEntryViewModel.cs`.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** read model `Domain/Audit/AuditEntrySummary.cs` (sans valeur de secret) et `Domain/Ports/IAuditReader.cs`, implémenté dans `Infrastructure` (table opérationnelle `AuditEntries`, `OrganizationId` nul, filtres et pagination bornée ; `IAuditLog` n'a que `RecordAsync`) ; UC `Features/Operations/Queries/ListAuditEntries` (ajout, §10) ; `Web/Components/Pages/AdminAudit.razor(.cs)` ; `Web/ViewModels/Operations/AuditEntryViewModel.cs`.
 - **Tests :** `ListAuditEntriesQueryHandlerTests` ; `AdminAuditTests` — `Filter_ShouldReload`.
 - **Acceptation :** aucun secret n'apparaît.
 - **Dépend de :** M3.19, M0.17
 
 #### M3.41a — Page `/admin/organizations`
 - **Objectif :** l'écran de cycle de vie de l'administrateur d'instance.
-- **Couches :** Application, Web.
-- **Fichiers :** UC `Features/Organizations/Queries/ListOrganizations` (`IAdminOnly`, lignes `Organizations` et profondeur de file par organisation seulement) ; `Web/Components/Pages/AdminOrganizations.razor(.cs)` avec admission et suspension ; ViewModels et mapper.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** UC `Features/Organizations/Queries/ListOrganizations` (`IAdminOnly`, lignes `Organizations` et profondeur de file par organisation seulement) ; Domain `OrganizationOverview` ; `IOrganizationDirectory.ListAllAsync` ; `IJobMonitor.CountQueuedByOrganizationAsync` (Queued et Running, file d'instance exclue) ; `CcTable` ; `Web/Components/Pages/AdminOrganizations.razor(.cs)` avec admission et suspension ; ViewModels et mapper.
 - **Tests :** `AdminOrganizationsTests` — `Click_Admit_ShouldActivate`, `Render_NonInstanceAdmin_ShouldBeDenied` ; `ListOrganizationsQueryHandlerTests` — `Handle_ShouldExposeNoBusinessData`.
 - **Acceptation :** la page n'affiche aucun dépôt, jeton, YAML ni donnée métier d'une organisation.
 - **Dépend de :** M3.19, M1.22a
@@ -2396,7 +2413,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.43 — Page `/setup`
 - **Objectif :** état, création de l'App par manifest ou saisie manuelle, URL publiques et administrateurs. L'installation de l'App n'est plus une étape.
-- **Couches :** Web.
+- **Couches :** Application, Web. La saisie manuelle de l'App, la réémission du jeton de mise en place et l'enregistrement des URL publiques avant que l'App existe demandent des commandes que M3.42 ne fournit pas ; elles sont à trancher avec le propriétaire avant de coder la page.
 - **Fichiers :** `Web/Components/Pages/Setup.razor(.cs)` ; `Web/ViewModels/Settings/SetupViewModel.cs`, `ManualAppFormViewModel.cs`.
 - **Tests :** `SetupTests` — `Render_AppCreated_ShouldCompleteWithoutInstallation`.
 - **Acceptation :** parcours complet sur une instance sans aucune organisation.
@@ -2468,9 +2485,9 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M2.23, M1.46, M3.11, M3.15
 
 #### M4.06 — Script de parité quotidien (API)
-- **Objectif :** comparer chaque jour totaux et lignes de patch avec Codecov.
+- **Objectif :** comparer chaque jour les totaux et les totaux de patch par fichier avec Codecov.
 - **Couches :** outillage.
-- **Fichiers :** `tools/parity/Compare-WithCodecov.ps1` (API v1 avec jeton API, Codecov API v2, totaux à ±0,01 %, lignes de patch identiques), `.github/workflows/parity.yml` (planifié, rapport en artefact).
+- **Fichiers :** `tools/parity/Compare-WithCodecov.ps1` (API v1 avec jeton API, Codecov API v2, totaux à ±0,01 %, totaux de patch par fichier identiques ; M3.10 ne sert pas les lignes de patch, l'écart ligne à ligne est consigné dans `docs/parity-log.md`), `.github/workflows/parity.yml` (planifié, rapport en artefact).
 - **Tests :** jeux figés dans `tools/parity/samples/`.
 - **Acceptation :** chaque écart est expliqué un par un dans `docs/parity-log.md`.
 - **Dépend de :** M3.08, M3.05, M1.47, M3.10
@@ -2609,6 +2626,7 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 | 19 | Les écrans d'exploitation restent au niveau de l'instance et ne montrent que des métadonnées (M3.13, M3.40, M3.41) ; les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27). | L'isolation exige que la vue d'instance masque les données métier. Les écrans par organisation sont au backlog (§11). |
 | 20 | Préparation à plusieurs forges (ADR-014, M1.16a3) : `Forge` et identifiants externes en texte, forge dans les adresses, `IForgeGateway`, `Repositories.Namespace`. L'architecture décrit encore GitHub seul jusqu'à M1.16a2 ; en cas de conflit, ADR-014 prime. | Rien de ce qui fige l'hypothèse n'était construit ; les jalons M7 et M8 ajoutent les adaptateurs. |
 | 21 | GitLab.com rejoint les forges préparées (ADR-014, M1.16a4) : login de 255 caractères pouvant contenir des points, owner à plusieurs niveaux écrit avec `:`, jalon M9. GitLab auto-hébergé reste hors portée. | Décision du propriétaire ; l'identité ne porte donc pas d'URL d'instance. |
+| 22 | Le heartbeat du worker et le quota GitHub sont persistés dans deux tables opérationnelles (M3.13a), et non plus gardés en mémoire seulement. | Le Web, qui sert `/admin/operations` (M3.40), est un autre processus que l'Api qui fait tourner le worker. |
 
 ---
 
@@ -2646,4 +2664,4 @@ Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.Organiz
 
 Écarts entre le code fusionné et l'architecture qu'aucune micro-fonctionnalité ne couvre encore.
 
-- **Job limité par GitHub** : §6.1 et §8.2 de l'architecture veulent qu'un job touché par `GitHubRateLimitedException` soit reprogrammé sans consommer de tentative, mais `JobWorker` ne traite que `RetryLaterException`. Un tel job perd donc une tentative. À combler avant le premier job qui appelle GitHub.
+Aucun à ce jour.
