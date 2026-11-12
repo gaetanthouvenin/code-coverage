@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -12,6 +14,7 @@ using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Coverage;
@@ -916,6 +919,143 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
     await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
     (await new CommitRepository(other).ListPageAsync(seed.FirstRepository, null, 1, 10, Ct)).TotalCount.ShouldBe(0);
+  }
+
+  // M3.16: the totals of the flags of a branch within a range of finalization dates, with the committer date when the
+  // commit was read from the forge, the most recent first under the limit, never through another organization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListHistory_ShouldReadTheFlagsOfTheBranchWithinTheRange(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var read = await AddHistoryCommitAsync(seed, '1', "main", Now.AddHours(1), committedAt: Now.AddDays(-2));
+    var unread = await AddHistoryCommitAsync(seed, '2', "main", Now.AddHours(2), committedAt: null);
+    await AddHistoryCommitAsync(seed, '3', "feature", Now.AddHours(3), committedAt: null);
+    await AddHistoryCommitAsync(seed, '4', "main", Now.AddDays(10), committedAt: null);
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var history = await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", [CommitFlagTotals.ProjectFlag, "unit"], Now, Now.AddDays(1), 10, Ct);
+
+    history.Select(static h => (h.CommitId, h.Flag)).ShouldBe([(unread, CommitFlagTotals.ProjectFlag), (unread, "unit"), (read, CommitFlagTotals.ProjectFlag), (read, "unit")]);
+    history[2].CommittedAt.ShouldBe(Now.AddDays(-2));
+    history[2].At.ShouldBe(Now.AddDays(-2));
+    history[0].CommittedAt.ShouldBeNull();
+    history[0].At.ShouldBe(Now.AddHours(2));
+    history[0].Sha.ShouldBe(GitSha.Parse(new string('2', GitSha.Length)));
+    (history[0].Lines, history[0].Hits, history[0].Coverage).ShouldBe((Totals.Lines, Totals.Hits, Totals.Coverage));
+    reader.ChangeTracker.Entries().ShouldBeEmpty();
+
+    (await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", ["unit"], Now, Now.AddDays(1), 1, Ct))
+      .ShouldHaveSingleItem().CommitId.ShouldBe(unread);
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await Repository(other, seed.Organizations.SecondId).ListHistoryAsync(seed.FirstRepository, "main", [CommitFlagTotals.ProjectFlag], Now, Now.AddDays(1), 10, Ct))
+      .ShouldBeEmpty();
+  }
+
+  // Review R2: the cap keeps whole commits, so that the flags, which the two engines sort differently, never decide
+  // which rows are kept.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListHistory_AtTheCap_ShouldKeepWholeCommitsOnBothEngines(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    string[] flags = ["Unit", "api", "e2e"];
+    var older = await AddHistoryCommitAsync(seed, '1', "main", Now.AddHours(1), committedAt: null, flags);
+    var newer = await AddHistoryCommitAsync(seed, '2', "main", Now.AddHours(2), committedAt: null, flags);
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var history = await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", flags, Now, Now.AddDays(1), 4, Ct);
+
+    history.Select(static h => h.CommitId).Distinct().ShouldBe([newer]);
+    history.Select(static h => h.Flag).ShouldBe(flags, ignoreOrder: true);
+    (await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", flags, Now, Now.AddDays(1), 6, Ct))
+      .Select(static h => h.CommitId).Distinct().ShouldBe([newer, older], ignoreOrder: true);
+  }
+
+  // Second review S3: the cap counts the rows each commit really has: twenty flags asked and one present per commit
+  // keep as many commits as the cap allows rows.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListHistory_ManyFlagsAskedFewPresent_ShouldKeepAsManyCommitsAsTheCapAllows(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    string[] asked = [.. Enumerable.Range(0, 20).Select(static i => $"flag-{i:00}")];
+    await AddManyHistoryCommitsAsync(seed, 30, "flag-07");
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var history = await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", asked, Now, Now.AddDays(10), 25, Ct);
+
+    history.Count.ShouldBe(25);
+    history.Select(static h => h.CommitId).Distinct().Count().ShouldBe(25);
+  }
+
+  // Second review S3: more kept commits than the 2 100 parameters of SQL Server: the rows are read by a range, never by
+  // a list of identifiers.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListHistory_MoreThan2100KeptCommits_ShouldReadThemAll(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    await AddManyHistoryCommitsAsync(seed, 2_200, CommitFlagTotals.ProjectFlag);
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var history = await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", [CommitFlagTotals.ProjectFlag], Now, Now.AddDays(10), 10_000, Ct);
+
+    history.Count.ShouldBe(2_200);
+  }
+
+  private static async Task AddManyHistoryCommitsAsync(CommitSeed seed, int count, string flag)
+  {
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var commits = new List<Commit>();
+
+    for (var i = 0; i < count; i++)
+    {
+      var commit = Commit.Create(seed.FirstRepository, GitSha.Parse((i + 1).ToString("x40", CultureInfo.InvariantCulture)), Now);
+      Complete(commit, "main", Now.AddMinutes(i));
+      commits.Add(commit);
+    }
+
+    context.Commits.AddRange(commits);
+    await context.SaveChangesAsync(Ct);
+
+    context.CommitFlagTotals.AddRange(commits.Select(c => CommitFlagTotals.Create(c, flag, Totals, false, null)));
+    await context.SaveChangesAsync(Ct);
+  }
+
+  private static async Task<long> AddHistoryCommitAsync(
+    CommitSeed seed,
+    char sha,
+    string branch,
+    DateTimeOffset completedAt,
+    DateTimeOffset? committedAt,
+    string[]? flags = null)
+  {
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var gitSha = GitSha.Parse(new string(sha, GitSha.Length));
+    var commit = await new CommitRepository(context).GetOrCreateAsync(seed.FirstRepository, gitSha, Now, Ct);
+
+    Complete(commit, branch, completedAt);
+    await context.SaveChangesAsync(Ct);
+
+    foreach (var flag in flags ?? [CommitFlagTotals.ProjectFlag, "unit"])
+    {
+      context.CommitFlagTotals.Add(CommitFlagTotals.Create(commit, flag, Totals, false, null));
+    }
+
+    if (committedAt is { } date)
+    {
+      context.GitCommits.Add(GitCommit.Create(seed.FirstRepository, new ForgeCommitInfo(gitSha, [], "message", null, date), Now));
+    }
+
+    await context.SaveChangesAsync(Ct);
+
+    return commit.Id;
   }
 
   private static void Complete(Commit commit, string branch, DateTimeOffset at)

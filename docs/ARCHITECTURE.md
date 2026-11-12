@@ -277,7 +277,7 @@ Badges/        Badge (Coverage?, Color), BadgeColorScale
 PullRequests/  PullRequest, PullRequestState
 Tokens/        UploadToken, UploadTokenScope, IssuedToken (valeur en clair, renvoyée une seule fois), ApiToken
 Users/         AppUser, RepositoryPermission, RepositoryAccess
-History/       CoveragePoint, CoverageSeries                          (read models)
+History/       CoveragePoint, CoverageSeries, HistoryEntry, HistoryInterval (read models)
 Operations/    JobSummary, WebhookDeliverySummary, SystemStatus      (read models pour l'admin)
 Source/        AnnotatedSource, AnnotatedLine                        (read model de la source annotée)
 Settings/      SettingDefinition, SettingDefinitions (catalogue), SettingValue, SettingSource, SettingScope,
@@ -1582,7 +1582,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `GET /api/v1/repos/{forge}/{owner}/{repo}` | Repositories | ApiToken | — | `RepositoryDetailResponse` (dernières valeurs, branches, flags) | `GetRepository` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/activate` / `deactivate` | Repositories | ApiToken (admin) | — | 204 | `Activate`/`DeactivateRepository` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/branches` | Repositories | ApiToken | — | `IReadOnlyList<BranchResponse>` | `ListBranches` |
-| `GET /api/v1/repos/{forge}/{owner}/{repo}/history` | Repositories | ApiToken | `?branch=&flag=&from=&to=&interval=commit\|day\|week` | `CoverageSeriesResponse` | `GetCoverageHistory` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/history` | Repositories | ApiToken | `?branch=&flag=&flag=…&from=&to=&interval=commit\|day\|week` (branche par défaut, projet entier, 30 derniers jours, `commit` par défaut) | `IReadOnlyList<CoverageSeriesResponse>`, une série par flag demandé | `GetCoverageHistory` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/config` | Repositories | ApiToken | — | `EffectiveConfigResponse(Source, Sha, IsResolvedAtSha, Path, Yaml, Config, Warnings, Errors)` : configuration gardée pour la tête couverte de la branche par défaut, sinon YAML de la branche par défaut et de l'organisation (`IsResolvedAtSha=false`) ; `Yaml` est le YAML du dépôt trouvé, tel qu'écrit, `Config` la fusion en JSON ; aucun appel à la forge, aucune écriture | `GetEffectiveConfig` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | — | `BadgeTokenResponse` | `RotateBadgeToken` |
 | `PUT /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | `ImportBadgeTokenRequest` | 204 | `ImportBadgeToken` |
@@ -1719,9 +1719,9 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 
 ### 11.3 Historique (`GetCoverageHistoryQuery` puis `CoverageSeries`)
 
-- Source : `CommitFlagTotals` filtrés par `(RepositoryId, Branch, Flag)`, avec jointure sur `GitCommits.CommittedAt` (date committer GitHub ; à défaut `CompletedAt`). Requête bornée par `from`/`to` et plafonnée à 10 000 lignes.
+- Source : `CommitFlagTotals` filtrés par `(RepositoryId, Branch, Flag)`, avec jointure sur `GitCommits.CommittedAt` (date committer GitHub ; à défaut `CompletedAt`). Requête bornée par `from`/`to` et plafonnée à 10 000 lignes, coupées sur des commits entiers (les plus récemment finalisés) : l'ordre des flags, qui dépend du moteur, ne décide pas des lignes gardées.
 - Agrégation `commit`, `day` ou `week` (dernière valeur de la période) **calculée en C#** : portable sur les deux fournisseurs, sans `DISTINCT ON`.
-- Un point par flag et par période. Le Web affiche plusieurs séries dans `CcLineChart`.
+- Un point par flag et par période ; `flag` répété donne une série par flag. Semaines ISO, du lundi, en UTC ; le point d'un jour ou d'une semaine est daté de son premier instant. La requête borne `CompletedAt`, puis le C# refiltre sur la date du point (committer, à défaut `CompletedAt`) : un commit finalisé après `to` mais daté avant n'apparaît pas. Le Web affiche plusieurs séries dans `CcLineChart`.
 - Les totaux des commits sont conservés indéfiniment, donc l'historique survit aux purges.
 - **M5 :** import facultatif de l'historique Codecov via son API v2, à faire avant la résiliation de l'abonnement (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Ils servent aussi d'oracle de parité pendant le pilote.
 

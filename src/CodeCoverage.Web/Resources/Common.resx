@@ -107,4 +107,5 @@
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Only a failed or dead job can be retried, and not while the same work already waits.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>The page goes from 1 to 21474836, and a page holds 1 to 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>A badge token holds 1 to 64 letters, digits, underscores or hyphens.</value></data>
+  <data name="Repository.InvalidHistory" xml:space="preserve"><value>A history asks for commit, day or week, a start before its end, and at most 20 flags.</value></data>
 </root>

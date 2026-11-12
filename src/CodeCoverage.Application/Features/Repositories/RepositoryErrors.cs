@@ -23,5 +23,11 @@ public static class RepositoryErrors
   /// <summary>An imported badge token is not 1 to 64 characters of <c>[A-Za-z0-9_-]</c>. Maps to HTTP 400 Bad Request.</summary>
   public const string InvalidBadgeToken = "Repository.InvalidBadgeToken";
 
+  /// <summary>
+  ///   A query of the history is out of its bounds: unknown interval, start after the end, too many or too long flags,
+  ///   branch too long. Maps to HTTP 400 Bad Request.
+  /// </summary>
+  public const string InvalidHistory = "Repository.InvalidHistory";
+
   #endregion
 }
