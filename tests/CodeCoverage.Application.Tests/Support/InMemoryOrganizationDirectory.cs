@@ -72,6 +72,9 @@ internal sealed class InMemoryOrganizationDirectory(DateTimeOffset now) : IOrgan
   public Task<IReadOnlyList<Organization>> ListActiveAsync(CancellationToken cancellationToken) =>
     Task.FromResult<IReadOnlyList<Organization>>([.. _organizations.Where(static o => o.State is OrganizationState.Active)]);
 
+  public Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken) =>
+    Task.FromResult<IReadOnlyList<Organization>>([.. _organizations]);
+
   public async Task<Organization> UpsertFromForgeAsync(
     Forge forge,
     string externalAccountId,

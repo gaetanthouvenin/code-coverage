@@ -67,6 +67,35 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
     status.GitHubRemaining.ShouldBe(new Dictionary<string, long> { ["42"] = 4321 });
   }
 
+  // M3.41a: the depth of the queue of each organization, queued and running jobs, without the lane of the instance.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task CountQueuedByOrganization_ShouldCountQueuedAndRunningJobsOfEachOrganization(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    await AddAsync(provider, connectionString,
+      Owned(JobState.Queued, 7),
+      Owned(JobState.Running, 7),
+      Owned(JobState.Dead, 7),
+      Owned(JobState.Succeeded, 7),
+      Owned(JobState.Queued, 8),
+      Owned(JobState.Failed, 9),
+      Owned(JobState.Queued, null));
+
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var counts = await new SqlJobMonitor(context, new WorkerPulse(), new CodeCoverageMeter(_meterFactory), Clock()).CountQueuedByOrganizationAsync(Ct);
+
+    counts.ShouldBe(new Dictionary<long, int> { [7] = 2, [8] = 1 }, ignoreOrder: true);
+  }
+
+  private static JobRecord Owned(JobState state, long? organizationId)
+  {
+    var job = Record(state, Now);
+    job.OrganizationId = organizationId;
+
+    return job;
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task List_ShouldPageTheJobsOfEveryLaneTheMostRecentFirst(DatabaseProvider provider)

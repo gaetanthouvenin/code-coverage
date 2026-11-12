@@ -122,6 +122,37 @@
   <data name="Action_Reset" xml:space="preserve"><value>Reset</value></data>
   <data name="Action_Replace" xml:space="preserve"><value>Replace</value></data>
   <data name="Action_Clear" xml:space="preserve"><value>Clear</value></data>
+  <data name="AdminOrganizations_Subtitle" xml:space="preserve"><value>Accounts that installed the GitHub App, and their admission.</value></data>
+  <data name="AdminOrganizations_Search" xml:space="preserve"><value>Search a login</value></data>
+  <data name="AdminOrganizations_PendingCount" xml:space="preserve"><value>{0} pending</value></data>
+  <data name="AdminOrganizations_EmptyTitle" xml:space="preserve"><value>No organization yet</value></data>
+  <data name="AdminOrganizations_EmptyText" xml:space="preserve"><value>An account appears here as Pending when it installs the GitHub App. You can also admit one directly.</value></data>
+  <data name="AdminOrganizations_Denied" xml:space="preserve"><value>The organizations of the instance are reserved to its administrators.</value></data>
+  <data name="AdminOrganizations_Login" xml:space="preserve"><value>Login</value></data>
+  <data name="AdminOrganizations_AccountId" xml:space="preserve"><value>Account identifier</value></data>
+  <data name="AdminOrganizations_Admitted" xml:space="preserve"><value>Organization admitted</value></data>
+  <data name="AdminOrganizations_Suspended" xml:space="preserve"><value>Organization suspended</value></data>
+  <data name="AdminOrganizations_SuspendTitle" xml:space="preserve"><value>Suspend « {0} »?</value></data>
+  <data name="AdminOrganizations_SuspendText" xml:space="preserve"><value>Its members lose access at their next request, and uploads and notifications stop. Its data is kept.</value></data>
+  <data name="Action_Admit" xml:space="preserve"><value>Admit</value></data>
+  <data name="Action_AdmitAccount" xml:space="preserve"><value>Admit an account</value></data>
+  <data name="Action_Suspend" xml:space="preserve"><value>Suspend</value></data>
+  <data name="Column_Organization" xml:space="preserve"><value>Organization</value></data>
+  <data name="Column_Forge" xml:space="preserve"><value>Forge</value></data>
+  <data name="Column_Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Column_State" xml:space="preserve"><value>State</value></data>
+  <data name="Column_Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Column_AdmittedBy" xml:space="preserve"><value>Admitted by</value></data>
+  <data name="Column_QueueDepth" xml:space="preserve"><value>Jobs in queue</value></data>
+  <data name="Column_Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="OrganizationState_Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="OrganizationState_Active" xml:space="preserve"><value>Active</value></data>
+  <data name="OrganizationState_Suspended" xml:space="preserve"><value>Suspended</value></data>
+  <data name="SuspensionReason_Administrator" xml:space="preserve"><value>By an instance admin</value></data>
+  <data name="SuspensionReason_AppUninstalled" xml:space="preserve"><value>GitHub App uninstalled</value></data>
+  <data name="SuspensionReason_ReservedLogin" xml:space="preserve"><value>Reserved login</value></data>
+  <data name="AccountType_Organization" xml:space="preserve"><value>Organization</value></data>
+  <data name="AccountType_User" xml:space="preserve"><value>Personal account</value></data>
   <data name="Tabs_Instance" xml:space="preserve"><value>Instance sections</value></data>
   <data name="Tab_Organizations" xml:space="preserve"><value>Organizations</value></data>
   <data name="Tab_InstanceSettings" xml:space="preserve"><value>Settings</value></data>
