@@ -21,14 +21,6 @@ namespace CodeCoverage.Application.Features.Uploads.Queries.GetUploadByCredentia
 internal sealed class GetUploadByCredentialQueryHandler(UploadAuthenticator authenticator, IUploadRepository uploads, ICommitRepository commits)
   : IQueryHandler<GetUploadByCredentialQuery, Upload>
 {
-  #region Methods
-
-  /// <summary>Builds the refusal of an upload that this credential cannot read.</summary>
-  /// <returns>The exception.</returns>
-  private static NotFoundException NotFound() => new(UploadErrors.NotFound, "The upload does not exist or cannot be read.");
-
-  #endregion
-
   #region Implementation of IQueryHandler<GetUploadByCredentialQuery,Upload>
 
   /// <inheritdoc />
@@ -40,7 +32,7 @@ internal sealed class GetUploadByCredentialQueryHandler(UploadAuthenticator auth
 
     if (!RepositorySlug.TryFromAddress(query.Owner, query.Name, out var slug))
     {
-      throw NotFound();
+      NotFoundException.ThrowIfUploadNotFound(false);
     }
 
     long? repositoryId;
@@ -53,20 +45,17 @@ internal sealed class GetUploadByCredentialQueryHandler(UploadAuthenticator auth
     }
     catch (ForbiddenException)
     {
-      // Refusing the token of another repository with a 403 would confirm the address.
-      throw NotFound();
+      // Refusing the token of another repository with a 403 would confirm the address: it answers as a missing upload.
+      repositoryId = null;
     }
 
     var upload = await uploads.FindByPublicIdAsync(query.UploadId, cancellationToken).ConfigureAwait(false);
+    var commit = upload is null || repositoryId is null ? null : await commits.FindAsync(upload.CommitId, cancellationToken).ConfigureAwait(false);
 
-    if (upload is null || repositoryId is null)
-    {
-      throw NotFound();
-    }
+    NotFoundException.ThrowIfUploadNotFound(upload is not null && repositoryId is not null && commit?.RepositoryId == repositoryId);
 
-    var commit = await commits.FindAsync(upload.CommitId, cancellationToken).ConfigureAwait(false);
-
-    return commit?.RepositoryId == repositoryId ? upload : throw NotFound();
+    // The guard passes only with an upload.
+    return upload!;
   }
 
   #endregion

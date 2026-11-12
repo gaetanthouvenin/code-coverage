@@ -19,6 +19,7 @@ using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Application.Features.Uploads.Commands.CompleteUploads;
 using CodeCoverage.Application.Features.Uploads.Commands.ReceiveUpload;
 using CodeCoverage.Application.Features.Uploads.Queries.AuthorizeUpload;
+using CodeCoverage.Application.Features.Uploads.Queries.GetUpload;
 using CodeCoverage.Application.Features.Uploads.Queries.GetUploadByCredential;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Uploads;
@@ -178,6 +179,30 @@ internal static partial class UploadMapper
     }
 
     var upload = await sender.Send(new GetUploadByCredentialQuery(ToCredential(credential), parsed, owner, repo, id), cancellationToken).ConfigureAwait(false);
+
+    return ToResponse(upload);
+  }
+
+  /// <summary>Reads an upload with a token of the API of a reader of its repository.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="id">The public identifier of the upload.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The upload.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<UploadResponse> GetUploadForReaderResponseAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string repo,
+    Guid id,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var upload = await sender.Send(new GetUploadQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, id), cancellationToken).ConfigureAwait(false);
 
     return ToResponse(upload);
   }

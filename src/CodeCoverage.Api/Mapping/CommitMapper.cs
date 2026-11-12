@@ -11,10 +11,12 @@ using Mediator;
 using CodeCoverage.Api.Contracts.Commits;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Commits;
+using CodeCoverage.Application.Features.Commits.Commands.ReprocessCommit;
 using CodeCoverage.Application.Features.Commits.Queries.GetCommit;
 using CodeCoverage.Application.Features.Commits.Queries.GetCommitFiles;
 using CodeCoverage.Application.Features.Commits.Queries.GetFileCoverage;
 using CodeCoverage.Application.Features.Commits.Queries.ListCommits;
+using CodeCoverage.Application.Features.Notifications.Commands.TriggerNotify;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Coverage;
@@ -137,6 +139,42 @@ internal static class CommitMapper
     var file = view.File;
 
     return new FileCoverageResponse(file.Path, view.Flag, ToModel(file.Totals), [.. file.Lines.Select(ToModel)]);
+  }
+
+  /// <summary>Asks for the notification of a commit, whatever its configuration says.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>A task that completes when the notification is queued.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task TriggerNotifyAsync(this ISender sender, string forge, string owner, string repo, string sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var command = new TriggerNotifyCommand(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha));
+
+    await sender.Send(command, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Asks for the processing of the uploads of a commit again.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>A task that completes when the processing is queued.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task ReprocessCommitAsync(this ISender sender, string forge, string owner, string repo, string sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var command = new ReprocessCommitCommand(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha));
+
+    await sender.Send(command, cancellationToken).ConfigureAwait(false);
   }
 
   private static CommitResponse ToResponse(Commit commit, CommitDetail? detail) =>

@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Api.Configuration.Authentication;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.RateLimiting;
 using CodeCoverage.Api.Contracts.Uploads;
@@ -99,8 +100,10 @@ public sealed class UploadsController(ISender sender, UploadRateLimiter rateLimi
 
   /// <summary>Read an upload</summary>
   /// <remarks>
-  ///   Gives the state of an upload and its processing log, with the credential that sends the uploads of the repository.
-  ///   An upload that the credential cannot read answers like one that does not exist.
+  ///   Gives the state of an upload and its processing log, with the credential that sends the uploads of the repository
+  ///   or with a token of the API of a reader of the repository. An upload that the caller cannot read answers like one
+  ///   that does not exist. A token of the API that is unknown, revoked or expired answers 401 and is never tried as an
+  ///   upload credential.
   /// </remarks>
   /// <param name="forge">The forge of the repository.</param>
   /// <param name="owner">The owner of the repository.</param>
@@ -115,6 +118,17 @@ public sealed class UploadsController(ISender sender, UploadRateLimiter rateLimi
   [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
   public async Task<ActionResult<UploadResponse>> GetAsync(string forge, string owner, string repo, Guid id, CancellationToken cancellationToken)
   {
+    if (User.Identity?.IsAuthenticated is true)
+    {
+      return await sender.GetUploadForReaderResponseAsync(forge, owner, repo, id, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A token of the API that failed its authentication fails closed: the challenge of its scheme, no other check.
+    if (ApiTokenAuthenticationHandler.ReadToken(Request.Headers.Authorization.ToString()) is not null)
+    {
+      return Challenge(ApiTokenAuthenticationHandler.SchemeName);
+    }
+
     var credential = UploadCredentialReader.Read(Request.Headers)
                      ?? throw new UnauthorizedException(UploadErrors.TokenInvalid, "The upload token is not valid.");
 
