@@ -163,13 +163,11 @@ Le CSS de la maquette reprend `tokens.css`, `components.css` et `app.css`, avec 
 | Situation | Composants ou classes |
 |---|---|
 | Existants (`Web/Components/Ui`) | `CcAppShell`, `CcTopNav`, `CcUserMenu`, `CcPageContainer`, `CcHeader`, `CcPillTabs`, `CcFolderTabs`, `CcKpiCard`, `CcBadge`, `CcButton`, `CcBanner`, `CcEmptyState`, `CcErrorBoundary`, `CcLoadingSpinner`, `CcToast`, `CcSearchBar`, `CcSelectField`, `CcTextField`, `CcIcon` |
-| Nommés par le plan, à construire | `CcStatCard` (M3.21), `CcLineChart` (M3.22), `CcGauge` (couverture du patch et quota GitHub) ; `CcBarChart` n'est employé par aucun écran validé |
+| Nommés par le plan, à construire | `CcLineChart` (M3.22), `CcGauge` (couverture du patch et quota GitHub) ; `CcBarChart` n'est employé par aucun écran validé |
 | Besoins nouveaux, avec leurs classes | emplacement du sélecteur d'organisation dans `CcTopNav` (`cc-topnav__start`, `cc-topnav__org`) ; tableau (`cc-table`, `cc-table-wrap`) ; pagination (`cc-panel__foot`) ; dialogue (`cc-dialog`) pour `IssuedTokenDialog` et `SecretReplaceDialog` ; interrupteur (`cc-switch`) ; ligne de paramètre (`cc-setting`) pour `SettingEditor` ; étapes de `/setup` (`cc-stepper`) ; source annotée (`cc-source`) ; code et copie (`cc-code`, `cc-copy`) ; barre de couverture (`cc-covbar`) ; sparkline (`cc-spark`) ; petites statistiques (`cc-mini`, `cc-panel__stats`) ; liste et clé-valeur (`cc-list`, `cc-kv`) ; page de connexion (`cc-signin`) |
 
 ### À reprendre lors de la construction des pages
 
-- **M3.19 :** dans `components.css`, `.cc-round-button` vient après `.cc-topnav__menu-button` et annule son `display: none`, si bien que le bouton de menu mobile reste visible sur bureau. La maquette le masque par une règle propre.
-- **M3.41a :** aucun libellé n'est prévu pour `SuspensionReason.ReservedLogin`, que M3.43a supprime ; aucune organisation réelle n'existe avant le pilote.
 - **M3.22 :** `--cc-chart-1` et `--cc-chart-2` sont presque identiques pour un lecteur daltonien (`ΔE` 1,0 en protanopie). Les séries gardent donc un pointillé et une étiquette directe, en plus de la couleur.
 
 ## Libellés clés
