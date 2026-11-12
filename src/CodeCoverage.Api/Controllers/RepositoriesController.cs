@@ -112,6 +112,50 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
     CancellationToken cancellationToken) =>
     Ok(await sender.GetCoverageHistoryResponseAsync(forge, owner, repo, branch, flag, from, to, interval, cancellationToken).ConfigureAwait(false));
 
+  /// <summary>Rotate the badge token of a repository</summary>
+  /// <remarks>
+  ///   Gives the repository a new badge token, returned once: the badge URLs of a private repository take it as
+  ///   <c>?token=</c>, and the previous token stops working. Requires an administrator of the repository; a reader gets
+  ///   403.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The new token.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/badge-token", Name = "RotateBadgeToken")]
+  [ProducesResponseType<BadgeTokenResponse>(StatusCodes.Status200OK)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<ActionResult<BadgeTokenResponse>> RotateBadgeTokenAsync(string forge, string owner, string repo, CancellationToken cancellationToken) =>
+    await sender.RotateBadgeTokenResponseAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false);
+
+  /// <summary>Import the badge token of a repository</summary>
+  /// <remarks>
+  ///   Keeps a token given by the caller, e.g. the graphing token of Codecov, so that the badge URLs of a README keep
+  ///   working when only their host changes. 1 to 64 letters, digits, underscores or hyphens. Requires an administrator
+  ///   of the repository.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="request">The token.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>No content.</returns>
+  [HttpPut("repos/{forge}/{owner}/{repo}/badge-token", Name = "ImportBadgeToken")]
+  [ProducesResponseType(StatusCodes.Status204NoContent)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<IActionResult> ImportBadgeTokenAsync(string forge, string owner, string repo, ImportBadgeTokenRequest request, CancellationToken cancellationToken)
+  {
+    await sender.ImportBadgeTokenAsync(forge, owner, repo, request, cancellationToken).ConfigureAwait(false);
+
+    return NoContent();
+  }
+
   /// <summary>Read the effective configuration of a repository</summary>
   /// <remarks>
   ///   The configuration of the repository at the covered head of its default branch, merged over the one of its
