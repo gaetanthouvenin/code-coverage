@@ -35,6 +35,11 @@ internal static class CcNavMatcher
     ArgumentNullException.ThrowIfNull(navigation);
     ArgumentNullException.ThrowIfNull(item);
 
+    if (item.Active is { } known)
+    {
+      return known;
+    }
+
     var current = Normalize(navigation.ToBaseRelativePath(navigation.Uri));
     var target = Normalize(item.Href);
 

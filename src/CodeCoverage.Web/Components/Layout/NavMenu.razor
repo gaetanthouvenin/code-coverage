@@ -1,0 +1,34 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="NavMenu.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcTopNav Items="Items">
+  <Start>
+    @if (Switcher.Count > 0)
+    {
+      <CcSelectField Class="cc-topnav__org"
+                     Label="@L["Org_Switcher"]"
+                     Pill="true"
+                     LeadIcon="CcIconName.Layers"
+                     Options="Switcher"
+                     Placeholder="@SwitcherPlaceholder"
+                     Value="@CurrentOrganization?.Key"
+                     ValueChanged="OnOrganizationChanged" />
+    }
+  </Start>
+  <UserMenu>
+    @if (Model is not null)
+    {
+      <CcUserMenu UserName="@Model.Login" RoleLabel="@RoleLabel">
+        <a href="account/tokens">@L["Nav_Account"]</a>
+        @* A real form post: the sign-out endpoint checks the antiforgery token and clears the cookie. *@
+        <form method="post" action="signout" data-enhance="false" class="cc-user-menu__signout">
+          <AntiforgeryToken />
+          <button type="submit">@L["Nav_SignOut"]</button>
+        </form>
+      </CcUserMenu>
+    }
+  </UserMenu>
+</CcTopNav>

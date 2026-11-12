@@ -55,6 +55,12 @@ public partial class CcTopNav : IDisposable
   [Parameter]
   public string HomeHref { get; set; } = "./";
 
+  /// <summary>
+  ///   Gets or sets what follows the brand, e.g. the switcher of organization; repeated at the top of the mobile menu.
+  /// </summary>
+  [Parameter]
+  public RenderFragment? Start { get; set; }
+
   /// <summary>Gets or sets the icon actions shown before the theme toggle (notifications…).</summary>
   [Parameter]
   public RenderFragment? Actions { get; set; }

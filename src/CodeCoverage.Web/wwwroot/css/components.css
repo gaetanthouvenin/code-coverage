@@ -1511,3 +1511,64 @@ code {
     padding: 20px;
   }
 }
+
+/* ---- top bar: the brand and the switcher of organization (M3.19) ---- */
+.cc-topnav__start {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: start;
+  min-width: 0;
+}
+
+.cc-topnav__org {
+  width: 250px;
+}
+
+.cc-topnav__org .cc-select__control {
+  height: 44px;
+  padding-right: 46px;
+  background: var(--cc-ground);
+}
+
+.cc-topnav__org .cc-select__chevron {
+  width: 32px;
+  height: 32px;
+  background: var(--cc-card);
+}
+
+.cc-topnav__mobile .cc-topnav__org {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.cc-user-menu__signout button {
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cc-fg);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cc-user-menu__signout button:hover {
+  background: var(--cc-card-2);
+}
+
+/* .cc-round-button comes after .cc-topnav__menu-button and gives it a display: the bar hides it again on a desktop. */
+@media (min-width: 1041px) {
+  .cc-topnav__end .cc-topnav__menu-button {
+    display: none;
+  }
+}
+
+@media (max-width: 1040px) {
+  .cc-topnav__bar .cc-topnav__org {
+    display: none;
+  }
+}

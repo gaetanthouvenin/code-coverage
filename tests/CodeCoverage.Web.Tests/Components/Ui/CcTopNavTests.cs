@@ -118,5 +118,15 @@ public sealed class CcTopNavTests : UiTestContext
     cut.Find(".cc-topnav__brand").TextContent.Trim().ShouldBe("Cov");
   }
 
+  // What follows the brand (the switcher of organization) is also at the top of the mobile menu.
+  [Fact]
+  public void Render_Start_ShouldFollowTheBrandAndOpenTheMobileMenu()
+  {
+    var cut = Render<CcTopNav>(p => p.Add(n => n.Items, Items).Add(n => n.Start, (RenderFragment)(b => b.AddMarkupContent(0, "<span class=\"start\">org</span>"))));
+
+    cut.Find(".cc-topnav__start .cc-topnav__brand + .start").ShouldNotBeNull();
+    cut.Find(".cc-topnav__mobile .start").ShouldNotBeNull();
+  }
+
   #endregion
 }
