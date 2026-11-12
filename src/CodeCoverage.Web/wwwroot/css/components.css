@@ -1980,3 +1980,27 @@ code {
   width: 18px;
   height: 18px;
 }
+
+/* The summary of a commit (M3.25): key and value lines, plain lists. */
+.cc-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 18px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.cc-kv dt {
+  color: var(--cc-fg-2);
+}
+
+.cc-kv dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.cc-plain-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

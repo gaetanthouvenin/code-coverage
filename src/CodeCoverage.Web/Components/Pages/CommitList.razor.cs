@@ -101,6 +101,8 @@ public partial class CommitList
     var _ => "cc-dim",
   };
 
+  private string CommitHref(string sha) => $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}/commit/{sha}";
+
   private string AgeOf(DateTimeOffset at) => DisplayFormatter.Age(at, Time.GetUtcNow(), L);
 
   private async Task LoadAsync()

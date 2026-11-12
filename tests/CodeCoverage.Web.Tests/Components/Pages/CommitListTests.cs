@@ -91,6 +91,7 @@ public sealed class CommitListTests : UiTestContext
     var rows = cut.FindAll("tbody tr");
     rows.Count.ShouldBe(2);
     rows[0].QuerySelector(".cc-ellip")!.TextContent.ShouldBe("feat(alerts): retry policy");
+    rows[0].QuerySelector("a.cc-ellip")!.GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Complete.Value}");
     rows[0].QuerySelector("code")!.TextContent.ShouldBe("e4f5a6b");
     rows[0].TextContent.ShouldContain("jo-rivera");
     rows[0].TextContent.ShouldContain(L("Age_Hours", 3));

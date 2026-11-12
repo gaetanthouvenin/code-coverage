@@ -1,0 +1,46 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="PostedStatuses.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="statuses">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Commit_PublishedStatuses"]</h2></div>
+  @if (Statuses.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Commit_NoStatus"]</div>
+  }
+  else
+  {
+    <div class="cc-list">
+      @foreach (var status in Statuses)
+      {
+        <div class="cc-list__row" @key="status.Context">
+          @switch (status.State)
+          {
+            case StatusTone.Success:
+              <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["Status_Success"]</CcBadge>
+              break;
+            case StatusTone.Failure:
+              <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Close">@L["Status_Failure"]</CcBadge>
+              break;
+            default:
+              <CcBadge Tone="CcTone.Warning" Icon="CcIconName.Alert">@L["Status_Error"]</CcBadge>
+              break;
+          }
+          <div class="cc-list__grow">
+            @if (status.TargetUrl is { } url)
+            {
+              <a href="@url" rel="noopener noreferrer" target="_blank"><code>@status.Context</code></a>
+            }
+            else
+            {
+              <code>@status.Context</code>
+            }
+            <div class="cc-dim cc-small">@status.Description</div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>

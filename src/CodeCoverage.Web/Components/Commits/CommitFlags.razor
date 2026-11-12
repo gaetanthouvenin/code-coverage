@@ -1,0 +1,53 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitFlags.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="flags">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Column_Flags"]</h2></div>
+  @if (Flags.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Commit_NoFlag"]</div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Column_Flags"]">
+      <Head>
+        <th>@L["Column_Flag"]</th>
+        <th class="cc-r">@L["Column_Coverage"]</th>
+        <th class="cc-r">Δ</th>
+        <th>@L["Column_Origin"]</th>
+      </Head>
+      <ChildContent>
+        @foreach (var flag in Flags)
+        {
+          <tr @key="flag.Flag" data-flag="@flag.Flag">
+            <td><CcBadge Tone="CcTone.Info">@flag.Flag</CcBadge></td>
+            <td class="cc-r cc-num">@flag.Coverage</td>
+            <td class="cc-r">
+              @if (flag.Delta is { } delta)
+              {
+                <span class="@(flag.Trend > 0 ? "cc-delta--up" : flag.Trend < 0 ? "cc-delta--down" : "cc-dim") cc-num">@delta</span>
+              }
+              else
+              {
+                <span class="cc-dim">—</span>
+              }
+            </td>
+            <td>
+              @if (flag.CarriedForwardFrom is { } from)
+              {
+                <CcBadge>@L["Session_CarriedForward"] · @from</CcBadge>
+              }
+              else
+              {
+                <span class="cc-muted">@L["Commit_UploadOfThisCommit"]</span>
+              }
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+  }
+</section>

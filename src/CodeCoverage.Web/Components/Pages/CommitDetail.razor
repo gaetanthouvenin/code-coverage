@@ -1,0 +1,53 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitDetail.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/commit/{Sha}"
+
+<PageTitle>@L["PageTitle_Format", Detail?.Title ?? L["Tab_Commits"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs" />
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Detail is not null)
+    {
+      @if (Detail.Config.Errors.Count > 0)
+      {
+        <CcBanner Tone="CcTone.Danger" Title="@L["Commit_ConfigErrorTitle"]" Class="cc-config-error">
+          <ul class="cc-plain-list">
+            @foreach (var error in Detail.Config.Errors)
+            {
+              <li>@error</li>
+            }
+          </ul>
+        </CcBanner>
+      }
+      <CommitSummary Commit="Detail" />
+      <div class="cc-grid cc-grid--2">
+        <CommitFlags Flags="Detail.Flags" />
+        <PostedStatuses Statuses="Detail.Statuses" />
+      </div>
+      <ConfigWarnings Config="Detail.Config" />
+    }
+  }
+</CcPageContainer>
