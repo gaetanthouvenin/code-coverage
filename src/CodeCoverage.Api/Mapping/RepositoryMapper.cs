@@ -12,6 +12,7 @@ using CodeCoverage.Api.Contracts.Repositories;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Repositories;
+using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.ListBranches;
@@ -98,6 +99,53 @@ internal static class RepositoryMapper
     var branches = await sender.Send(new ListBranchesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
 
     return [.. branches.Select(ToResponse)];
+  }
+
+  /// <summary>Reads the coverage history of a branch and converts it for the API.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="branch">The branch, or <see langword="null" /> for the default branch.</param>
+  /// <param name="flags">The flags, or none for the whole project.</param>
+  /// <param name="from">The first instant, or <see langword="null" />.</param>
+  /// <param name="to">The last instant, or <see langword="null" />.</param>
+  /// <param name="interval">The grouping, or <see langword="null" /> for one point per commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>One series per flag, in the order asked.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IReadOnlyList<CoverageSeriesResponse>> GetCoverageHistoryResponseAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string repo,
+    string? branch,
+    IReadOnlyList<string>? flags,
+    DateTimeOffset? from,
+    DateTimeOffset? to,
+    string? interval,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var query = new GetCoverageHistoryQuery(
+      AddressSegments.ToRepositoryForge(forge),
+      owner,
+      repo,
+      branch,
+      flags ?? [],
+      from,
+      to,
+      interval ?? GetCoverageHistoryQuery.CommitInterval
+    );
+    var series = await sender.Send(query, cancellationToken).ConfigureAwait(false);
+
+    return
+    [
+      .. series.Select(static s => new CoverageSeriesResponse(
+                         s.Flag.Length == 0 ? null : s.Flag,
+                         [.. s.Points.Select(static p => new CoveragePointModel(p.At, p.Sha.Value, p.Lines, p.Hits, p.Misses, p.Partials, p.Coverage))])),
+    ];
   }
 
   /// <summary>Reads the effective configuration of a repository and converts it for the API.</summary>

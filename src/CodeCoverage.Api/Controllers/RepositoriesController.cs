@@ -77,6 +77,41 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
   public async Task<ActionResult<IReadOnlyList<BranchResponse>>> ListBranchesAsync(string forge, string owner, string repo, CancellationToken cancellationToken) =>
     Ok(await sender.ListBranchesResponseAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false));
 
+  /// <summary>Read the coverage history of a branch</summary>
+  /// <remarks>
+  ///   One series per <c>flag</c> (repeat it for several; none gives the whole project), on the default branch unless
+  ///   <c>branch</c> names another. The range defaults to the last 30 days. A point is dated by the committer of its
+  ///   commit, else by its finalization; <c>interval</c> is <c>commit</c> (the default), <c>day</c> or <c>week</c> (ISO
+  ///   weeks from Monday, in UTC), which keep the last value of each period. The 10 000 most recent totals are read at
+  ///   most.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="branch">The branch, or the default branch.</param>
+  /// <param name="flag">A flag, case-sensitive; repeated for several.</param>
+  /// <param name="from">The first instant, 30 days before <c>to</c> by default.</param>
+  /// <param name="to">The last instant, now by default.</param>
+  /// <param name="interval">The grouping: commit, day or week.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The series.</returns>
+  [HttpGet("repos/{forge}/{owner}/{repo}/history", Name = "GetCoverageHistory")]
+  [ProducesResponseType<IReadOnlyList<CoverageSeriesResponse>>(StatusCodes.Status200OK)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<ActionResult<IReadOnlyList<CoverageSeriesResponse>>> GetCoverageHistoryAsync(
+    string forge,
+    string owner,
+    string repo,
+    [FromQuery] string? branch,
+    [FromQuery] string[]? flag,
+    [FromQuery] DateTimeOffset? from,
+    [FromQuery] DateTimeOffset? to,
+    [FromQuery] string? interval,
+    CancellationToken cancellationToken) =>
+    Ok(await sender.GetCoverageHistoryResponseAsync(forge, owner, repo, branch, flag, from, to, interval, cancellationToken).ConfigureAwait(false));
+
   /// <summary>Read the effective configuration of a repository</summary>
   /// <remarks>
   ///   The configuration of the repository at the covered head of its default branch, merged over the one of its

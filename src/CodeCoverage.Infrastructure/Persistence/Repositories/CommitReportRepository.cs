@@ -16,6 +16,7 @@ using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -424,6 +425,99 @@ internal sealed class CommitReportRepository(
                  .OrderBy(static t => t.Flag)
                  .ToListAsync(cancellationToken)
                  .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<HistoryEntry>> ListHistoryAsync(
+    long repositoryId,
+    string branch,
+    IReadOnlyCollection<string> flags,
+    DateTimeOffset from,
+    DateTimeOffset to,
+    int limit,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(branch);
+    ArgumentNullException.ThrowIfNull(flags);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+    if (flags.Count == 0)
+    {
+      return [];
+    }
+
+    var start = from.ToUniversalTime();
+    var end = to.ToUniversalTime();
+
+    var matching = context.CommitFlagTotals
+                          .AsNoTracking()
+                          .Where(t => t.RepositoryId == repositoryId && t.Branch == branch && flags.Contains(t.Flag) && t.CompletedAt >= start && t.CompletedAt <= end);
+
+    // The cap keeps whole commits, the most recently finalized, as long as their rows fit (at least one commit): the
+    // flags, which the two engines sort differently, never decide which rows are kept. A commit has one row at least,
+    // so the limit bounds the commits read too.
+    var commits = await matching.GroupBy(static t => new { t.CommitId, t.CompletedAt })
+                                .Select(static g => new { g.Key.CommitId, g.Key.CompletedAt, Rows = g.Count() })
+                                .OrderByDescending(static c => c.CompletedAt)
+                                .ThenByDescending(static c => c.CommitId)
+                                .Take(limit)
+                                .ToListAsync(cancellationToken)
+                                .ConfigureAwait(false);
+
+    if (commits.Count == 0)
+    {
+      return [];
+    }
+
+    var last = commits[0];
+    var rowCount = last.Rows;
+
+    foreach (var commit in commits.Skip(1))
+    {
+      if (rowCount + commit.Rows > limit)
+      {
+        break;
+      }
+
+      rowCount += commit.Rows;
+      last = commit;
+    }
+
+    // The kept commits are the first ones in the order (CompletedAt, CommitId) descending: they are read by a range up
+    // to the last one kept, never by a list of identifiers (2 100 parameters at most on SQL Server).
+    var lastCompletedAt = last.CompletedAt;
+    var lastCommitId = last.CommitId;
+    var kept = matching.Where(t => t.CompletedAt > lastCompletedAt || (t.CompletedAt == lastCompletedAt && t.CommitId >= lastCommitId));
+
+    // The commit read from the forge may be missing: its committer date then falls back on the finalization.
+    var rows = await (from t in kept
+                      join c in context.Commits.AsNoTracking() on t.CommitId equals c.Id
+                      join g in context.GitCommits.AsNoTracking() on new { c.RepositoryId, c.Sha } equals new { g.RepositoryId, g.Sha } into read
+                      from g in read.DefaultIfEmpty()
+                      select new
+                      {
+                        t.CommitId,
+                        c.Sha,
+                        t.Flag,
+                        t.CompletedAt,
+                        CommittedAt = g == null ? (DateTimeOffset?)null : g.CommittedAt,
+                        t.Lines,
+                        t.Hits,
+                        t.Misses,
+                        t.Partials,
+                        t.Coverage,
+                      })
+                     .ToListAsync(cancellationToken)
+                     .ConfigureAwait(false);
+
+    // Sorted in C#, the same on both engines: the most recent commit first, then the flags by code point.
+    return
+    [
+      .. rows.OrderByDescending(static r => r.CompletedAt)
+             .ThenByDescending(static r => r.CommitId)
+             .ThenBy(static r => r.Flag, StringComparer.Ordinal)
+             .Select(static r => new HistoryEntry(r.CommitId, r.Sha, r.Flag, r.CompletedAt, r.CommittedAt, r.Lines, r.Hits, r.Misses, r.Partials, r.Coverage)),
+    ];
+  }
 
   /// <inheritdoc />
   public async Task<byte[]?> GetReportAsync(long commitId, CancellationToken cancellationToken) =>

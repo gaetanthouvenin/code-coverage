@@ -107,4 +107,5 @@
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Seul un job en échec ou mort peut être relancé, et pas tant que le même travail attend déjà.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>La page va de 1 à 21474836, et une page contient de 1 à 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>Un jeton de badge contient de 1 à 64 lettres, chiffres, tirets bas ou tirets.</value></data>
+  <data name="Repository.InvalidHistory" xml:space="preserve"><value>Un historique demande commit, day ou week, un début avant sa fin, et au plus 20 flags.</value></data>
 </root>

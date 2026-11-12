@@ -8,6 +8,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
+using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Ports;
@@ -111,6 +112,32 @@ public interface ICommitReportRepository
   /// <returns>The totals, the one without flag (<c>''</c>) included when the commit is finalized.</returns>
   /// <remarks>Kept forever, the purge included: the detail of a commit, the badges and the history read them.</remarks>
   Task<IReadOnlyList<CommitFlagTotals>> ListFlagTotalsAsync(long commitId, CancellationToken cancellationToken);
+
+  /// <summary>Lists the totals of flags of the finalized commits of a branch, for its history.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="branch">The branch.</param>
+  /// <param name="flags">The flags, case-sensitive; the empty text is the whole project.</param>
+  /// <param name="from">The first finalization date read.</param>
+  /// <param name="to">The last finalization date read.</param>
+  /// <param name="limit">
+  ///   The number of totals read at most, cut on whole commits (the most recently finalized kept while their rows fit),
+  ///   so that the result does not depend on how an engine sorts the flags; at least one commit is read.
+  /// </param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The totals, each with the SHA of its commit and the date of its committer when the commit was read from the forge,
+  ///   the most recently finalized commit first, then its flags by code point.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="branch" /> or <paramref name="flags" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit" /> is zero or negative.</exception>
+  Task<IReadOnlyList<HistoryEntry>> ListHistoryAsync(
+    long repositoryId,
+    string branch,
+    IReadOnlyCollection<string> flags,
+    DateTimeOffset from,
+    DateTimeOffset to,
+    int limit,
+    CancellationToken cancellationToken);
 
   /// <summary>Gets the blob of the merged report of a commit.</summary>
   /// <param name="commitId">The identifier of the commit.</param>
