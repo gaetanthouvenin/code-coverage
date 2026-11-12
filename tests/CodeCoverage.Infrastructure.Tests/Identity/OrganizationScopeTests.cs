@@ -127,7 +127,7 @@ public sealed class OrganizationScopeTests(DatabaseFixture database)
     var directory = A.Fake<IOrganizationDirectory>();
     var current = new OrganizationContext();
 
-    var entered = await new OrganizationScope(directory, current).TryEnterAsync(Forge.GitHub, login, Ct);
+    var entered = await new OrganizationScope(directory, current, new CurrentUserContext()).TryEnterAsync(Forge.GitHub, login, Ct);
 
     entered.ShouldBeFalse();
     current.IsKnown.ShouldBeFalse();
@@ -168,8 +168,48 @@ public sealed class OrganizationScopeTests(DatabaseFixture database)
     return organization;
   }
 
-  private static OrganizationScope Scope(CodeCoverageDbContext context, OrganizationContext current) =>
-    new(new OrganizationDirectory(context, A.Fake<IClock>(), current), current);
+  private static OrganizationScope Scope(CodeCoverageDbContext context, OrganizationContext current, CurrentUserContext? user = null) =>
+    new(new OrganizationDirectory(context, A.Fake<IClock>(), current), current, user ?? new CurrentUserContext());
+
+  private static CurrentUserContext TokenUser(long? organizationId)
+  {
+    var user = new CurrentUserContext();
+    user.SetUser(42, "octocat", Forge.GitHub, "583231");
+    user.SetApiToken(organizationId);
+
+    return user;
+  }
+
+  // M3.05: a request authenticated by a token of an organization enters that organization only, refused as unknown.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryEnter_TokenOfAnotherOrganization_ShouldReturnFalseAndStayUnset(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var first = await SeedActiveAsync(context, Forge.GitHub, FirstAccount, "first-org");
+    await SeedActiveAsync(context, Forge.GitHub, SecondAccount, "second-org");
+    var current = new OrganizationContext();
+
+    (await Scope(context, current, TokenUser(first.Id)).TryEnterAsync(Forge.GitHub, "second-org", Ct)).ShouldBeFalse();
+    current.IsKnown.ShouldBeFalse();
+
+    (await Scope(context, current, TokenUser(first.Id)).TryEnterAsync(Forge.GitHub, "first-org", Ct)).ShouldBeTrue();
+    current.Id.ShouldBe(first.Id);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryEnter_TokenOfTheInstance_ShouldEnterNoOrganization(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    await SeedActiveAsync(context, Forge.GitHub, FirstAccount, "first-org");
+    var current = new OrganizationContext();
+
+    (await Scope(context, current, TokenUser(null)).TryEnterAsync(Forge.GitHub, "first-org", Ct)).ShouldBeFalse();
+    current.IsKnown.ShouldBeFalse();
+  }
 
   private async Task<string> MigratedDatabaseAsync(DatabaseProvider provider)
   {

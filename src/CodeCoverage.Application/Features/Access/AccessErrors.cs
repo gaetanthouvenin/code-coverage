@@ -21,5 +21,17 @@ public static class AccessErrors
   /// </summary>
   public const string NoRepository = "Access.NoRepository";
 
+  /// <summary>The user owns no such personal token of the API. Maps to HTTP 404 Not Found.</summary>
+  public const string ApiTokenNotFound = "Access.ApiTokenNotFound";
+
+  /// <summary>The name of a personal token is empty or too long. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidApiTokenName = "Access.InvalidApiTokenName";
+
+  /// <summary>A personal token names a forge without an organization, or the reverse. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidApiTokenOrganization = "Access.InvalidApiTokenOrganization";
+
+  /// <summary>The expiry of a personal token is not in the future. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidApiTokenExpiry = "Access.InvalidApiTokenExpiry";
+
   #endregion
 }

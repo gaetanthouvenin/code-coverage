@@ -79,7 +79,7 @@ public static class OpenApiConfiguration
         {
           Type = SecuritySchemeType.Http,
           Scheme = "bearer",
-          Description = "An API token or an upload token.",
+          Description = "A personal API token (cvp_…) for the management endpoints, or an upload token for the uploads.",
         }
       );
 

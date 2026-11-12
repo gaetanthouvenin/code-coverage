@@ -88,6 +88,12 @@ public sealed class CurrentUserContext : ICurrentUser
     && _bootstrap is not null
     && AdministratorList.Contains(forge, externalId, _access.CurrentValue.AdminUserIds, _bootstrap.CurrentValue.AdminUserIds);
 
+  /// <inheritdoc />
+  public long? TokenOrganizationId { get; private set; }
+
+  /// <inheritdoc />
+  public bool IsInstanceToken { get; private set; }
+
   /// <summary>Gets the forge of the account of the signed-in user, or <see langword="null" />.</summary>
   public Forge? Forge { get; private set; }
 
@@ -122,6 +128,27 @@ public sealed class CurrentUserContext : ICurrentUser
     Login = login;
     Forge = forge;
     ExternalId = externalId;
+  }
+
+  /// <summary>Records that a personal token of the API authenticates the request of the signed-in user.</summary>
+  /// <param name="organizationId">The organization of the token, or <see langword="null" /> for a token of the instance.</param>
+  /// <exception cref="InvalidOperationException">No user is set, or a token is already set.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="organizationId" /> is not positive.</exception>
+  /// <remarks>Called by the Api once the token is authenticated, after <see cref="SetUser" />; the Web never calls it.</remarks>
+  public void SetApiToken(long? organizationId)
+  {
+    InvalidOperationException.ThrowIf(!IsAuthenticated, "A token authenticates a user: set the user first.");
+    InvalidOperationException.ThrowIf(TokenOrganizationId is not null || IsInstanceToken, "The request is already authenticated by a token.");
+
+    if (organizationId is { } organization)
+    {
+      ArgumentOutOfRangeException.ThrowIfNegativeOrZero(organization, nameof(organizationId));
+      TokenOrganizationId = organization;
+    }
+    else
+    {
+      IsInstanceToken = true;
+    }
   }
 
   /// <summary>Sets the system principal, which passes every authorization check.</summary>

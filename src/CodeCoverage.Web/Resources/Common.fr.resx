@@ -12,6 +12,10 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Access.ApiTokenNotFound" xml:space="preserve"><value>Ce jeton d’API n’existe pas.</value></data>
+  <data name="Access.InvalidApiTokenName" xml:space="preserve"><value>Donnez au jeton un nom de 1 à 128 caractères.</value></data>
+  <data name="Access.InvalidApiTokenOrganization" xml:space="preserve"><value>Choisissez une organisation pour le jeton, ou aucune pour un jeton de l’instance.</value></data>
+  <data name="Access.InvalidApiTokenExpiry" xml:space="preserve"><value>L’expiration doit être dans le futur.</value></data>
   <data name="Access.Forbidden" xml:space="preserve"><value>Vous n’avez pas la permission de faire cela.</value></data>
   <data name="Access.NoRepository" xml:space="preserve"><value>Vous ne pouvez pas vous connecter : votre compte GitHub n’accède à aucun dépôt où CodeCoverage est installé. Demandez à un administrateur de votre organisation d’installer l’App GitHub.</value></data>
   <data name="Access.Unauthenticated" xml:space="preserve"><value>Votre session a expiré. Reconnectez-vous pour continuer.</value></data>

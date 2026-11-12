@@ -93,6 +93,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the audit trail (<c>AuditEntries</c>).</summary>
   public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+  /// <summary>Gets the personal tokens of the API, a global table.</summary>
+  public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+
   /// <summary>Gets the branches of the tracked repositories (<c>Branches</c>).</summary>
   public DbSet<Branch> Branches => Set<Branch>();
 

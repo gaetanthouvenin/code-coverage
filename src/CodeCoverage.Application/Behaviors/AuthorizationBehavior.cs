@@ -34,8 +34,8 @@ namespace CodeCoverage.Application.Behaviors;
 ///     <item>
 ///       an <see cref="IAdminOnly" /> message requires a signed-in user
 ///       (<see cref="UnauthorizedException" />, <see cref="SecurityErrors.Unauthenticated" />)
-///       who administers the instance (<see cref="ForbiddenException" />,
-///       <see cref="SecurityErrors.Forbidden" />);
+///       who administers the instance, and not through a token of an organization
+///       (<see cref="ForbiddenException" />, <see cref="SecurityErrors.Forbidden" />);
 ///     </item>
 ///     <item>
 ///       an <see cref="IUserScoped" /> message requires a signed-in user
@@ -64,6 +64,9 @@ namespace CodeCoverage.Application.Behaviors;
 ///       <c>MessageMarkerTests</c> keeps out of the Application.
 ///     </item>
 ///   </list>
+///   A request authenticated by a personal token of the API enters the organization of its token only, and a token of
+///   the instance enters none: <see cref="IOrganizationScope" /> refuses any other entry, which ends in the
+///   <see cref="NotFoundException" /> of the marker (M3.05).
 ///   The administration of the instance grants nothing on the data of an organization (ADR-013). The refusal is
 ///   logged by <see cref="LoggingBehavior{TMessage,TResponse}" />, which runs first.
 /// </remarks>
@@ -185,20 +188,11 @@ internal sealed class AuthorizationBehavior<TMessage, TResponse>(
       return await next(message, cancellationToken).ConfigureAwait(false);
     }
 
-    if (IsSystemOnly)
-    {
-      throw new ForbiddenException(SecurityErrors.Forbidden, $"{MessageName} can only be sent by the system.");
-    }
+    ForbiddenException.ThrowIfNotSystem(IsSystemOnly, MessageName);
+    UnauthorizedException.ThrowIfAnonymous(!(IsAdminOnly || IsUserScoped) || currentUser.IsAuthenticated, MessageName);
 
-    if ((IsAdminOnly || IsUserScoped) && !currentUser.IsAuthenticated)
-    {
-      throw new UnauthorizedException(SecurityErrors.Unauthenticated, $"{MessageName} requires a signed-in user.");
-    }
-
-    if (IsAdminOnly && !currentUser.IsAdmin)
-    {
-      throw new ForbiddenException(SecurityErrors.Forbidden, $"{MessageName} requires an administrator.");
-    }
+    // A token of an organization stays within it: the administration of the instance needs a token of the instance.
+    ForbiddenException.ThrowIfNotInstanceAdministrator(IsAdminOnly && (!currentUser.IsAdmin || currentUser.TokenOrganizationId is not null), MessageName);
 
     switch (message)
     {

@@ -19,5 +19,9 @@ public interface ITokenGenerator
   /// <returns>The value in clear: 43 base64url characters.</returns>
   string NewBadgeToken();
 
+  /// <summary>Generates the value of a personal token of the API.</summary>
+  /// <returns>The value in clear: <c>cvp_</c> followed by 43 base64url characters.</returns>
+  string NewApiToken();
+
   #endregion
 }

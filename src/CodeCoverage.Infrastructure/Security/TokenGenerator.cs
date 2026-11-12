@@ -19,6 +19,9 @@ internal sealed class TokenGenerator : ITokenGenerator
   /// <summary>The prefix of an upload token, which the secret scanners recognize.</summary>
   private const string UploadTokenPrefix = "cvc_";
 
+  /// <summary>The prefix of a personal token of the API, which the secret scanners recognize.</summary>
+  private const string ApiTokenPrefix = "cvp_";
+
   /// <summary>The number of random bytes of a token: 43 characters once encoded.</summary>
   private const int RandomBytes = 32;
 
@@ -28,6 +31,9 @@ internal sealed class TokenGenerator : ITokenGenerator
 
   /// <inheritdoc />
   public string NewBadgeToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
+
+  /// <inheritdoc />
+  public string NewApiToken() => ApiTokenPrefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
 
   /// <inheritdoc />
   public string NewUploadToken() => UploadTokenPrefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
