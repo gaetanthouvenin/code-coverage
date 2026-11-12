@@ -67,6 +67,24 @@ public sealed class ListMyOrganizationsQueryHandlerTests
     A.CallTo(() => _memberships.ListOfUserAsync(A<long>.That.Not.IsEqualTo(UserId), A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // Decision 13: a token of an organization lists that organization only; a token of the instance lists them all.
+  [Fact]
+  public async Task Handle_TokenOfAnOrganization_ShouldListThatOrganizationOnly()
+  {
+    var first = _directory.Add("1001", "first-org", admitted: true);
+    var second = _directory.Add("2002", "second-org", admitted: true);
+    Member(first, OrganizationRole.Participant);
+    Member(second, OrganizationRole.Admin);
+    A.CallTo(() => _currentUser.TokenOrganizationId).Returns(second.Id);
+
+    (await HandleAsync()).ShouldHaveSingleItem().Organization.Id.ShouldBe(second.Id);
+
+    A.CallTo(() => _currentUser.TokenOrganizationId).Returns(null);
+    A.CallTo(() => _currentUser.IsInstanceToken).Returns(true);
+
+    (await HandleAsync()).Count.ShouldBe(2);
+  }
+
   // The resolver fails closed: a membership that is too old, or that grants nothing, lists nothing.
   [Fact]
   public async Task Handle_MembershipThatGrantsNothing_ShouldNotBeListed()

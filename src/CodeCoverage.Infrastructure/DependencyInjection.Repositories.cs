@@ -38,6 +38,7 @@ public static partial class DependencyInjection
     services.AddScoped<IUploadRepository, UploadRepository>();
     services.AddScoped<IUploadTokenRepository, UploadTokenRepository>();
     services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
+    services.AddScoped<IOrganizationSettingRepository, OrganizationSettingRepository>();
     services.AddScoped<IUserRepository, UserRepository>();
     services.AddScoped<IUserRepositoryAccessRepository, UserRepositoryAccessRepository>();
     services.AddScoped<IOrganizationMembershipRepository, OrganizationMembershipRepository>();
