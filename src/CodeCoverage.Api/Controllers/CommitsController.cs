@@ -136,6 +136,58 @@ public sealed class CommitsController(ISender sender) : ControllerBase
     CancellationToken cancellationToken) =>
     await sender.GetFileCoverageResponseAsync(forge, owner, repo, sha, path, flag, cancellationToken).ConfigureAwait(false);
 
+  /// <summary>Notify a commit again</summary>
+  /// <remarks>
+  ///   Queues the notification of the commit (statuses and comment of its pull request), whatever
+  ///   <c>codecov.notify.after_n_builds</c> and <c>manual_trigger</c> say. Requires an administrator of the repository;
+  ///   a reader gets 403. The action is audited. It answers at once: the statuses are published in the background.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>Accepted.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/commits/{sha}/notify", Name = "TriggerNotify")]
+  [Authorize]
+  [ProducesResponseType(StatusCodes.Status202Accepted)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<IActionResult> NotifyAsync(string forge, string owner, string repo, string sha, CancellationToken cancellationToken)
+  {
+    await sender.TriggerNotifyAsync(forge, owner, repo, sha, cancellationToken).ConfigureAwait(false);
+
+    return Accepted();
+  }
+
+  /// <summary>Process the uploads of a commit again</summary>
+  /// <remarks>
+  ///   Queues the parsing of every upload of the commit again from its raw files, then its finalization and its
+  ///   notification. Requires an administrator of the repository; a reader gets 403. A commit without upload answers 422
+  ///   <c>Commit.NoUpload</c>, one whose raw files are no longer kept 422 <c>Commit.RawExpired</c>. The action is
+  ///   audited.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>Accepted.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/commits/{sha}/reprocess", Name = "ReprocessCommit")]
+  [Authorize]
+  [ProducesResponseType(StatusCodes.Status202Accepted)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+  public async Task<IActionResult> ReprocessAsync(string forge, string owner, string repo, string sha, CancellationToken cancellationToken)
+  {
+    await sender.ReprocessCommitAsync(forge, owner, repo, sha, cancellationToken).ConfigureAwait(false);
+
+    return Accepted();
+  }
+
   /// <summary>Announce the end of the uploads of a commit</summary>
   /// <remarks>
   ///   Asks for the notification of the commit as soon as every upload it received is processed, whatever
