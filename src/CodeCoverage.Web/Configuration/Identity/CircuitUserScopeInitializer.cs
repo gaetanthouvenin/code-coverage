@@ -39,9 +39,9 @@ internal sealed class CircuitUserScopeInitializer(CurrentUserContext circuitUser
   {
     ArgumentNullException.ThrowIfNull(scopeServices);
 
-    if (circuitUser is { UserId: { } userId, Login: { } login })
+    if (circuitUser is { UserId: { } userId, Login: { } login, Forge: { } forge, ExternalId: { } externalId })
     {
-      scopeServices.GetRequiredService<CurrentUserContext>().SetUser(userId, login, isAdmin: false);
+      scopeServices.GetRequiredService<CurrentUserContext>().SetUser(userId, login, forge, externalId);
     }
   }
 

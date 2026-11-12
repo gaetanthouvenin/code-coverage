@@ -9,11 +9,14 @@ using Mediator;
 using Microsoft.Extensions.DependencyInjection;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Features.Access;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Behaviors;
 
@@ -39,10 +42,18 @@ namespace CodeCoverage.Application.Behaviors;
 ///       (<see cref="UnauthorizedException" />, <see cref="SecurityErrors.Unauthenticated" />);
 ///     </item>
 ///     <item>
-///       an <see cref="IRepositoryScoped" /> or <see cref="IOrganizationScoped" /> message enters its
-///       organization, then is refused (<see cref="NotFoundException" />,
-///       <see cref="RepositoryErrors.NotFound" /> or <see cref="OrganizationErrors.NotFound" />) until the
-///       access checks exist;
+///       an <see cref="IRepositoryScoped" /> message enters its organization, then requires a signed-in user who
+///       may read the repository, active and tracked (<see cref="IRepositoryAccessService" />): otherwise
+///       <see cref="NotFoundException" /> (<see cref="RepositoryErrors.NotFound" />), the same whatever the cause, so
+///       that a private repository cannot be told from a missing one. A user who may read it but lacks the
+///       permission the message requires is refused with <see cref="ForbiddenException" />
+///       (<see cref="SecurityErrors.Forbidden" />);
+///     </item>
+///     <item>
+///       an <see cref="IOrganizationScoped" /> message enters its organization, then requires a signed-in user who
+///       holds a role there (<see cref="IOrganizationRoleResolver" />): otherwise <see cref="NotFoundException" />
+///       (<see cref="OrganizationErrors.NotFound" />). A participant sending a message that requires an administrator
+///       is refused with <see cref="ForbiddenException" /> (<see cref="SecurityErrors.Forbidden" />);
 ///     </item>
 ///     <item>
 ///       an <see cref="IPublicOwnerAddressed" /> message enters its organization when it is active, and
@@ -53,14 +64,16 @@ namespace CodeCoverage.Application.Behaviors;
 ///       <c>MessageMarkerTests</c> keeps out of the Application.
 ///     </item>
 ///   </list>
-///   The refusal is logged by <see cref="LoggingBehavior{TMessage,TResponse}" />, which runs first.
+///   The administration of the instance grants nothing on the data of an organization (ADR-013). The refusal is
+///   logged by <see cref="LoggingBehavior{TMessage,TResponse}" />, which runs first.
 /// </remarks>
 /// <typeparam name="TMessage">The type of the message.</typeparam>
 /// <typeparam name="TResponse">The type of the response.</typeparam>
 /// <param name="currentUser">The principal the message is sent for.</param>
 /// <param name="services">
-///   The services of the scope. <see cref="IOrganizationScope" /> is resolved from them only for a message
-///   that addresses an organization, so that the others never build what reads the database.
+///   The services of the scope. <see cref="IOrganizationScope" /> and the services of the access checks are
+///   resolved from them only for a message that addresses an organization, so that the others never build what
+///   reads the database.
 /// </param>
 internal sealed class AuthorizationBehavior<TMessage, TResponse>(
   ICurrentUser currentUser,
@@ -93,21 +106,71 @@ internal sealed class AuthorizationBehavior<TMessage, TResponse>(
     return services.GetRequiredService<IOrganizationScope>().TryEnterAsync(forge, login, cancellationToken);
   }
 
+  /// <summary>Enters the organization of a repository and checks the permission of the user on it.</summary>
+  /// <param name="message">The message.</param>
+  /// <param name="cancellationToken">A token to cancel the checks.</param>
+  /// <returns>A task that completes when the message may go on.</returns>
+  /// <exception cref="NotFoundException">The user may not read the repository, whatever the cause.</exception>
+  /// <exception cref="ForbiddenException">The user may read the repository but lacks the required permission.</exception>
+  private async Task AuthorizeRepositoryAsync(IRepositoryScoped message, CancellationToken cancellationToken)
+  {
+    var entered = await TryEnterAsync(message.Forge, OrganizationOf(message.Owner), cancellationToken).ConfigureAwait(false);
+    var userId = currentUser.UserId;
+    var tracked = entered && userId is not null && RepositorySlug.TryFromAddress(message.Owner, message.Name, out var slug)
+                    ? await services.GetRequiredService<IRepositoryRepository>().FindBySlugAsync(slug, cancellationToken).ConfigureAwait(false)
+                    : null;
+
+    // An inactive or departed repository answers as a missing one: one refusal, whatever the cause.
+    var repository = tracked is { IsActive: true } ? tracked : null;
+
+    NotFoundException.ThrowIfRepositoryNotFound(repository);
+
+    var access = services.GetRequiredService<IRepositoryAccessService>();
+    var readable = await access.CanAsync(userId!.Value, repository.ExternalId, RepositoryPermission.Read, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfRepositoryNotReadable(readable);
+
+    var granted = message.RequiredPermission is RepositoryPermission.Read
+                  || await access.CanAsync(userId.Value, repository.ExternalId, message.RequiredPermission, cancellationToken).ConfigureAwait(false);
+
+    ForbiddenException.ThrowIfRepositoryPermissionMissing(!granted, MessageName, message.RequiredPermission);
+  }
+
+  /// <summary>Enters an organization and checks the role of the user in it.</summary>
+  /// <param name="message">The message.</param>
+  /// <param name="cancellationToken">A token to cancel the checks.</param>
+  /// <returns>A task that completes when the message may go on.</returns>
+  /// <exception cref="NotFoundException">The user holds no role in the organization, whatever the cause.</exception>
+  /// <exception cref="ForbiddenException">The user takes part in the organization but the message requires an administrator.</exception>
+  private async Task AuthorizeOrganizationAsync(IOrganizationScoped message, CancellationToken cancellationToken)
+  {
+    var entered = await TryEnterAsync(message.Forge, message.Login, cancellationToken).ConfigureAwait(false);
+    var role = entered && currentUser.UserId is { } userId
+                 ? await services.GetRequiredService<IOrganizationRoleResolver>()
+                                 .ResolveAsync(userId, services.GetRequiredService<ICurrentOrganization>().Id, cancellationToken)
+                                 .ConfigureAwait(false)
+                 : null;
+
+    NotFoundException.ThrowIfOrganizationNotFound(role);
+    ForbiddenException.ThrowIfOrganizationRoleMissing(message.RequiredRole is OrganizationRole.Admin && role is not OrganizationRole.Admin, MessageName);
+  }
+
   #endregion
 
   #region Implementation of IPipelineBehavior<TMessage,TResponse>
 
   /// <inheritdoc />
   /// <exception cref="ForbiddenException">
-  ///   The message is <see cref="ISystemOnly" /> and the sender is not the system, or it is
-  ///   <see cref="IAdminOnly" /> and the signed-in user is not an administrator.
+  ///   The message is <see cref="ISystemOnly" /> and the sender is not the system, it is
+  ///   <see cref="IAdminOnly" /> and the signed-in user is not an administrator, or the user lacks the permission
+  ///   or the role a scoped message requires.
   /// </exception>
   /// <exception cref="UnauthorizedException">
   ///   The message is <see cref="IAdminOnly" /> or <see cref="IUserScoped" /> and nobody is signed in.
   /// </exception>
   /// <exception cref="NotFoundException">
-  ///   The message is <see cref="IRepositoryScoped" /> or <see cref="IOrganizationScoped" /> and the sender
-  ///   is not the system.
+  ///   The message is <see cref="IRepositoryScoped" /> or <see cref="IOrganizationScoped" /> and the user may not
+  ///   read what it addresses.
   /// </exception>
   public async ValueTask<TResponse> Handle(
     TMessage message,
@@ -137,19 +200,17 @@ internal sealed class AuthorizationBehavior<TMessage, TResponse>(
       throw new ForbiddenException(SecurityErrors.Forbidden, $"{MessageName} requires an administrator.");
     }
 
-    // No access check exists yet, so both scoped markers end in the same refusal whether the entry
-    // succeeded or not: the response never depends on the state of the organization.
     switch (message)
     {
       case IRepositoryScoped repository:
-        await TryEnterAsync(repository.Forge, OrganizationOf(repository.Owner), cancellationToken).ConfigureAwait(false);
+        await AuthorizeRepositoryAsync(repository, cancellationToken).ConfigureAwait(false);
 
-        throw new NotFoundException(RepositoryErrors.NotFound, "The repository does not exist or cannot be read.");
+        break;
 
       case IOrganizationScoped organization:
-        await TryEnterAsync(organization.Forge, organization.Login, cancellationToken).ConfigureAwait(false);
+        await AuthorizeOrganizationAsync(organization, cancellationToken).ConfigureAwait(false);
 
-        throw new NotFoundException(OrganizationErrors.NotFound, "The organization does not exist or cannot be read.");
+        break;
 
       case IPublicOwnerAddressed addressed:
         await TryEnterAsync(addressed.Forge, OrganizationOf(addressed.Owner), cancellationToken).ConfigureAwait(false);

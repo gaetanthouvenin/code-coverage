@@ -6,6 +6,7 @@
 
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
@@ -74,7 +75,7 @@ public sealed class AuditLogTests(DatabaseFixture database)
   public async Task Record_AsUser_ShouldStoreTheLogin()
   {
     var user = new CurrentUserContext();
-    user.SetUser(7, "octocat", isAdmin: true);
+    user.SetUser(7, "octocat", Forge.GitHub, "583231");
     var interceptor = new CapturingSaveChangesInterceptor();
     await using var context = CreateCapturingContext(interceptor);
 

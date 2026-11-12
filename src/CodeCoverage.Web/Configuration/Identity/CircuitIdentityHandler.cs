@@ -52,7 +52,7 @@ internal sealed class CircuitIdentityHandler(
 
       if (await SessionUsers.FindAsync(users, state.User, cancellationToken).ConfigureAwait(false) is { } user)
       {
-        circuitUser.SetUser(user.Id, user.Login, isAdmin: false);
+        circuitUser.SetUser(user.Id, user.Login, user.Forge, user.ExternalId);
       }
     }
   }

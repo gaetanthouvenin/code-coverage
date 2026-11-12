@@ -9,7 +9,10 @@ using System.Runtime.CompilerServices;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
+using CodeCoverage.Application.Configuration;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
@@ -32,20 +35,57 @@ public sealed class CurrentUserContextTests
     context.IsSystem.ShouldBeFalse();
   }
 
-  [Theory]
-  [InlineData(false)]
-  [InlineData(true)]
-  public void SetUser_WithValidUser_ShouldAuthenticateWithoutSystem(bool isAdmin)
+  [Fact]
+  public void SetUser_WithValidUser_ShouldAuthenticateWithoutSystem()
   {
     var context = new CurrentUserContext();
 
-    context.SetUser(42, "octocat", isAdmin);
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
 
     context.UserId.ShouldBe(42);
     context.Login.ShouldBe("octocat");
+    context.Forge.ShouldBe(Forge.GitHub);
+    context.ExternalId.ShouldBe("583231");
     context.IsAuthenticated.ShouldBeTrue();
-    context.IsAdmin.ShouldBe(isAdmin);
+    context.IsAdmin.ShouldBeFalse("a context built without the settings names no administrator");
     context.IsSystem.ShouldBeFalse();
+  }
+
+  [Fact]
+  public void IsAdmin_AfterSettingChange_ShouldFollowOnNextRead()
+  {
+    var access = new AccessOptions();
+    var context = new CurrentUserContext(Monitor(access), Monitor(new BootstrapOptions()));
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
+
+    context.IsAdmin.ShouldBeFalse();
+
+    access.AdminUserIds = "1234, 583231";
+    context.IsAdmin.ShouldBeTrue();
+
+    access.AdminUserIds = "1234";
+    context.IsAdmin.ShouldBeFalse();
+  }
+
+  [Fact]
+  public void IsAdmin_NamedByTheBootstrapList_ShouldBeTrue()
+  {
+    var context = new CurrentUserContext(Monitor(new AccessOptions()), Monitor(new BootstrapOptions { AdminUserIds = "583231" }));
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
+
+    context.IsAdmin.ShouldBeTrue();
+  }
+
+  [Fact]
+  public void IsAdmin_AnonymousOrSystem_ShouldBeFalse()
+  {
+    var lists = new AccessOptions { AdminUserIds = "583231" };
+    var anonymous = new CurrentUserContext(Monitor(lists), Monitor(new BootstrapOptions()));
+    var system = new CurrentUserContext(Monitor(lists), Monitor(new BootstrapOptions()));
+    system.SetSystem();
+
+    anonymous.IsAdmin.ShouldBeFalse();
+    system.IsAdmin.ShouldBeFalse();
   }
 
   [Theory]
@@ -55,7 +95,7 @@ public sealed class CurrentUserContextTests
   {
     var context = new CurrentUserContext();
 
-    Should.Throw<ArgumentOutOfRangeException>(() => context.SetUser(userId, "octocat", isAdmin: false));
+    Should.Throw<ArgumentOutOfRangeException>(() => context.SetUser(userId, "octocat", Forge.GitHub, "583231"));
     context.IsAuthenticated.ShouldBeFalse();
   }
 
@@ -66,7 +106,7 @@ public sealed class CurrentUserContextTests
   {
     var context = new CurrentUserContext();
 
-    Should.Throw<ArgumentException>(() => context.SetUser(42, login, isAdmin: false));
+    Should.Throw<ArgumentException>(() => context.SetUser(42, login, Forge.GitHub, "583231"));
     context.IsAuthenticated.ShouldBeFalse();
   }
 
@@ -103,7 +143,7 @@ public sealed class CurrentUserContextTests
   public void SetCommandLine_OnUserScope_ShouldThrowInvalidOperationException()
   {
     var context = new CurrentUserContext();
-    context.SetUser(42, "octocat", isAdmin: true);
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
 
     Should.Throw<InvalidOperationException>(context.SetCommandLine);
     context.IsSystem.ShouldBeFalse();
@@ -141,7 +181,7 @@ public sealed class CurrentUserContextTests
   public void SetSystem_OnUserScope_ShouldThrowInvalidOperationException()
   {
     var context = new CurrentUserContext();
-    context.SetUser(42, "octocat", isAdmin: true);
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
 
     Should.Throw<InvalidOperationException>(context.SetSystem);
     context.IsSystem.ShouldBeFalse();
@@ -153,7 +193,7 @@ public sealed class CurrentUserContextTests
     var context = new CurrentUserContext();
     context.SetSystem();
 
-    Should.Throw<InvalidOperationException>(() => context.SetUser(42, "octocat", isAdmin: false));
+    Should.Throw<InvalidOperationException>(() => context.SetUser(42, "octocat", Forge.GitHub, "583231"));
     context.IsAuthenticated.ShouldBeFalse();
   }
 
@@ -189,10 +229,18 @@ public sealed class CurrentUserContextTests
     await using var second = provider.CreateAsyncScope();
 
     var context = first.ServiceProvider.GetRequiredService<CurrentUserContext>();
-    context.SetUser(42, "octocat", isAdmin: false);
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
 
     first.ServiceProvider.GetRequiredService<ICurrentUser>().ShouldBeSameAs(context);
     second.ServiceProvider.GetRequiredService<ICurrentUser>().IsAuthenticated.ShouldBeFalse();
+  }
+
+  private static IOptionsMonitor<T> Monitor<T>(T value)
+  {
+    var monitor = A.Fake<IOptionsMonitor<T>>();
+    A.CallTo(() => monitor.CurrentValue).Returns(value);
+
+    return monitor;
   }
 
   private static bool IsHost(string friend, string host)

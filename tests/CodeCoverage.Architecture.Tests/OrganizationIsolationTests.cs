@@ -49,6 +49,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string SweepCoordinator = "src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
 
+  private const string MembershipRefresh = "src/CodeCoverage.Application/Features/Access/Commands/RefreshUserMemberships/RefreshUserMembershipsCommandHandler.cs";
+
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
 
   private const string SamplePath = Infrastructure + "Sample.cs";
@@ -111,6 +113,10 @@ public sealed partial class OrganizationIsolationTests
     // The coordinator of the sweep of the stuck commits (ADR-013, ARCHITECTURE §6.1): on the lane of the instance, it
     // reads Organizations only and queues one sweep per active organization.
     (SweepCoordinator, "ForOrganization"),
+
+    // The refresh of the memberships of a user (M3.04): on the lane of the instance, it reads global tables only and
+    // queues the refresh of the access of that user in each active organization it is linked to.
+    (MembershipRefresh, "ForOrganization"),
   ];
 
   // A key that omits the organization would serve one organization's value to another: each user is reviewed.

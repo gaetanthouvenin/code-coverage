@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
@@ -170,6 +171,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.RefreshUserMemberships:
         await sender.Send(new RefreshUserMembershipsCommand(Read(job, static p => p.GetProperty("UserId").GetInt64())), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.RefreshUserAccess:
+        await sender.Send(new RefreshUserAccessCommand(Read(job, static p => p.GetProperty("UserId").GetInt64())), cancellationToken).ConfigureAwait(false);
         break;
 
       case JobTypes.RewriteRepositoryOwner:

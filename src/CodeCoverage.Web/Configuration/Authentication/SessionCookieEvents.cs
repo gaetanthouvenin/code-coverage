@@ -47,7 +47,7 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
       return;
     }
 
-    currentUser.SetUser(user.Id, user.Login, isAdmin: false);
+    currentUser.SetUser(user.Id, user.Login, user.Forge, user.ExternalId);
   }
 
   #endregion

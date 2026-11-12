@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Identity;
@@ -249,7 +250,7 @@ public sealed class SettingsChangeWatcherTests(DatabaseFixture database)
   {
     await using var context = DatabaseFixture.CreateContext(provider, connectionString);
     var user = new CurrentUserContext();
-    user.SetUser(7, "octocat", isAdmin: true);
+    user.SetUser(7, "octocat", Forge.GitHub, "583231");
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(new DateTimeOffset(2026, 11, 8, 10, 30, 0, TimeSpan.Zero));
 

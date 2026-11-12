@@ -10,6 +10,7 @@ using FluentValidation.Results;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
@@ -46,6 +47,8 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
     var services = new ServiceCollection();
     services.AddLogging();
     services.AddApplication();
+    // The principal reads the lists of administrators from the configuration, which the hosts always register.
+    services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
     services.AddInfrastructure();
     services.AddCoverageUi();
     services.AddUiMessaging();

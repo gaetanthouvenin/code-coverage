@@ -7,6 +7,7 @@
 using System.Globalization;
 using System.Security.Claims;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Identity;
 
 namespace CodeCoverage.Api.Configuration.Identity;
@@ -15,9 +16,9 @@ namespace CodeCoverage.Api.Configuration.Identity;
 /// <remarks>
 ///   <para>
 ///     A user is set only when the request is authenticated and carries a positive numeric
-///     <see cref="ClaimTypes.NameIdentifier" /> and a non-blank <see cref="ClaimTypes.Name" />; the
-///     <see cref="AdminRole" /> role makes them an administrator. Otherwise the scope stays
-///     anonymous.
+///     <see cref="ClaimTypes.NameIdentifier" />, a non-blank <see cref="ClaimTypes.Name" />, a known
+///     <see cref="ForgeClaim" /> and a non-blank <see cref="ExternalIdClaim" />. Otherwise the scope stays
+///     anonymous. No claim makes an administrator: the context decides it at each read from the settings.
 ///   </para>
 ///   <para>
 ///     No authentication scheme is registered yet: every request is anonymous until the
@@ -29,8 +30,11 @@ internal sealed class HttpCurrentUserMiddleware(RequestDelegate next)
 {
   #region Fields
 
-  /// <summary>The role of the administrators of the instance.</summary>
-  public const string AdminRole = "Admin";
+  /// <summary>The type of the claim that holds the forge of the account of the user.</summary>
+  public const string ForgeClaim = "cc:forge";
+
+  /// <summary>The type of the claim that holds the identifier the forge gives the account of the user.</summary>
+  public const string ExternalIdClaim = "cc:external_id";
 
   #endregion
 
@@ -58,9 +62,13 @@ internal sealed class HttpCurrentUserMiddleware(RequestDelegate next)
           out var userId)
         && userId > 0
         && user.FindFirstValue(ClaimTypes.Name) is { } login
-        && !string.IsNullOrWhiteSpace(login))
+        && !string.IsNullOrWhiteSpace(login)
+        && Enum.TryParse<Forge>(user.FindFirstValue(ForgeClaim), ignoreCase: false, out var forge)
+        && Enum.IsDefined(forge)
+        && user.FindFirstValue(ExternalIdClaim) is { } externalId
+        && !string.IsNullOrWhiteSpace(externalId))
     {
-      currentUser.SetUser(userId, login, user.IsInRole(AdminRole));
+      currentUser.SetUser(userId, login, forge, externalId);
     }
 
     return next(context);

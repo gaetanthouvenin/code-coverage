@@ -15,6 +15,8 @@ using CodeCoverage.Application.Security;
 using CodeCoverage.Application.Tests.Behaviors.Support;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Tests.Behaviors;
 
@@ -25,6 +27,14 @@ public sealed class AuthorizationBehaviorTests
   private readonly IOrganizationScope _scope = A.Fake<IOrganizationScope>();
 
   private readonly IServiceProvider _services = A.Fake<IServiceProvider>();
+
+  private readonly IRepositoryRepository _repositories = A.Fake<IRepositoryRepository>();
+
+  private readonly IRepositoryAccessService _access = A.Fake<IRepositoryAccessService>();
+
+  private readonly IOrganizationRoleResolver _roles = A.Fake<IOrganizationRoleResolver>();
+
+  private readonly ICurrentOrganization _organization = A.Fake<ICurrentOrganization>();
 
   private readonly List<string> _steps = [];
 
@@ -37,6 +47,11 @@ public sealed class AuthorizationBehaviorTests
   public AuthorizationBehaviorTests()
   {
     A.CallTo(() => _services.GetService(typeof(IOrganizationScope))).Returns(_scope);
+    A.CallTo(() => _services.GetService(typeof(IRepositoryRepository))).Returns(_repositories);
+    A.CallTo(() => _services.GetService(typeof(IRepositoryAccessService))).Returns(_access);
+    A.CallTo(() => _services.GetService(typeof(IOrganizationRoleResolver))).Returns(_roles);
+    A.CallTo(() => _services.GetService(typeof(ICurrentOrganization))).Returns(_organization);
+    A.CallTo(() => _organization.Id).Returns(7L);
   }
 
   #endregion
@@ -227,47 +242,147 @@ public sealed class AuthorizationBehaviorTests
     A.CallTo(() => _scope.TryEnterAsync(Forge.AzureDevOps, organization, Ct)).MustHaveHappenedOnceExactly();
   }
 
-  [Theory]
-  [InlineData(false)]
-  [InlineData(true)]
-  public async Task Handle_RepositoryScopedBeforeAccessCheck_ShouldRefuseUser(bool isAdmin)
+  [Fact]
+  public async Task Handle_RepositoryScopedWithoutRead_ShouldThrowNotFound()
   {
     OrganizationsAreActive();
+    Tracked();
 
     var exception = await Should.ThrowAsync<NotFoundException>(
-                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User(isAdmin)));
+                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User()));
 
     exception.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
     _nextCalls.ShouldBe(0);
   }
 
-  [Theory]
-  [InlineData(false)]
-  [InlineData(true)]
-  public async Task Handle_OrganizationScopedBeforeAccessCheck_ShouldRefuseUser(bool isAdmin)
+  [Fact]
+  public async Task Handle_RepositoryScopedWithRead_ShouldCallNext()
   {
     OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read);
 
-    var exception = await Should.ThrowAsync<NotFoundException>(
-                      async () => await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme"), Principals.User(isAdmin)));
+    (await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User())).ShouldBe("handled");
 
-    exception.ErrorCode.ShouldBe(OrganizationErrors.NotFound);
+    A.CallTo(() => _access.CanAsync(42, "1296269", RepositoryPermission.Read, Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_RepositoryScopedWithoutAdmin_ShouldThrowForbidden()
+  {
+    OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read, RepositoryPermission.Write);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(
+                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme", RepositoryPermission.Admin), Principals.User()));
+
+    exception.ErrorCode.ShouldBe(SecurityErrors.Forbidden);
     _nextCalls.ShouldBe(0);
   }
 
   [Fact]
-  public async Task Handle_ActiveAndUnknownOrganization_ShouldRefuseTheSameWay()
+  public async Task Handle_RepositoryScopedWithAdmin_ShouldCallNext()
   {
     OrganizationsAreActive();
-    var active = await Should.ThrowAsync<NotFoundException>(
-                   async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.Anonymous()));
+    Tracked();
+    Grants(RepositoryPermission.Read, RepositoryPermission.Write, RepositoryPermission.Admin);
+
+    (await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme", RepositoryPermission.Admin), Principals.User())).ShouldBe("handled");
+  }
+
+  // ADR-013: the administration of the instance grants nothing on the data of an organization.
+  [Fact]
+  public async Task Handle_InstanceAdminNotMember_ShouldThrowNotFound()
+  {
+    OrganizationsAreActive();
+    Tracked();
+
+    var repository = await Should.ThrowAsync<NotFoundException>(
+                       async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User(isAdmin: true)));
+    var organization = await Should.ThrowAsync<NotFoundException>(
+                         async () => await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme"), Principals.User(isAdmin: true)));
+
+    repository.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
+    organization.ErrorCode.ShouldBe(OrganizationErrors.NotFound);
+    _nextCalls.ShouldBe(0);
+  }
+
+  // Decision 7: readable on GitHub, but deactivated or departed here, it answers as a missing repository.
+  [Fact]
+  public async Task Handle_RepositoryScopedInactiveRepository_ShouldThrowNotFound()
+  {
+    OrganizationsAreActive();
+    Tracked(active: false);
+    Grants(RepositoryPermission.Read, RepositoryPermission.Write, RepositoryPermission.Admin);
+
+    var exception = await Should.ThrowAsync<NotFoundException>(
+                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User()));
+
+    exception.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
+    A.CallTo(_access).MustNotHaveHappened();
+  }
+
+  // The acceptance of M3.04: a private repository the user cannot read cannot be told from a missing one.
+  [Fact]
+  public async Task Handle_EveryCauseOfRefusal_ShouldRefuseTheSameWay()
+  {
+    var refusals = new List<NotFoundException>();
 
     OrganizationsAreNotActive();
-    var unknown = await Should.ThrowAsync<NotFoundException>(
-                    async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.Anonymous()));
+    refusals.Add(await Should.ThrowAsync<NotFoundException>(async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User())));
 
-    unknown.ErrorCode.ShouldBe(active.ErrorCode);
-    unknown.Message.ShouldBe(active.Message);
+    OrganizationsAreActive();
+    refusals.Add(await Should.ThrowAsync<NotFoundException>(async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.Anonymous())));
+    refusals.Add(await Should.ThrowAsync<NotFoundException>(async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User())));
+
+    Tracked();
+    refusals.Add(await Should.ThrowAsync<NotFoundException>(async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User())));
+
+    refusals.Select(static e => (e.ErrorCode, e.Message)).Distinct().ShouldHaveSingleItem();
+  }
+
+  [Fact]
+  public async Task Handle_OrganizationScopedAdminAsParticipant_ShouldThrowForbidden()
+  {
+    OrganizationsAreActive();
+    A.CallTo(() => _roles.ResolveAsync(42, 7, Ct)).Returns(OrganizationRole.Participant);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(
+                      async () => await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme"), Principals.User()));
+
+    exception.ErrorCode.ShouldBe(SecurityErrors.Forbidden);
+    _nextCalls.ShouldBe(0);
+  }
+
+  [Fact]
+  public async Task Handle_OrganizationScopedAsAdmin_ShouldCallNext()
+  {
+    OrganizationsAreActive();
+    A.CallTo(() => _roles.ResolveAsync(42, 7, Ct)).Returns(OrganizationRole.Admin);
+
+    (await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme"), Principals.User())).ShouldBe("handled");
+  }
+
+  [Fact]
+  public async Task Handle_OrganizationScopedParticipantAsParticipant_ShouldCallNext()
+  {
+    OrganizationsAreActive();
+    A.CallTo(() => _roles.ResolveAsync(42, 7, Ct)).Returns(OrganizationRole.Participant);
+
+    (await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme", OrganizationRole.Participant), Principals.User())).ShouldBe("handled");
+  }
+
+  [Fact]
+  public async Task Handle_OrganizationScopedFromAnonymous_ShouldThrowNotFound()
+  {
+    OrganizationsAreActive();
+
+    var exception = await Should.ThrowAsync<NotFoundException>(
+                      async () => await SendAsync(new OrganizationScopedCommand(Forge.GitHub, "acme"), Principals.Anonymous()));
+
+    exception.ErrorCode.ShouldBe(OrganizationErrors.NotFound);
+    A.CallTo(_roles).MustNotHaveHappened();
   }
 
   [Fact]
@@ -316,6 +431,26 @@ public sealed class AuthorizationBehaviorTests
     A.CallTo(() => _scope.TryEnterAsync(A<Forge>._, A<string?>._, A<CancellationToken>._))
      .Invokes(() => _steps.Add("enter"))
      .Returns(true);
+  }
+
+  private void Tracked(bool active = true)
+  {
+    var repository = TrackedRepository.Create(9, "1296269", RepositorySlug.Parse("acme/repository"), "main", isPrivate: true, "protected", DateTimeOffset.UnixEpoch);
+
+    if (!active)
+    {
+      repository.Deactivate(DateTimeOffset.UnixEpoch);
+    }
+
+    A.CallTo(() => _repositories.FindBySlugAsync(A<RepositorySlug>._, A<CancellationToken>._)).Returns(repository);
+  }
+
+  private void Grants(params RepositoryPermission[] permissions)
+  {
+    foreach (var permission in permissions)
+    {
+      A.CallTo(() => _access.CanAsync(42, "1296269", permission, A<CancellationToken>._)).Returns(true);
+    }
   }
 
   private void OrganizationsAreNotActive()

@@ -71,5 +71,8 @@ public static class JobTypes
   /// <summary>Asks the forge again which organizations a user is linked to, and with which role.</summary>
   public const string RefreshUserMemberships = "RefreshUserMemberships";
 
+  /// <summary>Asks the forge again which repositories of the organization of the job a user may read, and how.</summary>
+  public const string RefreshUserAccess = "RefreshUserAccess";
+
   #endregion
 }
