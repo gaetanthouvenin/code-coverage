@@ -11,10 +11,12 @@ using Mediator;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
+using CodeCoverage.Application.Features.Repositories.Queries.ListRepositorySummaries;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Web.ViewModels.Repositories;
 
 namespace CodeCoverage.Web.Mapping;
@@ -29,6 +31,9 @@ internal static class RepositoryMapper
 
   /// <summary>The longest range read one point a day; a longer one reads one point a week.</summary>
   public const int MaxDailyRange = 90;
+
+  /// <summary>The fixed number of decimals of the coverage on the home page, which does not read every configuration.</summary>
+  public const int HomePrecision = 2;
 
   #endregion
 
@@ -142,6 +147,34 @@ internal static class RepositoryMapper
     return [.. series.Select(static s => new CoverageSeriesViewModel(s.Flag, [.. s.Points.Select(static p => new CoveragePointViewModel(p.At, p.Coverage))]))];
   }
 
+  /// <summary>
+  ///   Reads the repositories of one organization the user can read, each with the covered head of its default branch,
+  ///   its flags and its daily coverage over 30 days, in one request: the page sends one request per organization.
+  /// </summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The repositories by name; none when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IReadOnlyList<RepositorySummaryViewModel>> ListRepositorySummaryViewModelsAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return [];
+    }
+
+    var summaries = await sender.Send(new ListRepositorySummariesQuery(parsed, login, null), cancellationToken).ConfigureAwait(false);
+
+    return [.. summaries.OrderBy(static s => s.Repository.Name, StringComparer.OrdinalIgnoreCase).Select(s => ToSummary(forge, s))];
+  }
+
   /// <summary>Reads a forge segment strictly: only the segment the console writes, never a default forge.</summary>
   /// <param name="segment">The segment of the address.</param>
   /// <param name="forge">The forge it names.</param>
@@ -155,6 +188,27 @@ internal static class RepositoryMapper
     var known = series.Points.Where(static p => p.Coverage is not null).ToList();
 
     return known.Count < 2 ? null : known[^1].Coverage - known[0].Coverage;
+  }
+
+  // A fixed format on the home page: the repositories may each round differently, and their configurations are not read.
+  private static RepositorySummaryViewModel ToSummary(string forge, RepositorySummary summary)
+  {
+    var repository = summary.Repository;
+    var head = summary.CoveredHead;
+
+    return new RepositorySummaryViewModel(
+      forge,
+      repository.Owner,
+      repository.Name,
+      repository.DisabledAt is not null,
+      DisplayFormatter.Percent(head?.Coverage, HomePrecision, RoundingMode.Nearest),
+      head?.Coverage,
+      [.. summary.History.Select(static d => d.Coverage)],
+      head is null ? null : DisplayFormatter.ShortSha(head.Sha),
+      head is null ? null : CommitMapper.ToStatus(head.State),
+      head?.CompletedAt,
+      summary.Flags
+    );
   }
 
   private static CoverageFormatViewModel ToFormat(CoverageConfig config) => new(config.Precision, config.Rounding.ToString());

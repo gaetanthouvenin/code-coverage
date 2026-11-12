@@ -427,6 +427,40 @@ internal sealed class CommitReportRepository(
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<CommitFlagTotals>> ListDefaultBranchHistoryAsync(
+    IReadOnlyCollection<long> repositoryIds,
+    DateTimeOffset from,
+    DateTimeOffset to,
+    int limit,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repositoryIds);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+    if (repositoryIds.Count == 0)
+    {
+      return [];
+    }
+
+    var wanted = repositoryIds.Distinct().ToList();
+    var start = from.ToUniversalTime();
+    var end = to.ToUniversalTime();
+
+    // A commit has one project row: the limit bounds the commits read, the most recently finalized kept.
+    return await (from totals in context.CommitFlagTotals.AsNoTracking()
+                  join repository in context.Repositories.AsNoTracking() on totals.RepositoryId equals repository.Id
+                  where wanted.Contains(totals.RepositoryId)
+                        && totals.Flag == CommitFlagTotals.ProjectFlag
+                        && totals.Branch == repository.DefaultBranch
+                        && totals.CompletedAt >= start
+                        && totals.CompletedAt <= end
+                  orderby totals.CompletedAt descending, totals.CommitId descending
+                  select totals).Take(limit)
+                                .ToListAsync(cancellationToken)
+                                .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<HistoryEntry>> ListHistoryAsync(
     long repositoryId,
     string branch,

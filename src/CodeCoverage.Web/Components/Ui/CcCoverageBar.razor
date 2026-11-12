@@ -1,0 +1,17 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcCoverageBar.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@CssClass">
+  @if (Total > 0)
+  {
+    <div class="cc-covbar__track" aria-hidden="true">
+      <span class="cc-covbar__h" style="width:@WidthOf(Hits)%"></span>
+      <span class="cc-covbar__p" style="width:@WidthOf(Partials)%"></span>
+      <span class="cc-covbar__m" style="width:@WidthOf(Misses)%"></span>
+    </div>
+  }
+  <span class="cc-num cc-strong">@Text</span>
+</div>

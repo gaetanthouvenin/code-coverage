@@ -1,0 +1,18 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcSparkline.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (Points.Count > 0)
+{
+  <svg class="@CssClass" width="@Width" height="@Height" viewBox="0 0 @Width @Height" role="img" aria-label="@AriaLabel" focusable="false">
+    <path d="@AreaPath" class="cc-spark__area" />
+    <path d="@LinePath" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cc-spark__line" />
+    <circle cx="@Num(X(Points.Count - 1))" cy="@Num(Y(Points[^1]))" r="3" class="cc-spark__dot" />
+  </svg>
+}
+else
+{
+  <span class="cc-dim" aria-label="@AriaLabel">—</span>
+}

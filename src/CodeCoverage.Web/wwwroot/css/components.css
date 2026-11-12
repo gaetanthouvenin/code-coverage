@@ -2004,3 +2004,50 @@ code {
   margin: 4px 0 0;
   padding-left: 18px;
 }
+
+/* The sparkline of the home page (M3.20): the area and the line of the 30-day trend. */
+.cc-spark {
+  display: block;
+}
+
+.cc-spark__area {
+  fill: var(--cc-accent-soft);
+}
+
+.cc-spark__line {
+  stroke: var(--cc-accent);
+}
+
+.cc-spark__dot {
+  fill: var(--cc-accent);
+}
+
+/* A coverage as a bar of hits, partials and misses, its value as text (mockup covbar). */
+.cc-covbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.cc-covbar__track {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--cc-card-2);
+}
+
+.cc-covbar__h {
+  background: var(--cc-hit-edge);
+}
+
+.cc-covbar__p {
+  background: var(--cc-part-edge);
+}
+
+.cc-covbar__m {
+  background: var(--cc-miss-edge);
+}

@@ -85,6 +85,8 @@ public partial class UiGallerySamples
   /// <summary>Gets every icon of the set.</summary>
   private static IReadOnlyList<CcIconName> Icons { get; } = Enum.GetValues<CcIconName>();
 
+  private static IReadOnlyList<double?> SparkSample { get; } = [80, 80.4, null, 81.1, 80.9, 81.7, 82.41];
+
   // Three series over ten days; the second has a gap, which the chart leaves undrawn.
   private static IReadOnlyList<CcChartSeries> ChartSamples { get; } =
   [
