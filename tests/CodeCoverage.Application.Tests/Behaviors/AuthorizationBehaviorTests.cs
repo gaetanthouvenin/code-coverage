@@ -85,6 +85,27 @@ public sealed class AuthorizationBehaviorTests
   }
 
   [Fact]
+  public async Task Handle_AdminOnlyFromATokenOfAnOrganization_ShouldThrowForbidden()
+  {
+    var principal = Principals.User(isAdmin: true);
+    A.CallTo(() => principal.TokenOrganizationId).Returns(9L);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(async () => await SendAsync(new AdminOnlyCommand(), principal));
+
+    exception.ErrorCode.ShouldBe(SecurityErrors.Forbidden);
+    _nextCalls.ShouldBe(0);
+  }
+
+  [Fact]
+  public async Task Handle_AdminOnlyFromATokenOfTheInstance_ShouldCallNext()
+  {
+    var principal = Principals.User(isAdmin: true);
+    A.CallTo(() => principal.IsInstanceToken).Returns(true);
+
+    (await SendAsync(new AdminOnlyCommand(), principal)).ShouldBe("handled");
+  }
+
+  [Fact]
   public async Task Handle_AdminOnlyFromAdmin_ShouldCallNext()
   {
     var response = await SendAsync(new AdminOnlyCommand(), Principals.User(isAdmin: true));

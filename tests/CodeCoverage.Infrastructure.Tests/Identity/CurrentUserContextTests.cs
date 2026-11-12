@@ -51,6 +51,30 @@ public sealed class CurrentUserContextTests
     context.IsSystem.ShouldBeFalse();
   }
 
+  [Theory]
+  [InlineData(9L)]
+  [InlineData(null)]
+  public void SetApiToken_AfterTheUser_ShouldBindTheRequest(long? organizationId)
+  {
+    var context = new CurrentUserContext();
+    context.SetUser(42, "octocat", Forge.GitHub, "583231");
+
+    context.SetApiToken(organizationId);
+
+    context.TokenOrganizationId.ShouldBe(organizationId);
+    context.IsInstanceToken.ShouldBe(organizationId is null);
+    Should.Throw<InvalidOperationException>(() => context.SetApiToken(10));
+  }
+
+  [Fact]
+  public void SetApiToken_WithoutUser_ShouldThrow()
+  {
+    var context = new CurrentUserContext();
+
+    Should.Throw<InvalidOperationException>(() => context.SetApiToken(9));
+    context.IsInstanceToken.ShouldBeFalse();
+  }
+
   [Fact]
   public void IsAdmin_AfterSettingChange_ShouldFollowOnNextRead()
   {

@@ -48,5 +48,19 @@ public interface ICurrentUser
   /// </summary>
   bool IsSystem { get; }
 
+  /// <summary>
+  ///   Gets the organization of the personal token of the API that authenticates the request, or
+  ///   <see langword="null" /> when no token of an organization does: a signed-in user on the Web, a token of the
+  ///   instance, the system.
+  /// </summary>
+  /// <remarks>Such a request enters this organization only: the gate refuses any other as unknown.</remarks>
+  long? TokenOrganizationId { get; }
+
+  /// <summary>
+  ///   Gets a value indicating whether a personal token of the instance authenticates the request: it enters no
+  ///   organization.
+  /// </summary>
+  bool IsInstanceToken { get; }
+
   #endregion
 }

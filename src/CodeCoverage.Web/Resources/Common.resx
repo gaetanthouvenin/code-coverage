@@ -12,6 +12,10 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Access.ApiTokenNotFound" xml:space="preserve"><value>This API token does not exist.</value></data>
+  <data name="Access.InvalidApiTokenName" xml:space="preserve"><value>Give the token a name of 1 to 128 characters.</value></data>
+  <data name="Access.InvalidApiTokenOrganization" xml:space="preserve"><value>Choose an organization for the token, or none for a token of the instance.</value></data>
+  <data name="Access.InvalidApiTokenExpiry" xml:space="preserve"><value>The expiry must be in the future.</value></data>
   <data name="Access.Forbidden" xml:space="preserve"><value>You do not have the permission to do this.</value></data>
   <data name="Access.NoRepository" xml:space="preserve"><value>You cannot sign in: your GitHub account reaches no repository where CodeCoverage is installed. Ask an administrator of your organization to install the GitHub App.</value></data>
   <data name="Access.Unauthenticated" xml:space="preserve"><value>Your session has expired. Sign in again to continue.</value></data>

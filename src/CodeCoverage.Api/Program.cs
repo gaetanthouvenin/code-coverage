@@ -8,6 +8,7 @@ using Serilog;
 
 using CodeCoverage.Api.Configuration;
 using CodeCoverage.Api.Configuration.Administration;
+using CodeCoverage.Api.Configuration.Authentication;
 using CodeCoverage.Api.Configuration.Errors;
 using CodeCoverage.Api.Configuration.Identity;
 using CodeCoverage.Api.Configuration.RateLimiting;
@@ -62,6 +63,9 @@ try
   builder.Services.AddJobProcessing();
 
   builder.Services.AddPresentation();
+
+  // The personal tokens of the API (cvp_), never the upload tokens, which the uploads check themselves.
+  builder.Services.AddApiTokenAuthentication();
   builder.Services.AddApiDocumentation();
   builder.Services.AddForwardedHeaders(builder.Configuration);
   builder.Services.AddHealthProbes();
@@ -103,8 +107,10 @@ try
   app.UseRouting();
   app.UseRateLimiter();
 
-  // Anonymous until the ApiToken scheme authenticates the request.
+  // The ApiToken scheme authenticates the request, then its principal becomes the one of the scope.
+  app.UseAuthentication();
   app.UseMiddleware<HttpCurrentUserMiddleware>();
+  app.UseAuthorization();
 
   app.MapControllers();
   app.MapHealthProbes();
