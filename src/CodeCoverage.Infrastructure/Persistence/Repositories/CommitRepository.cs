@@ -93,6 +93,33 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<CommitPage> ListPageAsync(long repositoryId, string? branch, int page, int pageSize, CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+    var commits = context.Commits.AsNoTracking().Where(c => c.RepositoryId == repositoryId);
+
+    if (branch is not null)
+    {
+      commits = commits.Where(c => c.Branch == branch);
+    }
+
+    var total = await commits.CountAsync(cancellationToken).ConfigureAwait(false);
+
+    // PostgreSQL sorts the nulls first in a descending order and SQL Server last: the order says it.
+    var items = await commits.OrderBy(static c => c.CompletedAt == null ? 1 : 0)
+                             .ThenByDescending(static c => c.CompletedAt)
+                             .ThenByDescending(static c => c.Id)
+                             .Skip((page - 1) * pageSize)
+                             .Take(pageSize)
+                             .ToListAsync(cancellationToken)
+                             .ConfigureAwait(false);
+
+    return new CommitPage(items, page, pageSize, total);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<Commit>> ListByShasAsync(long repositoryId, IReadOnlyCollection<GitSha> shas, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(shas);

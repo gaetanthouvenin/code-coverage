@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Coverage;
 
 namespace CodeCoverage.Application.Features.Commits;
 
@@ -32,10 +33,32 @@ internal static class CommitGuards
         throw new NotFoundException(CommitErrors.NotFound, "The commit does not exist.");
       }
     }
+
+    /// <summary>Throws when the report of a commit has no such file.</summary>
+    /// <param name="file">The file that was looked for.</param>
+    /// <exception cref="NotFoundException"><paramref name="file" /> is <see langword="null" />.</exception>
+    public static void ThrowIfCommitFileNotFound([NotNull] FileCoverage? file)
+    {
+      if (file is null)
+      {
+        throw new NotFoundException(CommitErrors.FileNotFound, "The report of the commit has no such file.");
+      }
+    }
   }
 
   extension(UnprocessableEntityException)
   {
+    /// <summary>Throws when the reports of a commit are no longer stored: only its totals are kept.</summary>
+    /// <param name="compacted">Whether the commit was compacted.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="compacted" /> is <see langword="true" />.</exception>
+    public static void ThrowIfCommitCompacted([DoesNotReturnIf(true)] bool compacted)
+    {
+      if (compacted)
+      {
+        throw new UnprocessableEntityException(CommitErrors.Compacted, "The reports of the commit are no longer stored: only its totals are kept.");
+      }
+    }
+
     /// <summary>Throws when a commit has no upload to process again.</summary>
     /// <param name="uploads">The uploads of the commit.</param>
     /// <exception cref="ArgumentNullException"><paramref name="uploads" /> is <see langword="null" />.</exception>

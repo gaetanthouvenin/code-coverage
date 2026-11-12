@@ -234,7 +234,10 @@ internal static partial class UploadMapper
   [GeneratedRegex("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$", RegexOptions.CultureInvariant)]
   private static partial Regex JwtPattern();
 
-  private static UploadResponse ToResponse(Upload upload)
+  /// <summary>Converts an upload for the API: its state and what its processing reported.</summary>
+  /// <param name="upload">The upload.</param>
+  /// <returns>The response.</returns>
+  internal static UploadResponse ToResponse(Upload upload)
   {
     var log = upload.ProcessingLog;
     var totals = upload.State is UploadState.Processed

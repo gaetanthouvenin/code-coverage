@@ -56,6 +56,19 @@ public interface ICommitRepository
     int limit,
     CancellationToken cancellationToken);
 
+  /// <summary>Lists one page of the commits of a repository, for reading only.</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="branch">The branch the commits were uploaded for, or <see langword="null" /> for every commit.</param>
+  /// <param name="page">The number of the page, from 1.</param>
+  /// <param name="pageSize">The number of commits of a page.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The page, sorted by completion then identifier, the most recent first; the commits not completed yet come last,
+  ///   on both engines.
+  /// </returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="page" /> or <paramref name="pageSize" /> is not positive.</exception>
+  Task<CommitPage> ListPageAsync(long repositoryId, string? branch, int page, int pageSize, CancellationToken cancellationToken);
+
   /// <summary>Lists the commits of a repository that have one of the given SHAs, for reading only.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="shas">The SHAs to look for.</param>
