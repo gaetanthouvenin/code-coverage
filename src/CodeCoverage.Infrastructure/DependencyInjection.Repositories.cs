@@ -44,6 +44,7 @@ public static partial class DependencyInjection
     services.AddScoped<IOrganizationMembershipRepository, OrganizationMembershipRepository>();
     services.AddScoped<IOrganizationRoleResolver, OrganizationRoleResolver>();
     services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
+    services.AddScoped<IRetentionRepository, RetentionRepository>();
 
     return services;
   }

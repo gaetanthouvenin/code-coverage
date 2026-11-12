@@ -74,5 +74,11 @@ public static class JobTypes
   /// <summary>Asks the forge again which repositories of the organization of the job a user may read, and how.</summary>
   public const string RefreshUserAccess = "RefreshUserAccess";
 
+  /// <summary>
+  ///   Deletes what the retention no longer keeps: a coordinator on the lane of the instance, which purges the operational
+  ///   tables, and one job of the same type per active organization.
+  /// </summary>
+  public const string PurgeExpiredData = "PurgeExpiredData";
+
   #endregion
 }

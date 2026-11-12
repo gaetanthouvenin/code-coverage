@@ -485,7 +485,7 @@ corps compressé Brotli (qualité 5) :
 | `UploadCoverages`, `CommitSessions.Data` et `CommitReports` des commits **hors branche par défaut** | `Retention:BranchReportDays` (180 jours), sauf s'ils sont référencés par une PR ouverte ou comme origine de carryforward. Le commit passe à `Compacted` : un `FinalizeCommit` ultérieur est refusé (422 `Commit.Compacted`) et journalisé. |
 | Branche par défaut | conservée indéfiniment |
 | `Commits`, `CommitFlagTotals` | conservés indéfiniment (historique, badges) |
-| `Jobs` Succeeded | 14 jours |
+| `Jobs` terminés (`Succeeded`, `Failed`, `Dead`) | `Retention:JobDays` (14 jours) ; jamais `Queued` ni `Running` |
 | `WebhookDeliveries` | 14 jours |
 | `DiffCache`, `RepositoryTrees` | 30 jours |
 | `Comparisons` | 90 jours |
@@ -802,7 +802,7 @@ steps:
 **Organisation d'un job (ADR-013)** : chaque job appartient à une voie, choisie par la fabrique de son `JobRequest`.
 - `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle.
 - `JobRequest.ForInstance` reste hors de toute organisation : `Jobs.OrganizationId` est nul, et une lecture d'une table d'organisation y lève.
-- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`) : la réception d'un webhook (`ReceiveWebhookCommandHandler`), les coordinateurs (`SyncInstallationsCommandHandler`, `SweepPendingCommitsCommandHandler`) et le rafraîchissement des appartenances (`RefreshUserMembershipsCommandHandler`), qui met en file `RefreshUserAccess` dans chaque organisation active de l'utilisateur.
+- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`) : la réception d'un webhook (`ReceiveWebhookCommandHandler`), les coordinateurs (`SyncInstallationsCommandHandler`, `SweepPendingCommitsCommandHandler`, `PurgeExpiredDataCommandHandler`) et le rafraîchissement des appartenances (`RefreshUserMembershipsCommandHandler`), qui met en file `RefreshUserAccess` dans chaque organisation active de l'utilisateur.
 - `SqlJobQueue` préfixe `LockKey` et `DedupKey` par la voie, `o{id}:` ou `i:`, en tête d'`EnqueueInTransactionAsync`. Une même clé métier dans deux voies ne fusionne ni ne sérialise. `KeyMaxLength` vaut 178 pour que la clé préfixée tienne dans la colonne de 200 caractères.
 - **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SweepPendingCommits`, `PurgeExpiredData`).
 
@@ -855,7 +855,7 @@ OUTPUT inserted.*;
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
 | `RewriteRepositoryOwner` | `owner-rewrite` | `owner-rewrite` (fusion) | `RewriteRepositoryOwnerCommand`, dans l'organisation dont le compte a été renommé, par `installation_target` ou par le listage de `SyncInstallations` : réécrit `Repositories.Owner` par lots, lignes inactives comprises, avec le login lu dans `Organizations` à l'exécution |
 | `SweepPendingCommits` | `sweep` | `sweep` (fusion) | `SweepPendingCommitsCommand`. Sur la voie d'instance, toutes les 5 minutes : coordinateur, qui met en file un job du même type par organisation `Active`. Dans l'organisation : met en file `NotifyCommit` (`notify:{id}:sweep`) pour ses commits bloqués |
-| `PurgeExpiredData` | `purge` | `purge` | quotidien |
+| `PurgeExpiredData` | `purge` | `purge` (fusion) | `PurgeExpiredDataCommand`. Sur la voie d'instance, quotidien : coordinateur, qui supprime les `Jobs` terminés (`Succeeded`, `Failed`, `Dead`) après `Retention:JobDays` et les `WebhookDeliveries` après `Retention:WebhookDays`, puis met en file un job du même type par organisation `Active`. Dans l'organisation : fichiers bruts expirés, compactage des commits hors branche par défaut, `DiffCache` et `RepositoryTrees` après `Retention:DiffCacheDays`, par lots de 5 000 |
 
 Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `DedupKey`. Plusieurs réplicas ne les dupliquent donc jamais.
 

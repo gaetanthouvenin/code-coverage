@@ -188,6 +188,15 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
   public void Catalog_ShouldHaveUniqueDedupKeys() =>
     RecurringJobCatalog.All.Select(static d => d.DedupKey).ShouldBeUnique();
 
+  [Fact]
+  public void Catalog_ShouldPurgeDaily()
+  {
+    var purge = RecurringJobCatalog.All.Single(static d => d.Type == JobTypes.PurgeExpiredData);
+
+    purge.Interval.ShouldBe(TimeSpan.FromDays(1));
+    purge.DedupKey.ShouldBe(PurgeExpiredDataJobs.Key);
+  }
+
   [Theory]
   [InlineData("2026-11-08T10:32:15Z", 5, "2026-11-08T10:35:00Z")]
   [InlineData("2026-11-08T10:35:00Z", 5, "2026-11-08T10:40:00Z")]

@@ -18,6 +18,7 @@ using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRe
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
+using CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -284,6 +285,15 @@ public sealed class JobDispatcherTests
     await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.SweepPendingCommits, 42), Ct);
 
     A.CallTo(() => _sender.Send(new SweepPendingCommitsCommand(), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  // The coordinator and the purge of an organization are the same job: the lane of the worker tells them apart.
+  [Fact]
+  public async Task Dispatch_PurgeExpiredData_ShouldSendThePurge()
+  {
+    await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.PurgeExpiredData, 42), Ct);
+
+    A.CallTo(() => _sender.Send(new PurgeExpiredDataCommand(), Ct)).MustHaveHappenedOnceExactly();
   }
 
   // What the factory of the Domain writes is what the dispatcher reads.

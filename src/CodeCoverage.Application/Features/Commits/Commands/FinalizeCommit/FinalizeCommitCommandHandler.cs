@@ -176,8 +176,11 @@ internal sealed class FinalizeCommitCommandHandler(
 
     foreach (var upload in processed)
     {
-      var blob = await reports.GetUploadCoverageAsync(upload.Id, cancellationToken).ConfigureAwait(false)
-                 ?? throw new UnprocessableEntityException(CommitErrors.Compacted, "The coverage of an upload of this commit no longer exists.");
+      var blob = await reports.GetUploadCoverageAsync(upload.Id, cancellationToken).ConfigureAwait(false);
+
+      // The daily purge deleted the coverage of the uploads of a compacted commit (ARCHITECTURE §4.4).
+      UnprocessableEntityException.ThrowIfCommitCompacted(blob is null);
+
       var report = codec.Decode(blob);
       var session = Session.FromUpload(commit.Id, upload.Sequence, upload.Id, upload.Flags, upload.Name, upload.CiService, upload.BuildUrl, report.Totals);
 
