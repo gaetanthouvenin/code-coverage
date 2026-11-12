@@ -41,13 +41,7 @@ internal sealed class UpdateSettingCommandHandler(ISettingsStore store, IAuditLo
 
     var definition = SettingRules.FindInstanceOrThrow(command.Key);
 
-    if (definition.IsSecret)
-    {
-      throw new UnprocessableEntityException(
-        SettingErrors.IsSecret,
-        $"The setting '{definition.Key}' is a secret: replace it instead."
-      );
-    }
+    UnprocessableEntityException.ThrowIfSettingSecret(definition);
 
     var previous = await SettingRules.GetEditableAsync(store, definition, cancellationToken)
                                      .ConfigureAwait(false);

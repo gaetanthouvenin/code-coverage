@@ -231,6 +231,64 @@ public sealed class ConfigResolverTests
     resolved.Errors.ShouldHaveSingleItem();
   }
 
+  // GET /config (M3.12): what was kept for the covered head, merged with the organization; the forge is never called.
+  [Fact]
+  public async Task Read_Kept_ShouldServeItAtItsShaWithoutTheForge()
+  {
+    _organizationYaml = "shared:org";
+    var kept = CommitConfig.Create(5, Sha, ConfigSource.Commit, "codecov.yml", "root", [], [], Now);
+
+    var effective = await _resolver.ReadAsync(Repository("default"), kept, Ct);
+
+    effective.Source.ShouldBe(ConfigSource.Commit);
+    effective.IsResolvedAtSha.ShouldBeTrue();
+    effective.Sha.ShouldBe(Sha);
+    effective.Path.ShouldBe("codecov.yml");
+    effective.Yaml.ShouldBe("root");
+    effective.Config.StrictYamlBranch.ShouldBe("root");
+    effective.Config.DefaultBranch.ShouldBe("org");
+    A.CallTo(_gateway).MustNotHaveHappened();
+    A.CallTo(() => _configs.AddAsync(A<CommitConfig>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Read_NotKept_ShouldMergeTheDefaultBranchAndTheOrganizationWithoutTheForge()
+  {
+    _organizationYaml = "shared:org";
+
+    var effective = await _resolver.ReadAsync(Repository("default"), null, Ct);
+
+    effective.Source.ShouldBe(ConfigSource.RepositoryDefault);
+    effective.IsResolvedAtSha.ShouldBeFalse();
+    effective.Yaml.ShouldBe("default");
+    effective.Config.StrictYamlBranch.ShouldBe("default");
+    effective.Config.DefaultBranch.ShouldBe("org");
+    A.CallTo(_gateway).MustNotHaveHappened();
+    A.CallTo(() => _configs.AddAsync(A<CommitConfig>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Read_InvalidDefaultBranchYaml_ShouldFallBackToTheOrganizationAndKeepTheError()
+  {
+    _organizationYaml = "shared:org";
+
+    var effective = await _resolver.ReadAsync(Repository(Invalid), null, Ct);
+
+    effective.Source.ShouldBe(ConfigSource.Organization);
+    effective.Yaml.ShouldBeNull();
+    effective.Errors.ShouldHaveSingleItem().ShouldContain("default branch");
+  }
+
+  [Fact]
+  public async Task Read_NothingFound_ShouldBeBuiltin()
+  {
+    var effective = await _resolver.ReadAsync(Repository(), null, Ct);
+
+    effective.Source.ShouldBe(ConfigSource.Builtin);
+    effective.Yaml.ShouldBeNull();
+    effective.Errors.ShouldBeEmpty();
+  }
+
   private static ConfigParseResult Parse(string yaml)
   {
     if (yaml == Invalid)

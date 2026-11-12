@@ -1583,7 +1583,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/activate` / `deactivate` | Repositories | ApiToken (admin) | — | 204 | `Activate`/`DeactivateRepository` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/branches` | Repositories | ApiToken | — | `IReadOnlyList<BranchResponse>` | `ListBranches` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/history` | Repositories | ApiToken | `?branch=&flag=&from=&to=&interval=commit\|day\|week` | `CoverageSeriesResponse` | `GetCoverageHistory` |
-| `GET /api/v1/repos/{forge}/{owner}/{repo}/config` | Repositories | ApiToken | `?sha=` | `EffectiveConfigResponse(Source, Yaml, Warnings, Errors)` | `GetEffectiveConfig` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/config` | Repositories | ApiToken | — | `EffectiveConfigResponse(Source, Sha, IsResolvedAtSha, Path, Yaml, Config, Warnings, Errors)` : configuration gardée pour la tête couverte de la branche par défaut, sinon YAML de la branche par défaut et de l'organisation (`IsResolvedAtSha=false`) ; `Yaml` est le YAML du dépôt trouvé, tel qu'écrit, `Config` la fusion en JSON ; aucun appel à la forge, aucune écriture | `GetEffectiveConfig` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | — | `BadgeTokenResponse` | `RotateBadgeToken` |
 | `PUT /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | `ImportBadgeTokenRequest` | 204 | `ImportBadgeToken` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits` | Commits | ApiToken | `?branch=&page=&pageSize=` | `CommitPageResponse` | `ListCommits` |
@@ -1603,6 +1603,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `GET /api/v1/settings` | Settings | ApiToken (admin d'instance) | — | `IReadOnlyList<SettingResponse>` (clés `Instance`, secrets masqués, source) | `GetSettings` |
 | `PUT /api/v1/settings/{key}` | Settings | ApiToken (admin d'instance) | `UpdateSettingRequest(Value)` | 204 | `UpdateSetting` |
 | `PUT /api/v1/settings/{key}/secret` | Settings | ApiToken (admin d'instance) | `ReplaceSecretRequest(Value)` | 204 | `ReplaceSecret` |
+| `DELETE /api/v1/settings/{key}` | Settings | ApiToken (admin d'instance) | — | 204 (retour au défaut ; un secret enregistré depuis la console est effacé) | `ResetSetting` |
 | `GET /api/v1/ops/jobs`, `POST /api/v1/ops/jobs/{id}/retry` | Operations | ApiToken (admin d'instance) | `?state=` | `JobPageResponse` / 202 | `ListJobs`, `RetryJob` |
 | `GET /api/v1/ops/webhooks` | Operations | ApiToken (admin d'instance) | — | `IReadOnlyList<WebhookDeliveryResponse>` | `ListWebhookDeliveries` |
 | `GET /api/v1/ops/status` | Operations | ApiToken (admin d'instance) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats) | `GetSystemStatus` |

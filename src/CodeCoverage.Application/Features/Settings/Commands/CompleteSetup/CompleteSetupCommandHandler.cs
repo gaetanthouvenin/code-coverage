@@ -26,8 +26,6 @@ internal sealed class CompleteSetupCommandHandler(
   /// <summary>The audit action of a finished setup.</summary>
   internal const string AuditAction = "Settings.CompleteSetup";
 
-  private const string AppNotCreatedMessage = "The setup cannot end before the GitHub App exists.";
-
   #endregion
 
   #region Methods
@@ -63,10 +61,7 @@ internal sealed class CompleteSetupCommandHandler(
 
     SetupRules.ThrowIfInvalidToken(issuer, command.SetupToken);
 
-    if (!await SetupRules.IsAppCreatedAsync(store, cancellationToken).ConfigureAwait(false))
-    {
-      throw new UnprocessableEntityException(SettingErrors.GitHubAppNotCreated, AppNotCreatedMessage);
-    }
+    UnprocessableEntityException.ThrowIfGitHubAppNotCreated(await SetupRules.IsAppCreatedAsync(store, cancellationToken).ConfigureAwait(false));
 
     var values = ValuesOf(command);
 

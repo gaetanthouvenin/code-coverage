@@ -77,5 +77,24 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
   public async Task<ActionResult<IReadOnlyList<BranchResponse>>> ListBranchesAsync(string forge, string owner, string repo, CancellationToken cancellationToken) =>
     Ok(await sender.ListBranchesResponseAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false));
 
+  /// <summary>Read the effective configuration of a repository</summary>
+  /// <remarks>
+  ///   The configuration of the repository at the covered head of its default branch, merged over the one of its
+  ///   organization and the defaults, with its source and the YAML that was found. Nothing is fetched from the forge in
+  ///   the request: when no configuration was kept for that commit yet, the YAML of the default branch and of the
+  ///   organization are merged, with <c>isResolvedAtSha</c> false.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The effective configuration.</returns>
+  [HttpGet("repos/{forge}/{owner}/{repo}/config", Name = "GetEffectiveConfig")]
+  [ProducesResponseType<EffectiveConfigResponse>(StatusCodes.Status200OK)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<ActionResult<EffectiveConfigResponse>> GetEffectiveConfigAsync(string forge, string owner, string repo, CancellationToken cancellationToken) =>
+    await sender.GetEffectiveConfigResponseAsync(forge, owner, repo, cancellationToken).ConfigureAwait(false);
+
   #endregion
 }
