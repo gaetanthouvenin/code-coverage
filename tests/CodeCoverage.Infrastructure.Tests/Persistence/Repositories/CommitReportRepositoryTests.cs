@@ -851,6 +851,79 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     return await context.Jobs.AsNoTracking().Where(static j => j.Type == JobTypes.NotifyCommit).OrderBy(static j => j.Id).ToListAsync(Ct);
   }
 
+  // M3.08: the totals of the flags of one commit, read back by flag, and never through another organization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListFlagTotals_ShouldReadTheFlagsOfThatCommitOnly(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+
+    await using (var context = seed.Organizations.ContextOf(first))
+    {
+      var commit = await context.Commits.SingleAsync(c => c.Id == seed.FirstCommit, Ct);
+      Finalize(commit);
+
+      await Repository(context, first).SaveFinalizedAsync(
+        commit,
+        Blob,
+        Index,
+        [],
+        [CommitFlagTotals.Create(commit, "unit", Totals, false, null), CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, Totals, false, null), CommitFlagTotals.Create(commit, "e2e", Totals, true, Origin)],
+        null,
+        FinalizationWakeUps.None,
+        Ct
+      );
+    }
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var totals = await Repository(reader, first).ListFlagTotalsAsync(seed.FirstCommit, Ct);
+
+    totals.Select(static t => t.Flag).ShouldBe([CommitFlagTotals.ProjectFlag, "e2e", "unit"]);
+    totals[1].IsCarriedForward.ShouldBeTrue();
+    reader.ChangeTracker.Entries().ShouldBeEmpty();
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await Repository(other, seed.Organizations.SecondId).ListFlagTotalsAsync(seed.FirstCommit, Ct)).ShouldBeEmpty();
+  }
+
+  // M3.08: one page of the commits of a repository, the most recently completed first and the others last, on both
+  // engines, filtered by branch, never through another organization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListPage_ShouldSortByCompletionThenIdentifierAndPage(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var older = await AddCommitAsync(seed, first, '1', static c => Complete(c, "main", Now.AddHours(1)));
+    var newer = await AddCommitAsync(seed, first, '2', static c => Complete(c, "main", Now.AddHours(2)));
+    var pending = await AddCommitAsync(seed, first, '3', static c => c.MarkPending("main", null, Now));
+    var feature = await AddCommitAsync(seed, first, '4', static c => Complete(c, "feature", Now.AddHours(3)));
+
+    await using var reader = seed.Organizations.ContextOf(first);
+    var commits = new CommitRepository(reader);
+
+    var all = await commits.ListPageAsync(seed.FirstRepository, null, 1, 10, Ct);
+    var main = await commits.ListPageAsync(seed.FirstRepository, "main", 1, 2, Ct);
+    var second = await commits.ListPageAsync(seed.FirstRepository, "main", 2, 2, Ct);
+
+    all.TotalCount.ShouldBe(5);
+    all.Items.Select(static c => c.Id).ShouldBe([feature, newer, older, .. new[] { pending, seed.FirstCommit }.OrderDescending()]);
+    main.TotalCount.ShouldBe(3);
+    main.Items.Select(static c => c.Id).ShouldBe([newer, older]);
+    second.Items.Select(static c => c.Id).ShouldBe([pending]);
+    (second.Page, second.PageSize).ShouldBe((2, 2));
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await new CommitRepository(other).ListPageAsync(seed.FirstRepository, null, 1, 10, Ct)).TotalCount.ShouldBe(0);
+  }
+
+  private static void Complete(Commit commit, string branch, DateTimeOffset at)
+  {
+    commit.MarkPending(branch, null, at);
+    commit.RecordFinalization(CommitState.Complete, 1, Totals, 1, 1, CarryforwardStatus.None, "default", at);
+  }
+
   private async Task FinalizeWithAsync(CommitSeed seed, JobRequest? notification)
   {
     var first = seed.Organizations.FirstId;

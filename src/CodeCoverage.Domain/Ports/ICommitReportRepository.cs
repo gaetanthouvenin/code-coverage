@@ -105,6 +105,13 @@ public interface ICommitReportRepository
   /// <returns>The sessions, by number.</returns>
   Task<IReadOnlyList<Session>> ListSessionsAsync(long commitId, CancellationToken cancellationToken);
 
+  /// <summary>Lists the totals of the flags of a commit, by flag, for reading only.</summary>
+  /// <param name="commitId">The identifier of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The totals, the one without flag (<c>''</c>) included when the commit is finalized.</returns>
+  /// <remarks>Kept forever, the purge included: the detail of a commit, the badges and the history read them.</remarks>
+  Task<IReadOnlyList<CommitFlagTotals>> ListFlagTotalsAsync(long commitId, CancellationToken cancellationToken);
+
   /// <summary>Gets the blob of the merged report of a commit.</summary>
   /// <param name="commitId">The identifier of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>

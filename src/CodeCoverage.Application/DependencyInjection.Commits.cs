@@ -29,6 +29,8 @@ public static partial class DependencyInjection
     services.AddScoped<MergeCommitDetector>();
     services.AddSingleton<CommitMerger>();
     services.AddScoped<CarryforwardResolver>();
+    services.AddScoped<CommitLocator>();
+    services.AddScoped<CommitFlagView>();
 
     return services;
   }

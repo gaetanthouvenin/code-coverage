@@ -24,6 +24,8 @@
   <data name="BackHome" xml:space="preserve"><value>Back to the repositories</value></data>
   <data name="Commit.NoUpload" xml:space="preserve"><value>This commit has no upload to process again.</value></data>
   <data name="Commit.NotFound" xml:space="preserve"><value>This commit does not exist.</value></data>
+  <data name="Commit.FileNotFound" xml:space="preserve"><value>This file is not in the coverage report of the commit.</value></data>
+  <data name="Commit.InvalidPage" xml:space="preserve"><value>The page must be 1 or more, and a page holds 1 to 100 commits.</value></data>
   <data name="Commit.Compacted" xml:space="preserve"><value>The coverage of an upload of this commit no longer exists.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>This commit was finalized in the meantime. Finalize it again.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>The raw files of an upload of this commit are no longer kept: it cannot be processed again.</value></data>

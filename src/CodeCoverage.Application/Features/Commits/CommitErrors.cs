@@ -17,6 +17,12 @@ public static class CommitErrors
   /// <summary>The coverage of a processed upload of the commit no longer exists: nothing can rebuild its report.</summary>
   public const string Compacted = "Commit.Compacted";
 
+  /// <summary>The report of the commit has no such file. Maps to HTTP 404 Not Found.</summary>
+  public const string FileNotFound = "Commit.FileNotFound";
+
+  /// <summary>A page or a page size is out of its bounds. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidPage = "Commit.InvalidPage";
+
   /// <summary>The commit has no upload: there is nothing to process again.</summary>
   public const string NoUpload = "Commit.NoUpload";
 

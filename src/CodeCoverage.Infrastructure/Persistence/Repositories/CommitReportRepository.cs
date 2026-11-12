@@ -417,6 +417,15 @@ internal sealed class CommitReportRepository(
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<CommitFlagTotals>> ListFlagTotalsAsync(long commitId, CancellationToken cancellationToken) =>
+    await context.CommitFlagTotals
+                 .AsNoTracking()
+                 .Where(t => t.CommitId == commitId)
+                 .OrderBy(static t => t.Flag)
+                 .ToListAsync(cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
   public async Task<byte[]?> GetReportAsync(long commitId, CancellationToken cancellationToken) =>
     await context.CommitReports
                  .AsNoTracking()
