@@ -1,0 +1,14 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositoryInaccessible.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-panel cc-status-page" data-state="missing">
+  <CcEmptyState Title="@L["Inaccessible_Title"]" Icon="CcIconName.Search">
+    <ChildContent>@L["Inaccessible_Description"]</ChildContent>
+    <Actions>
+      <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+    </Actions>
+  </CcEmptyState>
+</div>

@@ -1,0 +1,35 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CoverageCards.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="@GridClass">
+  @for (var i = 0; i < Cards.Count; i++)
+  {
+    var card = Cards[i];
+    <CcKpiCard @key="card.Flag"
+               Label="@(card.IsProject ? L["Flag_Project"] : card.Flag)"
+               Value="@card.Coverage"
+               Icon="@(card.IsProject ? CcIconName.Target : CcIconName.Layers)"
+               IconStyle="@StyleOf(i)"
+               Accent="card.IsProject">
+      <Trend>
+        @if (card.Delta is { } delta)
+        {
+          <CcBadge Chip="true" Tone="@ToneOf(card.Trend)">@ArrowOf(card.Trend) @L["Delta_Points", delta]</CcBadge>
+        }
+      </Trend>
+      <Footer>
+        @if (card.CarriedForwardFrom is { } from)
+        {
+          @L["Card_CarriedForwardFrom"] <code>@from</code>
+        }
+        else
+        {
+          @L["Card_Change30Days"]
+        }
+      </Footer>
+    </CcKpiCard>
+  }
+</div>

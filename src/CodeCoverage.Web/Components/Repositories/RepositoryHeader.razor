@@ -1,0 +1,10 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositoryHeader.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcHeader Title="@(Title ?? Name)" Subtitle="@Subtitle" Breadcrumb="Breadcrumb">
+  <Tabs><RepositoryTabs Forge="@Forge" Owner="@Owner" Name="@Name" /></Tabs>
+  <Actions>@Actions</Actions>
+</CcHeader>
