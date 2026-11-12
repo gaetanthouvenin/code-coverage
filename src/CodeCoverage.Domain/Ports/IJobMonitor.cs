@@ -37,5 +37,10 @@ public interface IJobMonitor
   /// <returns>The status.</returns>
   Task<SystemStatus> GetStatusAsync(CancellationToken cancellationToken);
 
+  /// <summary>Counts the jobs queued or running of each organization; the jobs of the instance are left out.</summary>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The count of each organization that has one, by identifier of the organization.</returns>
+  Task<IReadOnlyDictionary<long, int>> CountQueuedByOrganizationAsync(CancellationToken cancellationToken);
+
   #endregion
 }

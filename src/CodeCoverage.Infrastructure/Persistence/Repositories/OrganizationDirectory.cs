@@ -177,6 +177,14 @@ internal sealed class OrganizationDirectory(
                  .ConfigureAwait(false);
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken) =>
+    await context.Organizations
+                 .AsNoTracking()
+                 .OrderBy(static o => o.Id)
+                 .ToListAsync(cancellationToken)
+                 .ConfigureAwait(false);
+
+  /// <inheritdoc />
   public async Task<Organization> UpsertFromForgeAsync(
     Forge forge,
     string externalAccountId,

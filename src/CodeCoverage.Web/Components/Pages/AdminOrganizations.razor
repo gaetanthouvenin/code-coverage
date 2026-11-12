@@ -1,0 +1,135 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AdminOrganizations.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/admin/organizations"
+
+<PageTitle>@L["PageTitle_Format", L["Tab_Organizations"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["Tab_Organizations"]" Icon="CcIconName.Layers" Subtitle="@L["AdminOrganizations_Subtitle"]">
+    <Tabs><AdminTabs /></Tabs>
+    <Actions>
+      @if (State is PageState.Ready)
+      {
+        <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Plus" OnClick="OpenAdmit">@L["Action_AdmitAccount"]</CcButton>
+      }
+    </Actions>
+  </CcHeader>
+
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Denied)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["AdminOrganizations_Denied"]</CcEmptyState>
+    </div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Rows is { Count: 0 })
+  {
+    <div class="cc-panel cc-status-page">
+      <CcEmptyState Title="@L["AdminOrganizations_EmptyTitle"]" Icon="CcIconName.Layers">
+        <ChildContent>@L["AdminOrganizations_EmptyText"]</ChildContent>
+        <Actions><CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Plus" OnClick="OpenAdmit">@L["Action_AdmitAccount"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Rows is not null)
+  {
+    <section class="cc-panel">
+      <div class="cc-panel__head">
+        <h2 class="cc-panel__title">@L["Tab_Organizations"]</h2>
+        <div class="cc-panel__tools">
+          <CcBadge Tone="CcTone.Warning" Chip="true">@L["AdminOrganizations_PendingCount", PendingCount]</CcBadge>
+          <CcSearchBar @bind-Value="Filter" Placeholder="@L["AdminOrganizations_Search"]" AriaLabel="@L["AdminOrganizations_Search"]" />
+        </div>
+      </div>
+      <CcTable AriaLabel="@L["Tab_Organizations"]">
+        <Head>
+          <th>@L["Column_Organization"]</th>
+          <th>@L["Column_Forge"]</th>
+          <th>@L["Column_Type"]</th>
+          <th>@L["Column_State"]</th>
+          <th>@L["Column_Reason"]</th>
+          <th>@L["Column_AdmittedBy"]</th>
+          <th class="cc-r">@L["Column_QueueDepth"]</th>
+          <th><span class="cc-sr-only">@L["Column_Actions"]</span></th>
+        </Head>
+        <ChildContent>
+          @foreach (var row in VisibleRows)
+          {
+            <tr @key="row.Forge + row.Login" data-login="@row.Login">
+              <td>
+                <div class="cc-cell">
+                  <span class="cc-orgmark" aria-hidden="true">@Mark(row.Login)</span>
+                  <div><strong>@row.Login</strong><div class="cc-dim cc-small cc-num">@row.ExternalAccountId</div></div>
+                </div>
+              </td>
+              <td class="cc-muted cc-nowrap">@L[$"Forge_{row.ForgeName}"]</td>
+              <td class="cc-muted cc-nowrap">@L[row.IsUser ? "AccountType_User" : "AccountType_Organization"]</td>
+              <td>
+                @switch (row.State)
+                {
+                  case OrganizationLifecycle.Pending:
+                    <CcBadge Tone="CcTone.Warning" Icon="CcIconName.Clock">@L["OrganizationState_Pending"]</CcBadge>
+                    break;
+                  case OrganizationLifecycle.Active:
+                    <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["OrganizationState_Active"]</CcBadge>
+                    break;
+                  default:
+                    <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["OrganizationState_Suspended"]</CcBadge>
+                    break;
+                }
+              </td>
+              <td class="cc-muted">@(row.SuspensionReason is { } reason ? L[$"SuspensionReason_{reason}"] : Dash)</td>
+              <td class="cc-nowrap">@(row.AdmittedBy ?? Dash)</td>
+              <td class="cc-r cc-num">@(row.QueueDepth?.ToString(CultureInfo.CurrentCulture) ?? Dash)</td>
+              <td class="cc-r">
+                @if (row.State is OrganizationLifecycle.Pending)
+                {
+                  <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="() => AdmitAsync(row)">@L["Action_Admit"]</CcButton>
+                }
+                else if (row.State is OrganizationLifecycle.Active)
+                {
+                  <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Danger" Disabled="@_busy" OnClick="() => OpenSuspend(row)">@L["Action_Suspend"]</CcButton>
+                }
+              </td>
+            </tr>
+          }
+        </ChildContent>
+      </CcTable>
+    </section>
+  }
+</CcPageContainer>
+
+<CcDialog Open="_admitOpen" Title="@L["Action_AdmitAccount"]" OnClose="CloseAdmit">
+  <ChildContent>
+    <CcSelectField Label="@L["Column_Forge"]" Options="Forges" @bind-Value="AdmitForge" />
+    <CcTextField Label="@L["AdminOrganizations_Login"]" @bind-Value="_admit.Login" Error="@ErrorOf(nameof(AdmitAccountForm.Login))" />
+    <CcTextField Label="@L["AdminOrganizations_AccountId"]" @bind-Value="_admit.ExternalAccountId" Error="@ErrorOf(nameof(AdmitAccountForm.ExternalAccountId))" />
+  </ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseAdmit">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="AdmitTypedAsync">@L["Action_Admit"]</CcButton>
+  </Actions>
+</CcDialog>
+
+<CcDialog Open="@(Suspended is not null)" Title="@L["AdminOrganizations_SuspendTitle", Suspended?.Login ?? string.Empty]" OnClose="CloseSuspend">
+  <ChildContent><p class="cc-muted">@L["AdminOrganizations_SuspendText"]</p></ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseSuspend">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.SolidDanger" Disabled="@_busy" OnClick="SuspendAsync">@L["Action_Suspend"]</CcButton>
+  </Actions>
+</CcDialog>

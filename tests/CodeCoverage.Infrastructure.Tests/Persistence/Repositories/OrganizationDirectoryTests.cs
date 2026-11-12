@@ -296,6 +296,28 @@ public sealed class OrganizationDirectoryTests(DatabaseFixture database)
     listed.ShouldHaveSingleItem().ExternalAccountId.ShouldBe(FirstAccount);
   }
 
+  // M3.41a: the page of the administrators of the instance lists every state.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListAll_ShouldReturnEveryState(DatabaseProvider provider)
+  {
+    var connection = await MigratedDatabaseAsync(provider);
+    await using var context = DatabaseFixture.CreateContext(provider, connection);
+    var active = Organization.CreatePending(Forge.GitHub, FirstAccount, "active-org", OrganizationAccountType.Organization, Now);
+    active.Admit("admin-user", Now);
+    var suspended = Organization.CreatePending(Forge.GitHub, SecondAccount, "suspended-org", OrganizationAccountType.Organization, Now);
+    suspended.Suspend(SuspensionReason.AppUninstalled, Now);
+    var pending = Organization.CreatePending(Forge.GitHub, "3003", "pending-org", OrganizationAccountType.Organization, Now);
+    context.Organizations.AddRange(active, suspended, pending);
+    await context.SaveChangesAsync(Ct);
+
+    await using var reader = DatabaseFixture.CreateContext(provider, connection);
+    var listed = await Directory(reader).ListAllAsync(Ct);
+
+    listed.Select(static o => o.State).ShouldBe([OrganizationState.Active, OrganizationState.Suspended, OrganizationState.Pending]);
+    reader.ChangeTracker.Entries().ShouldBeEmpty();
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task Upsert_NewAccount_ShouldBePending(DatabaseProvider provider)

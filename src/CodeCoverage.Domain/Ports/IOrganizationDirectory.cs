@@ -53,6 +53,11 @@ public interface IOrganizationDirectory
   /// <returns>The active organizations, by identifier.</returns>
   Task<IReadOnlyList<Organization>> ListActiveAsync(CancellationToken cancellationToken);
 
+  /// <summary>Lists every organization of every forge, whatever its state, for the administrators of the instance.</summary>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The organizations, by identifier, for reading only.</returns>
+  Task<IReadOnlyList<Organization>> ListAllAsync(CancellationToken cancellationToken);
+
   /// <summary>Creates or updates the organization of a forge account, saved at once.</summary>
   /// <param name="forge">The forge of the account.</param>
   /// <param name="externalAccountId">The identifier the forge gives the account.</param>

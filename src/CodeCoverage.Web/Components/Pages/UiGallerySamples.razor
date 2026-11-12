@@ -130,6 +130,17 @@
     </div>
   </div>
 
+  <div class="cc-panel">
+    <div class="cc-panel__head"><h3 class="cc-panel__title">Table</h3></div>
+    <CcTable AriaLabel="Organizations">
+      <Head><th>Organization</th><th>State</th><th class="cc-r">Jobs in queue</th></Head>
+      <ChildContent>
+        <tr><td><div class="cc-cell"><span class="cc-orgmark" aria-hidden="true">AC</span><div><strong>acme-labs</strong><div class="cc-dim cc-small cc-num">48211077</div></div></div></td><td><CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">Active</CcBadge></td><td class="cc-r cc-num">6</td></tr>
+        <tr><td><div class="cc-cell"><span class="cc-orgmark" aria-hidden="true">NO</span><div><strong>northwind-dev</strong><div class="cc-dim cc-small cc-num">88120441</div></div></div></td><td><CcBadge Tone="CcTone.Warning" Icon="CcIconName.Clock">Pending</CcBadge></td><td class="cc-r cc-num"><span class="cc-dim">—</span></td></tr>
+      </ChildContent>
+    </CcTable>
+  </div>
+
   <CcDialog Open="_dialog" Title="Replace GitHub:WebhookSecret" OnClose="CloseDialog">
     <ChildContent><p class="cc-muted">The current value is never shown.</p></ChildContent>
     <Actions>

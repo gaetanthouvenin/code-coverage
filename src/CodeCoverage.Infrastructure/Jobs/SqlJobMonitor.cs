@@ -82,6 +82,20 @@ internal sealed class SqlJobMonitor(CodeCoverageDbContext context, WorkerPulse p
     );
   }
 
+  /// <inheritdoc />
+  public async Task<IReadOnlyDictionary<long, int>> CountQueuedByOrganizationAsync(CancellationToken cancellationToken)
+  {
+    var counts = await context.Jobs
+                              .AsNoTracking()
+                              .Where(static j => j.OrganizationId != null && (j.State == JobState.Queued || j.State == JobState.Running))
+                              .GroupBy(static j => j.OrganizationId!.Value)
+                              .Select(static g => new { OrganizationId = g.Key, Count = g.Count() })
+                              .ToListAsync(cancellationToken)
+                              .ConfigureAwait(false);
+
+    return counts.ToDictionary(static c => c.OrganizationId, static c => c.Count);
+  }
+
   /// <summary>Projects the rows of the queue to their metadata.</summary>
   /// <param name="jobs">The rows.</param>
   /// <returns>The summaries.</returns>
