@@ -13,12 +13,6 @@ namespace CodeCoverage.Application.Features.Settings;
 /// <summary>The rules shared by the first-start use cases, authenticated by the setup token.</summary>
 internal static class SetupRules
 {
-  #region Fields
-
-  private const string InvalidTokenMessage = "The setup token is missing or invalid.";
-
-  #endregion
-
   #region Methods
 
   /// <summary>Refuses a caller who does not hold the setup token.</summary>
@@ -27,10 +21,9 @@ internal static class SetupRules
   /// <exception cref="UnauthorizedException">The token is not valid (<see cref="SettingErrors.InvalidSetupToken" />).</exception>
   public static void ThrowIfInvalidToken(ISetupTokenIssuer issuer, string? token)
   {
-    if (!issuer.IsValid(token))
-    {
-      throw new UnauthorizedException(SettingErrors.InvalidSetupToken, InvalidTokenMessage);
-    }
+    ArgumentNullException.ThrowIfNull(issuer);
+
+    UnauthorizedException.ThrowIfSetupTokenInvalid(issuer.IsValid(token));
   }
 
   /// <summary>Tells whether the GitHub App exists, whatever the source of its identifier.</summary>

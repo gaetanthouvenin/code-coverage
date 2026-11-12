@@ -30,10 +30,6 @@ internal sealed class CompleteGitHubAppManifestCommandHandler(
   /// <summary>The audit action of an App created from a manifest.</summary>
   internal const string AuditAction = "Settings.CompleteGitHubAppManifest";
 
-  private const string AlreadyCreatedMessage = "The GitHub App already exists on this instance.";
-
-  private const string InvalidCodeMessage = "GitHub does not know this code, or it has expired.";
-
   private static readonly string[] WrittenKeys =
   [
     SettingDefinitions.GitHubClientId,
@@ -83,18 +79,16 @@ internal sealed class CompleteGitHubAppManifestCommandHandler(
 
     SetupRules.ThrowIfInvalidToken(issuer, command.SetupToken);
 
-    if (await SetupRules.IsAppCreatedAsync(store, cancellationToken).ConfigureAwait(false))
-    {
-      throw new ConflictException(SettingErrors.GitHubAppAlreadyCreated, AlreadyCreatedMessage);
-    }
+    ConflictException.ThrowIfGitHubAppAlreadyCreated(await SetupRules.IsAppCreatedAsync(store, cancellationToken).ConfigureAwait(false));
 
     foreach (var key in WrittenKeys)
     {
       await SettingRules.GetEditableAsync(store, SettingDefinitions.Find(key)!, cancellationToken).ConfigureAwait(false);
     }
 
-    var app = await gateway.ConvertManifestAsync(command.Code, cancellationToken).ConfigureAwait(false)
-              ?? throw new BadRequestException(SettingErrors.InvalidManifestCode, InvalidCodeMessage);
+    var app = await gateway.ConvertManifestAsync(command.Code, cancellationToken).ConfigureAwait(false);
+
+    BadRequestException.ThrowIfManifestCodeRejected(app);
 
     await SaveAsync(SettingDefinitions.GitHubClientId, app.ClientId, cancellationToken).ConfigureAwait(false);
     await SaveAsync(SettingDefinitions.GitHubAppSlug, app.Slug, cancellationToken).ConfigureAwait(false);

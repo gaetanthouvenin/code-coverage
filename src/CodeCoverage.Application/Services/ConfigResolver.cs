@@ -56,6 +56,78 @@ internal sealed class ConfigResolver(
     var found = await configs.FindAsync(repository.Id, sha, cancellationToken).ConfigureAwait(false)
                 ?? await FindAndCacheAsync(repository, address, sha, organization, cancellationToken).ConfigureAwait(false);
 
+    var config = Merge(organization, found.RawYaml);
+
+    return new ResolvedConfig(config, found.Source, [.. organization.Warnings, .. found.Warnings, .. config.Warnings], found.Errors);
+  }
+
+  /// <summary>Gives the effective configuration of a repository without calling its forge or writing anything.</summary>
+  /// <param name="repository">The repository, read in this scope.</param>
+  /// <param name="kept">
+  ///   What was kept for the covered head of its default branch, or <see langword="null" />: the YAML of the default
+  ///   branch is then read, and the configuration is not resolved at a commit.
+  /// </param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The effective configuration, with the YAML of the repository that was found.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
+  public async Task<EffectiveConfig> ReadAsync(TrackedRepository repository, CommitConfig? kept, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+
+    var settings = await organizationSettings.GetAsync(cancellationToken).ConfigureAwait(false);
+    var organization = ParseOrganizationYaml(settings.OrganizationYaml);
+
+    if (kept is not null)
+    {
+      var keptConfig = Merge(organization, kept.RawYaml);
+
+      return new EffectiveConfig(
+        keptConfig,
+        kept.Source,
+        kept.Sha,
+        kept.Path,
+        kept.RawYaml,
+        [.. organization.Warnings, .. kept.Warnings, .. keptConfig.Warnings],
+        kept.Errors
+      );
+    }
+
+    var errors = new List<string>();
+    var warnings = new List<ConfigWarning>();
+    string? yaml = null;
+
+    if (repository.DefaultBranchYaml is { } defaultYaml)
+    {
+      var parsed = parser.Parse(defaultYaml);
+
+      if (parsed.Root is null)
+      {
+        errors.Add($"The configuration of the default branch: {parsed.Error}");
+      }
+      else
+      {
+        yaml = defaultYaml;
+        warnings.AddRange(parsed.Warnings);
+      }
+    }
+
+    if (organization.Error is { } organizationError)
+    {
+      errors.Add($"The configuration of the organization: {organizationError}");
+    }
+
+    var source = yaml is not null ? ConfigSource.RepositoryDefault : organization.Root is null ? ConfigSource.Builtin : ConfigSource.Organization;
+    var config = Merge(organization, yaml);
+
+    return new EffectiveConfig(config, source, null, null, yaml, [.. organization.Warnings, .. warnings, .. config.Warnings], errors);
+  }
+
+  /// <summary>Merges the defaults, the configuration of the organization, then the one of the repository.</summary>
+  /// <param name="organization">The configuration of the organization.</param>
+  /// <param name="repositoryYaml">The YAML of the repository, or <see langword="null" />.</param>
+  /// <returns>The merged configuration.</returns>
+  private CoverageConfig Merge(ParsedYaml organization, string? repositoryYaml)
+  {
     var root = CoverageConfigDefaults.Root;
 
     if (organization.Root is not null)
@@ -63,14 +135,12 @@ internal sealed class ConfigResolver(
       root = ConfigMerger.Merge(root, organization.Root);
     }
 
-    if (found.RawYaml is not null && parser.Parse(found.RawYaml).Root is { } repositoryRoot)
+    if (repositoryYaml is not null && parser.Parse(repositoryYaml).Root is { } repositoryRoot)
     {
       root = ConfigMerger.Merge(root, repositoryRoot);
     }
 
-    var config = CoverageConfig.Create(root);
-
-    return new ResolvedConfig(config, found.Source, [.. organization.Warnings, .. found.Warnings, .. config.Warnings], found.Errors);
+    return CoverageConfig.Create(root);
   }
 
   /// <summary>Searches the configuration of a commit, and keeps what it finds.</summary>

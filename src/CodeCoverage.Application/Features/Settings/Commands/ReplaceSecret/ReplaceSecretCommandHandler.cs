@@ -40,15 +40,9 @@ internal sealed class ReplaceSecretCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    var definition = SettingRules.FindOrThrow(command.Key);
+    var definition = SettingRules.FindInstanceOrThrow(command.Key);
 
-    if (!definition.IsSecret)
-    {
-      throw new UnprocessableEntityException(
-        SettingErrors.NotSecret,
-        $"The setting '{definition.Key}' is not a secret: change its value instead."
-      );
-    }
+    UnprocessableEntityException.ThrowIfSettingNotSecret(definition);
 
     await SettingRules.GetEditableAsync(store, definition, cancellationToken).ConfigureAwait(false);
 

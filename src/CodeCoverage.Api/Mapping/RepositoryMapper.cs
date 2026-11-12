@@ -7,10 +7,12 @@
 using Mediator;
 
 using CodeCoverage.Api.Contracts.Commits;
+using CodeCoverage.Api.Contracts.Configuration;
 using CodeCoverage.Api.Contracts.Repositories;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Repositories;
+using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.ListBranches;
 using CodeCoverage.Application.Features.Repositories.Queries.ListRepositories;
@@ -96,6 +98,38 @@ internal static class RepositoryMapper
     var branches = await sender.Send(new ListBranchesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken).ConfigureAwait(false);
 
     return [.. branches.Select(ToResponse)];
+  }
+
+  /// <summary>Reads the effective configuration of a repository and converts it for the API.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The configuration, merged as JSON, with its source and the YAML found.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<EffectiveConfigResponse> GetEffectiveConfigResponseAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string repo,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var effective = await sender.Send(new GetEffectiveConfigQuery(AddressSegments.ToRepositoryForge(forge), owner, repo), cancellationToken)
+                                .ConfigureAwait(false);
+
+    return new EffectiveConfigResponse(
+      effective.Source.ToString(),
+      effective.Sha?.Value,
+      effective.IsResolvedAtSha,
+      effective.Path,
+      effective.Yaml,
+      ConfigNodeJson.ToJsonElement(effective.Config.Root),
+      [.. effective.Warnings.Select(static w => new ConfigWarningModel(w.Code, w.Key, w.Detail))],
+      effective.Errors
+    );
   }
 
   private static RepositoryResponse ToResponse(TrackedRepository repository, Forge forge) =>

@@ -4,12 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.Text.Json;
-using System.Text.Json.Nodes;
-
 using Mediator;
 
-using CodeCoverage.Api.Configuration;
 using CodeCoverage.Api.Contracts.Configuration;
 using CodeCoverage.Application.Features.Configuration.Queries.ValidateCoverageYaml;
 using CodeCoverage.Domain.Config;
@@ -19,13 +15,6 @@ namespace CodeCoverage.Api.Mapping;
 /// <summary>Converts the coverage configuration between the Domain and the API.</summary>
 internal static class ConfigurationMapper
 {
-  #region Fields
-
-  private static readonly JsonSerializerOptions NormalizedOptions =
-    new() { MaxDepth = PresentationConfiguration.MaximumJsonDepth };
-
-  #endregion
-
   #region Methods
 
   /// <summary>Validates a <c>codecov.yml</c> file and converts the result for the API.</summary>
@@ -50,21 +39,10 @@ internal static class ConfigurationMapper
     new(
       result.IsValid,
       result.Normalized is { } normalized
-        ? JsonSerializer.SerializeToElement(normalized.ToJson(), NormalizedOptions)
+        ? ConfigNodeJson.ToJsonElement(normalized)
         : null,
       [.. result.Warnings.Select(w => new ConfigWarningModel(w.Code, w.Key, w.Detail))],
       result.Errors);
-
-  private static JsonNode? ToJson(this ConfigNode node) =>
-    node.Kind switch
-    {
-      ConfigNodeKind.Map => new JsonObject(node.Entries.Select(e => KeyValuePair.Create(e.Key, e.Value.ToJson()))),
-      ConfigNodeKind.List => new JsonArray([.. node.Items.Select(i => i.ToJson())]),
-      ConfigNodeKind.Boolean => JsonValue.Create(node.AsBoolean()),
-      ConfigNodeKind.Number => JsonValue.Create(node.AsNumber()),
-      ConfigNodeKind.Text => JsonValue.Create(node.AsText()),
-      var _ => null,
-    };
 
   #endregion
 }

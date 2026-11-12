@@ -21,21 +21,6 @@ internal static class SettingRules
 {
   #region Methods
 
-  /// <summary>Finds the definition of a setting of the catalog.</summary>
-  /// <param name="key">The configuration key, whatever its case.</param>
-  /// <returns>The definition.</returns>
-  /// <exception cref="ArgumentNullException"><paramref name="key" /> is <see langword="null" />.</exception>
-  /// <exception cref="NotFoundException">
-  ///   The key is not in the catalog (<see cref="SettingErrors.Unknown" />).
-  /// </exception>
-  public static SettingDefinition FindOrThrow(string key)
-  {
-    ArgumentNullException.ThrowIfNull(key);
-
-    return SettingDefinitions.Find(key)
-           ?? throw new NotFoundException(SettingErrors.Unknown, $"The setting '{key}' does not exist.");
-  }
-
   /// <summary>Finds the definition of a setting of the instance.</summary>
   /// <param name="key">The configuration key, whatever its case.</param>
   /// <returns>The definition.</returns>
@@ -48,11 +33,11 @@ internal static class SettingRules
   {
     ArgumentNullException.ThrowIfNull(key);
 
-    var definition = FindOrThrow(key);
+    var definition = SettingDefinitions.Find(key);
 
-    return definition.Scope == SettingScope.Instance
-             ? definition
-             : throw new NotFoundException(SettingErrors.Unknown, $"The setting '{key}' does not exist on the instance.");
+    NotFoundException.ThrowIfNotInstanceSetting(definition, key);
+
+    return definition;
   }
 
   /// <summary>Reads the effective value of a setting and refuses it when a stronger source provides it.</summary>
@@ -76,13 +61,7 @@ internal static class SettingRules
 
     var current = await store.GetAsync(definition, cancellationToken).ConfigureAwait(false);
 
-    if (!current.IsEditable)
-    {
-      throw new UnprocessableEntityException(
-        SettingErrors.ProvidedByEnvironment,
-        $"The setting '{definition.Key}' is provided by the environment: it is read-only."
-      );
-    }
+    UnprocessableEntityException.ThrowIfSettingReadOnly(current);
 
     return current;
   }
