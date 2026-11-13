@@ -10,20 +10,13 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Coverage;
-using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Application.Features.Commits.Queries.GetFileCoverage;
 
 /// <summary>Handler for the <see cref="GetFileCoverageQuery" /> query.</summary>
 /// <param name="locator">Finds the commit of the address.</param>
-/// <param name="reports">The stored reports of the commits.</param>
-/// <param name="codec">The codec of the stored reports.</param>
-/// <param name="flagView">Builds the report of one flag.</param>
-internal sealed class GetFileCoverageQueryHandler(
-  CommitLocator locator,
-  ICommitReportRepository reports,
-  ICoverageReportCodec codec,
-  CommitFlagView flagView) : IQueryHandler<GetFileCoverageQuery, FileCoverageView>
+/// <param name="reader">Reads the file in the report of the commit, or of one of its flags.</param>
+internal sealed class GetFileCoverageQueryHandler(CommitLocator locator, CommitFileReader reader) : IQueryHandler<GetFileCoverageQuery, FileCoverageView>
 {
   #region Implementation of IQueryHandler<GetFileCoverageQuery,FileCoverageView>
 
@@ -36,27 +29,7 @@ internal sealed class GetFileCoverageQueryHandler(
 
     var commit = await locator.FindCommitAsync(query.Owner, query.Name, query.Sha, cancellationToken).ConfigureAwait(false);
     var flag = string.IsNullOrEmpty(query.Flag) ? null : query.Flag;
-    CoverageReport? report;
-
-    if (flag is not null)
-    {
-      report = await flagView.BuildAsync(commit, flag, cancellationToken).ConfigureAwait(false);
-    }
-    else if (await reports.GetReportAsync(commit.Id, cancellationToken).ConfigureAwait(false) is { } blob)
-    {
-      report = codec.Decode(blob);
-    }
-    else
-    {
-      // A finalized commit without its report was compacted; one not finalized yet has no file.
-      UnprocessableEntityException.ThrowIfCommitCompacted(commit.CompletedAt is not null);
-      report = null;
-    }
-
-    var path = query.Path.TrimStart('/');
-    var file = report?.Files.FirstOrDefault(f => string.Equals(f.Path, path, StringComparison.Ordinal));
-
-    NotFoundException.ThrowIfCommitFileNotFound(file);
+    var file = await reader.ReadAsync(commit, query.Path, flag, cancellationToken).ConfigureAwait(false);
 
     return new FileCoverageView(file, flag);
   }

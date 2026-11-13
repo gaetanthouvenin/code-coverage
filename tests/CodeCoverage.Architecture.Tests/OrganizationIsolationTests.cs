@@ -45,6 +45,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string ReportViewCache = "src/CodeCoverage.Infrastructure/Caching/MemoryReportViewCache.cs";
 
+  private const string SourceContentMemory = "src/CodeCoverage.Infrastructure/Caching/SourceContentMemory.cs";
+
   private const string InstallationCoordinator = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/SyncInstallations/SyncInstallationsCommandHandler.cs";
 
   private const string SweepCoordinator = "src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
@@ -135,6 +137,11 @@ public sealed partial class OrganizationIsolationTests
 
     // Keeps the views of a report, under a key that starts with the organization of the scope.
     (ReportViewCache, "IMemoryCache"),
+
+    // Holds the bounded memory of the sources read from the forges (M3.28), its own instance so the size bound never
+    // reaches the shared cache; its only user, BoundedSourceContentCache, starts each key with the organization of the
+    // scope, which BoundedSourceContentCacheTests proves on two organizations.
+    (SourceContentMemory, "MemoryCache"),
   ];
 
   // The administration command line (M1.23) holds the only use.

@@ -171,7 +171,7 @@ public sealed class GetCommitFilesQueryHandlerTests
 
   private GetCommitFilesQueryHandler FilesHandler() => new(new CommitLocator(_repositories, _commits), _reports, _codec, FlagView());
 
-  private GetFileCoverageQueryHandler CoverageHandler() => new(new CommitLocator(_repositories, _commits), _reports, _codec, FlagView());
+  private GetFileCoverageQueryHandler CoverageHandler() => new(new CommitLocator(_repositories, _commits), new CommitFileReader(_reports, _codec, FlagView()));
 
   #endregion
 }
