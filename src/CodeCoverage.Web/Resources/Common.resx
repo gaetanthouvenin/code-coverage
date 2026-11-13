@@ -484,4 +484,21 @@
   <data name="Upload_UnresolvedPaths" xml:space="preserve"><value>Unresolved or ambiguous paths: {0}</value></data>
   <data name="Upload_MorePaths" xml:space="preserve"><value>Show {0} more</value></data>
   <data name="Upload_LogTruncated" xml:space="preserve"><value>+{0} not kept</value></data>
+  <data name="Action_Renotify" xml:space="preserve"><value>Notify again</value></data>
+  <data name="Action_Reprocess" xml:space="preserve"><value>Reprocess</value></data>
+  <data name="Filter_AllFlags" xml:space="preserve"><value>All flags</value></data>
+  <data name="Search_Files" xml:space="preserve"><value>Filter files</value></data>
+  <data name="Search_NoMatch" xml:space="preserve"><value>No file matches this filter.</value></data>
+  <data name="Search_Capped" xml:space="preserve"><value>The first {0} of {1} matching files are shown: refine the filter.</value></data>
+  <data name="Column_File" xml:space="preserve"><value>File</value></data>
+  <data name="Column_Hits" xml:space="preserve"><value>Hits</value></data>
+  <data name="Column_Partials" xml:space="preserve"><value>Partials</value></data>
+  <data name="Column_Misses" xml:space="preserve"><value>Misses</value></data>
+  <data name="Commit_NoFileYet" xml:space="preserve"><value>No file yet: the commit is not finalized.</value></data>
+  <data name="Toast_NotifyQueued" xml:space="preserve"><value>Notification queued</value></data>
+  <data name="Toast_NotifyQueuedText" xml:space="preserve"><value>Statuses and the comment will be published again.</value></data>
+  <data name="Toast_ReprocessQueued" xml:space="preserve"><value>Reprocessing queued</value></data>
+  <data name="Toast_RetryQueued" xml:space="preserve"><value>Upload queued again</value></data>
+  <data name="Toast_ActionRefused" xml:space="preserve"><value>It no longer exists, or you are not allowed to do it.</value></data>
+  <data name="Upload_RetryOf" xml:space="preserve"><value>Retry {0}</value></data>
 </root>

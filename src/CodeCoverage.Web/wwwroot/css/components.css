@@ -2226,3 +2226,26 @@ code {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* The file tree of a commit (M3.27): one indentation step per level (inline), folders as toggle buttons, a sortable header. */
+.cc-files__name {
+  overflow-wrap: anywhere;
+}
+
+.cc-files__toggle,
+.cc-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cc-files__toggle[aria-expanded="true"] .cc-icon {
+  color: var(--cc-accent);
+}

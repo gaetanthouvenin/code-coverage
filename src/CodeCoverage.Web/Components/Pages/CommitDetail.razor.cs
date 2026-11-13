@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -59,6 +60,9 @@ public partial class CommitDetail
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private IToastService Toasts { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -68,6 +72,13 @@ public partial class CommitDetail
   private CommitDetailViewModel? Detail { get; set; }
 
   private IReadOnlyList<CcBreadcrumbItem> Crumbs { get; set; } = [];
+
+  // The answer the header read once for the page: the actions show only on a true answer.
+  private bool CanAdminister { get; set; }
+
+  private string? RetryingKey { get; set; }
+
+  private IReadOnlyList<string> FlagNames => Detail is null ? [] : [.. Detail.Flags.Select(static f => f.Flag)];
 
   // « e4f5a6b on feature/webhook-retry · jo-rivera · 12 min ago · #423 »; the pull request has no page yet (M3.31).
   private string? Subtitle =>
@@ -100,9 +111,52 @@ public partial class CommitDetail
 
   #region Methods
 
-  private async Task LoadAsync()
+  private Task LoadAsync()
   {
     State = PageState.Loading;
+
+    return ReadAsync();
+  }
+
+  // After an action, the commit is read again without leaving what is shown.
+  private Task ReloadAsync() => ReadAsync();
+
+  private void PermissionKnown(bool canAdminister) => CanAdminister = canAdminister;
+
+  private async Task RetryAsync(UploadSessionRowViewModel row)
+  {
+    if (row.UploadId is not { } uploadId)
+    {
+      return;
+    }
+
+    var (forge, owner, name) = (Forge, Owner, Name);
+    RetryingKey = row.Key;
+
+    try
+    {
+      var result = await Runner.RunAsync((sender, ct) => sender.RetryUploadAsync(forge, owner, name, uploadId, ct)).ConfigureAwait(true);
+
+      if (result is { Succeeded: true, Value: true })
+      {
+        Toasts.Show(CcTone.Success, L["Toast_RetryQueued"], row.Name ?? L["Upload_Number", row.Number].Value);
+      }
+      else if (result is { NotFound: true } or { Forbidden: true })
+      {
+        // A refused action never turns the page into its missing or denied state.
+        Toasts.Show(CcTone.Danger, L["Toast_RequestFailed"], L["Toast_ActionRefused"]);
+      }
+    }
+    finally
+    {
+      RetryingKey = null;
+    }
+
+    await ReloadAsync().ConfigureAwait(true);
+  }
+
+  private async Task ReadAsync()
+  {
     var (forge, owner, name, sha) = (Forge, Owner, Name, Sha);
     var ticket = _latest.Begin();
     var result = await Runner.RunAsync((sender, ct) => sender.GetCommitDetailViewModelAsync(forge, owner, name, sha, ct)).ConfigureAwait(true);

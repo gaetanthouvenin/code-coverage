@@ -1,0 +1,11 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitActions.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (CanAdminister)
+{
+  <CcButton Variant="CcButtonVariant.Pill" Icon="CcIconName.Refresh" Disabled="Busy" OnClick="NotifyAsync" Class="cc-action-notify">@L["Action_Renotify"]</CcButton>
+  <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Refresh" Disabled="Busy" OnClick="ReprocessAsync" Class="cc-action-reprocess">@L["Action_Reprocess"]</CcButton>
+}

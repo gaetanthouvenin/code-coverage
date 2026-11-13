@@ -1,0 +1,84 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="FileTree.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="files">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["Commit_Files"]</h2>
+    @if (!Compacted)
+    {
+      <div class="cc-panel__tools">
+        <CcSearchBar Value="@Search" ValueChanged="SearchChanged" Placeholder="@L["Search_Files"]" AriaLabel="@L["Search_Files"]" />
+        <CcSelectField Label="@L["Column_Flag"]" Value="@(Flag ?? string.Empty)" ValueChanged="FlagChanged" Options="FlagOptions" Pill="true" LeadIcon="CcIconName.Filter" Class="cc-files__flag" />
+      </div>
+    }
+  </div>
+  @if (Compacted)
+  {
+    <div class="cc-panel__body cc-muted" data-files="compacted">@L["Commit_CompactedHint"]</div>
+  }
+  else if (State is PageState.Loading)
+  {
+    <div class="cc-panel__body"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel__body cc-muted" data-files="failed">@L["Error_Title"]</div>
+  }
+  else if (Tree is { Files.Count: 0 })
+  {
+    <div class="cc-panel__body cc-muted" data-files="empty">@L["Commit_NoFileYet"]</div>
+  }
+  else if (Tree is not null)
+  {
+    <CcTable AriaLabel="@L["Commit_Files"]">
+      <Head>
+        <th>@L["Column_File"]</th>
+        <th class="cc-r">@L["Column_Lines"]</th>
+        <th class="cc-r">@L["Column_Hits"]</th>
+        <th class="cc-r">@L["Column_Partials"]</th>
+        <th class="cc-r">@L["Column_Misses"]</th>
+        <th aria-sort="@AriaSort">
+          <button type="button" class="cc-sort" @onclick="ToggleSort" data-sort="@Sort">
+            @L["Column_Coverage"] <CcIcon Name="CcIconName.Sort" />
+          </button>
+        </th>
+      </Head>
+      <ChildContent>
+        @foreach (var (node, depth) in Rows)
+        {
+          <tr @key="node.Path" data-path="@node.Path" class="@(node.IsFolder ? "cc-files__folder" : null)">
+            <td style="padding-left:@(16 + (depth * 20))px" class="cc-files__name">
+              @if (node.IsFolder)
+              {
+                var open = Expanded.Contains(node.Path);
+                <button type="button" class="cc-files__toggle" aria-expanded="@(open ? "true" : "false")" @onclick="() => Toggle(node.Path)">
+                  <CcIcon Name="CcIconName.Folder" /> <span class="cc-mono cc-strong">@node.Name</span>
+                </button>
+              }
+              else
+              {
+                <span class="cc-mono"><CcIcon Name="CcIconName.File" /> @(Searching ? node.Path : node.Name)</span>
+              }
+            </td>
+            <td class="cc-r cc-num">@node.Lines</td>
+            <td class="cc-r cc-num">@node.Hits.ToString("N0", CultureInfo.CurrentCulture)</td>
+            <td class="cc-r cc-num">@node.Partials.ToString("N0", CultureInfo.CurrentCulture)</td>
+            <td class="cc-r cc-num">@node.Misses.ToString("N0", CultureInfo.CurrentCulture)</td>
+            <td><CcCoverageBar Hits="node.Hits" Partials="node.Partials" Misses="node.Misses" Text="@node.Coverage" /></td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+    @if (Searching && MatchCount > MaxSearchRows)
+    {
+      <div class="cc-panel__body cc-small cc-dim" data-files="capped">@L["Search_Capped", MaxSearchRows, MatchCount]</div>
+    }
+    else if (Searching && MatchCount == 0)
+    {
+      <div class="cc-panel__body cc-muted" data-files="nomatch">@L["Search_NoMatch"]</div>
+    }
+  }
+</section>

@@ -16,7 +16,12 @@ using Microsoft.Extensions.Localization;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Application.Features.Commits.Queries.GetCommit;
+using CodeCoverage.Application.Features.Commits.Queries.GetCommitFiles;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
+using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
+using CodeCoverage.Application.Features.Uploads.Commands.RetryUpload;
+using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Comparisons;
 using CodeCoverage.Domain.Config;
@@ -137,6 +142,48 @@ public sealed class CommitDetailTests : UiTestContext
     cut.Find("[data-row=s2]").GetAttribute("data-status").ShouldBe("CarriedForward");
     cut.Find("[data-row=s2] [data-log=origin] code").TextContent.ShouldBe("9f8e7d6");
   });
+
+  // The permission the header reads once decides the actions: a reader sees neither them nor the retry.
+  [Fact]
+  public void Render_Reader_ShouldShowNoAction()
+  {
+    FailedUpload();
+
+    var cut = Render<CommitDetailPage>(Address());
+
+    cut.FindAll(".cc-action-notify, .cc-action-reprocess, .cc-action-retry").ShouldBeEmpty();
+    A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public void Click_RetryFailedUpload_ShouldEnqueue()
+  {
+    var upload = FailedUpload();
+    A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).Returns(new ValueTask<bool>(true));
+    var cut = Render<CommitDetailPage>(Address());
+    cut.FindAll(".cc-action-notify").Count.ShouldBe(1);
+
+    cut.Find("[data-row=u3] .cc-action-retry").Click();
+
+    cut.WaitForAssertion(() => Services.GetRequiredService<IToastService>().Toasts.ShouldContain(t => t.Title == L("Toast_RetryQueued") && t.Tone == CcTone.Success));
+    A.CallTo(() => _sender.Send(A<RetryUploadCommand>.That.Matches(c => c.UploadId == upload.PublicId && c.Name == "app"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(A<GetCommitQuery>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+    A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // A compacted commit keeps no index: the files panel says so and the tree is never read.
+  [Fact]
+  public void Render_Compacted_ShouldNotReadTheFiles()
+  {
+    _commit.GetType().GetProperty("State")!.SetValue(_commit, CommitState.Compacted);
+    Detail(null);
+
+    var cut = Render<CommitDetailPage>(Address());
+
+    cut.Find("[data-files=compacted]").TextContent.ShouldBe(L("Commit_CompactedHint"));
+    A.CallTo(() => _sender.Send(A<GetCommitFilesQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
 
   // /commit/{sha} lies under no tab's address: the page imposes the commits tab.
   [Fact]
@@ -289,6 +336,18 @@ public sealed class CommitDetailTests : UiTestContext
 
     A.CallTo(() => _sender.Send(A<GetCommitQuery>.That.Matches(q => q.Sha == Sha), A<CancellationToken>._))
      .Returns(new ValueTask<Domain.Commits.CommitDetail>(detail));
+  }
+
+  private Upload FailedUpload()
+  {
+    var failed = Upload.Receive(5, 3, "c", ["backend"], "dotnet-e2e", null, null, null, null, null, null, null, PrincipalKind.RepositoryToken, Now);
+    failed.MarkFailed("Upload.UnsupportedFormat", "No parser.", 1, 0, 0, ProcessingLog.Empty, Now);
+    SetId(failed, 13);
+    var detail = new Domain.Commits.CommitDetail(_commit, [], [failed], [], []);
+    A.CallTo(() => _sender.Send(A<GetCommitQuery>.That.Matches(q => q.Sha == Sha), A<CancellationToken>._))
+     .Returns(new ValueTask<Domain.Commits.CommitDetail>(detail));
+
+    return failed;
   }
 
   private static void SetId(object entity, long id) => entity.GetType().GetProperty("Id")!.SetValue(entity, id);
