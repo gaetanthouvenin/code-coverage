@@ -1,0 +1,13 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="DiffTable.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="diff">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_CoverageDiff"]</h2></div>
+  <div class="cc-panel__body">
+    <pre class="cc-code" aria-label="@L["Comparison_CoverageDiff"]">@foreach (var line in Lines)
+{<span class="@ClassOf(line.Kind)">@line.Text</span>@("\n")}</pre>
+  </div>
+</section>

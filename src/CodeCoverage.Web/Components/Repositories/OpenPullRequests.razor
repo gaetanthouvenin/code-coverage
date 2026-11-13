@@ -27,8 +27,7 @@
         <div class="cc-list__row" data-pull="@pull.Number">
           <span class="cc-thumb"><CcIcon Name="CcIconName.PullRequest" /></span>
           <div class="cc-list__grow">
-            @* The number links to its page from M3.31 on; until then it reads as the list of the pull requests does. *@
-            <span class="cc-ellip">#@pull.Number @pull.Title</span>
+            <a class="cc-ellip" href="@($"{Root}/pull/{pull.Number.ToString(CultureInfo.InvariantCulture)}")">#@pull.Number @pull.Title</a>
             <span class="cc-dim cc-small">@(pull.Author ?? DisplayFormatter.Dash)</span>
           </div>
           @if (pull.Patch is { } patch)

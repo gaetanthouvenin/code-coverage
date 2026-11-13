@@ -36,7 +36,11 @@
         }
         @Title
       </h1>
-      @if (!string.IsNullOrEmpty(Subtitle))
+      @if (SubtitleContent is not null)
+      {
+        <p class="cc-header__subtitle">@SubtitleContent</p>
+      }
+      else if (!string.IsNullOrEmpty(Subtitle))
       {
         <p class="cc-header__subtitle">@Subtitle</p>
       }

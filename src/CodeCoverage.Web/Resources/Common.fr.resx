@@ -501,4 +501,26 @@
   <data name="Toast_RetryQueued" xml:space="preserve"><value>Upload remis en file</value></data>
   <data name="Toast_ActionRefused" xml:space="preserve"><value>Il n’existe plus, ou vous n’êtes pas autorisé à le faire.</value></data>
   <data name="Upload_RetryOf" xml:space="preserve"><value>Relancer {0}</value></data>
+  <data name="Pull_ViewComment" xml:space="preserve"><value>Voir le commentaire sur GitHub</value></data>
+  <data name="Pull_ComparisonPending" xml:space="preserve"><value>Comparaison en attente</value></data>
+  <data name="Pull_ComparisonPendingText" xml:space="preserve"><value>Aucune comparaison n’est encore enregistrée pour la tête de cette pull request. Elle apparaît une fois ses uploads traités.</value></data>
+  <data name="Comparison_ProjectHead" xml:space="preserve"><value>Projet (tête)</value></data>
+  <data name="Comparison_Project" xml:space="preserve"><value>Projet</value></data>
+  <data name="Comparison_NoBaseReport" xml:space="preserve"><value>Aucun rapport de base</value></data>
+  <data name="Comparison_PatchCoverage" xml:space="preserve"><value>Couverture du patch</value></data>
+  <data name="Comparison_PatchLines" xml:space="preserve"><value>{0} lignes modifiées sur {1}</value></data>
+  <data name="Comparison_IndirectChanges" xml:space="preserve"><value>Changements indirects</value></data>
+  <data name="Comparison_IndirectChangesHint" xml:space="preserve"><value>Fichiers dont la couverture a bougé hors du diff</value></data>
+  <data name="Comparison_PatchMissed" xml:space="preserve"><value>Lignes du patch manquées</value></data>
+  <data name="Comparison_PatchMissedFiles" xml:space="preserve"><value>Fichiers : {0}</value></data>
+  <data name="Comparison_WorstFile" xml:space="preserve"><value>{0} : {1}</value></data>
+  <data name="Comparison_HowBaseChosen" xml:space="preserve"><value>Comment la base a été choisie</value></data>
+  <data name="Comparison_Head" xml:space="preserve"><value>Tête</value></data>
+  <data name="Comparison_ForkPoint" xml:space="preserve"><value>Point de fourche</value></data>
+  <data name="Comparison_OnBranch" xml:space="preserve"><value>{0} sur {1}</value></data>
+  <data name="Comparison_Hops" xml:space="preserve"><value>Rapport de base trouvé {0} commit(s) avant la base de fusion.</value></data>
+  <data name="Comparison_UploadBase" xml:space="preserve"><value>Envoyez un rapport pour {0} pour comparer.</value></data>
+  <data name="Comparison_Behind" xml:space="preserve"><value>Retard</value></data>
+  <data name="Comparison_BehindBy" xml:space="preserve"><value>{0} a {1} commit(s) d’avance sur la base</value></data>
+  <data name="Comparison_CoverageDiff" xml:space="preserve"><value>Diff de couverture</value></data>
 </root>

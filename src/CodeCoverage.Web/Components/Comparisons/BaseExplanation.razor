@@ -1,0 +1,53 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="BaseExplanation.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="base">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_HowBaseChosen"]</h2></div>
+  <div class="cc-panel__body">
+    <dl class="cc-kv">
+      <dt>@L["Comparison_Head"]</dt>
+      <dd data-base="head"><code>@Base.Head</code></dd>
+      @if (Base.ForkPoint is { } forkPoint)
+      {
+        <dt>@L["Comparison_ForkPoint"]</dt>
+        <dd data-base="fork">
+          @if (Base.BaseBranch is { } branch)
+          {
+            @L["Comparison_OnBranch", forkPoint, branch]
+          }
+          else
+          {
+            <code>@forkPoint</code>
+          }
+        </dd>
+      }
+      <dt><code>comparedTo</code></dt>
+      <dd data-base="compared">
+        @if (Base.ComparedTo is { } comparedTo)
+        {
+          <code>@comparedTo</code>
+          @if (Base.Hops is > 0 and var hops)
+          {
+            <div class="cc-dim cc-small" data-base="hops">@L["Comparison_Hops", hops]</div>
+          }
+        }
+        else
+        {
+          <span class="cc-muted">@L["Comparison_NoBaseReport"]</span>
+          @if (Base.ExpectedBase is { } expected)
+          {
+            <div class="cc-dim cc-small" data-base="expected">@L["Comparison_UploadBase", expected]</div>
+          }
+        }
+      </dd>
+      @if (Base.BehindBy is > 0 and var behind && Base.BaseBranch is { } baseBranch)
+      {
+        <dt>@L["Comparison_Behind"]</dt>
+        <dd data-base="behind">@L["Comparison_BehindBy", baseBranch, behind]</dd>
+      }
+    </dl>
+  </div>
+</section>

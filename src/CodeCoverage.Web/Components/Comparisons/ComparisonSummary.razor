@@ -1,0 +1,60 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ComparisonSummary.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-grid cc-grid--4" data-panel="comparison-kpis">
+  <CcKpiCard Label="@L["Comparison_ProjectHead"]" Value="@Comparison.Project" Icon="CcIconName.Target" Accent="true">
+    <Trend>
+      @if (Comparison.Delta is { } delta)
+      {
+        <CcBadge Chip="true" Tone="@(Comparison.Trend > 0 ? CcTone.Success : Comparison.Trend < 0 ? CcTone.Danger : CcTone.Neutral)">@L["Delta_Points", delta]</CcBadge>
+      }
+      else
+      {
+        <CcBadge Chip="true">ø</CcBadge>
+      }
+    </Trend>
+    <Footer>
+      @if (Comparison.Base.ComparedTo is { } comparedTo)
+      {
+        @L["Commit_Base"] <code>@comparedTo</code> <b>@Comparison.BaseCoverage</b>
+      }
+      else
+      {
+        @L["Comparison_NoBaseReport"]
+      }
+    </Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Comparison_PatchCoverage"]" Value="@Comparison.Patch" Icon="CcIconName.PullRequest" IconStyle="CcKpiIconStyle.Ink">
+    <Footer>@L["Comparison_PatchLines", Comparison.PatchHits, Comparison.PatchLines]</Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Comparison_IndirectChanges"]" Value="@Comparison.IndirectChanges.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.Layers" IconStyle="CcKpiIconStyle.Gradient">
+    <Footer>@L["Comparison_IndirectChangesHint"]</Footer>
+  </CcKpiCard>
+  <CcKpiCard Label="@L["Comparison_PatchMissed"]" Value="@Comparison.PatchMissed.ToString(CultureInfo.CurrentCulture)" Icon="CcIconName.Alert">
+    <Trend>
+      @if (Comparison.PatchMissedFiles > 0)
+      {
+        <CcBadge Chip="true">@L["Comparison_PatchMissedFiles", Comparison.PatchMissedFiles]</CcBadge>
+      }
+    </Trend>
+    <Footer>
+      @if (Comparison.WorstFile is { } worst)
+      {
+        @L["Comparison_WorstFile", worst, Comparison.WorstFileMissed]
+      }
+    </Footer>
+  </CcKpiCard>
+</div>
+<section class="cc-panel" data-panel="patch">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_PatchCoverage"]</h2></div>
+  <div class="cc-panel__body">
+    <CcGauge Value="@(Comparison.PatchRatio ?? 0)" ValueText="@Comparison.Patch" Caption="@L["Column_Patch"]" />
+    <div class="cc-mini-grid">
+      <div class="cc-mini"><span class="cc-mini__label">@L["Column_Lines"]</span><span class="cc-mini__value">@($"{Comparison.PatchHits} / {Comparison.PatchLines}")</span></div>
+      <div class="cc-mini"><span class="cc-mini__label">@L["Comparison_Project"]</span><span class="cc-mini__value">@Comparison.Project</span></div>
+    </div>
+  </div>
+</section>

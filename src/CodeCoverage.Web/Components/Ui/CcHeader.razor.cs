@@ -34,6 +34,13 @@ public partial class CcHeader
   [Parameter]
   public string? Subtitle { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the line under the title when it holds more than text, a link or a code span; it wins over
+  ///   <see cref="Subtitle" />.
+  /// </summary>
+  [Parameter]
+  public RenderFragment? SubtitleContent { get; set; }
+
   /// <summary>Gets or sets the steps of the breadcrumb, the current page last.</summary>
   [Parameter]
   public IReadOnlyList<CcBreadcrumbItem>? Breadcrumb { get; set; }

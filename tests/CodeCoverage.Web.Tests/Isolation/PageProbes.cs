@@ -34,6 +34,7 @@ public static class PageProbes
     PageProbe.Addressed("/orgs/{Forge}/{Login}/repositories", "/orgs/github/{owner}/repositories"),
     PageProbe.Addressed("/orgs/{Forge}/{Login}/settings", "/orgs/github/{owner}/settings"),
     PageProbe.Addressed("/orgs/{Forge}/{Login}/upload-tokens", "/orgs/github/{owner}/upload-tokens"),
+    PageProbe.Addressed("/{Forge}/{Owner}/{Name}/pull/{Number:int}", $"/github/{{owner}}/app/pull/{TwoOrganizationWeb.SecondPull}"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/pulls", "/github/{owner}/app/pulls"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}", "/github/{owner}/app"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/settings", "/github/{owner}/app/settings"),

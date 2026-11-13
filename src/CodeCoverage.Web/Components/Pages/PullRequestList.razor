@@ -59,7 +59,7 @@
                   <div class="cc-cell">
                     <span class="cc-thumb" aria-hidden="true"><CcIcon Name="CcIconName.PullRequest" /></span>
                     <div>
-                      <span class="cc-ellip cc-strong">#@row.Number @row.Title</span>
+                      <a class="cc-ellip cc-strong" href="@PullHref(row.Number)">#@row.Number @row.Title</a>
                       <span class="cc-dim cc-small cc-mono">@row.HeadBranch → @row.BaseBranch</span>
                     </div>
                   </div>

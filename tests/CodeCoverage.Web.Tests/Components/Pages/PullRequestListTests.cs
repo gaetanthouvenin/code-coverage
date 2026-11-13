@@ -80,7 +80,7 @@ public sealed class PullRequestListTests : UiTestContext
   #region Methods
 
   [Fact]
-  public void Render_ShouldListTheOpenPullRequestsWithoutALink()
+  public void Render_ShouldListTheOpenPullRequestsLinkedToTheirPage()
   {
     var cut = Render<PullRequestList>(Address());
 
@@ -94,7 +94,7 @@ public sealed class PullRequestListTests : UiTestContext
     rows[0].QuerySelector(".cc-delta--up").ShouldNotBeNull();
     rows[1].TextContent.ShouldContain(L("Pull_Merged"));
     rows[1].TextContent.ShouldContain(L("Commit_Pending"));
-    cut.FindAll("tbody a").ShouldBeEmpty();
+    cut.FindAll("tbody a").Select(static a => a.GetAttribute("href")).ShouldBe(["github/octo-org/app/pull/423", "github/octo-org/app/pull/418"]);
   }
 
   [Fact]

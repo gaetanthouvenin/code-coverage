@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 
@@ -80,7 +82,7 @@ public partial class CommitDetail
 
   private IReadOnlyList<string> FlagNames => Detail is null ? [] : [.. Detail.Flags.Select(static f => f.Flag)];
 
-  // « e4f5a6b on feature/webhook-retry · jo-rivera · 12 min ago · #423 »; the pull request has no page yet (M3.31).
+  // « e4f5a6b on feature/webhook-retry · jo-rivera · 12 min ago », then « · #423 » linked to the pull request.
   private string? Subtitle =>
     Detail is not { } detail
       ? null
@@ -91,7 +93,6 @@ public partial class CommitDetail
             detail.Branch is { } branch ? L["Commit_OnBranch", detail.ShortSha, branch].Value : detail.ShortSha,
             detail.Author,
             DisplayFormatter.Age(detail.At, Time.GetUtcNow(), L),
-            detail.PullNumber is { } number ? $"#{number}" : null,
           }.OfType<string>());
 
   #endregion
@@ -120,6 +121,9 @@ public partial class CommitDetail
 
   // After an action, the commit is read again without leaving what is shown.
   private Task ReloadAsync() => ReadAsync();
+
+  private string PullHref(int number) =>
+    string.Create(CultureInfo.InvariantCulture, $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}/pull/{number}");
 
   private void PermissionKnown(bool canAdminister) => CanAdminister = canAdminister;
 
