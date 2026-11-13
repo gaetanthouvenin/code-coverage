@@ -2206,3 +2206,23 @@ code {
   background: var(--cc-ok-bg);
   color: var(--cc-ok-fg);
 }
+
+/* The uploads and sessions of a commit (M3.26): a log column whose paths wrap, and a disclosure for the others. */
+.cc-uploads__log {
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.cc-uploads__paths,
+.cc-uploads__messages {
+  padding-left: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.cc-disclosure > summary {
+  margin-top: 4px;
+  color: var(--cc-accent);
+  font-size: 13px;
+  cursor: pointer;
+}

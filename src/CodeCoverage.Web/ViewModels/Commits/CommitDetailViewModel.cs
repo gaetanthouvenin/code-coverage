@@ -31,6 +31,7 @@ namespace CodeCoverage.Web.ViewModels.Commits;
 /// <param name="Flags">Its flags, in ordinal order, without the project.</param>
 /// <param name="Statuses">The statuses posted for it.</param>
 /// <param name="Config">The configuration applied to it.</param>
+/// <param name="Uploads">Its uploads by sequence, then the sessions carried forward to it by number.</param>
 public sealed record CommitDetailViewModel(
   string ShortSha,
   string Title,
@@ -55,4 +56,5 @@ public sealed record CommitDetailViewModel(
   IReadOnlyList<CarriedOriginViewModel> CarriedOrigins,
   IReadOnlyList<CommitFlagRowViewModel> Flags,
   IReadOnlyList<PostedStatusViewModel> Statuses,
-  CommitConfigViewModel Config);
+  CommitConfigViewModel Config,
+  IReadOnlyList<UploadSessionRowViewModel> Uploads);

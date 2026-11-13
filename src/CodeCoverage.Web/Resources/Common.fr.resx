@@ -471,4 +471,17 @@
   <data name="Operations_Event" xml:space="preserve"><value>Événement</value></data>
   <data name="Operations_WorkerHeartbeats" xml:space="preserve"><value>Heartbeats des workers</value></data>
   <data name="Operations_NoWorker" xml:space="preserve"><value>Aucun worker n’a battu ces dernières 24 heures.</value></data>
+  <data name="Commit_UploadsAndSessions" xml:space="preserve"><value>Uploads et sessions</value></data>
+  <data name="Commit_UploadsAndSessionsHint" xml:space="preserve"><value>Journal de traitement de chaque upload</value></data>
+  <data name="Commit_NoUploadYet" xml:space="preserve"><value>Aucun upload reçu pour ce commit.</value></data>
+  <data name="Column_Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Column_Ci" xml:space="preserve"><value>CI</value></data>
+  <data name="Column_ProcessingLog" xml:space="preserve"><value>Journal de traitement</value></data>
+  <data name="Upload_Number" xml:space="preserve"><value>Upload n° {0}</value></data>
+  <data name="Upload_Failed" xml:space="preserve"><value>Échoué</value></data>
+  <data name="Upload_Origin" xml:space="preserve"><value>Origine :</value></data>
+  <data name="Upload_PathsResolved" xml:space="preserve"><value>Chemins résolus : {0}</value></data>
+  <data name="Upload_UnresolvedPaths" xml:space="preserve"><value>Chemins non résolus ou ambigus : {0}</value></data>
+  <data name="Upload_MorePaths" xml:space="preserve"><value>En afficher {0} de plus</value></data>
+  <data name="Upload_LogTruncated" xml:space="preserve"><value>+{0} non conservés</value></data>
 </root>

@@ -1,0 +1,80 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="UploadSessions.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="uploads">
+  <div class="cc-panel__head">
+    <div>
+      <h2 class="cc-panel__title">@L["Commit_UploadsAndSessions"]</h2>
+      <p class="cc-panel__sub">@L["Commit_UploadsAndSessionsHint"]</p>
+    </div>
+  </div>
+  @if (Rows.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Commit_NoUploadYet"]</div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Commit_UploadsAndSessions"]">
+      <Head>
+        <th>@L["Column_Session"]</th>
+        <th>@L["Column_Ci"]</th>
+        <th>@L["Column_Flags"]</th>
+        <th class="cc-r">@L["Commit_Files"]</th>
+        <th>@L["Column_State"]</th>
+        <th>@L["Column_ProcessingLog"]</th>
+        <th><span class="cc-sr-only">@L["Column_Actions"]</span></th>
+      </Head>
+      <ChildContent>
+        @foreach (var row in Rows)
+        {
+          <tr @key="row.Key" data-row="@row.Key" data-status="@row.Status">
+            <td><strong>@(row.Name ?? L["Upload_Number", row.Number].Value)</strong></td>
+            <td>
+              @if (row.Ci is null)
+              {
+                <span class="cc-muted">—</span>
+              }
+              else if (row.CiUrl is { } url)
+              {
+                <a href="@url" rel="noopener noreferrer" target="_blank">@row.Ci <CcIcon Name="CcIconName.External" /></a>
+              }
+              else
+              {
+                @row.Ci
+              }
+            </td>
+            <td>
+              @foreach (var flag in row.Flags)
+              {
+                <CcBadge Tone="CcTone.Info">@flag</CcBadge>
+              }
+            </td>
+            <td class="cc-r cc-num">@(row.Files ?? "—")</td>
+            <td>
+              @switch (row.Status)
+              {
+                case UploadStatus.Processed:
+                  <CommitStateBadge Status="CommitStatus.Complete" />
+                  break;
+                case UploadStatus.Failed:
+                  <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["Upload_Failed"]</CcBadge>
+                  break;
+                case UploadStatus.CarriedForward:
+                  <CcBadge>@L["Session_CarriedForward"]</CcBadge>
+                  break;
+                default:
+                  <CommitStateBadge Status="CommitStatus.Processing" />
+                  break;
+              }
+            </td>
+            <td class="cc-uploads__log"><ProcessingLogView Row="row" /></td>
+            <td class="cc-r"></td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+  }
+</section>

@@ -7,6 +7,7 @@
 using Mediator;
 
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 using CodeCoverage.Application.Features.Commits.Queries.GetCommit;
 using CodeCoverage.Application.Features.Commits.Queries.ListCommits;
@@ -24,7 +25,7 @@ using StatusState = CodeCoverage.Domain.Notifications.StatusState;
 namespace CodeCoverage.Web.Mapping;
 
 /// <summary>Reads the commits for the pages and converts them to view models: no page names a Domain type.</summary>
-internal static class CommitMapper
+internal static partial class CommitMapper
 {
   #region Fields
 
@@ -167,9 +168,97 @@ internal static class CommitMapper
                  .Select(f => ToFlag(f, flagDeltas.GetValueOrDefault(f.Flag), config)),
       ],
       [.. detail.Statuses.Select(static s => new PostedStatusViewModel(s.Status.Context, ToTone(s.Status.State), s.Status.Description, SafeUrl(s.TargetUrl)))],
-      ToConfig(detail.Config, commit.ConfigSource)
+      ToConfig(detail.Config, commit.ConfigSource),
+      ToUploadRows(detail)
     );
   }
+
+  // Every upload of the commit by sequence, whatever its state, then the sessions carried forward to it by number. An
+  // upload is counted in the commit once its session exists: the session names its upload by identifier, never by a
+  // number a carried session may share.
+  private static IReadOnlyList<UploadSessionRowViewModel> ToUploadRows(CommitDetail detail)
+  {
+    var counted = detail.Sessions.Where(static s => s is { Kind: SessionKind.Uploaded, UploadId: not null })
+                        .Select(static s => s.UploadId!.Value)
+                        .ToHashSet();
+
+    return
+    [
+      .. detail.Uploads.OrderBy(static u => u.Sequence).Select(u => ToUploadRow(u, counted.Contains(u.Id))),
+      .. detail.Sessions.Where(static s => s.Kind is SessionKind.CarriedForward).OrderBy(static s => s.Number).Select(ToCarriedRow),
+    ];
+  }
+
+  private static UploadSessionRowViewModel ToUploadRow(Upload upload, bool counted)
+  {
+    var status = upload.State switch
+    {
+      UploadState.Failed => UploadStatus.Failed,
+      UploadState.Processed when counted => UploadStatus.Processed,
+      var _ => UploadStatus.Processing,
+    };
+    var log = upload.ProcessingLog;
+
+    return new UploadSessionRowViewModel(
+      $"u{upload.Sequence}",
+      upload.Sequence,
+      upload.Name,
+      status,
+      upload.PublicId,
+      CiLabel(upload.CiService, upload.BuildId),
+      SafeUrl(upload.BuildUrl),
+      upload.Flags,
+      upload.State is UploadState.Processed or UploadState.Failed ? Count(upload.ResolvedFileCount) : null,
+      upload.ResolvedFileCount,
+      null,
+      status is UploadStatus.Failed ? upload.ErrorCode : null,
+      new ProcessingLogViewModel(
+        [.. log.Messages.Select(ToLogMessage)],
+        log.MessageTotal - log.Messages.Count,
+        log.Paths,
+        log.PathTotal - log.Paths.Count)
+    );
+  }
+
+  private static UploadSessionRowViewModel ToCarriedRow(Session session) =>
+    new(
+      $"s{session.Number}",
+      session.Number,
+      session.Name,
+      UploadStatus.CarriedForward,
+      null,
+      CiLabel(session.CiService, null),
+      SafeUrl(session.BuildUrl),
+      session.Flags,
+      null,
+      0,
+      session.CarriedForwardFromSha is { } from ? DisplayFormatter.ShortSha(from) : null,
+      null,
+      ProcessingLogViewModel.Empty
+    );
+
+  // The uploader names the two services it detects by their identifiers; any other is shown as written.
+  private static string? CiLabel(string? service, string? build)
+  {
+    var name = service switch
+    {
+      null or "" => null,
+      "github-actions" => "GitHub Actions",
+      "azure-pipelines" => "Azure Pipelines",
+      var other => other,
+    };
+
+    return name is null ? null : string.IsNullOrEmpty(build) ? name : $"{name} #{build}";
+  }
+
+  // « Upload.UnsupportedFormat: coverage.json » carries a code the console translates; any other message is free text.
+  private static LogMessageViewModel ToLogMessage(string message) =>
+    LogCode().Match(message) is { Success: true } match
+      ? new LogMessageViewModel(match.Groups["code"].Value, match.Groups["argument"].Value)
+      : new LogMessageViewModel(null, message);
+
+  [GeneratedRegex(@"^(?<code>Upload\.[A-Za-z]+): (?<argument>.*)$", RegexOptions.Singleline | RegexOptions.CultureInvariant, 1000)]
+  private static partial Regex LogCode();
 
   private static CommitFlagRowViewModel ToFlag(CommitFlagTotals totals, decimal? delta, CoverageConfig config) =>
     new(
