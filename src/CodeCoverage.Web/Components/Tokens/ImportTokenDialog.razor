@@ -1,0 +1,21 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ImportTokenDialog.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcDialog Open="Open" Title="@(AskLabel ? L["Token_ImportTitle"] : L["Token_ImportBadgeTitle"])" OnClose="CloseAsync">
+  <ChildContent>
+    <p class="cc-muted">@(AskLabel ? L["Token_ImportText"] : L["Token_ImportBadgeText"])</p>
+    @if (AskLabel)
+    {
+      <CcTextField Label="@L["Column_Name"]" @bind-Value="_form.Label" Error="@Error(nameof(TokenForm.Label))" Required="true" />
+    }
+    <CcTextField Label="@L["Token_Value"]" Type="password" AutoComplete="off" @bind-Value="_form.ImportedValue"
+                 Error="@Error(nameof(TokenForm.ImportedValue))" Required="true" />
+  </ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseAsync">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.Primary" Disabled="@(_busy || !IsFilled)" OnClick="ImportAsync">@L["Action_Import"]</CcButton>
+  </Actions>
+</CcDialog>

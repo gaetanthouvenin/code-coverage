@@ -38,7 +38,11 @@
     else if (Settings is not null)
     {
       <RepositoryActivation IsActive="Settings.IsActive" Busy="Busy" OnChanged="ChangeActivationAsync" />
-      <EffectiveConfigView Config="Settings.Config" />
+      <RepositoryUploadTokens Forge="@Forge" Owner="@Owner" Name="@Name" Tokens="Settings.Tokens" OnChanged="LoadAsync" />
+      <div class="cc-grid cc-grid--2">
+        <BadgeTokenPanel Forge="@Forge" Owner="@Owner" Name="@Name" Token="@Settings.BadgeToken" OnChanged="LoadAsync" />
+        <EffectiveConfigView Config="Settings.Config" />
+      </div>
     }
   }
 </CcPageContainer>

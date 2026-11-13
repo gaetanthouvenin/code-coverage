@@ -1,0 +1,15 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RevokeTokenDialog.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcDialog Open="@(Token is not null)" Title="@(Token is { } token ? L["Token_RevokeTitle", token.Label] : string.Empty)" OnClose="CloseAsync">
+  <ChildContent>
+    <p class="cc-muted">@L["Token_RevokeText"]</p>
+  </ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseAsync">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.Danger" Disabled="_busy" OnClick="RevokeAsync">@L["Action_Revoke"]</CcButton>
+  </Actions>
+</CcDialog>

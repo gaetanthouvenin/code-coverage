@@ -2145,3 +2145,19 @@ code {
   font-size: 12.5px;
   line-height: 1.65;
 }
+
+/* The copy button of a code block, from the mockup. */
+.cc-copy {
+  position: relative;
+}
+
+.cc-copy .cc-code {
+  padding-right: 104px;
+}
+
+.cc-copy .cc-button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  background: var(--cc-card);
+}

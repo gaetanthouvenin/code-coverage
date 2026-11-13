@@ -1,0 +1,27 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="BadgeTokenPanel.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="badge-token">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["BadgeToken_Title"]</h2>
+    <div class="cc-panel__tools">
+      <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Refresh" Disabled="_busy" OnClick="RotateAsync">@L["Action_Renew"]</CcButton>
+      <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Upload" OnClick="() => _importing = true">@L["Action_Import"]</CcButton>
+    </div>
+  </div>
+  <div class="cc-panel__body cc-stack">
+    @if (Token is { } token)
+    {
+      <CopyBlock Text="@token" Label="@L["BadgeToken_Title"]" />
+    }
+    else
+    {
+      <p class="cc-muted" data-state="public">@L["BadgeToken_PublicRepository"]</p>
+    }
+  </div>
+</section>
+
+<ImportTokenDialog Open="_importing" AskLabel="false" Import="ImportAsync" OnImported="ImportedAsync" OnClosed="() => _importing = false" />

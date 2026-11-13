@@ -1,0 +1,18 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="IssuedTokenDialog.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcDialog Open="@(Token is not null)" Title="@L["Token_Created"]" OnClose="CloseAsync">
+  <ChildContent>
+    @if (Token is { } issued)
+    {
+      <CcBanner Tone="CcTone.Warning">@L["Token_CopyItNow"]</CcBanner>
+      <CopyBlock Text="@issued.Value" Label="@L["Token_Value"]" />
+    }
+  </ChildContent>
+  <Actions>
+    <CcButton Variant="CcButtonVariant.Primary" OnClick="CloseAsync">@L["Action_Close"]</CcButton>
+  </Actions>
+</CcDialog>
