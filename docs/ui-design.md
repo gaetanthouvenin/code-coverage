@@ -94,11 +94,11 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 |---|---|---|---|---|
 | Vue d’ensemble | `/{forge}/{owner}/{repo}` | M3.21, M3.22, M3.23 | lecture du dépôt | Nominal, Sans rapport, Chargement, Introuvable ou inaccessible |
 | Commits | `/{forge}/{owner}/{repo}/commits` | M3.24 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
-| Détail d’un commit | `/{forge}/{owner}/{repo}/commit/{sha}` | M3.25, M3.26, M3.27 | lecture du dépôt | Nominal, Erreur de configuration, Chargement, Introuvable ou inaccessible |
-| Source annotée | `/{forge}/{owner}/{repo}/commit/{sha}/blob/{**path}` | M3.29 | lecture du dépôt | Nominal, Depuis une PR, Source indisponible, Chargement, Introuvable ou inaccessible |
+| Détail d’un commit | `/{forge}/{owner}/{repo}/commit/{sha}` | M3.25, M3.26, M3.27 | lecture du dépôt | Nominal, Erreur de configuration, Compacté, Chargement, Introuvable ou inaccessible |
+| Source annotée | `/{forge}/{owner}/{repo}/commit/{sha}/blob/{**path}` | M3.29 | lecture du dépôt | Nominal, Depuis une PR, Source indisponible, Compacté, Chargement, Introuvable ou inaccessible |
 | Pull requests | `/{forge}/{owner}/{repo}/pulls` | M3.30 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
-| Comparaison de pull request | `/{forge}/{owner}/{repo}/pull/{n}` | M3.31, M3.32 | lecture du dépôt | Nominal, Diff incomplet, Base manquante, Chargement, Introuvable ou inaccessible |
-| Comparaison libre | `/{forge}/{owner}/{repo}/compare/{base}...{head}` | M3.33 | lecture du dépôt | Nominal, Plage invalide, Chargement, Introuvable ou inaccessible |
+| Comparaison de pull request | `/{forge}/{owner}/{repo}/pull/{n}` | M3.31, M3.32 | lecture du dépôt | Nominal, Diff incomplet, Base manquante, Comparaison en attente, Chargement, Introuvable ou inaccessible |
+| Comparaison libre | `/{forge}/{owner}/{repo}/compare/{base}...{head}` | M3.33 | lecture du dépôt | Nominal, Plage invalide, Non calculée, Chargement, Introuvable ou inaccessible |
 | Réglages du dépôt | `/{forge}/{owner}/{repo}/settings` | M3.34, M3.35 | admin du dépôt ou de l’organisation | Nominal, Inactif, YAML invalide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
 
 ### Mon compte
