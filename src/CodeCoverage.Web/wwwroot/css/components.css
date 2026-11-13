@@ -2249,3 +2249,16 @@ code {
 .cc-files__toggle[aria-expanded="true"] .cc-icon {
   color: var(--cc-accent);
 }
+
+/* The diff table of a comparison (M3.31): the signs stay in the text, the colour only repeats them. */
+.cc-code__add {
+  color: var(--cc-ok-fg);
+}
+
+.cc-code__del {
+  color: var(--cc-err-fg);
+}
+
+.cc-code__head {
+  color: var(--cc-info-fg);
+}

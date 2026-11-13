@@ -87,7 +87,7 @@ public sealed class CommitDetailTests : UiTestContext
     subtitle.ShouldContain(L("Commit_OnBranch", "e4f5a6b", "feature/webhook-retry"));
     subtitle.ShouldContain("jo-rivera");
     subtitle.ShouldContain("#423");
-    cut.FindAll("a").Where(static a => a.TextContent.Contains("#423", StringComparison.Ordinal)).ShouldBeEmpty();
+    cut.Find(".cc-header__subtitle a[data-link=pull]").GetAttribute("href").ShouldBe("github/octo-org/app/pull/423");
     var coverage = cut.FindAll(".cc-kpi")[0];
     coverage.QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe("81.23%");
     coverage.QuerySelector(".cc-kpi__footer code")!.TextContent.ShouldBe("a1b2c3d");

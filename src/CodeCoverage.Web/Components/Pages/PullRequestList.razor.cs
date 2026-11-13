@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 
@@ -18,7 +20,7 @@ namespace CodeCoverage.Web.Components.Pages;
 
 /// <summary>
 ///   The pull requests of a repository, 25 a page and filtered by state: number, title, author, state, patch coverage and
-///   change of the project coverage. The number links nowhere until the page of a pull request exists (M3.31).
+///   change of the project coverage. The number and title link to the page of the pull request.
 /// </summary>
 public partial class PullRequestList
 {
@@ -97,6 +99,9 @@ public partial class PullRequestList
   #endregion
 
   #region Methods
+
+  private string PullHref(int number) =>
+    string.Create(CultureInfo.InvariantCulture, $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}/pull/{number}");
 
   private static string DeltaClass(int trend) => trend switch
   {

@@ -15,8 +15,18 @@
   }
   else
   {
-    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs"
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Crumbs="Crumbs"
                       ActiveTab="RepositoryTab.Commits" OnPermission="PermissionKnown">
+      <SubtitleContent>
+        @if (Subtitle is { } subtitle)
+        {
+          @subtitle
+          @if (Detail?.PullNumber is { } number)
+          {
+            @(" · ")<a href="@PullHref(number)" data-link="pull">#@number</a>
+          }
+        }
+      </SubtitleContent>
       <Actions>
         @if (Detail is not null)
         {

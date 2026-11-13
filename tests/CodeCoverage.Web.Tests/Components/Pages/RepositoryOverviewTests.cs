@@ -222,6 +222,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
     cut.WaitForAssertion(() => cut.FindAll("[data-panel=recent-commits] tbody tr").Count.ShouldBe(1));
     cut.Find("[data-panel=recent-commits] tbody tr").TextContent.ShouldContain("Add the retry policy");
     cut.Find("[data-panel=open-pulls] [data-pull='423']").TextContent.ShouldContain("feat(alerts): retry policy");
+    cut.Find("[data-panel=open-pulls] [data-pull='423'] a").GetAttribute("href").ShouldBe("github/octo-org/app/pull/423");
     A.CallTo(() => _sender.Send(A<GetRepositoryQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _sender.Send(A<GetEffectiveConfigQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _sender.Send(A<ListCommitsQuery>.That.Matches(q => q.PageSize == 5 && q.Page == 1 && q.Branch == "main"), A<CancellationToken>._))

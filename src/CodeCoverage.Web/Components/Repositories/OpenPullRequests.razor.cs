@@ -13,8 +13,7 @@ using CodeCoverage.Web.ViewModels.PullRequests;
 namespace CodeCoverage.Web.Components.Repositories;
 
 /// <summary>
-///   The open pull requests of a repository, on the overview, with the coverage of their patch. The number is not a
-///   link yet: the page of a pull request arrives with M3.31, as the list of the pull requests already says.
+///   The open pull requests of a repository, on the overview, with the coverage of their patch; each links to its page.
 /// </summary>
 public partial class OpenPullRequests
 {

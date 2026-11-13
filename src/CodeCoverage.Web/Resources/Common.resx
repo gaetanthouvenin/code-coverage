@@ -501,4 +501,26 @@
   <data name="Toast_RetryQueued" xml:space="preserve"><value>Upload queued again</value></data>
   <data name="Toast_ActionRefused" xml:space="preserve"><value>It no longer exists, or you are not allowed to do it.</value></data>
   <data name="Upload_RetryOf" xml:space="preserve"><value>Retry {0}</value></data>
+  <data name="Pull_ViewComment" xml:space="preserve"><value>View the comment on GitHub</value></data>
+  <data name="Pull_ComparisonPending" xml:space="preserve"><value>Comparison pending</value></data>
+  <data name="Pull_ComparisonPendingText" xml:space="preserve"><value>No comparison is stored yet for the head of this pull request. It appears once its uploads are processed.</value></data>
+  <data name="Comparison_ProjectHead" xml:space="preserve"><value>Project (head)</value></data>
+  <data name="Comparison_Project" xml:space="preserve"><value>Project</value></data>
+  <data name="Comparison_NoBaseReport" xml:space="preserve"><value>No base report</value></data>
+  <data name="Comparison_PatchCoverage" xml:space="preserve"><value>Patch coverage</value></data>
+  <data name="Comparison_PatchLines" xml:space="preserve"><value>{0} of {1} changed lines</value></data>
+  <data name="Comparison_IndirectChanges" xml:space="preserve"><value>Indirect changes</value></data>
+  <data name="Comparison_IndirectChangesHint" xml:space="preserve"><value>Files whose coverage moved outside the diff</value></data>
+  <data name="Comparison_PatchMissed" xml:space="preserve"><value>Patch lines missed</value></data>
+  <data name="Comparison_PatchMissedFiles" xml:space="preserve"><value>Files: {0}</value></data>
+  <data name="Comparison_WorstFile" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="Comparison_HowBaseChosen" xml:space="preserve"><value>How the base was chosen</value></data>
+  <data name="Comparison_Head" xml:space="preserve"><value>Head</value></data>
+  <data name="Comparison_ForkPoint" xml:space="preserve"><value>Fork point</value></data>
+  <data name="Comparison_OnBranch" xml:space="preserve"><value>{0} on {1}</value></data>
+  <data name="Comparison_Hops" xml:space="preserve"><value>Base report found {0} commit(s) before the merge base.</value></data>
+  <data name="Comparison_UploadBase" xml:space="preserve"><value>Upload a report for {0} to compare.</value></data>
+  <data name="Comparison_Behind" xml:space="preserve"><value>Behind</value></data>
+  <data name="Comparison_BehindBy" xml:space="preserve"><value>{0} is {1} commit(s) ahead of the base</value></data>
+  <data name="Comparison_CoverageDiff" xml:space="preserve"><value>Coverage diff</value></data>
 </root>

@@ -53,6 +53,10 @@ public partial class RepositoryHeader
   [Parameter]
   public string? Subtitle { get; set; }
 
+  /// <summary>Gets or sets the line under the title when it holds links or code; it wins over <see cref="Subtitle" />.</summary>
+  [Parameter]
+  public RenderFragment? SubtitleContent { get; set; }
+
   /// <summary>Gets or sets the crumbs after the repository, the last one being the page; none on the overview.</summary>
   [Parameter]
   public IReadOnlyList<CcBreadcrumbItem>? Crumbs { get; set; }
