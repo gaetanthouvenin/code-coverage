@@ -1,0 +1,44 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositorySettings.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/settings"
+
+<PageTitle>@L["PageTitle_Format", L["RepositorySettings_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@L["RepositorySettings_Title"]" Crumbs="Crumbs" />
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Denied)
+    {
+      <div class="cc-panel cc-status-page" data-state="denied">
+        <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["RepositorySettings_Denied"]</CcEmptyState>
+      </div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page" data-state="failed">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Settings is not null)
+    {
+      <RepositoryActivation IsActive="Settings.IsActive" Busy="Busy" OnChanged="ChangeActivationAsync" />
+      <EffectiveConfigView Config="Settings.Config" />
+    }
+  }
+</CcPageContainer>

@@ -276,6 +276,19 @@
   <data name="Filter_Active" xml:space="preserve"><value>Actifs</value></data>
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
+  <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Repository_Active" xml:space="preserve"><value>Actif</value></data>
+  <data name="RepositorySettings_Title" xml:space="preserve"><value>Réglages du dépôt</value></data>
+  <data name="RepositorySettings_Denied" xml:space="preserve"><value>Seuls les administrateurs de ce dépôt, et les administrateurs de son organisation, peuvent ouvrir ses réglages.</value></data>
+  <data name="RepositorySettings_ActiveHelp" xml:space="preserve"><value>Les uploads sont acceptés ; les statuts et le commentaire sont publiés.</value></data>
+  <data name="RepositorySettings_InactiveHelp" xml:space="preserve"><value>Les uploads sont refusés et rien n'est publié.</value></data>
+  <data name="RepositorySettings_Activated" xml:space="preserve"><value>Dépôt activé</value></data>
+  <data name="RepositorySettings_Deactivated" xml:space="preserve"><value>Dépôt désactivé</value></data>
+  <data name="RepositorySettings_Config" xml:space="preserve"><value>Configuration effective</value></data>
+  <data name="RepositorySettings_ConfigValid" xml:space="preserve"><value>Valide</value></data>
+  <data name="RepositorySettings_ConfigInvalid" xml:space="preserve"><value>Invalide</value></data>
+  <data name="RepositorySettings_ConfigYaml" xml:space="preserve"><value>Configuration du dépôt, en YAML</value></data>
+  <data name="RepositorySettings_ConfigNone" xml:space="preserve"><value>Aucun fichier de configuration n'a été trouvé : les valeurs par défaut s'appliquent.</value></data>
   <data name="Column_Repository" xml:space="preserve"><value>Dépôt</value></data>
   <data name="Column_LastCommit" xml:space="preserve"><value>Dernier commit</value></data>
   <data name="Home_Trend" xml:space="preserve"><value>30 jours</value></data>

@@ -2132,3 +2132,16 @@ code {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Code block, from the mockup: the YAML of a repository, a badge snippet. */
+.cc-code {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border-radius: var(--cc-r-md);
+  background: var(--cc-code-bg);
+  color: var(--cc-fg);
+  font-family: var(--cc-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+}

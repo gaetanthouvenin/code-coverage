@@ -14,10 +14,10 @@ using CodeCoverage.Web.Resources;
 
 namespace CodeCoverage.Web.Components.Repositories;
 
-/// <summary>The sections of a repository: overview, commits and pull requests, in pill tabs.</summary>
+/// <summary>The sections of a repository: overview, commits, pull requests, and the settings of its administrators.</summary>
 /// <remarks>
-///   The settings of the repository get their tab with the permission of its administrators (M3.34); until then the tab
-///   is not shown, which reveals nothing.
+///   The settings tab is shown only when the page says the user administers the repository
+///   (<c>GetRepositoryPermission</c>): a reader never sees it, which reveals nothing.
 /// </remarks>
 public partial class RepositoryTabs
 {
@@ -34,6 +34,10 @@ public partial class RepositoryTabs
   /// <summary>Gets or sets the name of the repository.</summary>
   [Parameter, EditorRequired]
   public string Name { get; set; } = null!;
+
+  /// <summary>Gets or sets a value indicating whether the settings tab is shown: only to those who administer the repository.</summary>
+  [Parameter]
+  public bool ShowSettings { get; set; }
 
   #endregion
 
@@ -62,6 +66,7 @@ public partial class RepositoryTabs
       new CcNavItem(root, L["Tab_Overview"], CcIconName.Chart, NavLinkMatch.All),
       new CcNavItem($"{root}/commits", L["Tab_Commits"], CcIconName.Commit),
       new CcNavItem($"{root}/pulls", L["Tab_Pulls"], CcIconName.PullRequest),
+      .. ShowSettings ? new[] { new CcNavItem($"{root}/settings", L["Tab_RepoSettings"], CcIconName.Gear) } : [],
     ];
   }
 

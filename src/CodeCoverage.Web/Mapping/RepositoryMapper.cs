@@ -8,15 +8,20 @@ using System.Diagnostics.CodeAnalysis;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
+using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
+using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
+using CodeCoverage.Application.Features.Repositories.Queries.GetRepositorySettings;
 using CodeCoverage.Application.Features.Repositories.Queries.ListRepositorySummaries;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Web.ViewModels.Commits;
 using CodeCoverage.Web.ViewModels.Repositories;
 
 namespace CodeCoverage.Web.Mapping;
@@ -175,12 +180,129 @@ internal static class RepositoryMapper
     return [.. summaries.OrderBy(static s => s.Repository.Name, StringComparer.OrdinalIgnoreCase).Select(s => ToSummary(forge, s))];
   }
 
+  /// <summary>Tells whether the user administers a repository: the settings tab and its page are theirs only.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns><see langword="true" /> when the user administers it; false for a forge segment the console does not serve.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> CanAdministerRepositoryAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    return await sender.Send(new GetRepositoryPermissionQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Reads the settings of a repository: its state and the configuration in force.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The settings, or <see langword="null" /> when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<RepositorySettingsViewModel?> GetRepositorySettingsViewModelAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return null;
+    }
+
+    var settings = await sender.Send(new GetRepositorySettingsQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false);
+
+    return new RepositorySettingsViewModel(settings.Repository.Name, settings.Repository.DisabledAt is null, ToConfig(settings.Config));
+  }
+
+  /// <summary>Enables a repository again: its coverage is processed once more.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the repository is enabled.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> ActivateRepositoryAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new ActivateRepositoryCommand(parsed, owner, name), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Disables a repository: its uploads are refused and nothing is published any more.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the repository is disabled.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> DeactivateRepositoryAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new DeactivateRepositoryCommand(parsed, owner, name), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
   /// <summary>Reads a forge segment strictly: only the segment the console writes, never a default forge.</summary>
   /// <param name="segment">The segment of the address.</param>
   /// <param name="forge">The forge it names.</param>
   /// <returns><see langword="true" /> when the segment is the one of a forge.</returns>
   internal static bool TryParseForge([NotNullWhen(true)] string? segment, out Forge forge) =>
     ForgeSegments.TryParse(segment, out forge) && string.Equals(ForgeSegments.ToSegment(forge), segment, StringComparison.Ordinal);
+
+  // The configuration as it is written: its source, where it was read and the YAML itself, never a merged rewrite.
+  private static EffectiveConfigViewModel ToConfig(EffectiveConfig config) =>
+    new(
+      $"ConfigSource_{config.Source}",
+      config.Path,
+      config.Sha is { } sha ? DisplayFormatter.ShortSha(sha) : null,
+      config.Yaml,
+      [.. config.Warnings.Select(static w => new ConfigWarningViewModel(w.Code, w.Key, w.Detail))],
+      config.Errors
+    );
 
   // The change over the period: the last known coverage minus the first; unknown with fewer than two of them.
   private static decimal? ChangeOf(CoverageSeries series)

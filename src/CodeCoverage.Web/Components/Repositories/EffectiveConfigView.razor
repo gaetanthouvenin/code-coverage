@@ -1,0 +1,61 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="EffectiveConfigView.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="config">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["RepositorySettings_Config"]</h2>
+    <div class="cc-panel__tools">
+      @if (Config.IsValid)
+      {
+        <CcBadge Tone="CcTone.Success" Icon="CcIconName.Check">@L["RepositorySettings_ConfigValid"]</CcBadge>
+      }
+      else
+      {
+        <CcBadge Tone="CcTone.Danger" Icon="CcIconName.Alert">@L["RepositorySettings_ConfigInvalid"]</CcBadge>
+      }
+    </div>
+  </div>
+  <div class="cc-panel__body cc-stack">
+    <dl class="cc-kv">
+      <dt>@L["Commit_ConfigSource"]</dt>
+      <dd>
+        @L[Config.Source]
+        @if (Config.Path is { } path)
+        {
+          <text> · </text>
+          <code>@path</code>
+        }
+        @if (Config.Sha is { } sha)
+        {
+          <text> · </text>
+          <code>@sha</code>
+        }
+      </dd>
+    </dl>
+    @foreach (var error in Config.Errors)
+    {
+      <CcBanner Tone="CcTone.Danger">@error</CcBanner>
+    }
+    @foreach (var warning in Config.Warnings)
+    {
+      <CcBanner Tone="CcTone.Warning">
+        @L[warning.Code] <code>@warning.Key</code>@if (warning.Detail is { } detail)
+        {
+          <text> · </text>
+          <code>@detail</code>
+        }
+      </CcBanner>
+    }
+    @if (Config.Yaml is { } yaml)
+    {
+      <pre class="cc-code" aria-label="@L["RepositorySettings_ConfigYaml"]">@yaml</pre>
+    }
+    else
+    {
+      <p class="cc-muted" data-state="noyaml">@L["RepositorySettings_ConfigNone"]</p>
+    }
+  </div>
+</section>

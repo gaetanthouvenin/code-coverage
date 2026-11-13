@@ -7,6 +7,8 @@
 using Microsoft.AspNetCore.Components;
 
 using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Mapping;
+using CodeCoverage.Web.Messaging;
 
 namespace CodeCoverage.Web.Components.Repositories;
 
@@ -14,8 +16,21 @@ namespace CodeCoverage.Web.Components.Repositories;
 ///   The header of every page of a repository: the crumbs (owner, repository, then the page), the title and the tabs of
 ///   the repository.
 /// </summary>
+/// <remarks>
+///   The header asks once per repository whether the user administers it, and only then shows the settings tab. A
+///   refusal or a failure shows no tab, which reveals nothing.
+/// </remarks>
 public partial class RepositoryHeader
 {
+  #region Fields
+
+  private readonly LatestRequest _latest = new();
+
+  // The address the permission was last asked for: a re-render of the same repository asks nothing again.
+  private string? _asked;
+
+  #endregion
+
   #region Parameters
 
   /// <summary>Gets or sets the forge segment of the address.</summary>
@@ -48,22 +63,50 @@ public partial class RepositoryHeader
 
   #endregion
 
+  #region Injected services
+
+  [Inject]
+  private UiRequestRunner Runner { get; set; } = null!;
+
+  #endregion
+
   #region Properties
 
   private IReadOnlyList<CcBreadcrumbItem> Breadcrumb { get; set; } = [];
+
+  private bool ShowSettings { get; set; }
 
   #endregion
 
   #region Lifecycle
 
   /// <inheritdoc />
-  protected override void OnParametersSet()
+  protected override async Task OnParametersSetAsync()
   {
-    var root = $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}";
+    var (forge, owner, name) = (Forge, Owner, Name);
+    var root = $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
 
     // The owner leads to the repositories of its organization on the home page (?org={forge}/{login}), the repository
     // to its overview.
-    Breadcrumb = [new CcBreadcrumbItem(Owner, $"./?org={Uri.EscapeDataString($"{Forge}/{Owner}")}"), new CcBreadcrumbItem(Name, root), .. Crumbs ?? []];
+    Breadcrumb = [new CcBreadcrumbItem(owner, $"./?org={Uri.EscapeDataString($"{forge}/{owner}")}"), new CcBreadcrumbItem(name, root), .. Crumbs ?? []];
+
+    if (string.Equals(_asked, root, StringComparison.Ordinal))
+    {
+      return;
+    }
+
+    _asked = root;
+    ShowSettings = false;
+    var ticket = _latest.Begin();
+    var result = await Runner.RunAsync((sender, ct) => sender.CanAdministerRepositoryAsync(forge, owner, name, ct)).ConfigureAwait(true);
+
+    // Another repository is shown since: its own answer says what its header shows.
+    if (!_latest.IsLatest(ticket))
+    {
+      return;
+    }
+
+    ShowSettings = result is { Succeeded: true, Value: true };
   }
 
   #endregion
