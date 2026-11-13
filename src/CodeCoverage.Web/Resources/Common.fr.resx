@@ -278,6 +278,39 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Setup_Title" xml:space="preserve"><value>Premier démarrage</value></data>
+  <data name="Setup_Subtitle" xml:space="preserve"><value>Trois étapes mettent cette instance en place : ses adresses publiques, sa GitHub App et ses administrateurs.</value></data>
+  <data name="Setup_Steps" xml:space="preserve"><value>Étapes de la mise en place</value></data>
+  <data name="Setup_StepUrls" xml:space="preserve"><value>Adresses publiques</value></data>
+  <data name="Setup_StepApp" xml:space="preserve"><value>GitHub App</value></data>
+  <data name="Setup_StepAdmins" xml:space="preserve"><value>Administrateurs</value></data>
+  <data name="Setup_InvalidTokenTitle" xml:space="preserve"><value>Jeton de mise en place requis</value></data>
+  <data name="Setup_InvalidTokenText" xml:space="preserve"><value>Ouvrez cette page avec le jeton à usage unique que le serveur a écrit dans son journal au démarrage, sous la forme /setup?token=…</value></data>
+  <data name="Setup_CompleteTitle" xml:space="preserve"><value>L'instance est en place</value></data>
+  <data name="Setup_CompleteText" xml:space="preserve"><value>L'App est connue, les adresses sont enregistrées et les administrateurs sont nommés. Connectez-vous avec GitHub pour continuer.</value></data>
+  <data name="Setup_UrlsHelp" xml:space="preserve"><value>Ce sont les adresses qu'emploient les badges, les liens des commentaires et les webhooks. Elles sont enregistrées avant l'App, dont le manifest les porte.</value></data>
+  <data name="Setup_WebUrl" xml:space="preserve"><value>Adresse publique de la console</value></data>
+  <data name="Setup_ApiUrl" xml:space="preserve"><value>Adresse publique de l'Api</value></data>
+  <data name="Setup_AppNeedsUrls" xml:space="preserve"><value>Enregistrez d'abord les adresses publiques : le manifest de l'App les porte.</value></data>
+  <data name="Setup_AppName" xml:space="preserve"><value>Nom de l'App</value></data>
+  <data name="Setup_AppNameDefault" xml:space="preserve"><value>CodeCoverage</value></data>
+  <data name="Setup_AppOrganization" xml:space="preserve"><value>Organisation</value></data>
+  <data name="Setup_AppOrganizationHelp" xml:space="preserve"><value>Laissez vide pour créer l'App sur votre compte personnel.</value></data>
+  <data name="Setup_ManifestStart" xml:space="preserve"><value>Préparer l'App</value></data>
+  <data name="Setup_ManifestReady" xml:space="preserve"><value>Continuez sur GitHub, acceptez le manifest, et vous reviendrez ici.</value></data>
+  <data name="Setup_ManifestContinue" xml:space="preserve"><value>Continuer sur GitHub</value></data>
+  <data name="Setup_InvalidState" xml:space="preserve"><value>Ce retour de GitHub ne correspond pas à celui que ce navigateur a commencé : recommencez la création de l'App.</value></data>
+  <data name="Setup_ManualTitle" xml:space="preserve"><value>Saisir une App créée à la main</value></data>
+  <data name="Setup_ManualHelp" xml:space="preserve"><value>Relevez ces valeurs sur la page de l'App, sur la forge. Elles sont stockées protégées et ne sont plus jamais affichées.</value></data>
+  <data name="Setup_AppId" xml:space="preserve"><value>Identifiant de l'App</value></data>
+  <data name="Setup_ClientId" xml:space="preserve"><value>Identifiant client</value></data>
+  <data name="Setup_ClientSecret" xml:space="preserve"><value>Secret client</value></data>
+  <data name="Setup_WebhookSecret" xml:space="preserve"><value>Secret de webhook</value></data>
+  <data name="Setup_PrivateKey" xml:space="preserve"><value>Clé privée (PEM)</value></data>
+  <data name="Setup_AppSlug" xml:space="preserve"><value>Slug de l'App</value></data>
+  <data name="Setup_AdminsHelp" xml:space="preserve"><value>Les identifiants GitHub numériques des administrateurs de l'instance, séparés par des virgules.</value></data>
+  <data name="Setup_AdminIds" xml:space="preserve"><value>Administrateurs</value></data>
+  <data name="Setup_Finish" xml:space="preserve"><value>Terminer la mise en place</value></data>
   <data name="Tab_OrgRepositories" xml:space="preserve"><value>Dépôts</value></data>
   <data name="Action_Sync" xml:space="preserve"><value>Synchroniser</value></data>
   <data name="Column_LastUpload" xml:space="preserve"><value>Dernier upload</value></data>

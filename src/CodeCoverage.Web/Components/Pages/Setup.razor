@@ -1,0 +1,122 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="Setup.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/setup"
+@using Microsoft.AspNetCore.Components.Endpoints
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>@L["PageTitle_Format", L["Setup_Title"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["Setup_Title"]" Icon="CcIconName.Gear" Subtitle="@L["Setup_Subtitle"]" />
+
+  @if (State is null)
+  {
+    <div class="cc-panel cc-status-page" data-state="invalidtoken">
+      <CcEmptyState Title="@L["Setup_InvalidTokenTitle"]" Icon="CcIconName.Shield">@L["Setup_InvalidTokenText"]</CcEmptyState>
+    </div>
+  }
+  else
+  {
+    <ol class="cc-stepper" aria-label="@L["Setup_Steps"]">
+      <li class="@StepClass(State.HasPublicUrls)" data-step="urls">@L["Setup_StepUrls"]</li>
+      <li class="@StepClass(State.IsAppCreated)" data-step="app">@L["Setup_StepApp"]</li>
+      <li class="@StepClass(State.HasAdministrators)" data-step="admins">@L["Setup_StepAdmins"]</li>
+    </ol>
+
+    @if (Refusal is { } error)
+    {
+      <div data-state="error">
+        <CcBanner Tone="CcTone.Danger">@error</CcBanner>
+      </div>
+    }
+
+    @if (State.IsComplete)
+    {
+      <div class="cc-panel cc-status-page" data-state="complete">
+        <CcEmptyState Title="@L["Setup_CompleteTitle"]" Icon="CcIconName.Check">
+          <ChildContent>@L["Setup_CompleteText"]</ChildContent>
+          <Actions><CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else
+    {
+      <section class="cc-panel" data-panel="urls">
+        <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepUrls"]</h2></div>
+        <div class="cc-panel__body cc-stack">
+          <p class="cc-muted">@L["Setup_UrlsHelp"]</p>
+          <EditForm FormName="urls" Model="Urls!" OnValidSubmit="SaveUrlsAsync" class="cc-stack">
+            <AntiforgeryToken />
+            <CcTextField Label="@L["Setup_WebUrl"]" @bind-Value="Urls!.WebPublicUrl" Required="true" />
+            <CcTextField Label="@L["Setup_ApiUrl"]" @bind-Value="Urls!.ApiPublicUrl" Required="true" />
+            <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Action_Save"]</CcButton>
+          </EditForm>
+        </div>
+      </section>
+
+      @if (!State.IsAppCreated)
+      {
+        <section class="cc-panel" data-panel="app">
+          <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepApp"]</h2></div>
+          <div class="cc-panel__body cc-stack">
+            @if (!State.HasPublicUrls)
+            {
+              <CcBanner Tone="CcTone.Info">@L["Setup_AppNeedsUrls"]</CcBanner>
+            }
+            else if (Manifest is { Length: > 0 } manifest)
+            {
+              <p class="cc-muted">@L["Setup_ManifestReady"]</p>
+              <form method="post" action="@ManifestAction" data-form="manifest">
+                <input type="hidden" name="manifest" value="@manifest" />
+                <button type="submit" class="cc-button cc-button--primary">@L["Setup_ManifestContinue"]</button>
+              </form>
+            }
+            else
+            {
+              <EditForm FormName="manifest-start" Model="App!" OnValidSubmit="StartManifestAsync" class="cc-stack">
+                <AntiforgeryToken />
+                <CcTextField Label="@L["Setup_AppName"]" @bind-Value="AppName" Required="true" />
+                <CcTextField Label="@L["Setup_AppOrganization"]" @bind-Value="AppOrganization" Help="@L["Setup_AppOrganizationHelp"]" />
+                <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Setup_ManifestStart"]</CcButton>
+              </EditForm>
+            }
+
+            <details data-panel="manual">
+              <summary>@L["Setup_ManualTitle"]</summary>
+              <EditForm FormName="manual-app" Model="App!" OnValidSubmit="SaveAppAsync" class="cc-stack">
+                <AntiforgeryToken />
+                <p class="cc-muted">@L["Setup_ManualHelp"]</p>
+                <CcTextField Label="@L["Setup_AppId"]" @bind-Value="App!.AppId" Required="true" />
+                <CcTextField Label="@L["Setup_ClientId"]" @bind-Value="App!.ClientId" Required="true" />
+                <CcTextField Label="@L["Setup_ClientSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.ClientSecret" Required="true" />
+                <CcTextField Label="@L["Setup_WebhookSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.WebhookSecret" Required="true" />
+                <CcTextField Label="@L["Setup_PrivateKey"]" Type="password" AutoComplete="off" @bind-Value="App!.PrivateKeyPem" Required="true" />
+                <CcTextField Label="@L["Setup_AppSlug"]" @bind-Value="App!.Slug" />
+                <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Action_Save"]</CcButton>
+              </EditForm>
+            </details>
+          </div>
+        </section>
+      }
+
+      @if (State.IsAppCreated)
+      {
+        <section class="cc-panel" data-panel="admins">
+          <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepAdmins"]</h2></div>
+          <div class="cc-panel__body cc-stack">
+            <p class="cc-muted">@L["Setup_AdminsHelp"]</p>
+            <EditForm FormName="admins" Model="Admins!" OnValidSubmit="CompleteAsync" class="cc-stack">
+              <AntiforgeryToken />
+              <CcTextField Label="@L["Setup_AdminIds"]" @bind-Value="Admins!.AdminUserIds" Required="true" />
+              <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Setup_Finish"]</CcButton>
+            </EditForm>
+          </div>
+        </section>
+      }
+    }
+  }
+</CcPageContainer>

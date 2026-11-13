@@ -17,10 +17,10 @@
   @* Synchronous on purpose: the remembered theme is applied before the first paint. *@
   <script src="@Assets["js/cc-ui.js"]"></script>
   <ImportMap />
-  <HeadOutlet @rendermode="InteractiveServer" />
+  <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 <body>
-  <Routes @rendermode="InteractiveServer" />
+  <Routes @rendermode="PageRenderMode" />
   <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 </html>

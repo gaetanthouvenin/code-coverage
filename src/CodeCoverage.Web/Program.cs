@@ -48,6 +48,8 @@ try
   builder.Services.AddCodeCoverageDataProtection(builder.Configuration, builder.Environment);
   // The session cookie and the sign-in with GitHub, protected by the key ring above.
   builder.Services.AddCodeCoverageAuthentication();
+  // The cookie of the first-start wizard, protected by the same key ring.
+  builder.Services.AddSingleton<SetupCookie>();
   builder.Services.AddCoverageUi();
   builder.Services.AddUiMessaging();
   builder.Services.AddHealthProbes();

@@ -25,9 +25,14 @@ internal sealed class GetSetupStateQueryHandler(ISettingsStore store, ISetupToke
   /// <returns><see langword="true" /> when the value is not empty.</returns>
   private async Task<bool> HasValueAsync(string key, CancellationToken cancellationToken)
   {
+    return await ValueOfAsync(key, cancellationToken).ConfigureAwait(false) is not null;
+  }
+
+  private async Task<string?> ValueOfAsync(string key, CancellationToken cancellationToken)
+  {
     var value = await store.GetAsync(SettingDefinitions.Find(key)!, cancellationToken).ConfigureAwait(false);
 
-    return !string.IsNullOrWhiteSpace(value.Value);
+    return string.IsNullOrWhiteSpace(value.Value) ? null : value.Value;
   }
 
   #endregion
@@ -43,11 +48,11 @@ internal sealed class GetSetupStateQueryHandler(ISettingsStore store, ISetupToke
     SetupRules.ThrowIfInvalidToken(issuer, query.SetupToken);
 
     var app = await SetupRules.IsAppCreatedAsync(store, cancellationToken).ConfigureAwait(false);
-    var web = await HasValueAsync(SettingDefinitions.UrlsWebPublicUrl, cancellationToken).ConfigureAwait(false);
-    var api = await HasValueAsync(SettingDefinitions.UrlsApiPublicUrl, cancellationToken).ConfigureAwait(false);
+    var web = await ValueOfAsync(SettingDefinitions.UrlsWebPublicUrl, cancellationToken).ConfigureAwait(false);
+    var api = await ValueOfAsync(SettingDefinitions.UrlsApiPublicUrl, cancellationToken).ConfigureAwait(false);
     var administrators = await HasValueAsync(SettingDefinitions.AccessAdminUserIds, cancellationToken).ConfigureAwait(false);
 
-    return new SetupState(app, web && api, administrators);
+    return new SetupState(app, web is not null && api is not null, administrators, web, api);
   }
 
   #endregion
