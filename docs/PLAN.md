@@ -437,6 +437,8 @@ graph TD
   M4_05["M4.05 Guide de migration"] --> M4_07["M4.07 Scripts de déploiement pilote"]
   M4_06["M4.06 Parité quotidienne"] --> M4_08["M4.08 Bascule et résiliation"]
   M4_07 --> M4_08
+  M4_01 --> M4_07
+  M4_01 --> M4_05
   M4_02 --> M4_08
   M4_02 --> M4_02a["M4.02a Vérification sur deux organisations"]
   M4_02a --> M4_08
@@ -2455,136 +2457,156 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 **Critère de sortie :** Codecov désinstallé et abonnement résilié.
 
 #### M4.01 — Release CI : binaires de l'uploader et sommes de contrôle
+- **Issue :** [#214](https://github.com/gaetanthouvenin/code-coverage/issues/214)
 - **Objectif :** publier une release GitHub avec les binaires et leurs fichiers `.sha256`.
 - **Couches :** CI.
-- **Fichiers :** job `release` dans `.github/workflows/ci-cd.yml` (`softprops/action-gh-release@v3`), étape de publication de l'uploader par RID, étape d'upload de la couverture du dépôt par son propre service.
-- **Tests :** release de test sur un tag `v0.x` de pré-version.
-- **Acceptation :** les sommes de la release sont égales à celles servies par l'Api.
+- **Fichiers :** job `release` dans `.github/workflows/ci-cd.yml`, sur les tags `refs/tags/v` seulement, après les jobs `gitversion` et `docker` (`permissions: contents: write` et `packages: read` au niveau du job, `softprops/action-gh-release` épinglé par SHA avec sa version en commentaire, `prerelease` déduit de `preReleaseTag`) : garde « tag = `v{semVer}` » lue par `env:`, extraction de `/app/uploader` depuis l'image `${IMAGE_PREFIX}-api:<semver>` poussée pour le même tag (`docker create` puis `docker cp`, jamais une seconde compilation, dont les sommes différeraient), vérification de chaque `.sha256` contre son binaire, puis pièces jointes sous les noms de `UploaderFileCatalog` (`coverage-upload-{rid}[.exe]` et `.sha256`, hexadécimal minuscule) ; la même extraction et la même vérification tournent à chaque PR dans le job `compose-smoke`, sur l'image qu'il construit ; en-tête de `ci-cd.yml` mis à jour. L'upload de la couverture du dépôt par son propre service attend une instance (CONVENTIONS §14.2) et sort de M4.01.
+- **Tests :** extraction et vérification à blanc dans `compose-smoke` à chaque PR ; release de test sur un tag `v0.x` de pré-version (propriétaire).
+- **Acceptation :** les sommes de la release sont égales à celles servies par l'Api (mêmes fichiers que l'image du même tag, vérifiés par le job), et la version du tag est égale au `semVer` de GitVersion.
 - **Dépend de :** M1.46, M0.28
 
 #### M4.02 — Déploiement VM de production
-- **Objectif :** compose de production, Caddy, sauvegardes et runbook.
+- **Issue :** [#215](https://github.com/gaetanthouvenin/code-coverage/issues/215)
+- **Objectif :** compose de production, Caddy, sauvegardes et runbook, sur PostgreSQL seul (une VM sur SQL Server n'a pas de recette de sauvegarde ; SQL Server en production passe par Azure SQL, M4.03).
 - **Couches :** déploiement, docs.
-- **Fichiers :** `deploy/vm/docker-compose.prod.yml`, `deploy/vm/Caddyfile`, `deploy/vm/backup/Dockerfile` (cron `pg_dump -Fc`), `docs/operations.md` (déploiement, mise à jour en commençant par l'Api, restauration trimestrielle, sauvegarde séparée du certificat DP).
-- **Tests :** restauration testée sur une VM de recette.
-- **Acceptation :** RPO de 24 h au plus, et procédure de restauration exécutée une fois.
+- **Fichiers :** `deploy/vm/docker-compose.prod.yml` (autonome, images seules sans `build:`, `TAG` obligatoire, Caddy en conteneur à adresse fixe sur un réseau de sous-réseau fixe, nommée dans `FORWARDED_KNOWN_PROXIES`), `deploy/vm/Caddyfile` (variante conteneur ; `Caddyfile.example` reste pour un Caddy installé sur la VM, chacun nommant l'autre), `deploy/vm/backup/Dockerfile` (base `postgres:17-alpine` épinglée, cron `pg_dump -Fc` vers un volume, rétention réglable, healthcheck rouge si la dernière sauvegarde a plus de 26 h, crochet facultatif de copie hors machine), `scripts/test-backup-restore.ps1`, `docs/operations.md` (déploiement, mise à jour en commençant par l'Api, restauration trimestrielle, sauvegarde séparée du certificat DP, une sauvegarde contient toutes les organisations, verbe d'administration en ligne de commande gardé comme voie de secours, §11-4).
+- **Tests :** `scripts/test-backup-restore.ps1` en local (sauvegarde par l'image, `pg_restore` dans une base neuve, comptes de lignes comparés, ignoré avec une raison explicite sans Docker) ; puis restauration sur une VM de recette (propriétaire).
+- **Acceptation :** RPO de 24 h au plus une fois le stockage hors machine branché (propriétaire) ; le script de restauration passe en local ; la procédure est exécutée une fois sur la VM de recette (propriétaire).
 - **Dépend de :** M0.27
 
 #### M4.02a — Vérification sur deux organisations réelles et guide d'accueil
+- **Issue :** [#216](https://github.com/gaetanthouvenin/code-coverage/issues/216)
 - **Objectif :** confirmer les comportements GitHub qui n'ont pas pu être vérifiés dans le dépôt (ADR-013).
 - **Couches :** docs, exploitation.
-- **Fichiers :** `docs/operations/organization-onboarding.md` ; une liste de contrôle consignée sur deux comptes réels : SAML et `GET /user/installations` ; présence d'un collaborateur externe dans cette liste ; contenu de l'événement `transferred` ; réception de `installation_repositories` retiré par le compte d'origine ; `organization` renommé et `installation_target` renommé sur les deux types de compte ; conservation des secrets Actions après un transfert ; lecture d'un dépôt public d'un autre compte par un jeton d'installation ; forme `/repositories/{id}` sur chaque endpoint de la passerelle.
-- **Tests :** exécution de la liste de contrôle sur deux comptes réels.
-- **Acceptation :** chaque point est consigné comme confirmé ou corrigé, et une correction ouvre une modification du plan avant M4.08.
+- **Fichiers :** `docs/operations/organization-onboarding.md` (installation de l'App, admission, paramètres d'organisation, import des jetons, écarts non configurables d'ADR-013, sans les logins réservés retirés en M3.43a) et `docs/operations/github-verification-checklist.md` (une ligne par comportement « Probable » d'ADR-013 : procédure, résultat attendu tiré du code, preuve attendue, colonnes « confirmé / corrigé / non vérifiable / date »), avec en annexe l'inventaire des chemins de `GitHubAppGateway`. La liste est exécutée sur deux comptes réels : SAML et `GET /user/installations` (le point SAML exige une organisation GitHub Enterprise Cloud ; sans elle, il est consigné « non vérifiable » avec son risque) ; présence d'un collaborateur externe dans cette liste ; contenu de l'événement `transferred` ; réception de `installation_repositories` retiré par le compte d'origine ; `organization` renommé et `installation_target` renommé sur les deux types de compte ; conservation des secrets Actions après un transfert ; lecture d'un dépôt public d'un autre compte par un jeton d'installation ; forme `/repositories/{id}` sur chaque endpoint de la passerelle.
+- **Tests :** exécution de la liste de contrôle sur deux comptes réels (propriétaire).
+- **Acceptation :** le guide et la liste vierge sont livrés dans le dépôt ; chaque point est ensuite consigné par le propriétaire comme confirmé, corrigé ou non vérifiable, et une correction ouvre une modification du plan avant M4.08.
 - **Dépend de :** M4.02, M2.03a2, M3.43a
 
 #### M4.03 — Déploiement Azure Container Apps (option)
-- **Objectif :** deux Container Apps, PostgreSQL Flexible ou Azure SQL, et Key Vault pour Data Protection.
+- **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
+- **Objectif :** deux Container Apps, PostgreSQL Flexible ou Azure SQL, et Key Vault pour Data Protection (déjà pris en charge par `DataProtectionConfiguration`, M0.16). Bicep et documentation seulement : aucun déploiement dans le lot (décision du propriétaire du 2026-11-13, §11-9).
 - **Couches :** déploiement, docs.
-- **Fichiers :** `deploy/azure/main.bicep` (Api avec au moins un réplica, Web, base, identité managée, Key Vault), `docs/deployment-azure.md`.
-- **Tests :** déploiement de recette.
-- **Acceptation :** l'Api ne passe jamais à zéro réplica, et le RCSI est vérifié par `ready`.
+- **Fichiers :** `deploy/azure/main.bicep` (Api avec au moins un réplica, Web limité à un réplica, base au choix par paramètre, identité managée affectée par l'utilisateur et `AZURE_CLIENT_ID`, Key Vault portant la clé Data Protection et la chaîne de connexion en référence de secret, sondes `/health/live` et `/health/ready`, `ASPNETCORE_FORWARDEDHEADERS_ENABLED` derrière l'ingress), `docs/deployment-azure.md`.
+- **Tests :** `az bicep build` et son lint en local s'ils sont installés, sans abonnement ; puis déploiement de recette (propriétaire).
+- **Acceptation :** l'Api ne passe jamais à zéro réplica, le RCSI est vérifié par `ready` (sonde de disponibilité), et le rappel de connexion GitHub du Web est en https derrière l'ingress.
 - **Dépend de :** M0.16
 
-#### M4.04 — Alertes et tableaux de bord
-- **Objectif :** alertes suggérées de §12.6.
-- **Couches :** exploitation.
-- **Fichiers :** `deploy/observability/alerts.yml`, `docs/operations.md` (section alertes).
-- **Tests :** déclenchement provoqué (job mort, worker arrêté).
-- **Acceptation :** chaque alerte est déclenchée une fois en recette.
-- **Dépend de :** M0.26, M1.25, M2.02
+#### M4.04 — Alertes
+- **Issue :** [#218](https://github.com/gaetanthouvenin/code-coverage/issues/218)
+- **Objectif :** alertes suggérées de §12.6, en règles Prometheus (décision du propriétaire du 2026-11-13).
+- **Couches :** Infrastructure, exploitation, CI.
+- **Fichiers :**
+  - `Infrastructure/Diagnostics/CodeCoverageMeter.cs` et l'échantillonneur : jauges `jobs_dead` (jobs morts en base), `worker_heartbeat_age_seconds` (âge du dernier battement de `WorkerHeartbeats`) et `github_ratelimit_limit` (quota de `GitHubQuotas`), lues par l'échantillonneur sur les tables opérationnelles, jamais par une requête dans un rappel de collecte ; §12.6 de l'architecture mis à jour ;
+  - `deploy/observability/alerts.yml` (règles Prometheus des alertes de §12.6, plus une règle quand aucune Api n'exporte), `deploy/observability/alerts.test.yml` (`promtool test rules`), `deploy/observability/docker-compose.observability.yml` (collecteur OTLP et Prometheus, images épinglées par condensé) ;
+  - `docs/operations.md` (section alertes : signification, premier diagnostic, correspondance des noms OTLP vers Prometheus ; le récepteur de notification reste un paramètre d'exploitation hors dépôt) ;
+  - étape `promtool check rules` et `promtool test rules` dans `.github/workflows/ci-cd.yml`.
+- **Tests :** tests des nouvelles jauges (`MeterListener`) ; lecture des tables opérationnelles sur les deux fournisseurs (Testcontainers) ; tests unitaires des règles par promtool ; déclenchement provoqué en local par la surcharge compose (job mort, worker arrêté).
+- **Acceptation :** chaque alerte passe ses tests promtool et se déclenche une fois sur la pile locale autant que possible ; le déclenchement en recette sur l'hôte réel est consigné par le propriétaire après M4.02.
+- **Dépend de :** M0.26, M1.25, M2.02, M3.13a
 
 #### M4.05 — Guide de migration depuis Codecov
+- **Issue :** [#219](https://github.com/gaetanthouvenin/code-coverage/issues/219)
 - **Objectif :** documenter la bascule des pipelines.
 - **Couches :** docs.
-- **Fichiers :** `docs/migration-from-codecov.md` (GitHub Actions avec OIDC, Azure Pipelines, recette curl, monorepo sans `after_n_builds` global, `--finalize`, import des jetons et du graphing token, changement d'hôte des badges, écarts avec Codecov nommés par ADR-013).
-- **Tests :** relecture par une équipe pilote.
-- **Acceptation :** un dépôt pilote est migré en suivant le guide seul.
-- **Dépend de :** M2.23, M1.46, M3.11, M3.15
+- **Fichiers :** `docs/migration-from-codecov.md`, en anglais (GitHub Actions avec OIDC et l'action composite, Azure Pipelines et son template, recette curl, monorepo sans `after_n_builds` global, `--finalize` et sa route `repos/{forge}/{owner}/{repo}/commits/{sha}/uploads-complete`, import des jetons et du graphing token, import de l'historique, changement d'hôte des badges vers l'hôte public de l'Api, écarts avec Codecov nommés : ADR-013 et ADR-014, profil de défauts historique (§11-7) pour un dépôt sans `codecov.yml`, interrupteur `Notifications:ChecksEnabled` éteint par défaut, commits importés sans fichiers ni sessions).
+- **Tests :** chaque route, option et code d'erreur cité est vérifié contre le code ; les exemples passent `coverage-upload --dry-run`. Relecture par une équipe pilote (propriétaire).
+- **Acceptation :** un dépôt pilote est migré en suivant le guide seul (vérifié par le propriétaire avant M4.08).
+- **Dépend de :** M2.23, M1.46, M3.11, M3.15, M4.01
 
 #### M4.06 — Script de parité quotidien (API)
+- **Issue :** [#220](https://github.com/gaetanthouvenin/code-coverage/issues/220)
 - **Objectif :** comparer chaque jour les totaux et les totaux de patch par fichier avec Codecov.
 - **Couches :** outillage.
-- **Fichiers :** `tools/parity/Compare-WithCodecov.ps1` (API v1 avec jeton API, Codecov API v2, totaux à ±0,01 %, totaux de patch par fichier identiques ; M3.10 ne sert pas les lignes de patch, l'écart ligne à ligne est consigné dans `docs/parity-log.md`), `.github/workflows/parity.yml` (planifié, rapport en artefact).
-- **Tests :** jeux figés dans `tools/parity/samples/`.
-- **Acceptation :** chaque écart est expliqué un par un dans `docs/parity-log.md`.
+- **Fichiers :** `tools/parity/Compare-WithCodecov.ps1` (API v1 avec un jeton API `cvp_` par organisation, Codecov API v2, totaux à ±0,01 %, totaux de patch par fichier identiques quand les deux côtés ont la même base ; M3.10 ne sert pas les lignes de patch, l'écart ligne à ligne est consigné dans `docs/parity-log.md` ; simulation par défaut, jetons lus dans l'environnement) et son autotest hors ligne sur des jeux synthétiques ; remplace `Compare-TotalsWithCodecov.ps1`, `tools/parity/sql/` et leur étape de CI (M1.47), sans aucune requête SQL entre organisations ; `.github/workflows/parity.yml` (planifié et manuel, ignoré sans configuration, secrets passés par `env:`, rapport en artefact sans nom privé ; pour des dépôts pilotes privés, exécuté depuis un dépôt privé, les artefacts d'un dépôt public étant lisibles) ; squelette de `docs/parity-log.md` ; `tools/parity/README.md`.
+- **Tests :** jeux figés dans `tools/parity/samples/`, autotest lancé par la CI.
+- **Acceptation :** chaque écart est expliqué un par un dans `docs/parity-log.md` (exécutions réelles par le propriétaire).
 - **Dépend de :** M3.08, M3.05, M1.47, M3.10
 
 #### M4.07 — Scripts de déploiement pilote (double upload)
-- **Objectif :** PR d'une ligne scriptées avec `gh`.
+- **Issue :** [#221](https://github.com/gaetanthouvenin/code-coverage/issues/221)
+- **Objectif :** PR d'une étape, scriptées avec `gh`, qui ajoutent l'upload vers CodeCoverage à côté de l'étape Codecov existante.
 - **Couches :** outillage.
-- **Fichiers :** `tools/rollout/Add-CoverageUpload.ps1`, `tools/rollout/Import-CodecovTokens.ps1` (routes `upload-tokens` de M3.11, avec l'organisation).
-- **Tests :** essai sur un dépôt bac à sable.
-- **Acceptation :** tous les dépôts envoient leurs uploads aux deux services.
-- **Dépend de :** M4.05, M3.11
+- **Fichiers :** `tools/rollout/Add-CoverageUpload.ps1` (insertion textuelle après l'étape `codecov/codecov-action`, OIDC par défaut, simulation par défaut), `tools/rollout/Import-CodecovTokens.ps1` (valeurs lues depuis un CSV hors dépôt, routes `upload-tokens` de M3.11 avec la forge et l'organisation, 409 traité comme déjà fait, aucune valeur journalisée), `tools/rollout/Start-CodecovImport.ps1` (route de M5.06), `tools/rollout/Test-Rollout.ps1` et `tools/rollout/samples/` (jeux figés et `gh` remplacé par un script, exécutés par la CI), `tools/rollout/README.md`.
+- **Tests :** `Test-Rollout.ps1` sur les jeux figés, sans réseau ; essai sur un dépôt bac à sable (propriétaire).
+- **Acceptation :** tous les dépôts envoient leurs uploads aux deux services (propriétaire). Le pilote mesure aussi combien de dépôts gardent `codecov/codecov-action`, mesure qui tranche la décision 13.2-1 (M5.07).
+- **Dépend de :** M4.05, M3.11, M4.01
 
 #### M4.08 — Bascule et résiliation
+- **Issue :** [#222](https://github.com/gaetanthouvenin/code-coverage/issues/222)
 - **Objectif :** par organisation, passer `Notifications:StatusContextPrefix` à `codecov` dans les paramètres de l'organisation, retirer les étapes et l'App Codecov, résilier.
 - **Couches :** exploitation.
-- **Fichiers :** `docs/cutover-runbook.md` (pré-requis de parité, import de l'historique Codecov, changement de préfixe, vérification des protections de branche, scripts de retrait, désinstallation, résiliation).
-- **Tests :** répétition sur un dépôt.
-- **Acceptation :** les protections de branche restent inchangées, Codecov est désinstallé et l'abonnement résilié.
-- **Dépend de :** M4.06, M4.07, M4.02, M4.04, M3.12, M5.06, M4.02a
+- **Fichiers :** `docs/cutover-runbook.md` (pré-requis de parité, import de l'historique Codecov par M5.06, relevé des protections de branche et des rulesets, protections épinglées sur l'`app_id` de Codecov, arrêt des notifications Codecov avant le changement de préfixe, changement de préfixe par M3.12a et interrupteur `Notifications:ChecksEnabled` allumé, renotification des PR ouvertes, comparaison du relevé, retrait des étapes, désinstallation, révocation du jeton API Codecov, résiliation, retour arrière) ; `tools/rollout/Test-BranchProtection.ps1` (lecture seule par `gh api`, contextes requis et application source attendue) ; `tools/rollout/Remove-CodecovUpload.ps1` (PR d'une ligne par `gh`, simulation par défaut).
+- **Tests :** scripts vérifiés sur des réponses figées (`gh` remplacé par un script) ; répétition sur un dépôt (propriétaire).
+- **Acceptation :** les protections de branche restent inchangées (une règle qui attend l'App Codecov comme source est relevée et corrigée avant la bascule), Codecov est désinstallé et l'abonnement résilié (propriétaire).
+- **Dépend de :** M4.06, M4.07, M4.02, M4.04, M3.12a, M5.06, M4.02a
 
 ---
 
 ## 8. Jalon M5 – Confort et compatibilité
 
 #### M5.01 — Action composite `<owner>/code-coverage/action@v1`
-- **Objectif :** télécharger et vérifier le binaire, avec les entrées passées par `env:`.
+- **Issue :** [#223](https://github.com/gaetanthouvenin/code-coverage/issues/223)
+- **Objectif :** télécharger depuis la release GitHub de la version épinglée le binaire du RID du runner, vérifier sa somme (fichier `.sha256` de la release, et somme épinglée par l'appelant si fournie), puis lancer `coverage-upload` avec les entrées passées par `env:`. La release est la source principale des binaires pour la CI ; la route `/api/v1/uploader/{rid}` de l'instance reste un secours et sert l'usage manuel (amendement d'ADR-012, décision du propriétaire du 2026-11-13).
 - **Couches :** dépôt.
-- **Fichiers :** `action/action.yml`, `action/README.md`.
-- **Tests :** workflow `.github/workflows/action-test.yml` (Linux, Windows, macOS).
-- **Acceptation :** aucune interpolation d'entrée dans `run:`, et un `::warning::` suivi d'un code 0 en cas d'échec d'installation.
+- **Fichiers :** `action/action.yml` (bash seul, aucune action tierce ; RID déduit de `RUNNER_OS` et `RUNNER_ARCH` ; runner non pris en charge : avertissement), `action/README.md`, `.github/workflows/action-test.yml` ; ADR-012 amendé.
+- **Tests :** `action-test.yml` (Linux, Windows, macOS) : uploader publié depuis les sources pour le RID du runner, servi localement, `--dry-run` ; cas négatifs somme fausse et URL injoignable, étape réussie avec un avertissement.
+- **Acceptation :** aucune interpolation `${{ }}` dans un `run:` ; un `::warning::` nommant la cause suivi d'un code 0 en cas d'échec d'installation, sauf `fail-on-error` ; le tag majeur `v1` est déplacé à la main par le propriétaire.
 - **Dépend de :** M4.01
 
 #### M5.02 — Template Azure `pipelines/templates/coverage-upload.yml`
-- **Objectif :** paramètres `flags`, `files` et `name`, somme épinglée.
+- **Issue :** [#224](https://github.com/gaetanthouvenin/code-coverage/issues/224)
+- **Objectif :** paramètres `flags`, `files`, `name`, `version` et `failOnError` ; binaire téléchargé depuis la release GitHub de la version épinglée, somme épinglée vérifiée.
 - **Couches :** dépôt.
-- **Fichiers :** `pipelines/templates/coverage-upload.yml`.
-- **Tests :** pipeline de démonstration.
-- **Acceptation :** secrets mappés explicitement.
+- **Fichiers :** `pipelines/templates/coverage-upload.yml` (une étape `pwsh` dont le script ne lit que `$env:`), `pipelines/demo/azure-pipelines.yml`, `pipelines/tests/Test-CoverageUploadTemplate.ps1` (lancé par `ci-cd.yml`).
+- **Tests :** `Test-CoverageUploadTemplate.ps1` (script extrait du template, serveur HTTP local : somme bonne, somme fausse, URL injoignable) ; pipeline de démonstration exécuté par le propriétaire sur une organisation Azure DevOps réelle.
+- **Acceptation :** secrets mappés explicitement (macro non résolue traitée comme absente) ; avertissement `##vso[task.logissue type=warning]` suivi d'un code 0 en cas d'échec d'installation, sauf `failOnError`.
 - **Dépend de :** M4.01
 
-#### M5.03 — Outil dotnet sur le flux NuGet
-- **Objectif :** publier `coverage-upload` (package `CodeCoverage.Uploader`) sur le flux NuGet choisi au démarrage de M5 (décision ouverte §11-11).
+#### M5.03 — Outil dotnet sur nuget.org
+- **Issue :** [#225](https://github.com/gaetanthouvenin/code-coverage/issues/225)
+- **Objectif :** publier `coverage-upload` (package `CodeCoverage.Uploader`) sur nuget.org par publication de confiance (OIDC), sous licence Apache-2.0 (§11-11, décision du propriétaire du 2026-11-13).
 - **Couches :** CI.
-- **Fichiers :** job `nuget-tool` dans `ci-cd.yml`.
-- **Tests :** `dotnet tool install` sur un agent propre.
+- **Fichiers :** métadonnées du package dans `src/CodeCoverage.Uploader/CodeCoverage.Uploader.csproj` (description, `PackageLicenseExpression` `Apache-2.0`, dépôt, README) ; job `nuget-tool` dans `ci-cd.yml` : `dotnet pack` avec la version GitVersion à chaque exécution, installation depuis un dossier local, version du package comparée au `nuGetVersion` (pas `--version`, qui porte `+sha`) ; publication sur les tags `v*` seulement et quand une variable de dépôt l'active, par `NuGet/login` épinglé par SHA, sans clé d'API durable.
+- **Tests :** `dotnet tool install --tool-path` depuis le `.nupkg` du job, puis lancement de l'outil ; installation depuis nuget.org après la première publication (propriétaire).
 - **Acceptation :** version alignée sur GitVersion.
 - **Dépend de :** M1.40, M0.28
 
 #### M5.04 — `comment.behavior: new` et `spammy`
+- **Issue :** [#226](https://github.com/gaetanthouvenin/code-coverage/issues/226)
 - **Objectif :** compléter les comportements de commentaire.
-- **Couches :** Domain, Application.
-- **Fichiers :** `CommentRule` (suppression de l'avertissement de repli), `NotificationService` (suppression puis recréation pour `new`, nouveau commentaire pour `spammy`).
-- **Tests :** `NotificationServiceCommentTests` — `Comment_New_ShouldDeleteAndCreate`, `Comment_Spammy_ShouldAlwaysCreate`.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :** `Domain/Config/CommentBehavior.cs` (membres `New` et `Spammy`) ; `CommentRule` (suppression de l'avertissement de repli) ; `IForgeGateway.DeleteIssueCommentAsync` (un 404 vaut suppression déjà faite) et son implémentation dans `Infrastructure/GitHub/GitHubAppGateway.cs` ; `Application/Services/CommentPublisher.cs`, appelé par `NotificationService` (le plan nommait `NotificationService` : la logique est dans `CommentPublisher`) : `new` supprime chaque commentaire marqué de l'App puis en crée un, une suppression refusée crée quand même et journalise un avertissement ; `spammy` crée toujours ; un corps identique sur la même tête republie, comme Codecov ; ARCHITECTURE §8.4 et §9.3.
+- **Tests :** `NotificationServiceCommentTests` (la classe qui pilote `CommentPublisher`) — `Comment_New_ShouldDeleteAndCreate`, `Comment_Spammy_ShouldAlwaysCreate` ; tests de `CommentRule` (`new` et `spammy` lus sans avertissement) ; test de l'adaptateur GitHub pour la suppression.
 - **Acceptation :** conforme à Codecov.
 - **Dépend de :** M2.22
 
 #### M5.05 — Check Runs avec annotations
-- **Objectif :** annoter les lignes du patch non couvertes, avec les mêmes noms de contexte.
-- **Couches :** Domain, Application, Infrastructure.
-- **Fichiers :** `IGitHubAppGateway.CreateCheckRunAsync` ; `Domain/Notifications/CheckRunAnnotationBuilder.cs` ; prise en charge de `github_checks` dans la configuration ; permission Checks ajoutée au manifest.
-- **Tests :** `CheckRunAnnotationBuilderTests` — `Build_ShouldGroupConsecutiveUncoveredLines`.
-- **Acceptation :** 50 annotations par appel au plus.
+- **Issue :** [#227](https://github.com/gaetanthouvenin/code-coverage/issues/227)
+- **Objectif :** annoter les lignes du patch non couvertes, avec les mêmes noms de contexte. Les Check Runs remplacent les statuts derrière un interrupteur d'organisation (décision du propriétaire du 2026-11-13, amendement d'ADR-007).
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :** `IGitHubAppGateway.CreateCheckRunAsync` et `UpdateCheckRunAsync` (`POST` puis `PATCH` par lots de 50 annotations), implémentés dans `Infrastructure/GitHub/GitHubAppGateway.cs`, appelés par l'Application après le contrôle de la forge ; `Domain/Notifications/CheckRunAnnotationBuilder.cs` ; règle `github_checks` du Domain, retirée des clés sans effet de `SupportedKeys` ; cinquième paramètre d'organisation `Notifications:ChecksEnabled` (`SettingScope.Organization`, `false` par défaut, jamais secret) dans `OrganizationSettingsSnapshot` ; quand il est allumé et que `github_checks` est actif, la notification publie un Check Run à la place du statut ; un refus (403, permission non accordée) revient au statut pour cette notification, jamais un échec définitif ; identifiant du Check Run conservé (migration `AddCheckRunIds` dans les deux fournisseurs) ; `checks: write` dans le manifest de `/setup` ; ADR-007, AGENT.md règle 7 (« les 5 paramètres ») et ARCHITECTURE §8.
+- **Tests :** `CheckRunAnnotationBuilderTests` — `Build_ShouldGroupConsecutiveUncoveredLines`, lots de 50 ; tests de l'adaptateur ; repli sur les statuts sur un 403 ; manifest (permission `checks`) ; tests de dépôt sur les deux fournisseurs.
+- **Acceptation :** 50 annotations par appel au plus ; mêmes noms que les statuts ; repli sur les statuts sans permission Checks, sans échec du job ; une App existante reçoit la permission Checks par une action du propriétaire, puis l'approbation de chaque installation.
 - **Dépend de :** M2.19, M3.43
 
 #### M5.06 — Import de l'historique Codecov
+- **Issue :** [#228](https://github.com/gaetanthouvenin/code-coverage/issues/228)
 - **Objectif :** importer les totaux par commit via l'API Codecov v2. Cette lecture exige un accès à Codecov : malgré son jalon, M5.06 passe donc avant la résiliation (M4.08).
-- **Couches :** Application, Infrastructure.
-- **Fichiers :** UC `Features/Repositories/Commands/ImportCodecovHistory` (`IOrganizationScoped(Admin)`, exécutée en job) ; table d'organisation `CodecovImports`, qui porte le credential chiffré par Data Protection, référencé par identifiant depuis le payload et supprimé quand l'import se termine ou échoue définitivement ; Migration `AddCodecovImports` ; `Infrastructure/Codecov/CodecovApiClient.cs` ; `ConfigSource=codecov-import`.
-- **Tests :** `ImportCodecovHistoryCommandHandlerTests` — `Handle_ShouldCreateCompleteCommitsWithoutBlob`.
-- **Acceptation :** l'historique est visible dans le graphique.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api.
+- **Fichiers :** UC `Features/Repositories/Commands/StartCodecovImport` (`IRepositoryScoped(Admin)`, la route étant celle d'un dépôt : chiffre le jeton API Codecov par `ISecretProtector`, écrit la ligne `CodecovImports` et met en file le job dans la même transaction) et UC `Features/Repositories/Commands/ImportCodecovHistory` (`ISystemOnly`, exécutée en job) ; endpoint `POST /api/v1/repos/{forge}/{owner}/{repo}/codecov-import` avec sa sonde dans `ApiProbes` ; table d'organisation `CodecovImports`, classée dans `TableClassification`, qui porte le credential chiffré, référencé par identifiant depuis le payload et supprimé quand l'import se termine, échoue définitivement ou meurt (crochet du job mort) ; purge des credentials de plus de 7 jours par un job coordinateur qui met en file un enfant par organisation ; Migration `AddCodecovImports` ; `Infrastructure/Codecov/CodecovApiClient.cs` ; `ConfigSource=codecov-import` ; un commit importé est inséré sans réveil ni notification, n'est jamais ni base ni tête (`BaseResolver`, `SyncPullRequestCommandHandler`, `BranchHeadTracker`, `FinalizeCommitCommandHandler`), ses totaux sont recalculés depuis les compteurs et un SHA déjà connu est ignoré.
+- **Tests :** `ImportCodecovHistoryCommandHandlerTests` — `Handle_ShouldCreateCompleteCommitsWithoutBlob`, SHA connu ignoré, credential supprimé ; `CodecovApiClientTests` (WireMock, fixtures écrites d'après la documentation, fidélité non prouvée) ; tests du dépôt `CodecovImports` sur deux organisations et deux fournisseurs ; garde de la base.
+- **Acceptation :** l'historique est visible dans le graphique ; import réel avant M4.08 (propriétaire).
 - **Dépend de :** M3.16, M3.22
 
 #### M5.07 — Shim codecov-cli (conditionnel à la décision 13.2-1)
-- **Objectif :** `POST /upload/github/{owner::::repo}/upload-coverage` suivi d'un `PUT` signé.
+- **Issue :** [#229](https://github.com/gaetanthouvenin/code-coverage/issues/229)
+- **Objectif :** `POST /upload/github/{owner::::repo}/upload-coverage` suivi d'un `PUT` signé. **Reporté** (décision du propriétaire du 2026-11-13) jusqu'à ce que le pilote (M4.07) mesure combien de dépôts gardent `codecov/codecov-action`.
 - **Couches :** Api, Application.
 - **Fichiers :** `Api/Controllers/CodecovCompatibilityController.cs`, `Api/Compatibility/SignedUploadUrl.cs`.
 - **Tests :** rejeu de requêtes codecov-cli enregistrées (`tests/fixtures/codecov-cli/*`).
 - **Acceptation :** les étapes `codecov/codecov-action@v5` fonctionnent avec `url:`, la version est épinglée, et l'URL d'upload signée lie l'organisation, le dépôt et l'upload.
-- **Dépend de :** M1.31, M1.32
+- **Dépend de :** M1.31, M1.32, M3.43a, M4.07 (décision 13.2-1)
 
 ---
 
@@ -2646,6 +2668,9 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 | 21 | GitLab.com rejoint les forges préparées (ADR-014, M1.16a4) : login de 255 caractères pouvant contenir des points, owner à plusieurs niveaux écrit avec `:`, jalon M9. GitLab auto-hébergé reste hors portée. | Décision du propriétaire ; l'identité ne porte donc pas d'URL d'instance. |
 | 22 | Le heartbeat du worker et le quota GitHub sont persistés dans deux tables opérationnelles (M3.13a), et non plus gardés en mémoire seulement. | Le Web, qui sert `/admin/operations` (M3.40), est un autre processus que l'Api qui fait tourner le worker. |
 | 23 | La comparaison libre (M3.33) n'accepte que des SHA complets de 40 caractères, comme l'Api et la page du commit ; la résolution des préfixes courts (port de recherche par préfixe sur les deux fournisseurs, préfixe ambigu refusé) est laissée à une entrée ultérieure commune à l'Api et au Web. | Décision du propriétaire du 2026-11-13 : une paire saisie à la main n'aboutit presque jamais à une comparaison enregistrée, et la recherche par préfixe sur une colonne convertie n'est pas prouvée sur les deux fournisseurs. |
+| 24 | Les Check Runs (M5.05) remplacent les statuts derrière un cinquième paramètre d'organisation, `Notifications:ChecksEnabled`, éteint par défaut ; un refus revient au statut. | Décision du propriétaire du 2026-11-13 : Codecov publie des Check Runs, mais la permission Checks doit être accordée par chaque organisation à l'App partagée ; ADR-007 et la règle 7 d'AGENT.md sont amendés. |
+| 25 | Les templates CI (M5.01, M5.02) téléchargent l'uploader depuis la release GitHub de la version épinglée ; la route `/api/v1/uploader/{rid}` de l'instance devient un secours. | Décision du propriétaire du 2026-11-13 : l'Api ne sert que sa propre version, une somme épinglée échouerait donc en silence à chaque mise à jour du serveur ; ADR-012 est amendé. |
+| 26 | Les commits importés de Codecov (M5.06) n'ont ni fichiers ni sessions et ne sont jamais base ni tête d'une comparaison. | L'API v2 ne donne que les totaux ; une base sans sessions donnerait des totaux de base nuls. |
 
 ---
 
@@ -2659,14 +2684,14 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 3. **Patron « envoi-et-conversion » contre test d'architecture limité aux signatures.**
    - Le plan retient l'isolement strict au niveau de l'IL (exigence utilisateur 5).
    - L'alternative est un test limité aux signatures publiques, plus simple mais plus permissif.
-4. **Verbe d'administration en ligne de commande (M1.23)** : à conserver comme outil d'exploitation ou à retirer après M3. Il est indispensable avant M3 : c'est le seul moyen d'admettre la première organisation tant que `/admin/organizations` (M3.41a) n'existe pas.
-5. **Shim codecov-cli (M5.07)** : à décider selon l'effort de migration mesuré pendant le pilote.
+4. **Verbe d'administration en ligne de commande (M1.23) : tranché**, conservé comme voie de secours documentée dans `docs/operations.md` (M4.02). Il était indispensable avant M3 : c'était le seul moyen d'admettre la première organisation tant que `/admin/organizations` (M3.41a) n'existait pas.
+5. **Shim codecov-cli (M5.07)** : reporté (décision du propriétaire du 2026-11-13), à décider selon la mesure du pilote (M4.07) : combien de dépôts gardent `codecov/codecov-action`.
 6. **Exposition du Web : tranché**, public avec connexion GitHub ([ADR-013](adr/0013-organization-isolation.md)), puisque des utilisateurs de plusieurs organisations doivent y accéder.
-7. **Profil de défauts** : historique (retenu) ou centré sur le patch.
+7. **Profil de défauts : tranché**, historique (projet et patch). Un dépôt sans `codecov.yml` qui comptait sur les défauts récents de Codecov voit un écart nommé par le guide de migration (M4.05).
 8. **Rétention** : 30 jours de brut et 180 jours de rapports hors branche par défaut, à ajuster après mesure de la volumétrie du pilote.
-9. **Hébergement** : VM Docker (M4.02) ou Azure Container Apps (M4.03).
+9. **Hébergement : tranché**, VM Docker (M4.02) pour la production ; Azure Container Apps (M4.03) livré en Bicep et documentation, sans déploiement (décision du propriétaire du 2026-11-13).
 10. **Nom définitif du produit et du dépôt** : tranché, produit `CodeCoverage` et dépôt `code-coverage`. Le projet est indépendant.
-11. **Flux de publication de l'outil `coverage-upload` (M5.03)** : nuget.org public ou flux privé. À trancher au démarrage de M5 ; les binaires autonomes servis par l'Api (ADR-012) ne dépendent pas de ce choix.
+11. **Flux de publication de l'outil `coverage-upload` (M5.03) : tranché**, nuget.org public par publication de confiance (OIDC), sous licence Apache-2.0 (fichier `LICENSE` à la racine), décision du propriétaire du 2026-11-13. Le compte nuget.org, la configuration de l'éditeur de confiance et la première publication sont des actions du propriétaire.
 12. **Multi-forge : tranché**, préparé maintenant avec GitHub seul implémenté ([ADR-014](adr/0014-multi-forge.md)). Restent à établir le calcul du diff sur Azure DevOps (spike en tête de M7) les endpoints de Bitbucket (début de M8), et l'accès au plan Free de GitLab comme la forme des badges de sous-groupes (spike en tête de M9).
 
 ### Backlog de l'isolation entre organisations
@@ -2683,4 +2708,4 @@ Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.Organiz
 
 Écarts entre le code fusionné et l'architecture qu'aucune micro-fonctionnalité ne couvre encore.
 
-Aucun à ce jour.
+- **Réveil des seuls descendants ([#165](https://github.com/gaetanthouvenin/code-coverage/issues/165))** : un commit terminé réveille les 10 commits `AncestorPending` les plus récents du dépôt sans vérifier qu'ils en descendent (ARCHITECTURE §6.5 dit « ses descendants »). Corrigé hors plan dans le lot M4/M5, avec deux migrations.
