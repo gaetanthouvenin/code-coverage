@@ -4,10 +4,12 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Buffers;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -764,6 +766,76 @@ internal sealed partial class GitHubAppGateway(
     return IsAbsent(response, address, NotFound)
              ? null
              : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<ForgeFileContent?> GetBoundedContentAsync(
+    ForgeRepositoryRef repository,
+    string path,
+    GitSha sha,
+    int maxBytes,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(path);
+    ArgumentNullException.ThrowIfNull(sha);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
+
+    var (installationId, root) = Locate(repository);
+    var segments = path.Split('/');
+
+    if (!Array.TrueForAll(segments, IsPathSegment))
+    {
+      return null;
+    }
+
+    var address = $"{root}/contents/{string.Join('/', segments.Select(Uri.EscapeDataString))}?ref={sha.Value}";
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(RawMediaType));
+
+    // Only the headers are awaited: the length they announce, then the body read up to the bound, decide.
+    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+
+    if (IsAbsent(response, address, NotFound))
+    {
+      return null;
+    }
+
+    if (response.Content.Headers.ContentLength > maxBytes)
+    {
+      return ForgeFileContent.TooLarge;
+    }
+
+    var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+
+    // One byte beyond the bound tells a file too large; an announced length, which the stream never exceeds, sizes the
+    // buffer below the bound.
+    var size = (int)Math.Min((response.Content.Headers.ContentLength ?? maxBytes) + 1, maxBytes + 1L);
+    var buffer = ArrayPool<byte>.Shared.Rent(size);
+
+    try
+    {
+      await using (stream.ConfigureAwait(false))
+      {
+        var length = 0;
+        int read;
+
+        while (length < size && (read = await stream.ReadAsync(buffer.AsMemory(length, size - length), cancellationToken).ConfigureAwait(false)) > 0)
+        {
+          length += read;
+        }
+
+        return length > maxBytes ? ForgeFileContent.TooLarge : new ForgeFileContent(Encoding.UTF8.GetString(buffer, 0, length));
+      }
+    }
+    finally
+    {
+      ArrayPool<byte>.Shared.Return(buffer);
+    }
   }
 
   /// <summary>Tells whether a text can stand for one level of an address without moving to another one.</summary>

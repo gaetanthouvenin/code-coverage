@@ -472,6 +472,93 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
   }
 
   [Fact]
+  public async Task GetBoundedContent_WithinTheBound_ShouldReturnTheText()
+  {
+    GivenBody($"{Root}/contents/src/A.cs", "class A {}\n");
+
+    var content = await _github.Gateway.GetBoundedContentAsync(Repository, "src/A.cs", Head, 64, Cancellation);
+
+    content.ShouldNotBeNull().Text.ShouldBe("class A {}\n");
+    var request = ForgeRequests.ShouldHaveSingleItem();
+    request.Headers!["Accept"].ShouldBe(["application/vnd.github.raw+json"]);
+    request.Query!["ref"].ShouldBe([Head.Value]);
+  }
+
+  // The length the forge announces is enough to refuse: the body is never read.
+  [Fact]
+  public async Task GetBoundedContent_AnnouncedOverTheBound_ShouldAnswerTooLarge()
+  {
+    GivenBody($"{Root}/contents/src/Big.cs", new string('x', 65));
+
+    var content = await _github.Gateway.GetBoundedContentAsync(Repository, "src/Big.cs", Head, 64, Cancellation);
+
+    content.ShouldBe(ForgeFileContent.TooLarge);
+  }
+
+  // V10: the length the forge announces is enough: a body that fails on its first read is never read.
+  [Fact]
+  public async Task GetBoundedContent_AnnouncedOverTheBound_ShouldNotReadTheBody()
+  {
+    var body = new GeneratedReadStream(5000, 1, static _ => throw new InvalidOperationException("The body was read."));
+    using var handler = new StubHttpMessageHandler((_, _) =>
+    {
+      var content = new StreamContent(body);
+      content.Headers.ContentLength = 5000;
+
+      return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content });
+    });
+    using var client = new HttpClient(handler) { BaseAddress = new Uri(_github.Server.Url!) };
+    var options = A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<GitHubOptions>>();
+    A.CallTo(() => options.CurrentValue).Returns(_github.Options);
+    var gateway = new GitHubAppGateway(client, _github.TokenProvider, options, _github.GatewayLog);
+
+    var content = await gateway.GetBoundedContentAsync(Repository, "src/Big.cs", Head, 1024, Cancellation);
+
+    content.ShouldBe(ForgeFileContent.TooLarge);
+    handler.Calls.ShouldBe(1);
+  }
+
+  // Without an announced length, the body is read up to the bound and no further.
+  [Fact]
+  public async Task GetBoundedContent_ChunkedOverTheBound_ShouldAnswerTooLarge()
+  {
+    _github.Server.Given(Request.Create().WithPath($"{Root}/contents/src/Big.cs").UsingGet())
+           .RespondWith(Response.Create().WithBody(new string('x', 2048)).WithTransformer(false).WithHeader("Transfer-Encoding", "chunked"));
+
+    var content = await _github.Gateway.GetBoundedContentAsync(Repository, "src/Big.cs", Head, 1024, Cancellation);
+
+    content.ShouldBe(ForgeFileContent.TooLarge);
+  }
+
+  [Fact]
+  public async Task GetBoundedContent_NotFound_ShouldReturnNull()
+  {
+    GivenStatus($"{Root}/contents/src/Gone.cs", 404);
+
+    (await _github.Gateway.GetBoundedContentAsync(Repository, "src/Gone.cs", Head, 64, Cancellation)).ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task GetBoundedContent_ServerError_ShouldThrowBadGateway()
+  {
+    GivenStatus($"{Root}/contents/src/A.cs", 502);
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(() => _github.Gateway.GetBoundedContentAsync(Repository, "src/A.cs", Head, 64, Cancellation));
+
+    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+  }
+
+  [Theory]
+  [InlineData("../../installation")]
+  [InlineData("src//A.cs")]
+  public async Task GetBoundedContent_PathLeavingTheRepository_ShouldReturnNullWithoutCalling(string path)
+  {
+    (await _github.Gateway.GetBoundedContentAsync(Repository, path, Head, 64, Cancellation)).ShouldBeNull();
+
+    _github.Server.LogEntries.ShouldBeEmpty();
+  }
+
+  [Fact]
   public async Task GetRepositoryConnection_ShouldReadTheInstallationThenTheRepository()
   {
     GivenBody("/repos/octocat/Hello-World/installation", """{"id":42,"account":{"id":7,"login":"octocat"}}""");

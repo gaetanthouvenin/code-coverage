@@ -43,6 +43,8 @@ public static partial class DependencyInjection
     services.AddScoped<IRawUploadStore, SqlRawUploadStore>();
     services.AddScoped<IUploadCredentialCache, MemoryUploadCredentialCache>();
     services.AddScoped<IReportViewCache, MemoryReportViewCache>();
+    services.AddSingleton<SourceContentMemory>();
+    services.AddScoped<ISourceContentCache, BoundedSourceContentCache>();
     services.AddSingleton<ITokenGenerator, TokenGenerator>();
 
     return services;

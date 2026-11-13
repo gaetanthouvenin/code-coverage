@@ -31,6 +31,7 @@ public static partial class DependencyInjection
     services.AddScoped<CarryforwardResolver>();
     services.AddScoped<CommitLocator>();
     services.AddScoped<CommitFlagView>();
+    services.AddScoped<CommitFileReader>();
 
     return services;
   }

@@ -187,5 +187,28 @@ public interface IForgeGateway
     GitSha sha,
     CancellationToken cancellationToken);
 
+  /// <summary>Reads the text of a file at a commit, never keeping more than a number of bytes of it.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="path">The path of the file.</param>
+  /// <param name="sha">The SHA of the commit.</param>
+  /// <param name="maxBytes">The largest size read: a larger file is answered <see cref="ForgeFileContent.TooLarge" />.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The text of the file, its being too large, or <see langword="null" /> when the forge does not have it.</returns>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="repository" />, <paramref name="path" /> or <paramref name="sha" /> is
+  ///   <see langword="null" />.
+  /// </exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxBytes" /> is zero or negative.</exception>
+  /// <remarks>
+  ///   Unlike <see cref="GetContentAsync" />, the answer is never buffered whole: its announced length is checked first,
+  ///   then the body is read up to the bound, so a large file costs no memory.
+  /// </remarks>
+  Task<ForgeFileContent?> GetBoundedContentAsync(
+    ForgeRepositoryRef repository,
+    string path,
+    GitSha sha,
+    int maxBytes,
+    CancellationToken cancellationToken);
+
   #endregion
 }

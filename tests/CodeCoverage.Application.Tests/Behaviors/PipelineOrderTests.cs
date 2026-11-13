@@ -139,6 +139,7 @@ public sealed class PipelineOrderTests
     services.AddSingleton(_ => A.Fake<INotificationMetrics>());
     services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.UrlOptions>>());
     services.AddScoped(_ => A.Fake<IReportViewCache>());
+    services.AddScoped(_ => A.Fake<ISourceContentCache>());
     services.AddScoped(_ => A.Fake<IComparisonRepository>());
     services.AddScoped(_ => A.Fake<IJobMonitor>());
     services.AddScoped(_ => A.Fake<IRetentionRepository>());
