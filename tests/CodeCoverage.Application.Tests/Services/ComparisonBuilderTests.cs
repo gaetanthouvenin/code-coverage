@@ -176,6 +176,8 @@ public sealed class ComparisonBuilderTests
     saved.DiffSource.ShouldBe(DiffSource.PullFiles);
     saved.ComputedAt.ShouldBe(Now);
     context.Resolution.Hops.ShouldBe(1);
+    saved.Hops.ShouldBe(1);
+    saved.BehindBy.ShouldBe(context.Resolution.BehindBy);
     context.HeadSessions.ShouldHaveSingleItem();
     context.BaseSessions.ShouldNotBeNull().ShouldHaveSingleItem();
   }
@@ -232,6 +234,7 @@ public sealed class ComparisonBuilderTests
     context.Comparison.ComparedToSha.ShouldBeNull();
     context.Resolution.ComparedTo.ShouldBeNull();
     context.Comparison.Result.IndirectChanges.ShouldBeEmpty();
+    context.Comparison.Hops.ShouldBeNull();
   }
 
   [Fact]

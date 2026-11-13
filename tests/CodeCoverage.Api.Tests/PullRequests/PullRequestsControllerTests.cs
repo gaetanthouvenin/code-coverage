@@ -141,7 +141,7 @@ public sealed class PullRequestsControllerTests
   [Fact]
   public async Task Get_Comparison_ShouldExposeDiffIncompleteAndTheBases()
   {
-    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns(Stored());
+    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns(Stored() with { BehindBy = 3, Hops = 0 });
     using var client = Client();
 
     using var response = await client.GetAsync(new Uri($"{Base}/pulls/12", UriKind.Relative), Ct);
@@ -155,6 +155,8 @@ public sealed class PullRequestsControllerTests
     root.GetProperty("bases").GetProperty("headSha").GetString().ShouldBe(HeadSha.Value);
     root.GetProperty("bases").GetProperty("comparedToSha").GetString().ShouldBe(BaseSha.Value);
     root.GetProperty("bases").GetProperty("isExact").GetBoolean().ShouldBeTrue();
+    root.GetProperty("bases").GetProperty("behindBy").GetInt32().ShouldBe(3);
+    root.GetProperty("bases").GetProperty("hops").GetInt32().ShouldBe(0);
     root.GetProperty("delta").GetDecimal().ShouldBe(25m);
     var file = root.GetProperty("patch").GetProperty("files")[0];
     file.GetProperty("path").GetString().ShouldBe("src/a.cs");

@@ -89,7 +89,7 @@ internal static class ComparisonMapper
 
     return new ComparisonResponse(
       comparison.PullNumber,
-      new BaseResolutionModel(view.HeadSha.Value, comparison.ForkPointSha?.Value, comparison.ComparedToSha?.Value, isExact),
+      new BaseResolutionModel(view.HeadSha.Value, comparison.ForkPointSha?.Value, comparison.ComparedToSha?.Value, isExact, comparison.BehindBy, comparison.Hops),
       ToModel(result.Head),
       result.Base is { } baseTotals ? ToModel(baseTotals) : null,
       result.Delta,

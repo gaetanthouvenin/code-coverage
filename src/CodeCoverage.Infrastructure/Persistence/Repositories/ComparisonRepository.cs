@@ -40,7 +40,9 @@ internal sealed class ComparisonRepository(CodeCoverageDbContext context) : ICom
       row.BaseRevision,
       row.DiffSource,
       ComparisonDataSerializer.Deserialize(row.Data),
-      row.ComputedAt
+      row.ComputedAt,
+      row.BehindBy,
+      row.Hops
     );
 
   /// <summary>Copies a comparison to the columns of its row.</summary>
@@ -54,6 +56,8 @@ internal sealed class ComparisonRepository(CodeCoverageDbContext context) : ICom
     row.ComparedToSha = comparison.ComparedToSha;
     row.HeadRevision = comparison.HeadRevision;
     row.BaseRevision = comparison.BaseRevision;
+    row.BehindBy = comparison.BehindBy;
+    row.Hops = comparison.Hops;
     row.HeadCoverage = result.Head.Coverage;
     row.BaseCoverage = result.Base?.Coverage;
     row.PatchLines = result.Patch.Totals.Lines;

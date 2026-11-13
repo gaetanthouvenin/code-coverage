@@ -88,6 +88,25 @@ public sealed class ComparisonRepositoryTests(DatabaseFixture database)
     found.Result.Base.ShouldBeNull();
   }
 
+  // M3.31: how far behind the base branch was, and how far before the fork point the base report was found.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Save_ShouldRoundTripHopsAndBehindBy(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+
+    await SaveAsync(seed, seed.Organizations.FirstId, Stored(seed.FirstCommit, pullNumber: 12) with { BehindBy = 3, Hops = 2 });
+    await SaveAsync(seed, seed.Organizations.FirstId, Stored(seed.FirstCommit, pullNumber: 13));
+
+    var known = (await FindAsync(seed, seed.Organizations.FirstId, seed.FirstCommit, 12)).ShouldNotBeNull();
+    (known.BehindBy, known.Hops).ShouldBe((3, 2));
+
+    // A comparison stored before the counts were kept, or without them, reads back null, never 0.
+    var unknown = (await FindAsync(seed, seed.Organizations.FirstId, seed.FirstCommit, 13)).ShouldNotBeNull();
+    unknown.BehindBy.ShouldBeNull();
+    unknown.Hops.ShouldBeNull();
+  }
+
   // A commit has one comparison per pull request, and one as a push build.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]

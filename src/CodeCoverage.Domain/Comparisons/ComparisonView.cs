@@ -18,8 +18,10 @@ namespace CodeCoverage.Domain.Comparisons;
 ///   Whether the report of the head, or of the base, changed since the comparison was computed: the next notification
 ///   computes it again.
 /// </param>
+/// <param name="HeadFiles">The number of files of the head report, read in its row.</param>
+/// <param name="BaseFiles">The number of files of the base report, or <see langword="null" /> without a base report.</param>
 /// <remarks>A read model: nothing is computed when it is read.</remarks>
-public sealed record ComparisonView(GitSha HeadSha, CommitComparison Comparison, PullRequest? PullRequest, bool IsStale)
+public sealed record ComparisonView(GitSha HeadSha, CommitComparison Comparison, PullRequest? PullRequest, bool IsStale, int HeadFiles = 0, int? BaseFiles = null)
 {
   #region Methods
 
@@ -38,7 +40,10 @@ public sealed record ComparisonView(GitSha HeadSha, CommitComparison Comparison,
     var headMoved = comparison.HeadRevision != head.ReportRevision;
     var baseMoved = comparison.ComparedToSha is not null && comparison.BaseRevision != comparedTo?.ReportRevision;
 
-    return new ComparisonView(head.Sha, comparison, pullRequest, headMoved || baseMoved);
+    // CoverageTotals counts no file: the rows of the commits do, the base's only when its report was read.
+    var baseFiles = comparison.Result.Base is null ? null : comparedTo?.Files;
+
+    return new ComparisonView(head.Sha, comparison, pullRequest, headMoved || baseMoved, head.Files, baseFiles);
   }
 
   #endregion

@@ -40,6 +40,12 @@ internal sealed class ComparisonRecord
   /// <summary>Gets or sets the revision of the base report, or <see langword="null" />.</summary>
   public int? BaseRevision { get; set; }
 
+  /// <summary>Gets or sets how many commits the base branch had beyond the fork point, or <see langword="null" /> when unknown.</summary>
+  public int? BehindBy { get; set; }
+
+  /// <summary>Gets or sets how many commits before the fork point the base report was found, or <see langword="null" />.</summary>
+  public int? Hops { get; set; }
+
   /// <summary>Gets or sets the coverage of the head, or <see langword="null" />.</summary>
   public decimal? HeadCoverage { get; set; }
 
