@@ -1,0 +1,18 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositoryActivation.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="activation">
+  <div class="cc-list" style="padding:10px">
+    <div class="cc-list__row">
+      <span class="@ThumbClass"><CcIcon Name="CcIconName.Activity" /></span>
+      <div class="cc-list__grow">
+        <strong>@(IsActive ? L["Repository_Active"] : L["Repository_Inactive"])</strong>
+        <div class="cc-muted">@(IsActive ? L["RepositorySettings_ActiveHelp"] : L["RepositorySettings_InactiveHelp"])</div>
+      </div>
+      <CcSwitch Value="IsActive" ValueChanged="ToggleAsync" Label="@L["Repository_Active"]" Disabled="Busy" />
+    </div>
+  </div>
+</section>
