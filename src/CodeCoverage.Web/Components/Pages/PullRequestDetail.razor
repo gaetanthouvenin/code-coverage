@@ -15,7 +15,7 @@
   }
   else
   {
-    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@Title" Crumbs="Crumbs" ActiveTab="RepositoryTab.Pulls">
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@Title" Crumbs="Crumbs" ActiveTab="RepositoryTab.Pulls" OnPermission="PermissionKnown">
       <SubtitleContent>
         @if (Detail is { } detail)
         {
@@ -30,6 +30,9 @@
           }
         }
       </SubtitleContent>
+      <Actions>
+        <RenotifyButton Visible="@(CanAdminister && Detail is not null)" Busy="Notifying" OnClick="RenotifyAsync" />
+      </Actions>
     </RepositoryHeader>
 
     @if (State is PageState.Loading)
@@ -52,10 +55,17 @@
     }
     else if (Detail is { Comparison: { } comparison })
     {
-      <ComparisonSummary Comparison="comparison" />
+      <ComparisonWarnings Comparison="comparison" />
+      <ComparisonSummary Comparison="comparison">
+        <MainContent><ImpactedFiles Files="comparison.Files" /></MainContent>
+      </ComparisonSummary>
       <div class="cc-grid cc-grid--2">
         <BaseExplanation Base="comparison.Base" />
         <DiffTable Lines="comparison.Diff" />
+      </div>
+      <div class="cc-grid cc-grid--2">
+        <FlagComparisons Flags="comparison.Flags" />
+        <IndirectChanges Changes="comparison.Indirect" />
       </div>
     }
   }

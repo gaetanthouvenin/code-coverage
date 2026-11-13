@@ -1,0 +1,76 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ImpactedFiles.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="impacted">
+  <div class="cc-panel__head">
+    <div>
+      <h2 class="cc-panel__title">@L["Comparison_ImpactedFiles"]</h2>
+      <p class="cc-panel__sub">@L["Comparison_ImpactedFilesHint"]</p>
+    </div>
+  </div>
+  @if (Files.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Comparison_NoImpactedFile"]</div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Comparison_ImpactedFiles"]">
+      <Head>
+        <th>@L["Column_File"]</th>
+        <th class="cc-r">@L["Column_Coverage"] Δ</th>
+        <th class="cc-r">@L["Column_Patch"]</th>
+        <th class="cc-r">@L["Comparison_Missed"]</th>
+      </Head>
+      <ChildContent>
+        @foreach (var file in Shown)
+        {
+          <tr @key="file.Path" data-path="@file.Path">
+            <td class="cc-files__name">
+              @if (file.Href is { } href)
+              {
+                <a class="cc-mono" href="@href">@file.Path</a>
+              }
+              else
+              {
+                <s class="cc-mono cc-muted">@file.Path</s>
+              }
+              @if (file.IsNew)
+              {
+                <CcBadge Tone="CcTone.Info">@L["Comparison_New"]</CcBadge>
+              }
+            </td>
+            <td class="cc-r cc-num cc-nowrap">
+              @file.Coverage
+              @if (file.Delta is { } delta)
+              {
+                <span class="@DeltaClass(file.Trend) cc-num">@delta</span>
+              }
+              else if (!file.IsRemoved)
+              {
+                <span class="cc-dim">ø</span>
+              }
+            </td>
+            <td class="cc-r cc-num">
+              @if (file.Patch is { } patch)
+              {
+                @patch
+              }
+              else
+              {
+                <span class="cc-dim">ø</span>
+              }
+            </td>
+            <td class="cc-r cc-num">@file.Missed.ToString(CultureInfo.CurrentCulture)</td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+    @if (Files.Count > PageSize)
+    {
+      <CcPager Page="Page" PageSize="PageSize" TotalCount="Files.Count" PageChanged="p => Page = p" />
+    }
+  }
+</section>

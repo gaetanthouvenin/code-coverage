@@ -9,6 +9,7 @@ using CodeCoverage.Application.Features.PullRequests;
 using CodeCoverage.Application.Features.PullRequests.Queries.GetPullRequest;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Comparisons;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -28,6 +29,10 @@ public sealed class GetPullRequestQueryHandlerTests
   private readonly ICommitRepository _commits = A.Fake<ICommitRepository>();
 
   private readonly IComparisonRepository _comparisons = A.Fake<IComparisonRepository>();
+
+  private readonly ICommitReportRepository _reports = A.Fake<ICommitReportRepository>();
+
+  private readonly ICoverageReportCodec _codec = A.Fake<ICoverageReportCodec>();
 
   #endregion
 
@@ -116,9 +121,27 @@ public sealed class GetPullRequestQueryHandlerTests
     view.HeadFiles.ShouldBe(212);
   }
 
+  // The head coverage of an indirect change is read at read time from the file index of the head: no blob change.
+  [Fact]
+  public async Task Handle_IndirectChanges_ShouldReadTheirHeadTotals()
+  {
+    var result = Stored(9, 12).Result with { IndirectChanges = [new IndirectChange("src/b.cs", IndirectChangeKind.Changed, 1, -1, 0, 5m)] };
+    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns(Stored(9, 12) with { Result = result });
+    A.CallTo(() => _reports.GetFileIndexAsync(9, A<CancellationToken>._)).Returns(new byte[] { 1 });
+    A.CallTo(() => _codec.DecodeFileIndex(A<ReadOnlyMemory<byte>>._))
+     .Returns([new FileTotals("src/a.cs", new CoverageTotals(1, 1, 0, 0, 0)), new FileTotals("src/b.cs", new CoverageTotals(3, 1, 0, 0, 0))]);
+
+    var detail = await Handler().Handle(Query(12), Ct);
+
+    detail.IndirectHeadTotals.ShouldNotBeNull().Keys.ShouldBe(["src/b.cs"]);
+    detail.IndirectHeadTotals["src/b.cs"].Coverage.ShouldBe(75m);
+    A.CallTo(() => _codec.Decode(A<ReadOnlyMemory<byte>>._)).MustNotHaveHappened();
+  }
+
   private static GetPullRequestQuery Query(int number) => new(Forge.GitHub, "octo-org", "app", number);
 
-  private GetPullRequestQueryHandler Handler() => new(new CommitLocator(_repositories, _commits), _pullRequests, _commits, _comparisons);
+  private GetPullRequestQueryHandler Handler() =>
+    new(new CommitLocator(_repositories, _commits), _pullRequests, _commits, _comparisons, new IndirectHeadTotalsReader(_reports, _codec));
 
   #endregion
 }

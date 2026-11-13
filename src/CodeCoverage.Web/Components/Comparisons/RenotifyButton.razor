@@ -1,0 +1,10 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RenotifyButton.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (Visible)
+{
+  <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Refresh" Disabled="Busy" OnClick="() => OnClick.InvokeAsync()" Class="cc-action-renotify">@L["Action_Renotify"]</CcButton>
+}

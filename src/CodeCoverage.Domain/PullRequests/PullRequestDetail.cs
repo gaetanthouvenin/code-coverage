@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Comparisons;
+using CodeCoverage.Domain.Coverage;
 
 namespace CodeCoverage.Domain.PullRequests;
 
@@ -14,5 +15,12 @@ namespace CodeCoverage.Domain.PullRequests;
 ///   The comparison stored for its head, or <see langword="null" /> while none is: the page then says the comparison is
 ///   pending, never that the pull request is missing.
 /// </param>
+/// <param name="IndirectHeadTotals">
+///   The totals of the head report for the files of the indirect changes, read at read time from its file index (the
+///   stored comparison keeps only their change); <see langword="null" /> without comparison.
+/// </param>
 /// <remarks>A read model: nothing is computed when it is read.</remarks>
-public sealed record PullRequestDetail(PullRequest PullRequest, ComparisonView? Comparison);
+public sealed record PullRequestDetail(
+  PullRequest PullRequest,
+  ComparisonView? Comparison,
+  IReadOnlyDictionary<string, CoverageTotals>? IndirectHeadTotals = null);

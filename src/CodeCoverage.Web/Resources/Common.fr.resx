@@ -535,4 +535,15 @@
   <data name="Source_NotCovered" xml:space="preserve"><value>Non couverte</value></data>
   <data name="Source_Partial" xml:space="preserve"><value>Partielle</value></data>
   <data name="Source_NoUncovered" xml:space="preserve"><value>Aucune ligne non couverte</value></data>
+  <data name="Comparison_DiffIncompleteTitle" xml:space="preserve"><value>Diff incomplet</value></data>
+  <data name="Comparison_DiffIncompleteText" xml:space="preserve"><value>La forge a tronqué le diff de cette comparaison : la couverture du patch ne porte que sur une partie des changements.</value></data>
+  <data name="Comparison_BaseMissingTitle" xml:space="preserve"><value>Rapport de base manquant</value></data>
+  <data name="Comparison_BaseMissingText" xml:space="preserve"><value>Aucun rapport n’existe pour le commit de base {0} : le Δ projet n’est pas calculé.</value></data>
+  <data name="Comparison_BaseMissingNoCommit" xml:space="preserve"><value>Aucun rapport de base : le Δ projet n’est pas calculé.</value></data>
+  <data name="Comparison_ImpactedFiles" xml:space="preserve"><value>Fichiers impactés</value></data>
+  <data name="Comparison_ImpactedFilesHint" xml:space="preserve"><value>Triés par lignes du patch non couvertes</value></data>
+  <data name="Comparison_NoImpactedFile" xml:space="preserve"><value>Aucun fichier couvrable n’est modifié.</value></data>
+  <data name="Comparison_Missed" xml:space="preserve"><value>Manquées</value></data>
+  <data name="Comparison_New" xml:space="preserve"><value>nouveau</value></data>
+  <data name="Comparison_NoIndirectChange" xml:space="preserve"><value>Aucune couverture n’a bougé hors du diff.</value></data>
 </root>

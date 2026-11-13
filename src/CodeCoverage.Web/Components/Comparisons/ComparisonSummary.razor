@@ -48,6 +48,8 @@
     </Footer>
   </CcKpiCard>
 </div>
+<div class="@(MainContent is null ? null : "cc-grid cc-grid--main")">
+@MainContent
 <section class="cc-panel" data-panel="patch">
   <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_PatchCoverage"]</h2></div>
   <div class="cc-panel__body">
@@ -58,3 +60,4 @@
     </div>
   </div>
 </section>
+</div>
