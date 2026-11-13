@@ -43,6 +43,9 @@ public sealed class CommitActionsTests
 
   private readonly IRepositoryAccessService _access = A.Fake<IRepositoryAccessService>();
 
+  // The gate of a repository action also reads the role in the organization: here, none.
+  private readonly IOrganizationRoleResolver _roles = A.Fake<IOrganizationRoleResolver>();
+
   private readonly ICommitRepository _commits = A.Fake<ICommitRepository>();
 
   private readonly IUploadRepository _uploads = A.Fake<IUploadRepository>();
@@ -155,6 +158,7 @@ public sealed class CommitActionsTests
                                   s.AddScoped(_ => _organization);
                                   s.AddScoped(_ => _repositories);
                                   s.AddScoped(_ => _access);
+                                  s.AddScoped(_ => _roles);
                                   s.AddScoped(_ => _commits);
                                   s.AddScoped(_ => _uploads);
                                   s.AddScoped(_ => _jobs);

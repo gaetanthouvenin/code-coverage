@@ -133,8 +133,15 @@ internal sealed class AuthorizationBehavior<TMessage, TResponse>(
 
     NotFoundException.ThrowIfRepositoryNotReadable(readable);
 
-    var granted = message.RequiredPermission is RepositoryPermission.Read
-                  || await access.CanAsync(userId.Value, repository.ExternalId, message.RequiredPermission, cancellationToken).ConfigureAwait(false);
+    var granted = await RepositoryAuthorization.HasPermissionAsync(
+                          message.RequiredPermission,
+                          userId.Value,
+                          repository.ExternalId,
+                          access,
+                          services.GetRequiredService<IOrganizationRoleResolver>(),
+                          services.GetRequiredService<ICurrentOrganization>(),
+                          cancellationToken)
+                        .ConfigureAwait(false);
 
     ForbiddenException.ThrowIfRepositoryPermissionMissing(!granted, MessageName, message.RequiredPermission);
   }

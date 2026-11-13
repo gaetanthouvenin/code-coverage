@@ -302,6 +302,67 @@ public sealed class AuthorizationBehaviorTests
     _nextCalls.ShouldBe(0);
   }
 
+  // An administrator of the organization administers its repositories, without any permission from the forge.
+  [Fact]
+  public async Task Handle_RepositoryScopedAsOrganizationAdmin_ShouldCallNext()
+  {
+    OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read);
+    A.CallTo(() => _roles.ResolveAsync(42, 7, A<CancellationToken>._)).Returns(OrganizationRole.Admin);
+
+    var response = await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme", RepositoryPermission.Admin), Principals.User());
+
+    response.ShouldBe("handled");
+    _nextCalls.ShouldBe(1);
+  }
+
+  // A participant of the organization gains nothing on its repositories.
+  [Fact]
+  public async Task Handle_RepositoryScopedAsOrganizationParticipant_ShouldThrowForbidden()
+  {
+    OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read);
+    A.CallTo(() => _roles.ResolveAsync(42, 7, A<CancellationToken>._)).Returns(OrganizationRole.Participant);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(
+                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme", RepositoryPermission.Admin), Principals.User()));
+
+    exception.ErrorCode.ShouldBe(SecurityErrors.Forbidden);
+    _nextCalls.ShouldBe(0);
+  }
+
+  // The role is read in the organization of the repository, never in another one the user administers.
+  [Fact]
+  public async Task Handle_RepositoryScopedAsAdminOfAnotherOrganization_ShouldThrowForbidden()
+  {
+    OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read);
+    A.CallTo(() => _roles.ResolveAsync(42, 9, A<CancellationToken>._)).Returns(OrganizationRole.Admin);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(
+                      async () => await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme", RepositoryPermission.Admin), Principals.User()));
+
+    exception.ErrorCode.ShouldBe(SecurityErrors.Forbidden);
+    _nextCalls.ShouldBe(0);
+  }
+
+  // Reading asks the organization nothing: the readability of the repository is the whole rule.
+  [Fact]
+  public async Task Handle_RepositoryScopedForReading_ShouldNotReadTheRole()
+  {
+    OrganizationsAreActive();
+    Tracked();
+    Grants(RepositoryPermission.Read);
+
+    await SendAsync(new RepositoryScopedQuery(Forge.GitHub, "acme"), Principals.User());
+
+    _nextCalls.ShouldBe(1);
+    A.CallTo(_roles).MustNotHaveHappened();
+  }
+
   [Fact]
   public async Task Handle_RepositoryScopedWithAdmin_ShouldCallNext()
   {

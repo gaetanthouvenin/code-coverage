@@ -105,6 +105,34 @@ public sealed class ActivationTests
     A.CallTo(() => _auditLog.RecordAsync("Repositories.Deactivate", "5", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
+  // An administrator of the organization administers its repositories, without the admin permission of the forge.
+  [Fact]
+  public async Task Post_Deactivate_AsOrganizationAdmin_ShouldReturn204AndAudit()
+  {
+    A.CallTo(() => _roles.ResolveAsync(ApiTokens.UserId, 3, A<CancellationToken>._)).Returns(OrganizationRole.Admin);
+    using var client = Client();
+
+    using var response = await client.PostAsync(new Uri($"{Base}/deactivate", UriKind.Relative), null, Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    _repository.DisabledAt.ShouldNotBeNull();
+    A.CallTo(() => _auditLog.RecordAsync("Repositories.Deactivate", "5", null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // Administering another organization gives nothing here: the role is read in the organization of the repository.
+  [Fact]
+  public async Task Post_Deactivate_AsAdminOfAnotherOrganization_ShouldReturn403()
+  {
+    A.CallTo(() => _roles.ResolveAsync(ApiTokens.UserId, 9, A<CancellationToken>._)).Returns(OrganizationRole.Admin);
+    using var client = Client();
+
+    using var response = await client.PostAsync(new Uri($"{Base}/deactivate", UriKind.Relative), null, Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    _repository.DisabledAt.ShouldBeNull();
+    A.CallTo(() => _repositories.UpdateAsync(A<TrackedRepository>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   // Decision 15: a departed row keeps answering 404, the single refusal of ADR-013.
   [Fact]
   public async Task Post_Activate_DepartedRepository_ShouldReturn404()
