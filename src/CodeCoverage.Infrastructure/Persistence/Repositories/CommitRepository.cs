@@ -114,6 +114,27 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyDictionary<long, DateTimeOffset>> ListLastUploadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repositoryIds);
+
+    if (repositoryIds.Count == 0)
+    {
+      return new Dictionary<long, DateTimeOffset>();
+    }
+
+    var wanted = repositoryIds.Distinct().ToList();
+    var rows = await (from commit in context.Commits.AsNoTracking()
+                      where wanted.Contains(commit.RepositoryId) && commit.LastUploadAt != null
+                      group commit by commit.RepositoryId
+                      into repository
+                      select new { RepositoryId = repository.Key, LastUploadAt = repository.Max(static c => c.LastUploadAt) }).ToListAsync(cancellationToken)
+                                                                                                                             .ConfigureAwait(false);
+
+    return rows.ToDictionary(static r => r.RepositoryId, static r => r.LastUploadAt!.Value);
+  }
+
+  /// <inheritdoc />
   public async Task<CommitPage> ListPageAsync(long repositoryId, string? branch, int page, int pageSize, CancellationToken cancellationToken)
   {
     ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);

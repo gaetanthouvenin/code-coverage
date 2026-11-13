@@ -45,6 +45,7 @@
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>The delivery has no valid identifier or event.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>The body of the delivery cannot be read.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>The signature of the delivery is missing or invalid.</value></data>
+  <data name="GitHubEvent.NoInstallation" xml:space="preserve"><value>No installation of the App serves this organization: install it on GitHub, then synchronize.</value></data>
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>The commit to notify no longer exists.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Repositories</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Repositories</value></data>
@@ -277,6 +278,16 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Tab_OrgRepositories" xml:space="preserve"><value>Repositories</value></data>
+  <data name="Action_Sync" xml:space="preserve"><value>Synchronize</value></data>
+  <data name="Column_LastUpload" xml:space="preserve"><value>Last upload</value></data>
+  <data name="Repository_ActiveOf" xml:space="preserve"><value>Active: {0}</value></data>
+  <data name="OrganizationRepositories_Title" xml:space="preserve"><value>Organization repositories</value></data>
+  <data name="OrganizationRepositories_Subtitle" xml:space="preserve"><value>Every repository the installation of this organization serves.</value></data>
+  <data name="OrganizationRepositories_Denied" xml:space="preserve"><value>Only the administrators of this organization can see its repositories.</value></data>
+  <data name="OrganizationRepositories_EmptyTitle" xml:space="preserve"><value>No repository in the installation</value></data>
+  <data name="OrganizationRepositories_EmptyText" xml:space="preserve"><value>Add repositories to the installation of the App, then synchronize.</value></data>
+  <data name="OrganizationRepositories_SyncQueued" xml:space="preserve"><value>Synchronization queued</value></data>
   <data name="ApiTokens_Title" xml:space="preserve"><value>My API tokens</value></data>
   <data name="ApiTokens_Subtitle" xml:space="preserve"><value>To call the /api/v1 API with your own rights.</value></data>
   <data name="ApiTokens_Scope" xml:space="preserve"><value>Scope</value></data>

@@ -23,5 +23,8 @@ public static class GitHubEventErrors
   /// <summary>The identifier or the event of the delivery is missing or too long.</summary>
   public const string InvalidDelivery = "GitHubEvent.InvalidDelivery";
 
+  /// <summary>No installation of the App serves the organization, so there is nothing to read again.</summary>
+  public const string NoInstallation = "GitHubEvent.NoInstallation";
+
   #endregion
 }

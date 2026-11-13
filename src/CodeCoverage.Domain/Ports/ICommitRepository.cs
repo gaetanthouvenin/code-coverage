@@ -76,6 +76,14 @@ public interface ICommitRepository
   /// <exception cref="ArgumentNullException"><paramref name="repositoryIds" /> is <see langword="null" />.</exception>
   Task<IReadOnlyList<Commit>> ListCoveredDefaultHeadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken);
 
+  /// <summary>Gives the moment of the last upload of some repositories, for reading only, in one read.</summary>
+  /// <param name="repositoryIds">The identifiers of the repositories.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The last upload of each repository that received one; a repository that never did is absent.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repositoryIds" /> is <see langword="null" />.</exception>
+  /// <remarks>The organization filter applies, so a repository of another organization is never answered.</remarks>
+  Task<IReadOnlyDictionary<long, DateTimeOffset>> ListLastUploadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken);
+
   /// <summary>Lists the commits of a repository that have one of the given SHAs, for reading only.</summary>
   /// <param name="repositoryId">The identifier of the repository.</param>
   /// <param name="shas">The SHAs to look for.</param>

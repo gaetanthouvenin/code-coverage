@@ -45,6 +45,7 @@
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La livraison n’a pas d’identifiant ou d’événement valide.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>Le corps de la livraison est illisible.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>La signature de la livraison est absente ou invalide.</value></data>
+  <data name="GitHubEvent.NoInstallation" xml:space="preserve"><value>Aucune installation de l'App ne sert cette organisation : installez-la sur GitHub, puis synchronisez.</value></data>
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>Le commit à notifier n’existe plus.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Dépôts</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Dépôts</value></data>
@@ -277,6 +278,16 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Tab_OrgRepositories" xml:space="preserve"><value>Dépôts</value></data>
+  <data name="Action_Sync" xml:space="preserve"><value>Synchroniser</value></data>
+  <data name="Column_LastUpload" xml:space="preserve"><value>Dernier upload</value></data>
+  <data name="Repository_ActiveOf" xml:space="preserve"><value>Actif : {0}</value></data>
+  <data name="OrganizationRepositories_Title" xml:space="preserve"><value>Dépôts de l'organisation</value></data>
+  <data name="OrganizationRepositories_Subtitle" xml:space="preserve"><value>Tous les dépôts que sert l'installation de cette organisation.</value></data>
+  <data name="OrganizationRepositories_Denied" xml:space="preserve"><value>Seuls les administrateurs de cette organisation peuvent voir ses dépôts.</value></data>
+  <data name="OrganizationRepositories_EmptyTitle" xml:space="preserve"><value>Aucun dépôt dans l'installation</value></data>
+  <data name="OrganizationRepositories_EmptyText" xml:space="preserve"><value>Ajoutez des dépôts à l'installation de l'App, puis synchronisez.</value></data>
+  <data name="OrganizationRepositories_SyncQueued" xml:space="preserve"><value>Synchronisation mise en file</value></data>
   <data name="ApiTokens_Title" xml:space="preserve"><value>Mes jetons API</value></data>
   <data name="ApiTokens_Subtitle" xml:space="preserve"><value>Pour appeler l'API /api/v1 avec vos propres droits.</value></data>
   <data name="ApiTokens_Scope" xml:space="preserve"><value>Portée</value></data>
