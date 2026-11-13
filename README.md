@@ -94,3 +94,8 @@ frozen sample, without network nor database.
 `.editorconfig` and `GitVersion.yml` follow the project conventions
 ([docs/CONVENTIONS.md](docs/CONVENTIONS.md) §2). They belong to this repository: no template
 synchronises them, change them here.
+
+## License
+
+Apache License 2.0: see [LICENSE](LICENSE). The source headers keep the copyright notice of the
+author; the licence grants the rights.

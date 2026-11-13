@@ -90,11 +90,12 @@ Avant qu'un credential soit prouvé, la réponse ne dépend jamais de l'état de
 | Le jeton d'upload global de Codecov n'existe pas : un jeton ne vaut que dans l'organisation qui l'a créé ou importé. Les `CODECOV_TOKEN` de dépôt et d'organisation importés continuent de fonctionner. | **Non**, par conception |
 | Un dépôt transféré repart avec un historique vide, sans jeton d'upload et avec un nouveau jeton de badge ; l'ancien historique reste à l'organisation d'origine. | **Non**, par conception |
 | Après un renommage de compte GitHub, l'ancien owner ne résout plus : les badges affichent « unknown » et les uploads doivent utiliser le nouveau slug. Aucune redirection n'est conservée, car un login repris ne doit jamais atteindre l'ancienne organisation. | **Non**, par conception |
-| Un compte dont le login vaut un segment de route du produit (`admin`, `api`, `setup`, `orgs`, `health`…) ne peut pas être admis ; un renommage vers un tel login suspend l'organisation. | **Non**, par conception |
 | Une même valeur de jeton importée peut exister dans deux organisations, chacune valide sous son seul owner. | Non : conséquence de l'isolation |
 | L'App demande `Organization Members: read`, visible par l'organisation à l'installation. | Non : requis pour les rôles |
 | La confiance OIDC vient de l'identifiant numérique du compte admis (`repository_owner_id`) et de `repository_id`, à la place de la liste `Uploads:AllowedOwners`. | Non : remplace une liste configurable |
 | Le préfixe de statut par défaut reste `coverage`, et chaque organisation passe `Notifications:StatusContextPrefix` à `codecov` à sa propre date ; les noms de statut sont alors ceux de Codecov. | **Oui**, par organisation |
+
+L'écart des logins réservés (un login égal à un segment de route du produit ne pouvait pas être admis) a disparu avec M3.43a : l'owner n'est plus le premier segment d'une route ([ADR-014](0014-multi-forge.md)).
 
 ## Prouvé et probable
 
