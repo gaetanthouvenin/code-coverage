@@ -19,6 +19,15 @@ namespace CodeCoverage.Domain.Comparisons;
 /// <param name="DiffSource">Where the patch diff came from.</param>
 /// <param name="Result">The comparison.</param>
 /// <param name="ComputedAt">When the comparison was computed, in UTC.</param>
+/// <param name="BehindBy">
+///   How many commits the base branch had beyond the fork point when the comparison was computed, or
+///   <see langword="null" /> when unknown (a comparison stored before it was kept, or no fork point).
+/// </param>
+/// <param name="Hops">
+///   How many commits before the commit the walk started at the base report was found: the fork point of a pull
+///   request, the first parent of a push build (which has no merge base, so the count says nothing of one); <c>0</c> on
+///   that commit itself, or <see langword="null" /> without a base report or when unknown.
+/// </param>
 /// <remarks>
 ///   A commit has one stored comparison per pull request, and one as a push build. The revisions tell
 ///   whether it still describes the reports: a report finalized again makes it stale.
@@ -32,4 +41,6 @@ public sealed record CommitComparison(
   int? BaseRevision,
   DiffSource DiffSource,
   Comparison Result,
-  DateTimeOffset ComputedAt);
+  DateTimeOffset ComputedAt,
+  int? BehindBy = null,
+  int? Hops = null);

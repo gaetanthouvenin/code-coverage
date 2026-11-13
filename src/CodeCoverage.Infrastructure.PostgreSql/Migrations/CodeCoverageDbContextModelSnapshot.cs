@@ -1306,6 +1306,9 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.Property<int?>("BaseRevision")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("BehindBy")
+                        .HasColumnType("integer");
+
                     b.Property<long>("CommitId")
                         .HasColumnType("bigint");
 
@@ -1337,6 +1340,9 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(9,5)");
 
                     b.Property<int>("HeadRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Hops")
                         .HasColumnType("integer");
 
                     b.Property<int>("IndirectChangeCount")

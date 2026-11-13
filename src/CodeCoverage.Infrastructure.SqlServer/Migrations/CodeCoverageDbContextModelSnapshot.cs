@@ -1308,6 +1308,9 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.Property<int?>("BaseRevision")
                         .HasColumnType("int");
 
+                    b.Property<int?>("BehindBy")
+                        .HasColumnType("int");
+
                     b.Property<long>("CommitId")
                         .HasColumnType("bigint");
 
@@ -1339,6 +1342,9 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasColumnType("decimal(9,5)");
 
                     b.Property<int>("HeadRevision")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Hops")
                         .HasColumnType("int");
 
                     b.Property<int>("IndirectChangeCount")

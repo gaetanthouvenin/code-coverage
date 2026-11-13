@@ -108,7 +108,9 @@ internal sealed class ComparisonBuilder(
       comparedTo?.ReportRevision,
       resolution.PatchDiff.Source,
       result,
-      clock.UtcNow
+      clock.UtcNow,
+      resolution.BehindBy,
+      resolution.Hops
     );
 
     await comparisons.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
