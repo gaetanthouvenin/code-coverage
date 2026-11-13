@@ -24,6 +24,10 @@ public partial class ComparisonSummary
   [Parameter, EditorRequired]
   public ComparisonViewModel Comparison { get; set; } = null!;
 
+  /// <summary>Gets or sets the panel shown beside the gauge of the patch, the impacted files on the comparison pages.</summary>
+  [Parameter]
+  public RenderFragment? MainContent { get; set; }
+
   #endregion
 
   #region Injected services

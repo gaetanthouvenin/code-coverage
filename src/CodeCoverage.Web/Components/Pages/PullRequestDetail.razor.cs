@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -60,6 +61,9 @@ public partial class PullRequestDetail
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private IToastService Toasts { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -69,6 +73,11 @@ public partial class PullRequestDetail
   private PullRequestDetailViewModel? Detail { get; set; }
 
   private IReadOnlyList<CcBreadcrumbItem> Crumbs { get; set; } = [];
+
+  // The answer the header read once for the page: Re-notify shows only on a true answer.
+  private bool CanAdminister { get; set; }
+
+  private bool Notifying { get; set; }
 
   private string NumberText => string.Create(CultureInfo.InvariantCulture, $"#{Number}");
 
@@ -91,6 +100,39 @@ public partial class PullRequestDetail
   #endregion
 
   #region Methods
+
+  private void PermissionKnown(bool canAdminister) => CanAdminister = canAdminister;
+
+  // Only queues the publication of the statuses and the comment; a refusal is a toast, never the page's state.
+  private async Task RenotifyAsync()
+  {
+    // The head of the pull request, compared or not: a pending comparison is the one a notification may unblock.
+    if (Detail is not { } detail)
+    {
+      return;
+    }
+
+    var (forge, owner, name, sha) = (Forge, Owner, Name, detail.HeadSha);
+    Notifying = true;
+
+    try
+    {
+      var result = await Runner.RunAsync((sender, ct) => sender.TriggerNotifyAsync(forge, owner, name, sha, ct)).ConfigureAwait(true);
+
+      if (result is { Succeeded: true, Value: true })
+      {
+        Toasts.Show(CcTone.Success, L["Toast_NotifyQueued"], NumberText);
+      }
+      else if (result is { NotFound: true } or { Forbidden: true })
+      {
+        Toasts.Show(CcTone.Danger, L["Toast_RequestFailed"], L["Toast_ActionRefused"]);
+      }
+    }
+    finally
+    {
+      Notifying = false;
+    }
+  }
 
   private async Task LoadAsync()
   {

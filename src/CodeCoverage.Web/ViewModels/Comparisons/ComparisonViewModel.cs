@@ -23,6 +23,11 @@ namespace CodeCoverage.Web.ViewModels.Comparisons;
 /// <param name="Base">How the base was chosen.</param>
 /// <param name="Diff">The lines of the <c>diff</c> table.</param>
 /// <param name="IsStale">Whether a report changed since the comparison was computed.</param>
+/// <param name="HeadSha">The full SHA of the head, for the re-notification.</param>
+/// <param name="DiffIncomplete">Whether the forge truncated the diff: the patch covers part of the changes only.</param>
+/// <param name="Files">The files the diff touches, sorted as the comment sorts them, all of them.</param>
+/// <param name="Flags">The flags, in ordinal order.</param>
+/// <param name="Indirect">The files whose coverage moved outside the diff.</param>
 public sealed record ComparisonViewModel(
   string Project,
   string? Delta,
@@ -39,7 +44,12 @@ public sealed record ComparisonViewModel(
   int IndirectChanges,
   BaseExplanationViewModel Base,
   IReadOnlyList<DiffLineViewModel> Diff,
-  bool IsStale)
+  bool IsStale,
+  string HeadSha,
+  bool DiffIncomplete,
+  IReadOnlyList<ImpactedFileViewModel> Files,
+  IReadOnlyList<FlagComparisonRowViewModel> Flags,
+  IReadOnlyList<IndirectChangeViewModel> Indirect)
 {
   #region Properties
 

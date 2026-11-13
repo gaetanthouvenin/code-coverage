@@ -20,11 +20,13 @@ namespace CodeCoverage.Application.Features.PullRequests.Queries.GetPullRequest;
 /// <param name="pullRequests">The pull requests of the repositories.</param>
 /// <param name="commits">The commits of the repositories.</param>
 /// <param name="comparisons">The stored comparisons.</param>
+/// <param name="indirectTotals">Reads the head totals of the files of the indirect changes.</param>
 internal sealed class GetPullRequestQueryHandler(
   CommitLocator locator,
   IPullRequestRepository pullRequests,
   ICommitRepository commits,
-  IComparisonRepository comparisons) : IQueryHandler<GetPullRequestQuery, PullRequestDetail>
+  IComparisonRepository comparisons,
+  IndirectHeadTotalsReader indirectTotals) : IQueryHandler<GetPullRequestQuery, PullRequestDetail>
 {
   #region Implementation of IQueryHandler<GetPullRequestQuery,PullRequestDetail>
 
@@ -55,7 +57,9 @@ internal sealed class GetPullRequestQueryHandler(
                        ? await commits.FindByShaAsync(repository.Id, baseSha, cancellationToken).ConfigureAwait(false)
                        : null;
 
-    return new PullRequestDetail(pullRequest, ComparisonView.Of(head, comparison, comparedTo, pullRequest));
+    var totals = await indirectTotals.ReadAsync(head.Id, comparison.Result, cancellationToken).ConfigureAwait(false);
+
+    return new PullRequestDetail(pullRequest, ComparisonView.Of(head, comparison, comparedTo, pullRequest), totals);
   }
 
   #endregion

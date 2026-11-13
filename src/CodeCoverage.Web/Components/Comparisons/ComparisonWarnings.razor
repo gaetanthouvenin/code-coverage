@@ -1,0 +1,23 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ComparisonWarnings.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (Comparison.DiffIncomplete)
+{
+  <CcBanner Tone="CcTone.Warning" Title="@L["Comparison_DiffIncompleteTitle"]" Class="cc-warning-diff">@L["Comparison_DiffIncompleteText"]</CcBanner>
+}
+@if (Comparison.BaseMissing)
+{
+  <CcBanner Tone="CcTone.Warning" Title="@L["Comparison_BaseMissingTitle"]" Class="cc-warning-base">
+    @if (Comparison.Base.ExpectedBase is { } expected)
+    {
+      @L["Comparison_BaseMissingText", expected]
+    }
+    else
+    {
+      @L["Comparison_BaseMissingNoCommit"]
+    }
+  </CcBanner>
+}

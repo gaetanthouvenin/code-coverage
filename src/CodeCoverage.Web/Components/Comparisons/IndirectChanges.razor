@@ -1,0 +1,50 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="IndirectChanges.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="indirect">
+  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_IndirectChanges"]</h2></div>
+  @if (Changes.Count == 0)
+  {
+    <div class="cc-panel__body cc-muted">@L["Comparison_NoIndirectChange"]</div>
+  }
+  else
+  {
+    <CcTable AriaLabel="@L["Comparison_IndirectChanges"]">
+      <Head>
+        <th>@L["Column_File"]</th>
+        <th class="cc-r">@L["Column_Coverage"] Δ</th>
+      </Head>
+      <ChildContent>
+        @foreach (var change in Shown)
+        {
+          <tr @key="change.Path" data-path="@change.Path">
+            <td class="cc-files__name">
+              @if (change.Href is { } href)
+              {
+                <a class="cc-mono" href="@href">@change.Path</a>
+              }
+              else
+              {
+                <s class="cc-mono cc-muted">@change.Path</s>
+              }
+            </td>
+            <td class="cc-r cc-num cc-nowrap">
+              @change.Coverage
+              @if (change.Delta is { } delta)
+              {
+                <span class="@DeltaClass(change.Trend) cc-num">@delta</span>
+              }
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </CcTable>
+    @if (Changes.Count > PageSize)
+    {
+      <CcPager Page="Page" PageSize="PageSize" TotalCount="Changes.Count" PageChanged="p => Page = p" />
+    }
+  }
+</section>

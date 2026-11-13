@@ -32,6 +32,7 @@ public static partial class DependencyInjection
     services.AddScoped<CommitLocator>();
     services.AddScoped<CommitFlagView>();
     services.AddScoped<CommitFileReader>();
+    services.AddScoped<IndirectHeadTotalsReader>();
 
     return services;
   }

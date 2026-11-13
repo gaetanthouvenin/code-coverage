@@ -16,7 +16,11 @@ using Microsoft.Extensions.Localization;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.PullRequests;
 using CodeCoverage.Application.Features.PullRequests.Queries.GetPullRequest;
+using CodeCoverage.Application.Features.Notifications.Commands.TriggerNotify;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
+using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
+using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Domain.Comparisons;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Forges;
@@ -228,6 +232,85 @@ public sealed class PullRequestDetailTests : UiTestContext
     cut.Find("[data-panel=comparison-kpis] .cc-kpi").TextContent.ShouldContain(L("Comparison_NoBaseReport"));
     cut.Find("[data-base=compared]").TextContent.ShouldContain(L("Comparison_NoBaseReport"));
     cut.Find("[data-base=expected]").TextContent.ShouldBe(L("Comparison_UploadBase", "a1b2c3d"));
+  }
+
+  // As the comment: files sorted by changed lines missed, then by the size of the change, then by path; all listed,
+  // each linked to its source at the head with the pull request. A carried flag shows its badge and a dash.
+  [Fact]
+  public void Render_ShouldListImpactedFilesFlagsAndIndirectChanges() => InEnglish(() =>
+  {
+    var view = Comparison(ComparedTo, 1, 1);
+    var result = view.Comparison.Result with
+    {
+      Files =
+      [
+        new ImpactedFile("src/a.cs", null, FileDiffStatus.Modified, new CoverageTotals(8, 2, 0, 0, 0), new CoverageTotals(9, 1, 0, 0, 0), new CoverageTotals(1, 1, 0, 0, 0)),
+        new ImpactedFile("src/b.cs", null, FileDiffStatus.Added, null, new CoverageTotals(2, 3, 0, 0, 0), new CoverageTotals(2, 3, 0, 0, 0)),
+        new ImpactedFile("src/c.cs", null, FileDiffStatus.Removed, new CoverageTotals(1, 0, 0, 0, 0), null, default),
+      ],
+      Flags =
+      [
+        new FlagComparison("ui", new CoverageTotals(1, 1, 0, 0, 0), new CoverageTotals(7, 3, 0, 0, 0), PatchCoverage.Empty, true),
+        new FlagComparison("backend", new CoverageTotals(8, 2, 0, 0, 0), new CoverageTotals(9, 1, 0, 0, 0), PatchCoverage.Empty, false),
+      ],
+      IndirectChanges = [new IndirectChange("src/d.cs", IndirectChangeKind.Changed, -1, 1, 0, -10m)],
+    };
+    var detail = Detail(view with { Comparison = view.Comparison with { Result = result } }) with
+    {
+      IndirectHeadTotals = new Dictionary<string, CoverageTotals>(StringComparer.Ordinal) { ["src/d.cs"] = new CoverageTotals(3, 1, 0, 0, 0) },
+    };
+    Returns(detail);
+
+    var cut = Render<PullRequestDetailPage>(Address(423));
+
+    cut.FindAll("[data-panel=impacted] tbody tr").Select(static r => r.GetAttribute("data-path")).ShouldBe(["src/b.cs", "src/a.cs", "src/c.cs"]);
+    cut.Find("[data-panel=impacted] [data-path='src/a.cs'] a").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Head.Value}/blob/src/a.cs?pull=423");
+    cut.Find("[data-panel=impacted] [data-path='src/c.cs']").QuerySelector("a").ShouldBeNull();
+    cut.FindAll("[data-panel=comparison-flags] tbody tr").Select(static r => r.GetAttribute("data-flag")).ShouldBe(["backend", "ui"]);
+    var carried = cut.Find("[data-panel=comparison-flags] [data-flag=ui]");
+    carried.TextContent.ShouldContain(L("Session_CarriedForward"));
+    carried.QuerySelector("td:nth-child(3)")!.TextContent.Trim().ShouldBe("—");
+    var indirect = cut.Find("[data-panel=indirect] [data-path='src/d.cs']");
+    indirect.TextContent.ShouldContain("75.00%");
+    indirect.QuerySelector("a")!.GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Head.Value}/blob/src/d.cs?pull=423");
+  });
+
+  [Fact]
+  public void Render_NonRepoAdmin_ShouldHideRenotify()
+  {
+    Returns(Detail(Comparison(ComparedTo, 1, 1)));
+
+    var cut = Render<PullRequestDetailPage>(Address(423));
+
+    cut.FindAll(".cc-action-renotify").ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Click_Renotify_ShouldShowToast()
+  {
+    Returns(Detail(Comparison(ComparedTo, 1, 1)));
+    A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).Returns(new ValueTask<bool>(true));
+    var cut = Render<PullRequestDetailPage>(Address(423));
+
+    cut.Find(".cc-action-renotify").Click();
+
+    cut.WaitForAssertion(() => Services.GetRequiredService<IToastService>().Toasts.ShouldContain(t => t.Title == L("Toast_NotifyQueued") && t.Tone == CcTone.Success));
+    A.CallTo(() => _sender.Send(A<TriggerNotifyCommand>.That.Matches(static c => c.Sha == Head), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // V4: a pending comparison is where Re-notify helps most: it queues the notification of the head of the pull request.
+  [Fact]
+  public void Click_RenotifyPending_ShouldQueueTheHead()
+  {
+    Returns(Detail(null));
+    A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).Returns(new ValueTask<bool>(true));
+    var cut = Render<PullRequestDetailPage>(Address(423));
+
+    cut.Find("[data-state=pending]").ShouldNotBeNull();
+    cut.Find(".cc-action-renotify").Click();
+
+    cut.WaitForAssertion(() => Services.GetRequiredService<IToastService>().Toasts.ShouldContain(t => t.Title == L("Toast_NotifyQueued")));
+    A.CallTo(() => _sender.Send(A<TriggerNotifyCommand>.That.Matches(static c => c.Sha == Head), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   // The first pull request answering after the second never replaces it.
