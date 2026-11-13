@@ -363,9 +363,10 @@ graph TD
   M3_21 --> M3_22["M3.22 Vue d'ensemble : graphique"]
   M3_16 --> M3_22
   M3_21 --> M3_23["M3.23 Vue d'ensemble : listes et badge"]
-  M3_08 --> M3_23
-  M3_10 --> M3_23
+  M3_24 --> M3_23
+  M3_30 --> M3_23
   M3_14 --> M3_23
+  M3_35 --> M3_23
   M3_19 --> M3_24["M3.24 Commits"]
   M3_08 --> M3_24
   M3_06 --> M3_24
@@ -373,6 +374,7 @@ graph TD
   M3_25 --> M3_26["M3.26 Commit : uploads"]
   M3_25 --> M3_27["M3.27 Commit : fichiers et actions"]
   M3_09 --> M3_27
+  M3_34 --> M3_27
   M3_04 --> M3_28["M3.28 GetAnnotatedSource"]
   M3_28 --> M3_29["M3.29 Page source annotée"]
   M3_27 --> M3_29
@@ -383,7 +385,7 @@ graph TD
   M3_31 --> M3_32["M3.32 PR : détails"]
   M3_29 --> M3_32
   M3_32 --> M3_33["M3.33 Comparaison libre"]
-  M3_19 --> M3_34["M3.34 Réglages dépôt : état et YAML"]
+  M3_21 --> M3_34["M3.34 Réglages dépôt : état et YAML"]
   M3_07 --> M3_34
   M3_12 --> M3_34
   M3_34 --> M3_35["M3.35 Réglages dépôt : jetons"]
@@ -398,8 +400,10 @@ graph TD
   M3_37 --> M3_37a
   M3_19 --> M3_38["M3.38 Jetons d'organisation"]
   M3_35 --> M3_38
+  M3_37a --> M3_38
   M3_19 --> M3_39["M3.39 Dépôts d'organisation"]
   M3_07 --> M3_39
+  M3_37a --> M3_39
   M3_13 --> M3_13a["M3.13a Heartbeat et quota persistés"]
   M3_19 --> M3_40["M3.40 Admin opérations"]
   M3_13a --> M3_40
@@ -1958,6 +1962,10 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 **Critère de sortie :** l'équipe utilise l'UI, et les badges des README sont basculés en changeant seulement l'hôte.
 
+**Règle des pages :** toute page ou tout panneau qui charge passe par `UiRequestRunner` et un mapper de `Web/Mapping`, et écarte une réponse qui n'est plus la dernière avec `Web/Messaging/LatestRequest`.
+
+**Règle des droits de dépôt :** un administrateur d'une organisation (`OrganizationRole.Admin`) satisfait `RepositoryPermission.Admin` sur les dépôts de cette organisation. Le contrôle de lisibilité passe d'abord (un dépôt illisible reste le même 404), et l'administrateur d'instance n'en tire rien. La règle est écrite une seule fois, partagée par `AuthorizationBehavior` et `GetRepositoryPermission` (M3.34), pour qu'ils ne divergent pas (ARCHITECTURE §10bis.3).
+
 ### 6.1 Accès et identité
 
 #### M3.01 — Utilisateurs (Domain et persistance)
@@ -2209,7 +2217,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Domain, Application, Infrastructure, Web.
 - **Fichiers :** `Domain/Repositories/RepositorySummary.cs` (dépôt, totaux projet de la tête couverte de la branche par défaut, ce commit comme dernier commit, flags, points quotidiens des 30 derniers jours) ; UC `Features/Repositories/Queries/ListRepositorySummaries` (`IOrganizationScoped`, `Participant`, filtrée par `IRepositoryAccessService.ListReadableAsync` comme `ListRepositories`, avant toute lecture) ; des méthodes de dépôt qui prennent plusieurs identifiants de dépôt (tête couverte et totaux, flags, historique quotidien borné), testées sur deux organisations et les deux fournisseurs, sans envoi par dépôt ; `Web/Components/Pages/Home.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySummaryViewModel.cs` ; `Web/Mapping/RepositoryMapper.cs` (`ListRepositorySummaryViewModelsAsync`) ; la page appelle `ListMyOrganizations`, puis envoie une requête par organisation ; recherche (`CcSearchBar`) et filtre actifs/inactifs.
 - **Tests :** `Web.Tests/Components/Pages/HomeTests` — `Render_Empty_ShouldShowEmptyState`, `Search_ShouldFilterList`.
-- **Acceptation :** aucun type du Domain dans la page (Architecture.Tests).
+- **Acceptation :** aucun type du Domain dans la page (Architecture.Tests) ; les points de la sparkline sont datés par la finalisation du commit (`CompletedAt`), un point par jour (le dernier du jour) ; la couverture de l'accueil a 2 décimales arrondies au plus proche, sans lire la configuration de chaque dépôt.
 - **Dépend de :** M3.19, M3.06, M3.16, M3.03a
 
 #### M3.21 — Vue d'ensemble : cartes projet et flags
@@ -2217,7 +2225,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/RepositoryOverview.razor(.cs)` ; `Web/Components/Repositories/CoverageCards.razor(.cs)` ; `Web/ViewModels/Repositories/RepositoryOverviewViewModel.cs`, `FlagCardViewModel.cs`.
 - **Tests :** `RepositoryOverviewTests` — `Render_NotFound_ShouldShowInaccessibleState`.
-- **Acceptation :** valeurs formatées selon `precision` et `round`.
+- **Acceptation :** valeurs formatées selon `precision` et `round` ; la liste des commits (M3.24), la liste des PR (M3.30) et la synthèse du commit (M3.25) formatent de même, avec un envoi de `GetEffectiveConfig` de plus par page.
 - **Dépend de :** M3.19, M3.06, M3.16, M3.12 (`precision` et `round` viennent de `GetEffectiveConfig`)
 
 #### M3.22 — Vue d'ensemble : graphique d'historique
@@ -2230,24 +2238,24 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.23 — Vue d'ensemble : commits, PR et snippets de badge
 - **Objectif :** commits récents, PR ouvertes et snippets Markdown et HTML (avec jeton si le dépôt est privé).
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Repositories/RecentCommits.razor(.cs)`, `OpenPullRequests.razor(.cs)`, `BadgeSnippets.razor(.cs)` ; ViewModels associés.
-- **Tests :** `BadgeSnippetsTests` — `Render_PrivateRepo_ShouldIncludeToken`.
-- **Acceptation :** snippets copiables et conformes aux routes compatibles.
-- **Dépend de :** M3.21, M3.08, M3.10, M3.14
+- **Couches :** Application, Web (le jeton de badge est lu par `GetBadgeToken` de M3.35, lisible par tout lecteur du dépôt).
+- **Fichiers :** `Web/Components/Repositories/RecentCommits.razor(.cs)`, `OpenPullRequests.razor(.cs)`, `BadgeSnippets.razor(.cs)` ; ViewModels associés ; `RepositoryOverviewViewModel.IsPrivate` ; `Web/Mapping/RepositoryMapper.cs` (`GetRepositoryActivityViewModelAsync` : `ListCommitsQuery` sur la branche par défaut, page 1, 5 lignes, et `ListPullRequestsQuery` `open`, 5 lignes, avec le format et la branche déjà lus par la vue d'ensemble, sans renvoyer `GetRepository` ni `GetEffectiveConfig`) ; URL publiques par `IOptionsMonitor<UrlOptions>`, snippets remplacés par un bandeau quand elles sont nulles ; route `gh` pour GitHub seulement, `/api/v1/badges/{forge}/…` sinon (ADR-014) ; aperçu du badge par une `<img>` servie par `ApiPublicUrl` ; numéro de PR non lié jusqu'à M3.31 ; copie par `wwwroot/js/cc-ui.js`, classes `cc-code` et `cc-copy`.
+- **Tests :** `BadgeSnippetsTests` — `Render_PrivateRepo_ShouldIncludeToken`, `Render_PublicRepo_ShouldOmitToken`, une route de forge autre que GitHub, des URL publiques nulles.
+- **Acceptation :** snippets copiables et conformes aux routes compatibles ; le snippet complet, jeton compris pour un dépôt privé, est montré à tout lecteur du dépôt.
+- **Dépend de :** M3.21, M3.24, M3.30, M3.14, M3.35
 
 #### M3.24 — Liste des commits
 - **Objectif :** liste paginée par branche.
 - **Couches :** Domain, Application, Infrastructure, Web.
 - **Fichiers :** `IGitCommitRepository.ListByShasAsync` (métadonnées git de la page) ; read model de page `CommitSummary` (commit, message, auteur, Δ) ; Δ lu dans la comparaison de push enregistrée (`IComparisonRepository.ListByCommitsAsync`, `PullNumber` nul), testé sur deux organisations et les deux fournisseurs ; `Web/Components/Pages/CommitList.razor(.cs)` ; `Web/ViewModels/Commits/CommitRowViewModel.cs`, `CommitPageViewModel.cs` ; `Web/Mapping/CommitMapper.cs`.
 - **Tests :** `CommitListTests` — `ChangeBranch_ShouldReload`.
-- **Acceptation :** affiche état, Δ et nombre de sessions.
+- **Acceptation :** affiche état, Δ et nombre de sessions ; les contrats de l'Api (`CommitPageResponse`) ne changent pas, l'enrichissement ne sert que le Web.
 - **Dépend de :** M3.19, M3.08, M3.06
 
 #### M3.25 — Détail d'un commit : synthèse
 - **Objectif :** totaux, tableau des flags (avec marqueur de report), statuts publiés, source et avertissements de configuration.
-- **Couches :** Application, Web.
-- **Fichiers :** `CommitDetail` porte aussi les métadonnées git, la ligne `CommitConfigs` enregistrée (source, chemin et avertissements réellement appliqués, sans relire la configuration au SHA) et la comparaison de push ; `Web/Components/Pages/CommitDetail.razor(.cs)` ; `Web/Components/Commits/CommitSummary.razor(.cs)`, `CommitFlags.razor(.cs)`, `PostedStatuses.razor(.cs)`, `ConfigWarnings.razor(.cs)` ; `Web/ViewModels/Commits/CommitDetailViewModel.cs`.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :** `CommitDetail` porte aussi les métadonnées git, la ligne `CommitConfigs` enregistrée (source, chemin et avertissements réellement appliqués, sans relire la configuration au SHA) et la comparaison de push, ainsi que `BaseFiles`, le nombre de fichiers de la base lu dans sa ligne `Commits` (`GetCommitQueryHandler` prend `ICommitRepository`, base de données seulement ; contrats de l'Api inchangés) ; pied de la carte Fichiers « Base : N », pied de la carte Sessions « {flags} depuis {SHA court} » ; `Web/Components/Pages/CommitDetail.razor(.cs)` ; `Web/Components/Commits/CommitSummary.razor(.cs)`, `CommitFlags.razor(.cs)`, `PostedStatuses.razor(.cs)`, `ConfigWarnings.razor(.cs)` ; `Web/ViewModels/Commits/CommitDetailViewModel.cs`.
 - **Tests :** `CommitDetailTests` — `Render_ConfigError_ShouldShowBanner`.
 - **Acceptation :** conforme à la maquette.
 - **Dépend de :** M3.24, M2.19a (statuts publiés de `CommitDetail.Statuses`)
@@ -2255,7 +2263,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.26 — Détail d'un commit : uploads, sessions et journal
 - **Objectif :** lien CI, flags, état, origine du report et journal de traitement.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Commits/UploadSessions.razor(.cs)`, `ProcessingLogView.razor(.cs)` ; `Web/ViewModels/Commits/SessionViewModel.cs`, `UploadViewModel.cs`.
+- **Fichiers :** `Web/Components/Commits/UploadSessions.razor(.cs)`, `ProcessingLogView.razor(.cs)` ; `Web/ViewModels/Commits/SessionViewModel.cs`, `UploadViewModel.cs` ; étend `Web/Mapping/CommitMapper.GetCommitDetailViewModelAsync` et `CommitDetail.razor` (uploads, `ProcessingLog` déjà dans `CommitDetail`, aucune requête nouvelle).
 - **Tests :** `UploadSessionsTests` — `Render_CarriedForward_ShouldShowOrigin`, `Render_Unresolved_ShouldListPaths`.
 - **Acceptation :** chemins non résolus ou ambigus visibles, et uploads échoués listés (la relance est en M3.27).
 - **Dépend de :** M3.25, M1.33
@@ -2263,23 +2271,23 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.27 — Détail d'un commit : arbre des fichiers et actions
 - **Objectif :** arbre triable issu de `FileIndex`, filtre de flag, boutons re-notifier, retraiter et relancer un upload échoué (déplacé de M3.40).
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Commits/FileTree.razor(.cs)`, `CommitActions.razor(.cs)` ; `Web/ViewModels/Commits/FileNodeViewModel.cs`.
+- **Fichiers :** `Web/Components/Commits/FileTree.razor(.cs)`, `CommitActions.razor(.cs)` ; `Web/ViewModels/Commits/FileNodeViewModel.cs` ; actions montrées selon `GetRepositoryPermission` (M3.34) ; actions par `TriggerNotifyCommand`, `ReprocessCommitCommand`, `RetryUploadCommand` ; arbre par `GetCommitFilesQuery`.
 - **Tests :** `CommitActionsTests` — `Render_NonRepoAdmin_ShouldHideActions`, `Click_Notify_ShouldShowToast`, `Click_RetryFailedUpload_ShouldEnqueue`.
 - **Acceptation :** chaque action passe par `UiRequestRunner`.
-- **Dépend de :** M3.25, M3.09
+- **Dépend de :** M3.25, M3.09, M3.34
 
 #### M3.28 — Requête `GetAnnotatedSource`
-- **Objectif :** source lue en direct sur GitHub après contrôle d'accès, jamais persistée.
+- **Objectif :** source lue en direct sur la forge (`IForgeGatewayProvider`, `IForgeGateway.GetContentAsync`, ADR-014) après contrôle d'accès, jamais persistée.
 - **Couches :** Domain, Application, Infrastructure.
-- **Fichiers :** `Domain/Source/AnnotatedSource.cs`, `AnnotatedLine.cs` ; `Domain/Ports/ISourceContentCache.cs` (ajout, §10) ; `Infrastructure/Caching/BoundedSourceContentCache.cs` (100 Mo, 10 minutes, clé dépôt, SHA et chemin, après le contrôle d'accès) ; UC `Features/Commits/Queries/GetAnnotatedSource` (`IRepositoryScoped(Read)`).
-- **Tests :** `GetAnnotatedSourceQueryHandlerTests` — `Handle_NoAccess_ShouldThrowNotFoundWithoutCallingGitHub`, `Handle_ShouldMergeLinesWithCoverage`.
+- **Fichiers :** `Domain/Source/AnnotatedSource.cs`, `AnnotatedLine.cs` ; `Domain/Ports/ISourceContentCache.cs` (ajout, §10) ; `Infrastructure/Caching/BoundedSourceContentCache.cs` (100 Mo, 10 minutes, clé préfixée par l'organisation, puis dépôt, SHA et chemin, comme `MemoryReportViewCache`, après le contrôle d'accès) ; UC `Features/Commits/Queries/GetAnnotatedSource` (`IRepositoryScoped(Read)`) ; `AnnotatedSource` porte `Totals` (`CoverageTotals`) et `IsSourceAvailable` ; la requête prend `string? Flag` (`CommitFlagView`, comme `GetFileCoverage`) ; une source de plus de 1 Mo ou un `GitHubRateLimitedException` donne « source indisponible », les chiffres restent ; un fichier non couvert donne 404 `Commit.FileNotFound`.
+- **Tests :** `GetAnnotatedSourceQueryHandlerTests` — `Pipeline_NoAccess_ShouldThrowNotFoundWithoutCallingTheForge` (dans le pipeline : le refus vient d'`AuthorizationBehavior`, pas du handler), `Handle_ShouldMergeLinesWithCoverage`.
 - **Acceptation :** cache borné en taille, et aucune écriture en base.
 - **Dépend de :** M3.04, M1.26, M1.19
 
 #### M3.29 — Page source annotée
 - **Objectif :** marge Hit, Miss et Partial, survol avec hits et `c/t`, lignes de patch surlignées (`?pull=`), ligne non couverte suivante.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/AnnotatedSource.razor(.cs)` ; `Web/wwwroot/lib/highlightjs/*` (servi localement) ; `Web/wwwroot/js/annotated-source.js` ; `Web/ViewModels/Source/AnnotatedSourceViewModel.cs`, `AnnotatedLineViewModel.cs` ; `Web/Mapping/SourceMapper.cs`.
+- **Couches :** Application, Web.
+- **Fichiers :** `Web/Components/Pages/AnnotatedSource.razor(.cs)` ; `Web/wwwroot/lib/highlightjs/*` (servi localement) ; `Web/wwwroot/js/annotated-source.js` ; `Web/ViewModels/Source/AnnotatedSourceViewModel.cs`, `AnnotatedLineViewModel.cs` ; `Web/Mapping/SourceMapper.cs` ; `GetAnnotatedSourceQuery` gagne `int? Pull` : lignes de patch lues dans le diff en cache (`IDiffCacheRepository`, base et source de diff de la comparaison enregistrée de la PR), base de données seulement ; sans diff en cache, aucun surlignage.
 - **Tests :** `AnnotatedSourceTests` — `Render_PatchLines_ShouldHighlight`, `NextUncovered_ShouldScroll`.
 - **Acceptation :** fonctionne sur un fichier de 5 000 lignes sans blocage du circuit.
 - **Dépend de :** M3.28, M3.27, M3.10
@@ -2294,8 +2302,8 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.31 — Page PR : bases et synthèse
 - **Objectif :** expliquer les bases (tête, point de fourche, `comparedTo`, retard), patch, Δ et tableau `diff`.
-- **Couches :** Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api, Web.
-- **Fichiers :** colonnes `BehindBy` et `Hops` de `Comparisons` (nullables, deux migrations ; une comparaison existante les laisse nulles), lues dans `ComparisonView` et ajoutées à `BaseResolutionModel` ; `Web/Components/Pages/PullRequestDetail.razor(.cs)` ; `Web/Components/Comparisons/BaseExplanation.razor(.cs)`, `ComparisonSummary.razor(.cs)`, `DiffTable.razor(.cs)` ; `Web/ViewModels/Comparisons/ComparisonViewModel.cs` ; `Web/Mapping/ComparisonMapper.cs`.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api, Web.
+- **Fichiers :** `CommitComparison` gagne `BehindBy` et `Hops`, remplis par `ComparisonBuilder` depuis `BaseResolution` ; colonnes `BehindBy` et `Hops` de `Comparisons` (nullables, deux migrations ; une comparaison existante les laisse nulles), lues dans `ComparisonView` et ajoutées à `BaseResolutionModel` ; `Web/Components/Pages/PullRequestDetail.razor(.cs)` ; `Web/Components/Comparisons/BaseExplanation.razor(.cs)`, `ComparisonSummary.razor(.cs)`, `DiffTable.razor(.cs)` ; `Web/ViewModels/Comparisons/ComparisonViewModel.cs` ; `Web/Mapping/ComparisonMapper.cs` ; le numéro de `PullRequestList` devient un lien vers `/pull/{n}` ; lien du commentaire construit depuis `PullRequest.CommentId`.
 - **Tests :** `PullRequestDetailTests` — `Render_ComparedToDiffersFromForkPoint_ShouldExplain` ; `ComparisonRepositoryTests` — `Save_ShouldRoundTripHopsAndBehindBy` (deux fournisseurs).
 - **Acceptation :** lien vers le commentaire GitHub.
 - **Dépend de :** M3.30, M3.10
@@ -2303,7 +2311,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.32 — Page PR : flags, fichiers impactés, changements indirects et avertissements
 - **Objectif :** compléter la page PR, avec liens vers la source annotée.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Comparisons/FlagComparisons.razor(.cs)`, `ImpactedFiles.razor(.cs)`, `IndirectChanges.razor(.cs)`, `ComparisonWarnings.razor(.cs)`, `RenotifyButton.razor(.cs)`.
+- **Fichiers :** `Web/Components/Comparisons/FlagComparisons.razor(.cs)`, `ImpactedFiles.razor(.cs)`, `IndirectChanges.razor(.cs)`, `ComparisonWarnings.razor(.cs)`, `RenotifyButton.razor(.cs)` ; `RenotifyButton` caché sans `Admin`, par `GetRepositoryPermission` (M3.34).
 - **Tests :** `ImpactedFilesTests` — `Click_File_ShouldLinkToSourceWithPull` ; `ComparisonWarningsTests` — `Render_DiffIncomplete_ShouldWarn`.
 - **Acceptation :** contenu équivalent à celui du commentaire.
 - **Dépend de :** M3.31, M3.29
@@ -2317,17 +2325,17 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.32
 
 #### M3.34 — Réglages du dépôt : état et YAML
-- **Objectif :** activer ou désactiver, afficher le YAML effectif en lecture seule et le valider.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/RepositorySettings.razor(.cs)` ; `Web/Components/Repositories/RepositoryActivation.razor(.cs)`, `EffectiveConfigView.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySettingsViewModel.cs`.
+- **Objectif :** activer ou désactiver, afficher en lecture seule le YAML du dépôt avec ses erreurs et avertissements.
+- **Couches :** Application, Web.
+- **Fichiers :** `Web/Components/Pages/RepositorySettings.razor(.cs)` ; `Web/Components/Repositories/RepositoryActivation.razor(.cs)`, `EffectiveConfigView.razor(.cs)` ; `Web/ViewModels/Repositories/RepositorySettingsViewModel.cs` ; UC `Features/Repositories/Queries/GetRepositoryPermission` (`IRepositoryScoped(Read)`, dit si l'utilisateur a `RepositoryPermission.Admin` selon la règle des droits de dépôt, partagée avec `AuthorizationBehavior` et non dupliquée), réutilisée par M3.27 et M3.32 ; UC `Features/Repositories/Queries/GetRepositorySettings` (`IRepositoryScoped(Admin)`, dépôt et `EffectiveConfig`) ; onglet Réglages ajouté à `RepositoryTabs`, visible par `GetRepositoryPermission`, qui donne aussi l'état Accès refusé ; YAML du dépôt tel qu'écrit (`EffectiveConfig.Yaml`, avec source, chemin et SHA), erreurs et avertissements de `EffectiveConfig`, sans appel à `ValidateCoverageYaml` ; interrupteur lié à `DisabledAt is null`, par des enveloppes `ActivateRepositoryAsync` / `DeactivateRepositoryAsync` de `Web/Mapping/RepositoryMapper.cs` ; classe `cc-code`.
 - **Tests :** `RepositorySettingsTests` — `Render_Reader_ShouldShowAccessDenied`.
 - **Acceptation :** réservé à l'admin du dépôt et aux administrateurs de cette organisation ; l'administrateur d'instance n'y a pas accès.
-- **Dépend de :** M3.19, M3.07, M3.12, M2.08
+- **Dépend de :** M3.21, M3.07, M3.12
 
 #### M3.35 — Réglages du dépôt : jetons d'upload et de badge
 - **Objectif :** créer (valeur affichée une fois), importer un `CODECOV_TOKEN`, révoquer, renouveler et importer le jeton de badge.
-- **Couches :** Web.
-- **Fichiers :** `Web/Components/Repositories/RepositoryUploadTokens.razor(.cs)`, `BadgeTokenPanel.razor(.cs)`, `Web/Components/Tokens/IssuedTokenDialog.razor(.cs)` ; `Web/ViewModels/Tokens/UploadTokenViewModel.cs`, `CreateUploadTokenFormViewModel.cs` ; `Web/Mapping/TokenMapper.cs` (`ToCommand`), avec les messages de jeton d'upload de dépôt de M1.22.
+- **Couches :** Application, Web.
+- **Fichiers :** `Web/Components/Repositories/RepositoryUploadTokens.razor(.cs)`, `BadgeTokenPanel.razor(.cs)`, `Web/Components/Tokens/IssuedTokenDialog.razor(.cs)` et les autres composants partagés de `Web/Components/Tokens` (table, création, import, révocation), réutilisés par M3.23, M3.36 et M3.38 ; `Web/ViewModels/Tokens/UploadTokenViewModel.cs`, `CreateUploadTokenFormViewModel.cs` ; `Web/Mapping/TokenMapper.cs` (extensions sur `ISender`, comme `SettingsMapper`), avec les messages de jeton d'upload de dépôt de M1.22 ; UC `Features/Repositories/Queries/GetBadgeToken` (`IRepositoryScoped(Read)`, `ISecretProtector`, nul pour un dépôt public : le jeton de badge est lisible par tout lecteur du dépôt) ; copie par `ccUi.copy` de `wwwroot/js/cc-ui.js`, classe `cc-copy` ; jetons révoqués masqués, avec une bascule « Afficher les révoqués » ; indices affichés tels que stockés ; un import n'ouvre jamais le dialogue de valeur ; pas de ligne « Origine ».
 - **Tests :** `IssuedTokenDialogTests` — `Close_ShouldForgetValue`.
 - **Acceptation :** la valeur n'est plus récupérable après fermeture.
 - **Dépend de :** M3.34, M3.11, M3.14
@@ -2335,7 +2343,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.36 — Mon compte : jetons API
 - **Objectif :** créer et révoquer ses jetons API. La création exige de choisir une organisation ; le niveau instance n'est proposé qu'aux administrateurs d'instance.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/AccountTokens.razor(.cs)` ; `Web/ViewModels/Tokens/ApiTokenViewModel.cs`.
+- **Fichiers :** `Web/Components/Pages/AccountTokens.razor(.cs)` ; `Web/ViewModels/Tokens/ApiTokenViewModel.cs` ; `Web/Mapping/TokenMapper.cs` (créé par M3.35) ; portée affichée par le login lu dans `ListMyOrganizations` ; jetons révoqués masqués avec une bascule, sans champ d'expiration.
 - **Tests :** `AccountTokensTests` — `Create_ShouldShowValueOnce`.
 - **Acceptation :** conforme à la maquette.
 - **Dépend de :** M3.19, M3.05, M3.35
@@ -2359,31 +2367,31 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 #### M3.38 — Organisation : jetons d'upload
 - **Objectif :** `/orgs/{forge}/{org}/upload-tokens` : créer, importer et révoquer les jetons d'organisation, avec un bandeau quand `RotationAdvisedAt` est posé.
 - **Couches :** Web.
-- **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (messages `IOrganizationScoped(Admin)` de M1.22, réutilise `Tokens/*`).
+- **Fichiers :** `Web/Components/Pages/OrganizationUploadTokens.razor(.cs)` (messages `IOrganizationScoped(Admin)` de M1.22, réutilise `Tokens/*`) ; ajoute l'onglet Jetons d'upload à `Organizations/OrganizationTabs` ; jetons révoqués masqués avec une bascule, sans champ d'expiration.
 - **Tests :** `OrganizationUploadTokensTests` — `Render_RotationAdvised_ShouldShowBanner`, `Render_Participant_ShouldBeDenied`.
 - **Acceptation :** réservé aux administrateurs de l'organisation.
-- **Dépend de :** M3.19, M1.22, M3.35
+- **Dépend de :** M3.19, M1.22, M3.35, M3.37a
 
 #### M3.39 — Organisation : dépôts
 - **Objectif :** `/orgs/{forge}/{org}/repositories` : tous les dépôts de l'installation de l'organisation, activation et synchronisation.
-- **Couches :** Application, Web.
-- **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`), à la place du job global : elle met en file le job existant `SyncInstallationRepositories` pour l'installation de l'organisation, sans nouveau type de job ; UC `Features/Repositories/Queries/ListOrganizationRepositories` (`IOrganizationScoped(Admin)`, tous les dépôts de l'installation avec leur dernier upload, `MAX(Commits.LastUploadAt)` par dépôt ; `ListRepositorySummaries` de M3.20 ne convient pas, car elle est `Participant` et filtrée par les dépôts lisibles) ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs`.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** `Web/Components/Pages/OrganizationRepositories.razor(.cs)` ; UC `Features/GitHubEvents/Commands/SyncOrganizationInstallation` (`IOrganizationScoped(Admin)`, mise en file seulement), en plus du job global `SyncInstallations`, qui reste pour les webhooks : elle met en file le job existant `SyncInstallationRepositories` pour chaque installation de l'organisation (`IInstallationRepository.ListIdsForOrganizationAsync`), avec la clé de dédoublonnage existante `sync:{InstallationKey}` et `JobRequest.Create`, sans nouveau type de job ; sans installation, 422 `GitHubEvents.NoInstallation` par un garde ; UC `Features/Repositories/Queries/ListOrganizationRepositories` (`IOrganizationScoped(Admin)`, tous les dépôts de l'installation avec leur dernier upload, `MAX(Commits.LastUploadAt)` par dépôt ; `ListRepositorySummaries` de M3.20 ne convient pas, car elle est `Participant` et filtrée par les dépôts lisibles) ; `Web/ViewModels/Repositories/OrganizationRepositoryViewModel.cs` ; read model Domain du dépôt d'organisation avec son dernier upload ; `ICommitRepository.ListLastUploadsAsync` (deux fournisseurs, deux organisations, sans index nouveau) ; un dépôt sorti de l'installation (`IsActive` faux) n'est pas listé ; mapper `Web/Mapping/RepositoryMapper.cs`, interrupteur par les enveloppes de M3.34 (permis à l'administrateur de l'organisation par la règle des droits de dépôt) ; onglet Dépôts ajouté à `OrganizationTabs`, dans l'ordre final Dépôts, Jetons d'upload, Paramètres.
 - **Tests :** `OrganizationRepositoriesTests` — `Click_Sync_ShouldEnqueue`.
 - **Acceptation :** affiche le dernier upload.
-- **Dépend de :** M3.19, M3.07, M2.03
+- **Dépend de :** M3.19, M3.07, M2.03, M3.37a
 
 #### M3.40 — Administration : opérations
 - **Objectif :** `/admin/operations`, métadonnées seulement : file, jobs morts, webhooks, heartbeats, quota GitHub et relance. Les uploads échoués et leur relance passent sur la page du commit (M3.26, M3.27).
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/AdminOperations.razor(.cs)` ; `Web/Components/Operations/JobTable.razor(.cs)`, `WebhookDeliveries.razor(.cs)`, `SystemStatusCards.razor(.cs)` ; `CcGauge` (quota GitHub, sur `Remaining / Limit`) dans `Web/Components/Ui` ; `Web/ViewModels/Operations/*` ; `Web/Mapping/OperationsMapper.cs`.
 - **Tests :** `AdminOperationsTests` — `Click_RetryDeadJob_ShouldEnqueue`.
-- **Acceptation :** les indicateurs sont les mêmes que les métriques de §12.6.
+- **Acceptation :** les indicateurs sont les mêmes que les métriques de §12.6 ; la jauge montre l'installation la plus consommée parmi les quotas non expirés ; un quota dont `ResetAt` est passé s'affiche comme une fenêtre repartie ; le pied de carte donne une remise à zéro relative (« dans 38 min ») ; les jobs échoués et morts sont les 25 premiers de chaque état.
 - **Dépend de :** M3.19, M3.13, M3.13a
 
 #### M3.41 — Administration : journal d'audit
 - **Objectif :** `/admin/audit` : consulter et filtrer l'audit de l'instance (lignes à `OrganizationId` nul seulement).
 - **Couches :** Domain, Application, Infrastructure, Web.
-- **Fichiers :** read model `Domain/Audit/AuditEntrySummary.cs` (sans valeur de secret) et `Domain/Ports/IAuditReader.cs`, implémenté dans `Infrastructure` (table opérationnelle `AuditEntries`, `OrganizationId` nul, filtres et pagination bornée ; `IAuditLog` n'a que `RecordAsync`) ; UC `Features/Operations/Queries/ListAuditEntries` (ajout, §10) ; `Web/Components/Pages/AdminAudit.razor(.cs)` ; `Web/ViewModels/Operations/AuditEntryViewModel.cs`.
+- **Fichiers :** read model `Domain/Audit/AuditEntrySummary.cs` (sans valeur de secret) et `Domain/Ports/IAuditReader.cs`, implémenté dans `Infrastructure` (table opérationnelle `AuditEntries`, `OrganizationId` nul, filtres et pagination bornée ; `IAuditLog` n'a que `RecordAsync` ; les événements `ApiTokens.*` d'un jeton lié à une organisation sont exclus sans exception possible (fail-closed), par la ligne `ApiTokens` et non par le JSON des détails ; recherche en minuscules des deux côtés ; pas de filtre de période, bien que la maquette en montre un) ; UC `Features/Operations/Queries/ListAuditEntries` (ajout, §10) ; `Web/Components/Pages/AdminAudit.razor(.cs)` ; `Web/ViewModels/Operations/AuditEntryViewModel.cs`.
 - **Tests :** `ListAuditEntriesQueryHandlerTests` ; `AdminAuditTests` — `Filter_ShouldReload`.
 - **Acceptation :** aucun secret n'apparaît.
 - **Dépend de :** M3.19, M0.17
@@ -2413,21 +2421,22 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 #### M3.43 — Page `/setup`
 - **Objectif :** état, création de l'App par manifest ou saisie manuelle, URL publiques et administrateurs. L'installation de l'App n'est plus une étape.
-- **Couches :** Application, Web. La saisie manuelle de l'App, la réémission du jeton de mise en place et l'enregistrement des URL publiques avant que l'App existe demandent des commandes que M3.42 ne fournit pas ; elles sont à trancher avec le propriétaire avant de coder la page.
+- **Couches :** Application, Web : commande anonyme de saisie manuelle de l'App (`SaveGitHubAppCommand`, gardée par le jeton de mise en place, secrets protégés, auditée) ; commande d'enregistrement des URL publiques avant l'App (`SavePublicUrlsCommand`, `CompleteSetup` n'est pas assoupli) ; réémission du jeton par `SetupRedirectMiddleware` tant que la mise en place n'est pas finie ; jeton porté à travers l'aller-retour du manifest par un cookie protégé HttpOnly SameSite=Lax limité à `/setup`, avec un `state` vérifié au retour (jamais `sessionStorage`, jamais la query string au-delà du `code` de GitHub) ; App sur le compte personnel par défaut, login d'organisation facultatif, nom modifiable valant « CodeCoverage » par défaut ; l'état Jeton invalide ne passe pas par `signin?expired=true`.
 - **Fichiers :** `Web/Components/Pages/Setup.razor(.cs)` ; `Web/ViewModels/Settings/SetupViewModel.cs`, `ManualAppFormViewModel.cs`.
-- **Tests :** `SetupTests` — `Render_AppCreated_ShouldCompleteWithoutInstallation`.
+- **Tests :** `SetupTests` — `Render_AppCreated_ShouldCompleteWithoutInstallation` ; cas de menace en tests : mauvais jeton, `state` rejoué, cookie absent, mise en place déjà finie (409).
 - **Acceptation :** parcours complet sur une instance sans aucune organisation.
 - **Dépend de :** M3.42, M3.18
 
 #### M3.43a — Suite d'isolation de bout en bout à deux organisations
 - **Objectif :** prouver l'exigence à la frontière externe.
-- **Couches :** Api.Tests, Web.Tests.
-- **Fichiers :** `Api.Tests/Isolation/CrossOrganizationRouteTests.cs` et `Web.Tests/Isolation/CrossOrganizationPageTests.cs`, avec deux organisations ensemencées sur les deux fournisseurs ; chaque action MVC et page routable, trouvée par réflexion, doit déclarer une sonde employant une ressource réelle de l'organisation B. Retire `ReservedLogins` et son emploi dans `Organization.Admit` et `Organization.Rename`, avec les tests associés ; la valeur `SuspensionReason.ReservedLogin` reste pour les lignes existantes (ADR-014).
+- **Couches :** Domain, Application, Web (resx), Api.Tests, Web.Tests.
+- **Fichiers :** `Api.Tests/Isolation/CrossOrganizationRouteTests.cs` et `Web.Tests/Isolation/CrossOrganizationPageTests.cs`, avec deux organisations ensemencées sur les deux fournisseurs ; chaque action MVC et page routable, trouvée par réflexion, doit déclarer une sonde employant une ressource réelle de l'organisation B. Retire `ReservedLogins` et son emploi dans `Organization.Admit` et `Organization.Rename`, avec les tests associés, son garde de `OrganizationGuards`, son emploi dans `AdmitOrganizationCommandHandler`, son code d'erreur et les deux resx ; la valeur `SuspensionReason.ReservedLogin` reste pour les lignes existantes (ADR-014). Les deux organisations sont ensemencées sur une vraie base par Testcontainers (tests ignorés avec une raison explicite sans Docker).
 - **Tests :** `CrossOrganizationRouteTests` — `EveryAction_ShouldDeclareProbe`, `Request_OtherOrganization_ShouldMatchUnknownOwner`, `Upload_JunkTokenActiveAndUnknownOwner_ShouldBeIdentical`, `GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`, `Request_OutsideCollaborator_ShouldReachOnlyThatRepository`, `Badge_PrivateRepositoryWrongToken_ShouldMatchUnknown` ; `ForgeRouteTests` — `EveryOrganizationRoute_ShouldCarryTheForge` ; `CrossOrganizationPageTests` — `Render_OtherOrganization_ShouldMatchNotFound`.
 - **Acceptation :**
   - pour chacune, un credential ou une session de l'organisation A contre l'organisation B donne le même statut, le même `errorCode` et le même corps qu'un slug dont l'owner n'existe pas ;
   - une nouvelle route sans sonde échoue ;
-  - un badge inconnu ou au jeton incorrect est identique à l'octet près, ETag compris.
+  - un badge inconnu ou au jeton incorrect est identique à l'octet près, ETag compris ;
+  - une page livrée après M3.43a déclare sa sonde dans son propre commit.
 - **Dépend de :** M3.13, M3.15, M3.20, M3.37, M3.37a, M3.38, M3.39, M3.40, M3.41, M3.41a, M3.43
 
 ---
@@ -2607,7 +2616,7 @@ Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub rest
 |---|---|---|
 | 1 | La configuration `codecov.yml` (Domain, parseur YAML, `ConfigResolver`) passe de M2 à **M1** (M1.07, M1.08, M1.28). | `ProcessUpload` et `FinalizeCommit` ont besoin de `ignore`, `fixes`, flags, `carryforward` et `partials_as_hits`. M2 n'ajoute que les règles de statut et de commentaire et `/validate`. |
 | 2 | Le Domain des diffs (`UnifiedDiffParser`, `LineShifter`) passe en **M1** (M1.06). | Le décalage des lignes du carryforward en dépend. |
-| 3 | Ports ajoutés : `IRepositoryAccessService`, `IRepositoryTreeRepository`, `IDiffCacheRepository`, `IWebhookSignatureValidator`, `IReportViewCache`, `ISourceContentCache`, `IRetentionRepository`, `ITokenGenerator`, `IJobWakeUp`, `IUploadCredentialCache`. | Ils sont cités implicitement par l'architecture (services et tables) sans figurer dans la liste des ports. Les caches et l'HMAC restent ainsi derrière des ports, l'Application ne dépendant ni d'`IMemoryCache` ni des secrets. |
+| 3 | Ports ajoutés : `IRepositoryAccessService`, `IRepositoryTreeRepository`, `IDiffCacheRepository`, `IWebhookSignatureValidator`, `IReportViewCache`, `ISourceContentCache`, `IRetentionRepository`, `ITokenGenerator`, `IJobWakeUp`, `IUploadCredentialCache`, `IAuditReader` (M3.41). | Ils sont cités implicitement par l'architecture (services et tables) sans figurer dans la liste des ports. Les caches et l'HMAC restent ainsi derrière des ports, l'Application ne dépendant ni d'`IMemoryCache` ni des secrets. |
 | 4 | `ReceiveWebhookCommand` (`IAnonymousEntry`, ADR-013) est authentifiée par signature dans son handler et n'est **pas** `ISystemOnly`. | Un hôte HTTP ne peut jamais produire le principal système (§3bis.2). Seule `HandleWebhookDeliveryCommand`, exécutée dans le worker, est `ISystemOnly`. |
 | 5 | Le verbe d'administration en ligne de commande (`admin create-upload-token` et `admin admit-organization`, M1.23) est ajouté. | Le pilote M1 a besoin d'une organisation et de jetons pour Azure avant l'arrivée de l'UI et du schéma `ApiToken` en M3. |
 | 6 | La parité M1 se mesure par lecture SQL en lecture seule (M1.47), et par l'API en M4.06. | L'API de gestion authentifiée n'existe qu'en M3. |

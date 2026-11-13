@@ -162,9 +162,9 @@ Le CSS de la maquette reprend `tokens.css`, `components.css` et `app.css`, avec 
 
 | Situation | Composants ou classes |
 |---|---|
-| Existants (`Web/Components/Ui`) | `CcAppShell`, `CcTopNav`, `CcUserMenu`, `CcPageContainer`, `CcHeader`, `CcPillTabs`, `CcFolderTabs`, `CcKpiCard`, `CcBadge`, `CcButton`, `CcBanner`, `CcEmptyState`, `CcErrorBoundary`, `CcLoadingSpinner`, `CcToast`, `CcSearchBar`, `CcSelectField`, `CcTextField`, `CcIcon` |
-| Nommés par le plan, à construire | `CcLineChart` (M3.22), `CcGauge` (couverture du patch et quota GitHub) ; `CcBarChart` n'est employé par aucun écran validé |
-| Besoins nouveaux, avec leurs classes | emplacement du sélecteur d'organisation dans `CcTopNav` (`cc-topnav__start`, `cc-topnav__org`) ; tableau (`cc-table`, `cc-table-wrap`) ; pagination (`cc-panel__foot`) ; dialogue (`cc-dialog`) pour `IssuedTokenDialog` et `SecretReplaceDialog` ; interrupteur (`cc-switch`) ; ligne de paramètre (`cc-setting`) pour `SettingEditor` ; étapes de `/setup` (`cc-stepper`) ; source annotée (`cc-source`) ; code et copie (`cc-code`, `cc-copy`) ; barre de couverture (`cc-covbar`) ; sparkline (`cc-spark`) ; petites statistiques (`cc-mini`, `cc-panel__stats`) ; liste et clé-valeur (`cc-list`, `cc-kv`) ; page de connexion (`cc-signin`) |
+| Existants (`Web/Components/Ui`) | `CcAppShell`, `CcTopNav`, `CcUserMenu`, `CcPageContainer`, `CcHeader`, `CcPillTabs`, `CcFolderTabs`, `CcKpiCard`, `CcBadge`, `CcButton`, `CcBanner`, `CcEmptyState`, `CcErrorBoundary`, `CcLoadingSpinner`, `CcToast`, `CcSearchBar`, `CcSelectField`, `CcTextField`, `CcIcon`, `CcTable`, `CcDialog`, `CcSwitch`, `CcPager` (M3.24), `CcLineChart` (M3.22), `CcSparkline` (M3.20), `CcCoverageBar` (M3.20), `CcGauge` (M3.40) |
+| Nommés par le plan, à construire | aucun ; `CcBarChart` n'est employé par aucun écran validé |
+| Besoins nouveaux, avec leurs classes | étapes de `/setup` (`cc-stepper`, M3.43) ; source annotée (`cc-source`, `cc-panel__stats`, M3.29) ; code et copie (`cc-code`, `cc-copy`, M3.23) |
 
 ### À reprendre lors de la construction des pages
 
