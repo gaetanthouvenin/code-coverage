@@ -8,6 +8,7 @@ using System.Globalization;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.Comparisons.Queries.GetCommitRange;
 using CodeCoverage.Application.Features.PullRequests.Queries.GetPullRequest;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Domain.Comparisons;
@@ -24,6 +25,13 @@ namespace CodeCoverage.Web.Mapping;
 /// <summary>Reads the comparisons the notifications stored, for the pull request and compare pages.</summary>
 internal static class ComparisonMapper
 {
+  #region Fields
+
+  /// <summary>The separator of the two commits of a free comparison: <c>{base}...{head}</c>.</summary>
+  public const string RangeSeparator = "...";
+
+  #endregion
+
   #region Methods
 
   /// <summary>Reads a pull request and the comparison stored for its head, formatted as the configuration says.</summary>
@@ -55,6 +63,67 @@ internal static class ComparisonMapper
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
 
     return ToViewModel(detail, parsed, owner, name, config, $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}");
+  }
+
+  /// <summary>Splits the range of a free comparison into its two full SHAs.</summary>
+  /// <param name="range">The range of the address, <c>{base}...{head}</c>.</param>
+  /// <param name="baseSha">The base, as written, when the range is well formed.</param>
+  /// <param name="headSha">The head, as written, when the range is well formed.</param>
+  /// <returns>
+  ///   <see langword="true" /> when the range holds two full 40-character SHAs around one separator, as the Api and the
+  ///   commit page accept them; a short SHA is refused here, before any request.
+  /// </returns>
+  public static bool TryParseRange(string? range, out string baseSha, out string headSha)
+  {
+    var index = range?.IndexOf(RangeSeparator, StringComparison.Ordinal) ?? -1;
+    baseSha = index < 0 ? range ?? string.Empty : range![..index];
+    headSha = index < 0 ? string.Empty : range![(index + RangeSeparator.Length)..];
+
+    return index >= 0 && IsFullSha(baseSha) && IsFullSha(headSha);
+  }
+
+  /// <summary>Tells whether a text is a full SHA, as the address of a commit takes it.</summary>
+  /// <param name="value">The text.</param>
+  /// <returns><see langword="true" /> for 40 hexadecimal characters.</returns>
+  public static bool IsFullSha(string? value) => GitSha.TryParse(value, out _);
+
+  /// <summary>Reads two commits and the comparison a notification stored between them, formatted as the configuration says.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="range">The range of the address, <c>{base}...{head}</c>, two full SHAs.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The comparison, or <see langword="null" /> when the address is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  /// <remarks>The database only: a pair no notification compared is not computed here (rule 3).</remarks>
+  public static async Task<CompareViewModel?> GetCompareViewModelAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    string range,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed) || !TryParseRange(range, out var first, out var second))
+    {
+      return null;
+    }
+
+    var (baseSha, headSha) = (GitSha.Parse(first), GitSha.Parse(second));
+    var commits = await sender.Send(new GetCommitRangeQuery(parsed, owner, name, baseSha, headSha), cancellationToken).ConfigureAwait(false);
+    var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
+    var root = $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
+
+    return new CompareViewModel(
+      DisplayFormatter.ShortSha(baseSha),
+      DisplayFormatter.ShortSha(headSha),
+      commits.Comparison is { } view
+        ? ToViewModel(view, null, DisplayFormatter.ShortSha(headSha), baseSha, config, root, null, commits.IndirectHeadTotals)
+        : null
+    );
   }
 
   /// <summary>Converts a comparison as the pages show it.</summary>

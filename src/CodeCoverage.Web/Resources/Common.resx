@@ -546,4 +546,12 @@
   <data name="Comparison_Missed" xml:space="preserve"><value>Missed</value></data>
   <data name="Comparison_New" xml:space="preserve"><value>new</value></data>
   <data name="Comparison_NoIndirectChange" xml:space="preserve"><value>No coverage moved outside the diff.</value></data>
+  <data name="Compare_Title" xml:space="preserve"><value>Compare</value></data>
+  <data name="Compare_Subtitle" xml:space="preserve"><value>Same content as a pull request, without the comment.</value></data>
+  <data name="Compare_Base" xml:space="preserve"><value>Base</value></data>
+  <data name="Compare_Head" xml:space="preserve"><value>Head</value></data>
+  <data name="Compare_Action" xml:space="preserve"><value>Compare</value></data>
+  <data name="Compare_FullShaExpected" xml:space="preserve"><value>Expected a full SHA of 40 hexadecimal characters.</value></data>
+  <data name="Compare_NotComputed" xml:space="preserve"><value>Not computed</value></data>
+  <data name="Compare_NotComputedText" xml:space="preserve"><value>No comparison is stored for these two commits. A comparison is computed only when a notification compares them, never on request.</value></data>
 </root>

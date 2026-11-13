@@ -41,5 +41,35 @@ public sealed class RouteSegmentTests(IsolationFixture fixture)
     markup.ShouldContain("<title>My File#1.Tests.cs");
   }
 
+  // The range of a free comparison is one segment with three dots: it reaches the page, which reads both SHAs.
+  [Fact]
+  public async Task Get_CompareRange_ShouldReachThePage()
+  {
+    var web = await fixture.WebAsync();
+    using var client = web.Client();
+    var range = $"{new string('a', 40)}...{new string('b', 40)}";
+
+    using var response = await client.GetAsync(new Uri($"/github/{TwoOrganizationWeb.FirstOwner}/app/compare/{range}", UriKind.Relative), Ct);
+    var markup = await response.Content.ReadAsStringAsync(Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    markup.ShouldNotContain("data-state=\"invalid\"");
+    markup.ShouldContain("data-state=\"missing\"", Case.Insensitive, "the two full SHAs reached the query, which found neither commit");
+  }
+
+  // A short range reaches the page too, which refuses it itself, before any request.
+  [Fact]
+  public async Task Get_ShortRange_ShouldShowTheForm()
+  {
+    var web = await fixture.WebAsync();
+    using var client = web.Client();
+
+    using var response = await client.GetAsync(new Uri($"/github/{TwoOrganizationWeb.FirstOwner}/app/compare/a1b2c3d...e4f5a6b", UriKind.Relative), Ct);
+    var markup = await response.Content.ReadAsStringAsync(Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    markup.ShouldContain("data-state=\"invalid\"");
+  }
+
   #endregion
 }
