@@ -175,6 +175,27 @@ public sealed class OrganizationSettingsTests : UiTestContext
     cut.FindAll("[data-key]").ShouldBeEmpty();
   }
 
+  // A refusal answering after the move to another organization never touches the state of the page it no longer shows.
+  [Fact]
+  public async Task Save_NotFoundAnsweringAfterNavigation_ShouldLeaveTheSecondOrganizationAlone()
+  {
+    var first = new TaskCompletionSource<Unit>();
+    A.CallTo(() => _sender.Send(A<UpdateOrganizationSettingCommand>._, A<CancellationToken>._)).ReturnsLazily(_ => new ValueTask<Unit>(first.Task));
+    A.CallTo(() => _sender.Send(A<GetOrganizationSettingsQuery>.That.Matches(q => q.Login == "blue-harbor"), A<CancellationToken>._))
+     .Returns(new ValueTask<IReadOnlyList<SettingValue>>([Value(SettingDefinitions.NotificationsCommentsEnabled, "false", SettingSource.Store)]));
+    var cut = Render<OrganizationSettings>(Address());
+
+    Row(cut, SettingDefinitions.NotificationsStatusContextPrefix).QuerySelector("input")!.Input("codecov");
+    Row(cut, SettingDefinitions.NotificationsStatusContextPrefix).QuerySelector(".cc-setting__btn--save")!.Click();
+    cut.Render(static p => p.Add(static c => c.Login, "blue-harbor"));
+    cut.WaitForAssertion(() => cut.FindAll("[data-key]").Count.ShouldBe(1));
+    await cut.InvokeAsync(() => first.SetException(new NotFoundException(OrganizationErrors.NotFound, "Missing.")));
+    await cut.InvokeAsync(static () => { });
+
+    cut.FindAll("[data-state=missing]").ShouldBeEmpty();
+    cut.FindAll("[data-key]").Count.ShouldBe(1);
+  }
+
   private static Action<ComponentParameterCollectionBuilder<OrganizationSettings>> Address(string forge = "github") =>
     p => p.Add(static c => c.Forge, forge).Add(static c => c.Login, "acme-labs");
 

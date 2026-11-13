@@ -68,7 +68,16 @@
               @foreach (var other in Status.Quotas)
               {
                 <dt><code>@other.Installation</code></dt>
-                <dd class="cc-num">@other.Remaining.ToString("N0", CultureInfo.CurrentCulture)@(other.Limit is { } limit ? " / " + limit.ToString("N0", CultureInfo.CurrentCulture) : string.Empty)</dd>
+                <dd class="cc-num">
+                  @if (other.IsExpired)
+                  {
+                    <span class="cc-muted">@L["Operations_QuotaRefilled"]</span>
+                  }
+                  else
+                  {
+                    <span>@other.Remaining.ToString("N0", CultureInfo.CurrentCulture)@(other.Limit is { } limit ? " / " + limit.ToString("N0", CultureInfo.CurrentCulture) : string.Empty)</span>
+                  }
+                </dd>
               }
             </dl>
           }

@@ -118,6 +118,15 @@ public partial class CommitList
       return;
     }
 
+    // A page past the last one (an old link, a list that shrank) goes to the last real page: the page stays loading,
+    // so the empty list of that page is never shown, and the branches of that page are left alone.
+    if (result is { Succeeded: true, Value: { Rows.Count: 0, TotalCount: > 0 } past } && past.Page > CcPager.LastPage(past.TotalCount, past.PageSize))
+    {
+      Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", CcPager.LastPage(past.TotalCount, past.PageSize)), replace: true);
+
+      return;
+    }
+
     (State, Commits) = result switch
     {
       { Succeeded: true, Value: { } commits } => (PageState.Ready, commits),
@@ -125,12 +134,6 @@ public partial class CommitList
       var _ => (PageState.Failed, Commits),
     };
     BranchOptions = Commits is null ? [] : [.. Commits.Branches.Select(static b => new CcSelectOption(b, b))];
-
-    // A page past the last one (an old link, a list that shrank) goes to the last real page, in place of an empty list.
-    if (Commits is { Rows.Count: 0, TotalCount: > 0 } shown && shown.Page > CcPager.LastPage(shown.TotalCount, shown.PageSize))
-    {
-      Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", CcPager.LastPage(shown.TotalCount, shown.PageSize)), replace: true);
-    }
   }
 
   // The branch and the page go to the address: a reload or a shared link shows the same list.
