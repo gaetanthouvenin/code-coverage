@@ -13,7 +13,6 @@ using CodeCoverage.Web.Components.Ui.Models;
 using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
-using CodeCoverage.Web.ViewModels.Tokens;
 
 namespace CodeCoverage.Web.Components.Tokens;
 
@@ -30,7 +29,7 @@ public partial class RevokeTokenDialog
 
   /// <summary>Gets or sets the token to revoke, or <see langword="null" /> while the dialog is closed.</summary>
   [Parameter]
-  public UploadTokenViewModel? Token { get; set; }
+  public RevokedToken? Token { get; set; }
 
   /// <summary>Gets or sets how the token is revoked: the page knows what it belongs to.</summary>
   [Parameter, EditorRequired]

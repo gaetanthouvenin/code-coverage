@@ -1,0 +1,19 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CreateApiTokenDialog.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcDialog Open="Open" Title="@L["ApiTokens_CreateTitle"]" OnClose="CloseAsync">
+  <ChildContent>
+    <CcTextField Label="@L["Column_Name"]" @bind-Value="_name" Error="@Error" Required="true" />
+    <CcSelectField Label="@L["ApiTokens_Scope"]" Options="Scopes" @bind-Value="_scope" />
+    <p class="cc-muted">@L["ApiTokens_ScopeHelp"]</p>
+  </ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseAsync">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.Primary" Disabled="@(_busy || string.IsNullOrWhiteSpace(_name) || _scope is null)" OnClick="CreateAsync">
+      @L["Action_Create"]
+    </CcButton>
+  </Actions>
+</CcDialog>

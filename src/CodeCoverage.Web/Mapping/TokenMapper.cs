@@ -4,8 +4,15 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Mediator;
 
+using CodeCoverage.Application.Features.Access.Commands.CreateApiToken;
+using CodeCoverage.Application.Features.Access.Commands.RevokeApiToken;
+using CodeCoverage.Application.Features.Access.Queries.GetCurrentUserAccess;
+using CodeCoverage.Application.Features.Access.Queries.ListApiTokens;
+using CodeCoverage.Application.Features.Organizations.Queries.ListMyOrganizations;
 using CodeCoverage.Application.Features.Repositories.Commands.ImportBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Commands.RotateBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Queries.GetBadgeToken;
@@ -15,6 +22,8 @@ using CodeCoverage.Application.Features.UploadTokens.Commands.RevokeOrganization
 using CodeCoverage.Application.Features.UploadTokens.Commands.RevokeRepositoryUploadToken;
 using CodeCoverage.Application.Features.UploadTokens.Queries.ListOrganizationUploadTokens;
 using CodeCoverage.Application.Features.UploadTokens.Queries.ListRepositoryUploadTokens;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Web.ViewModels.Tokens;
 
@@ -334,6 +343,89 @@ internal static class TokenMapper
 
     return true;
   }
+
+  /// <summary>Reads the personal tokens of the API of the signed-in user, and what a new one may be scoped to.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The tokens, the newest first, with the organizations the user may scope one to.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<AccountTokensViewModel> ListApiTokenViewModelsAsync(this ISender sender, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var tokens = await sender.Send(new ListApiTokensQuery(), cancellationToken).ConfigureAwait(false);
+    var organizations = await sender.Send(new ListMyOrganizationsQuery(), cancellationToken).ConfigureAwait(false);
+    var access = await sender.Send(new GetCurrentUserAccessQuery(), cancellationToken).ConfigureAwait(false);
+    var logins = organizations.ToDictionary(static m => m.Organization.Id, static m => m.Organization.Login);
+
+    return new AccountTokensViewModel(
+      [.. tokens.OrderByDescending(static t => t.CreatedAt).Select(t => ToViewModel(t, logins))],
+      [.. organizations.Select(static m => new TokenScopeViewModel(ForgeSegments.ToSegment(m.Organization.Forge), m.Organization.Login)).OrderBy(static o => o.Login, StringComparer.OrdinalIgnoreCase)],
+      access.IsInstanceAdministrator
+    );
+  }
+
+  /// <summary>Creates a personal token of the API, whose value is given back this one time.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="name">The name given to the token.</param>
+  /// <param name="forge">The forge segment of the organization it is scoped to, or <see langword="null" /> for the instance.</param>
+  /// <param name="login">The login of that organization, or <see langword="null" /> for the instance.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The token with its value, or <see langword="null" /> when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IssuedTokenViewModel?> CreateApiTokenAsync(
+    this ISender sender,
+    string name,
+    string? forge,
+    string? login,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    Forge? parsed = null;
+
+    if (login is not null)
+    {
+      if (!RepositoryMapper.TryParseForge(forge, out var value))
+      {
+        return null;
+      }
+
+      parsed = value;
+    }
+
+    var issued = await sender.Send(new CreateApiTokenCommand(name, parsed, login, null), cancellationToken).ConfigureAwait(false);
+
+    return new IssuedTokenViewModel(issued.Token.Name, issued.Value);
+  }
+
+  /// <summary>Revokes a personal token of the API: anything still using it stops working.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="tokenId">The identifier of the token.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the token is revoked.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> RevokeApiTokenAsync(this ISender sender, long tokenId, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    await sender.Send(new RevokeApiTokenCommand(tokenId), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  // The scope is the login of the organization the token belongs to; an organization the user left is shown by its
+  // identifier only, since the user can no longer read its login.
+  private static ApiTokenViewModel ToViewModel(ApiToken token, IReadOnlyDictionary<long, string> logins) =>
+    new(
+      token.Id,
+      token.Name,
+      token.OrganizationId is { } id ? logins.GetValueOrDefault(id, id.ToString(CultureInfo.InvariantCulture)) : null,
+      token.Hint,
+      token.CreatedAt,
+      token.LastUsedAt,
+      token.RevokedAt
+    );
 
   // The hint is shown as it is stored: the start of a generated value, the end of an imported one.
   private static UploadTokenViewModel ToViewModel(UploadToken token) =>
