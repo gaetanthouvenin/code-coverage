@@ -1,0 +1,62 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ProcessingLogView.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@if (Row.Status is UploadStatus.CarriedForward)
+{
+  <span class="cc-muted" data-log="origin">@L["Upload_Origin"] <code>@(Row.CarriedFrom ?? "—")</code></span>
+}
+else
+{
+  @if (Row.ErrorCode is { } code)
+  {
+    <div class="cc-muted" data-log="error">@Errors.Localize(code)</div>
+  }
+  else if (Row.Status is UploadStatus.Processed && Row.Log.Paths.Count == 0 && Row.Log.MorePaths == 0)
+  {
+    <div class="cc-muted" data-log="resolved">@L["Upload_PathsResolved", Row.ResolvedFiles]</div>
+  }
+  @if (Row.Log.Paths.Count > 0 || Row.Log.MorePaths > 0)
+  {
+    <div data-log="paths">
+      <CcBadge Tone="CcTone.Warning" Icon="CcIconName.Alert">@L["Upload_UnresolvedPaths", Row.Log.Paths.Count + Row.Log.MorePaths]</CcBadge>
+      <ul class="cc-plain-list cc-uploads__paths">
+        @foreach (var path in Row.Log.Paths.Take(VisiblePaths))
+        {
+          <li class="cc-mono cc-small cc-dim">@path</li>
+        }
+      </ul>
+      @if (Row.Log.Paths.Count > VisiblePaths)
+      {
+        <details class="cc-disclosure">
+          <summary>@L["Upload_MorePaths", Row.Log.Paths.Count - VisiblePaths]</summary>
+          <ul class="cc-plain-list cc-uploads__paths">
+            @foreach (var path in Row.Log.Paths.Skip(VisiblePaths))
+            {
+              <li class="cc-mono cc-small cc-dim">@path</li>
+            }
+          </ul>
+        </details>
+      }
+      @if (Row.Log.MorePaths > 0)
+      {
+        <div class="cc-small cc-dim" data-log="truncated-paths">@L["Upload_LogTruncated", Row.Log.MorePaths]</div>
+      }
+    </div>
+  }
+  @if (Row.Log.Messages.Count > 0)
+  {
+    <ul class="cc-plain-list cc-uploads__messages" data-log="messages">
+      @foreach (var message in Row.Log.Messages)
+      {
+        <li class="cc-small">@Text(message)</li>
+      }
+    </ul>
+  }
+  @if (Row.Log.MoreMessages > 0)
+  {
+    <div class="cc-small cc-dim" data-log="truncated-messages">@L["Upload_LogTruncated", Row.Log.MoreMessages]</div>
+  }
+}

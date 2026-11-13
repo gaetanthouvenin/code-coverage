@@ -100,6 +100,44 @@ public sealed class CommitDetailTests : UiTestContext
     cut.FindAll(".cc-config-error").ShouldBeEmpty();
   });
 
+  // Uploads by sequence, whatever their state, then the carried sessions by number. An upload counts once the session
+  // naming it by identifier exists: the stale carried session numbered like the second upload never makes it counted.
+  [Fact]
+  public void Render_Uploads_ShouldJoinSessionsByUploadId() => InEnglish(() =>
+  {
+    var counted = Upload.Receive(5, 1, "a", ["backend"], "dotnet-tests", "github-actions", "8812", null, "https://ci.example.com/8812", null, null, null, PrincipalKind.RepositoryToken, Now);
+    counted.MarkProcessed(198, 198, 0, new CoverageTotals(9, 1, 0, 0, 0), ProcessingLog.Empty, Now);
+    SetId(counted, 11);
+    var waiting = Upload.Receive(5, 2, "b", ["backend"], null, "azure-pipelines", null, null, "javascript:alert(1)", null, null, null, PrincipalKind.RepositoryToken, Now);
+    waiting.MarkProcessed(121, 119, 2, new CoverageTotals(9, 1, 0, 0, 0), ProcessingLog.Restore([], 0, ["obj/Generated.cs", "x.cs"], 2), Now);
+    SetId(waiting, 12);
+    var failed = Upload.Receive(5, 3, "c", ["backend"], "dotnet-e2e", null, null, null, null, null, null, null, PrincipalKind.RepositoryToken, Now);
+    failed.MarkFailed("Upload.UnsupportedFormat", "No parser.", 1, 0, 0, ProcessingLog.Restore(["Upload.UnsupportedFormat: coverage.json"], 1, [], 0), Now);
+    SetId(failed, 13);
+    Session[] sessions =
+    [
+      Session.CarriedForward(9, 2, OriginSha, 1, 7, null, ["frontend"], "jest", null, null, new CoverageTotals(7, 3, 0, 0, 0)),
+      Session.FromUpload(9, 1, 11, ["backend"], "dotnet-tests", "github-actions", null, new CoverageTotals(9, 1, 0, 0, 0)),
+    ];
+    var detail = new Domain.Commits.CommitDetail(_commit, sessions, [failed, waiting, counted], [], []);
+    A.CallTo(() => _sender.Send(A<GetCommitQuery>.That.Matches(q => q.Sha == Sha), A<CancellationToken>._))
+     .Returns(new ValueTask<Domain.Commits.CommitDetail>(detail));
+
+    var cut = Render<CommitDetailPage>(Address());
+
+    cut.FindAll("[data-panel=uploads] tbody tr").Select(static r => r.GetAttribute("data-row")).ShouldBe(["u1", "u2", "u3", "s2"]);
+    cut.Find("[data-row=u1]").GetAttribute("data-status").ShouldBe("Processed");
+    cut.Find("[data-row=u1] a").TextContent.ShouldContain("GitHub Actions #8812");
+    cut.Find("[data-row=u2]").GetAttribute("data-status").ShouldBe("Processing");
+    cut.Find("[data-row=u2]").QuerySelector("a").ShouldBeNull();
+    cut.Find("[data-row=u2]").TextContent.ShouldContain("Azure Pipelines");
+    cut.Find("[data-row=u2] [data-log=paths]").TextContent.ShouldContain("obj/Generated.cs");
+    cut.Find("[data-row=u3]").GetAttribute("data-status").ShouldBe("Failed");
+    cut.Find("[data-row=u3] [data-log=error]").TextContent.ShouldBe(L("Upload.UnsupportedFormat"));
+    cut.Find("[data-row=s2]").GetAttribute("data-status").ShouldBe("CarriedForward");
+    cut.Find("[data-row=s2] [data-log=origin] code").TextContent.ShouldBe("9f8e7d6");
+  });
+
   // /commit/{sha} lies under no tab's address: the page imposes the commits tab.
   [Fact]
   public void Render_ShouldMarkTheCommitsTab()
@@ -252,6 +290,8 @@ public sealed class CommitDetailTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetCommitQuery>.That.Matches(q => q.Sha == Sha), A<CancellationToken>._))
      .Returns(new ValueTask<Domain.Commits.CommitDetail>(detail));
   }
+
+  private static void SetId(object entity, long id) => entity.GetType().GetProperty("Id")!.SetValue(entity, id);
 
   private string L(string key, params object[] arguments) => Services.GetRequiredService<IStringLocalizer<Common>>()[key, arguments];
 
