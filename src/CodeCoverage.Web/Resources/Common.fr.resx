@@ -277,6 +277,13 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Token_Panel" xml:space="preserve"><value>Jetons</value></data>
+  <data name="Token_EmptyOrganization" xml:space="preserve"><value>Créez un jeton, ou importez le jeton d'organisation Codecov pour que les pipelines gardent leur secret.</value></data>
+  <data name="OrganizationTokens_Title" xml:space="preserve"><value>Jetons d'upload de l'organisation</value></data>
+  <data name="OrganizationTokens_Subtitle" xml:space="preserve"><value>Valables uniquement pour les dépôts de cette organisation.</value></data>
+  <data name="OrganizationTokens_Denied" xml:space="preserve"><value>Seuls les administrateurs de cette organisation peuvent voir ses jetons d'upload.</value></data>
+  <data name="OrganizationTokens_RotationTitle" xml:space="preserve"><value>Rotation des jetons conseillée</value></data>
+  <data name="OrganizationTokens_RotationText" xml:space="preserve"><value>Un dépôt a quitté cette organisation. Un jeton d'organisation resté dans ses secrets de CI reste valide jusqu'à sa révocation.</value></data>
   <data name="Overview_RecentCommits" xml:space="preserve"><value>Commits récents</value></data>
   <data name="Overview_AllCommits" xml:space="preserve"><value>Tous les commits</value></data>
   <data name="Overview_NoCommitText" xml:space="preserve"><value>Aucun commit de cette branche ne porte encore de couverture.</value></data>
