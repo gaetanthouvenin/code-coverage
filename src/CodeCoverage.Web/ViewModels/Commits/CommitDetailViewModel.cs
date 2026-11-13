@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Web.ViewModels.Repositories;
+
 namespace CodeCoverage.Web.ViewModels.Commits;
 
 /// <summary>The summary of a commit: header, totals, flags, published statuses and configuration.</summary>
@@ -32,6 +34,7 @@ namespace CodeCoverage.Web.ViewModels.Commits;
 /// <param name="Statuses">The statuses posted for it.</param>
 /// <param name="Config">The configuration applied to it.</param>
 /// <param name="Uploads">Its uploads by sequence, then the sessions carried forward to it by number.</param>
+/// <param name="Format">How the repository writes a coverage, for the file tree read later.</param>
 public sealed record CommitDetailViewModel(
   string ShortSha,
   string Title,
@@ -57,4 +60,5 @@ public sealed record CommitDetailViewModel(
   IReadOnlyList<CommitFlagRowViewModel> Flags,
   IReadOnlyList<PostedStatusViewModel> Statuses,
   CommitConfigViewModel Config,
-  IReadOnlyList<UploadSessionRowViewModel> Uploads);
+  IReadOnlyList<UploadSessionRowViewModel> Uploads,
+  CoverageFormatViewModel Format);

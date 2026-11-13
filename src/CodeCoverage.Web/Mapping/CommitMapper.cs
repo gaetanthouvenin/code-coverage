@@ -9,10 +9,14 @@ using Mediator;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
+using CodeCoverage.Application.Features.Commits.Commands.ReprocessCommit;
 using CodeCoverage.Application.Features.Commits.Queries.GetCommit;
+using CodeCoverage.Application.Features.Commits.Queries.GetCommitFiles;
 using CodeCoverage.Application.Features.Commits.Queries.ListCommits;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
+using CodeCoverage.Application.Features.Notifications.Commands.TriggerNotify;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
+using CodeCoverage.Application.Features.Uploads.Commands.RetryUpload;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Web.ViewModels.Repositories;
@@ -112,6 +116,113 @@ internal static partial class CommitMapper
     return ToDetail(detail, config);
   }
 
+  /// <summary>
+  ///   Reads the files of a commit, or of one of its flags, as a tree: a folder sums the lines of its files and writes
+  ///   <c>hits / (hits + misses + partials)</c>, never the mean of its children.
+  /// </summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="flag">The flag, or <see langword="null" /> for every file.</param>
+  /// <param name="format">How the repository writes a coverage, already read by the page.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The tree, or <see langword="null" /> when the forge segment or the SHA is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> or <paramref name="format" /> is <see langword="null" />.</exception>
+  public static async Task<FileTreeViewModel?> GetCommitFilesViewModelAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    string sha,
+    string? flag,
+    CoverageFormatViewModel format,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+    ArgumentNullException.ThrowIfNull(format);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed) || !GitSha.TryParse(sha, out var commitSha))
+    {
+      return null;
+    }
+
+    var query = new GetCommitFilesQuery(parsed, owner, name, commitSha, string.IsNullOrEmpty(flag) ? null : flag, null);
+    var files = await sender.Send(query, cancellationToken).ConfigureAwait(false);
+
+    return FileTreeBuilder.Build(files, format.Precision, Enum.Parse<RoundingMode>(format.Rounding));
+  }
+
+  /// <summary>Queues the statuses and the comment of a commit to be published again.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once queued; <see langword="false" /> when the address is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> TriggerNotifyAsync(this ISender sender, string forge, string owner, string name, string sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed) || !GitSha.TryParse(sha, out var commitSha))
+    {
+      return false;
+    }
+
+    await sender.Send(new TriggerNotifyCommand(parsed, owner, name, commitSha), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Queues every upload of a commit to be processed again from its raw files.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once queued; <see langword="false" /> when the address is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> ReprocessCommitAsync(this ISender sender, string forge, string owner, string name, string sha, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed) || !GitSha.TryParse(sha, out var commitSha))
+    {
+      return false;
+    }
+
+    await sender.Send(new ReprocessCommitCommand(parsed, owner, name, commitSha), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Queues a failed upload to be processed again from its raw files.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="uploadId">The public identifier of the upload.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once queued; <see langword="false" /> when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> RetryUploadAsync(this ISender sender, string forge, string owner, string name, Guid uploadId, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new RetryUploadCommand(parsed, owner, name, uploadId), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
   /// <summary>Converts the state of a commit: known and pending are processed, compacted keeps its totals.</summary>
   /// <param name="state">The state.</param>
   /// <returns>The state shown.</returns>
@@ -169,7 +280,8 @@ internal static partial class CommitMapper
       ],
       [.. detail.Statuses.Select(static s => new PostedStatusViewModel(s.Status.Context, ToTone(s.Status.State), s.Status.Description, SafeUrl(s.TargetUrl)))],
       ToConfig(detail.Config, commit.ConfigSource),
-      ToUploadRows(detail)
+      ToUploadRows(detail),
+      RepositoryMapper.ToFormat(config)
     );
   }
 

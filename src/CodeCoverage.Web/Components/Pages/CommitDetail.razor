@@ -15,7 +15,15 @@
   }
   else
   {
-    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs" ActiveTab="RepositoryTab.Commits" />
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs"
+                      ActiveTab="RepositoryTab.Commits" OnPermission="PermissionKnown">
+      <Actions>
+        @if (Detail is not null)
+        {
+          <CommitActions Forge="@Forge" Owner="@Owner" Name="@Name" Sha="@Sha" ShortSha="@Detail.ShortSha" CanAdminister="CanAdminister" OnReprocessed="ReloadAsync" />
+        }
+      </Actions>
+    </RepositoryHeader>
 
     @if (State is PageState.Loading)
     {
@@ -47,7 +55,8 @@
         <CommitFlags Flags="Detail.Flags" />
         <PostedStatuses Statuses="Detail.Statuses" />
       </div>
-      <UploadSessions Rows="Detail.Uploads" />
+      <UploadSessions Rows="Detail.Uploads" CanRetry="CanAdminister" RetryingKey="@RetryingKey" OnRetry="RetryAsync" />
+      <FileTree Forge="@Forge" Owner="@Owner" Name="@Name" Sha="@Sha" Flags="FlagNames" Format="Detail.Format" Compacted="@(Detail.Status is CommitStatus.Compacted)" />
       <ConfigWarnings Config="Detail.Config" />
     }
   }

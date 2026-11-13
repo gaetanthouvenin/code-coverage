@@ -65,6 +65,13 @@ public partial class RepositoryHeader
   [Parameter]
   public RepositoryTab? ActiveTab { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the callback told whether the user administers the repository, each time the header learns it: the
+  ///   page shows its actions from this one answer instead of asking again.
+  /// </summary>
+  [Parameter]
+  public EventCallback<bool> OnPermission { get; set; }
+
   #endregion
 
   #region Injected services
@@ -101,6 +108,7 @@ public partial class RepositoryHeader
 
     _asked = root;
     ShowSettings = false;
+    await OnPermission.InvokeAsync(false).ConfigureAwait(true);
     var ticket = _latest.Begin();
     var result = await Runner.RunAsync((sender, ct) => sender.CanAdministerRepositoryAsync(forge, owner, name, ct)).ConfigureAwait(true);
 
@@ -111,6 +119,7 @@ public partial class RepositoryHeader
     }
 
     ShowSettings = result is { Succeeded: true, Value: true };
+    await OnPermission.InvokeAsync(ShowSettings).ConfigureAwait(true);
   }
 
   #endregion

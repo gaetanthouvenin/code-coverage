@@ -71,7 +71,13 @@
               }
             </td>
             <td class="cc-uploads__log"><ProcessingLogView Row="row" /></td>
-            <td class="cc-r"></td>
+            <td class="cc-r">
+              @if (CanRetry && row is { Status: UploadStatus.Failed, UploadId: not null } && row.ErrorCode != DuplicateCode)
+              {
+                <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Refresh" Disabled="@(RetryingKey is not null)" OnClick="() => OnRetry.InvokeAsync(row)"
+                          AriaLabel="@L["Upload_RetryOf", row.Name ?? L["Upload_Number", row.Number].Value]" Class="cc-action-retry">@L["Action_Retry"]</CcButton>
+              }
+            </td>
           </tr>
         }
       </ChildContent>

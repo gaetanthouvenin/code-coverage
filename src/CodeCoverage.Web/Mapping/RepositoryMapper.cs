@@ -463,7 +463,10 @@ internal static class RepositoryMapper
     );
   }
 
-  private static CoverageFormatViewModel ToFormat(CoverageConfig config) => new(config.Precision, config.Rounding.ToString());
+  /// <summary>Converts how a configuration writes a coverage, for a page that formats later what it reads.</summary>
+  /// <param name="config">The effective configuration.</param>
+  /// <returns>Its precision and rounding.</returns>
+  internal static CoverageFormatViewModel ToFormat(CoverageConfig config) => new(config.Precision, config.Rounding.ToString());
 
   private static FlagCardViewModel ToCard(string flag, CommitFlagTotals? totals, decimal? change, CoverageConfig config)
   {
