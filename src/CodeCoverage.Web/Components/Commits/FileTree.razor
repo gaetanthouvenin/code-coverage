@@ -60,7 +60,7 @@
               }
               else
               {
-                <span class="cc-mono"><CcIcon Name="CcIconName.File" /> @(Searching ? node.Path : node.Name)</span>
+                <a class="cc-mono" href="@SourceHref(node.Path)"><CcIcon Name="CcIconName.File" /> @(Searching ? node.Path : node.Name)</a>
               }
             </td>
             <td class="cc-r cc-num">@node.Lines</td>

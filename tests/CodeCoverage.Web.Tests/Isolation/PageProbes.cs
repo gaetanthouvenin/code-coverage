@@ -27,6 +27,7 @@ public static class PageProbes
     PageProbe.NotAddressed("/admin/organizations", "The lifecycle of the organizations, reserved to the administrators of the instance."),
     PageProbe.NotAddressed("/admin/settings", "The settings of the instance, reserved to its administrators."),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/commit/{Sha}", $"/github/{{owner}}/app/commit/{TwoOrganizationWeb.SecondSha}"),
+    PageProbe.Addressed("/{Forge}/{Owner}/{Name}/commit/{Sha}/blob/{*Path}", $"/github/{{owner}}/app/commit/{TwoOrganizationWeb.SecondSha}/blob/{TwoOrganizationWeb.SecondFile}"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/commits", "/github/{owner}/app/commits"),
     PageProbe.NotAddressed("/error", "The error page of the console, the same for everyone."),
     PageProbe.NotAddressed("/", "The repositories the signed-in user reads, which name no organization in the address."),

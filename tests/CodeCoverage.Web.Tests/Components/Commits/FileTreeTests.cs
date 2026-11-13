@@ -79,6 +79,7 @@ public sealed class FileTreeTests : UiTestContext
     cut.FindAll("tbody tr").Select(static r => r.GetAttribute("data-path"))
        .ShouldBe(["README.md", "src/Billing.Domain/Alerts", "src/Billing.Domain/Alerts/DeliveryPolicy.cs", "src/Billing.Domain/Alerts/Send.cs", "tools"]);
     cut.Find("[data-path='src/Billing.Domain/Alerts/Send.cs'] td").GetAttribute("style").ShouldBe("padding-left:36px");
+    cut.Find("[data-path='src/Billing.Domain/Alerts/Send.cs'] a").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Sha}/blob/src/Billing.Domain/Alerts/Send.cs");
   }
 
   // The coverage order applies within each level; a node without line comes last; the path breaks the ties.

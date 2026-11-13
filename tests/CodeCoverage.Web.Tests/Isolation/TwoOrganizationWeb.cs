@@ -8,7 +8,9 @@ using System.Globalization;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Comparisons;
+using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
@@ -45,6 +47,12 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
   /// <summary>The head commit seeded in the second organization: a valid SHA, so a probe reaches the gate.</summary>
   public static readonly GitSha SecondSha = GitSha.Parse("b" + new string('2', GitSha.Length - 1));
 
+  /// <summary>The file of the finalized report of <see cref="SecondSha" />, which the source probe addresses.</summary>
+  public const string SecondFile = "src/App.cs";
+
+  /// <summary>The text the forge gives for every source in the suite.</summary>
+  public const string SourceText = "class App { }";
+
   /// <summary>The commit the head of the second organization was compared to.</summary>
   public static readonly GitSha SecondBaseSha = GitSha.Parse("a" + new string('1', GitSha.Length - 1));
 
@@ -70,6 +78,9 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
   /// <summary>The identifier of the signed-in user of the suite.</summary>
   public long UserId { get; private set; }
 
+  /// <summary>The identifier of a user who administers the repository of the second organization, and only it.</summary>
+  public long SecondUserId { get; private set; }
+
   private IsolationWebFactory Factory => _factory ?? throw new InvalidOperationException("The host is not started.");
 
   #endregion
@@ -77,10 +88,14 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
   #region Methods
 
   /// <summary>A client of the console, signed in as the user of the first organization.</summary>
-  public HttpClient Client()
+  public HttpClient Client() => ClientOf(UserId);
+
+  /// <summary>A client of the console, signed in as a user.</summary>
+  /// <param name="userId">The identifier of the user.</param>
+  public HttpClient ClientOf(long userId)
   {
     var client = Factory.CreateClient();
-    client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, UserId.ToString(CultureInfo.InvariantCulture));
+    client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, userId.ToString(CultureInfo.InvariantCulture));
 
     return client;
   }
@@ -124,6 +139,10 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
       var user = AppUser.Create(Forge.GitHub, "583231", TestAuthenticationHandler.Login, null);
       await users.TryAddAsync(user, cancellationToken);
       UserId = (await users.FindByExternalIdAsync(Forge.GitHub, "583231", cancellationToken) ?? user).Id;
+
+      var second = AppUser.Create(Forge.GitHub, "684342", "second-admin", null);
+      await users.TryAddAsync(second, cancellationToken);
+      SecondUserId = (await users.FindByExternalIdAsync(Forge.GitHub, "684342", cancellationToken) ?? second).Id;
     }
 
     await using (var scope = Factory.Services.CreateAsyncScope())
@@ -185,6 +204,9 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
     else
     {
       await SeedComparisonAsync(services, repository.Id, cancellationToken);
+
+      var accesses = services.GetRequiredService<IUserRepositoryAccessRepository>();
+      await accesses.UpsertAsync(SecondUserId, externalId, RepositoryPermission.Admin, Now, cancellationToken);
     }
   }
 
@@ -197,6 +219,21 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
     var head = await commits.GetOrCreateAsync(repositoryId, SecondSha, Now, cancellationToken);
     head.MarkPending("feature", SecondPull, Now);
     await commits.UpdateAsync(head, cancellationToken);
+
+    // The finalized report of the head holds the file the source probe addresses: a bypassed gate would show it.
+    var codec = services.GetRequiredService<ICoverageReportCodec>();
+    var report = CoverageReport.Create([FileCoverage.Create(SecondFile, [new LineCoverage(1, 1, 0, 0, false, null)])]);
+    var totals = report.Files[0].Totals;
+    head.RecordFinalization(CommitState.Complete, 1, totals, 0, 0, CarryforwardStatus.None, "default", Now);
+    await services.GetRequiredService<ICommitReportRepository>().SaveFinalizedAsync(
+      head,
+      codec.Encode(report),
+      codec.EncodeFileIndex(report),
+      [],
+      [CommitFlagTotals.Create(head, CommitFlagTotals.ProjectFlag, totals, false, null)],
+      null,
+      new FinalizationWakeUps(false, []),
+      cancellationToken);
 
     var pull = new ForgePullInfo(SecondPull, ForgePullState.Open, "Isolation", "someone", SecondSha, "feature", "main", SecondBaseSha);
     await services.GetRequiredService<IPullRequestRepository>().UpsertAsync(repositoryId, pull, Now, cancellationToken);

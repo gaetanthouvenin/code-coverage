@@ -15,4 +15,5 @@ namespace CodeCoverage.Domain.Source;
 /// <param name="Hits">The number of hits, as <see cref="LineCoverage.Hits" />, or <see langword="null" /> for a line not measured.</param>
 /// <param name="Covered">The branches covered of a branch line, 0 otherwise.</param>
 /// <param name="Total">The branches of a branch line, 0 otherwise.</param>
-public sealed record AnnotatedLine(int Number, string Text, LineState? State, long? Hits, int Covered, int Total);
+/// <param name="InPatch">Whether the line was added or changed by the pull request the source is read from.</param>
+public sealed record AnnotatedLine(int Number, string Text, LineState? State, long? Hits, int Covered, int Total, bool InPatch = false);
