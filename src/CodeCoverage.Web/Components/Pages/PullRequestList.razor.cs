@@ -118,18 +118,21 @@ public partial class PullRequestList
       return;
     }
 
+    // A page past the last one (an old link, a list that shrank) goes to the last real page: the page stays loading,
+    // so the empty list of that page is never shown.
+    if (result is { Succeeded: true, Value: { Rows.Count: 0, TotalCount: > 0 } past } && past.Page > CcPager.LastPage(past.TotalCount, past.PageSize))
+    {
+      Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", CcPager.LastPage(past.TotalCount, past.PageSize)), replace: true);
+
+      return;
+    }
+
     (State, Pulls) = result switch
     {
       { Succeeded: true, Value: { } pulls } => (PageState.Ready, pulls),
       { Succeeded: true } or { NotFound: true } => (PageState.Missing, null),
       var _ => (PageState.Failed, Pulls),
     };
-
-    // A page past the last one (an old link, a list that shrank) goes to the last real page, in place of an empty list.
-    if (Pulls is { Rows.Count: 0, TotalCount: > 0 } shown && shown.Page > CcPager.LastPage(shown.TotalCount, shown.PageSize))
-    {
-      Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", CcPager.LastPage(shown.TotalCount, shown.PageSize)), replace: true);
-    }
   }
 
   // The state and the page go to the address: a reload or a shared link shows the same list.

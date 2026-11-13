@@ -22,7 +22,7 @@ namespace CodeCoverage.Web.Components.Settings;
 ///   secret that is only replaced). It saves through the runner with its own form, so that the refusals of the server
 ///   show under it.
 /// </summary>
-public partial class SettingEditor
+public partial class SettingEditor : IDisposable
 {
   #region Fields
 
@@ -31,6 +31,8 @@ public partial class SettingEditor
   private EditContext _editContext = null!;
 
   private bool _busy;
+
+  private bool _disposed;
 
   #endregion
 
@@ -150,6 +152,12 @@ public partial class SettingEditor
     {
       var result = await Runner.RunAsync(request, _editContext).ConfigureAwait(true);
 
+      // The page moved on (another organization, another panel): this row no longer speaks for what it shows.
+      if (_disposed)
+      {
+        return;
+      }
+
       if (result.Succeeded)
       {
         Toasts.Show(CcTone.Success, done, Setting.Key);
@@ -171,6 +179,17 @@ public partial class SettingEditor
     {
       _busy = false;
     }
+  }
+
+  #endregion
+
+  #region Implementation of IDisposable
+
+  /// <inheritdoc />
+  public void Dispose()
+  {
+    _disposed = true;
+    GC.SuppressFinalize(this);
   }
 
   #endregion

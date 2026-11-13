@@ -128,6 +128,19 @@ public sealed class AdminAuditTests : UiTestContext
     _queries[^1].Search.ShouldBe("octo");
   }
 
+  // A search typed just before leaving the page never sends its request.
+  [Fact]
+  public async Task Search_LeavingDuringThePause_ShouldSendNothing()
+  {
+    var cut = Render<AdminAudit>();
+
+    await TypeAsync(cut, "octo");
+    await cut.InvokeAsync(Renderer.DisposeComponents);
+    _time.Advance(TimeSpan.FromMilliseconds(300));
+
+    _queries.ShouldHaveSingleItem();
+  }
+
   // A page past the last one (the log shrank since) shows the last real page, with its pager.
   [Fact]
   public void ChangePage_PastTheLast_ShouldShowTheLastPage()

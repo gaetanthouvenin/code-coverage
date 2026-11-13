@@ -180,8 +180,37 @@ public sealed class CommitListTests : UiTestContext
 
     cut.WaitForAssertion(() => _queries[^1].Page.ShouldBe(3));
     Navigation.Uri.ShouldContain("page=3");
+    Services.GetRequiredService<NavigationManager>().ShouldBeOfType<Bunit.TestDoubles.BunitNavigationManager>().History.Last(static h => h.Uri.Contains("page=3", StringComparison.Ordinal)).Options.ReplaceHistoryEntry.ShouldBeTrue();
     cut.FindAll("tbody tr").Count.ShouldBe(1);
     cut.Find(".cc-panel__foot span").TextContent.ShouldContain("51");
+  });
+
+  // The empty page past the last one is never shown, not even for one render before the redirect.
+  [Fact]
+  public void Render_PagePastTheLast_ShouldNeverShowTheEmptyState() => InEnglish(() =>
+  {
+    var past = new TaskCompletionSource<CommitSummaryPage>();
+    var last = new TaskCompletionSource<CommitSummaryPage>();
+    A.CallTo(() => _sender.Send(A<ListCommitsQuery>._, A<CancellationToken>._))
+     .ReturnsLazily(call =>
+      {
+        var query = call.GetArgument<ListCommitsQuery>(0)!;
+        _queries.Add(query);
+
+        return new ValueTask<CommitSummaryPage>(query.Page == 9 ? past.Task : last.Task);
+      });
+    Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", 9));
+    var cut = Render<CommitList>(Address());
+    var markups = new List<string>();
+    cut.OnMarkupUpdated += (_, _) => markups.Add(cut.Markup);
+
+    cut.InvokeAsync(() => past.SetResult(new CommitSummaryPage([], 9, 25, 60)));
+
+    cut.WaitForAssertion(() => _queries[^1].Page.ShouldBe(3));
+    markups.ShouldNotContain(static m => m.Contains("data-state=\"empty\"", StringComparison.Ordinal));
+    cut.Markup.ShouldNotContain("data-state=\"empty\"");
+    cut.InvokeAsync(() => last.SetResult(new CommitSummaryPage([new CommitSummary(Commit.Create(5, Pending, Now), null, null)], 3, 25, 60)));
+    cut.WaitForAssertion(() => cut.FindAll("tbody tr").Count.ShouldBe(1));
   });
 
   // A change of page while the first load is pending: the late answer of the first is dropped.

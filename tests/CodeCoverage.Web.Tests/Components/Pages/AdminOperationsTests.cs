@@ -143,6 +143,36 @@ public sealed class AdminOperationsTests : UiTestContext
     cut.FindAll(".cc-kpi")[2].QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe(9000.ToString("N0", CultureInfo.CurrentCulture));
   }
 
+  // The list of the other installations tells a refilled window apart from a remaining count.
+  [Fact]
+  public void Render_ExpiredQuota_ShouldShowItRefilledInTheList()
+  {
+    A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
+     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), GitHubQuota.Create("7", 9000, 15000, Now.AddMinutes(30), Now))));
+
+    var cut = Render<AdminOperations>();
+
+    var expired = cut.FindAll(".cc-quota-list dt").Single(static d => d.TextContent.Contains("42", StringComparison.Ordinal)).NextElementSibling!;
+    expired.TextContent.ShouldContain(L("Operations_QuotaRefilled"));
+    expired.TextContent.ShouldNotContain("100");
+  }
+
+  // Every window started again: neither the gauge nor the card shows a count of another window.
+  [Fact]
+  public void Render_AllQuotasExpired_ShouldShowRefilled()
+  {
+    A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
+     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), GitHubQuota.Create("7", 200, 15000, Now.AddMinutes(-2), Now.AddHours(-1)))));
+
+    var cut = Render<AdminOperations>();
+
+    cut.Find("[data-panel=quota]").TextContent.ShouldContain(L("Operations_QuotaRefilled"));
+    cut.FindAll("[data-panel=quota] svg.cc-gauge").ShouldBeEmpty();
+    var card = cut.FindAll(".cc-kpi")[2];
+    card.QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe("—");
+    card.QuerySelector(".cc-kpi__footer")!.TextContent.ShouldContain(L("Operations_QuotaRefilled"));
+  }
+
   // A second refresh while the first is pending: the late answer of the first is dropped.
   [Fact]
   public void Refresh_FirstLoadAnsweringLast_ShouldShowTheSecond()

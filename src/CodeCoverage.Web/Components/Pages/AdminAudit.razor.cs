@@ -20,7 +20,7 @@ namespace CodeCoverage.Web.Components.Pages;
 ///   The audit log of the instance, reserved to its administrators: the entries recorded outside any organization only,
 ///   metadata only (date, user, action, target), filtered by family and searched, 25 a page.
 /// </summary>
-public partial class AdminAudit
+public partial class AdminAudit : IDisposable
 {
   #region Fields
 
@@ -140,6 +140,18 @@ public partial class AdminAudit
     Page = page;
 
     return LoadAsync();
+  }
+
+  #endregion
+
+  #region Implementation of IDisposable
+
+  /// <inheritdoc />
+  public void Dispose()
+  {
+    // A search typed just before leaving the page: its pause is no longer the latest, so it sends nothing.
+    _latest.Begin();
+    GC.SuppressFinalize(this);
   }
 
   #endregion
