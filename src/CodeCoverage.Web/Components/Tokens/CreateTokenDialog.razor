@@ -1,0 +1,17 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CreateTokenDialog.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<CcDialog Open="Open" Title="@L["Token_CreateTitle"]" OnClose="CloseAsync">
+  <ChildContent>
+    <CcTextField Label="@L["Column_Name"]" @bind-Value="_form.Label" Error="@Error(nameof(TokenForm.Label))" Required="true" />
+  </ChildContent>
+  <Actions>
+    <CcButton OnClick="CloseAsync">@L["Action_Cancel"]</CcButton>
+    <CcButton Variant="CcButtonVariant.Primary" Disabled="@(_busy || string.IsNullOrWhiteSpace(_form.Label))" OnClick="CreateAsync">
+      @L["Action_Create"]
+    </CcButton>
+  </Actions>
+</CcDialog>

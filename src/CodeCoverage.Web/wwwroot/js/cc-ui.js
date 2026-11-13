@@ -118,6 +118,16 @@
   }
 
   window.ccUi = {
+    // Copies a text (a token, a badge snippet) to the clipboard. It throws when the browser refuses it, so
+    // that the page says so instead of claiming a copy that never happened.
+    copy: function (text) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        throw new Error("The clipboard is not available.");
+      }
+
+      return navigator.clipboard.writeText(text);
+    },
+
     // Whether the page currently renders the dark theme (forced or from the operating system).
     isDark: isDark,
 

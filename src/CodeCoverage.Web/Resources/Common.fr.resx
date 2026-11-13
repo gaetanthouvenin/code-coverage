@@ -277,6 +277,42 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Tab_UploadTokens" xml:space="preserve"><value>Jetons d'upload</value></data>
+  <data name="Action_Create" xml:space="preserve"><value>Créer</value></data>
+  <data name="Action_Import" xml:space="preserve"><value>Importer</value></data>
+  <data name="Action_Revoke" xml:space="preserve"><value>Révoquer</value></data>
+  <data name="Action_Renew" xml:space="preserve"><value>Renouveler</value></data>
+  <data name="Action_Close" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Action_Copy" xml:space="preserve"><value>Copier</value></data>
+  <data name="Column_Name" xml:space="preserve"><value>Nom</value></data>
+  <data name="Column_Hint" xml:space="preserve"><value>Indice</value></data>
+  <data name="Column_Created" xml:space="preserve"><value>Création</value></data>
+  <data name="Column_LastUsed" xml:space="preserve"><value>Dernière utilisation</value></data>
+  <data name="Token_Created" xml:space="preserve"><value>Jeton créé</value></data>
+  <data name="Token_CopyItNow" xml:space="preserve"><value>Copiez-le maintenant : il ne sera plus jamais affiché.</value></data>
+  <data name="Token_Value" xml:space="preserve"><value>Valeur</value></data>
+  <data name="Token_Copied" xml:space="preserve"><value>Copié.</value></data>
+  <data name="Token_CopyFailed" xml:space="preserve"><value>La copie a été refusée par le navigateur : sélectionnez le texte à la place.</value></data>
+  <data name="Token_ValueShownOnce" xml:space="preserve"><value>La valeur n'est affichée qu'une fois, à la création.</value></data>
+  <data name="Token_ShowRevoked" xml:space="preserve"><value>Afficher les révoqués</value></data>
+  <data name="Token_Revoked" xml:space="preserve"><value>Révoqué</value></data>
+  <data name="Token_RevokedToast" xml:space="preserve"><value>Jeton révoqué</value></data>
+  <data name="Token_Imported" xml:space="preserve"><value>Importé de Codecov</value></data>
+  <data name="Token_NeverUsed" xml:space="preserve"><value>Jamais</value></data>
+  <data name="Token_EmptyTitle" xml:space="preserve"><value>Aucun jeton</value></data>
+  <data name="Token_EmptyRepository" xml:space="preserve"><value>Créez-en un pour ce dépôt, ou importez son CODECOV_TOKEN pour que les pipelines continuent de fonctionner.</value></data>
+  <data name="Token_CreateTitle" xml:space="preserve"><value>Créer un jeton</value></data>
+  <data name="Token_ImportTitle" xml:space="preserve"><value>Importer un jeton</value></data>
+  <data name="Token_ImportText" xml:space="preserve"><value>Collez la valeur actuelle de CODECOV_TOKEN : les pipelines continuent de fonctionner sans changement.</value></data>
+  <data name="Token_ImportBadgeTitle" xml:space="preserve"><value>Importer un jeton de badge</value></data>
+  <data name="Token_ImportBadgeText" xml:space="preserve"><value>Collez le « graphing token » de Codecov : les badges de vos README continuent de fonctionner.</value></data>
+  <data name="Token_RevokeTitle" xml:space="preserve"><value>Révoquer « {0} » ?</value></data>
+  <data name="Token_RevokeText" xml:space="preserve"><value>Tout ce qui utilise encore ce jeton cessera de fonctionner. Cette action est définitive.</value></data>
+  <data name="Token_RevokeOf" xml:space="preserve"><value>Révoquer {0}</value></data>
+  <data name="BadgeToken_Title" xml:space="preserve"><value>Jeton de badge</value></data>
+  <data name="BadgeToken_PublicRepository" xml:space="preserve"><value>Ce dépôt est public : son badge est servi sans jeton.</value></data>
+  <data name="BadgeToken_Renewed" xml:space="preserve"><value>Jeton de badge renouvelé</value></data>
+  <data name="BadgeToken_UpdateReadme" xml:space="preserve"><value>Mettez à jour l'adresse du badge dans le README.</value></data>
   <data name="Repository_Active" xml:space="preserve"><value>Actif</value></data>
   <data name="RepositorySettings_Title" xml:space="preserve"><value>Réglages du dépôt</value></data>
   <data name="RepositorySettings_Denied" xml:space="preserve"><value>Seuls les administrateurs de ce dépôt, et les administrateurs de son organisation, peuvent ouvrir ses réglages.</value></data>

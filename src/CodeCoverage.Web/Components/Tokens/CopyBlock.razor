@@ -1,0 +1,11 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CopyBlock.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-copy">
+  <pre class="cc-code" aria-label="@Label">@Text</pre>
+  <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Copy" OnClick="CopyAsync">@L["Action_Copy"]</CcButton>
+  <span class="cc-sr-only" role="status" aria-live="polite">@_announcement</span>
+</div>

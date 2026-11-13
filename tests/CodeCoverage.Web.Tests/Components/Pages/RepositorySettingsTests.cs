@@ -16,12 +16,19 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
 using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
+using CodeCoverage.Application.Features.Repositories.Commands.ImportBadgeToken;
+using CodeCoverage.Application.Features.Repositories.Commands.RotateBadgeToken;
+using CodeCoverage.Application.Features.Repositories.Queries.GetBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositorySettings;
 using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Application.Features.UploadTokens.Commands.CreateRepositoryUploadToken;
+using CodeCoverage.Application.Features.UploadTokens.Commands.RevokeRepositoryUploadToken;
+using CodeCoverage.Application.Features.UploadTokens.Queries.ListRepositoryUploadTokens;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Tokens;
 
 using DomainRepositorySettings = CodeCoverage.Domain.Repositories.RepositorySettings;
 using CodeCoverage.Web.Components.Pages;
@@ -45,6 +52,8 @@ public sealed class RepositorySettingsTests : UiTestContext
 
   private readonly TrackedRepository _repository = TrackedRepository.Create(5, "2002", RepositorySlug.Parse("octo-org/app"), "main", true, "protected", Now);
 
+  private readonly List<UploadToken> _tokens = [];
+
   #endregion
 
   #region Ctors
@@ -54,6 +63,9 @@ public sealed class RepositorySettingsTests : UiTestContext
     Services.AddFakeSenderRunner(_sender);
 
     A.CallTo(() => _sender.Send(A<GetRepositoryPermissionQuery>._, A<CancellationToken>._)).Returns(new ValueTask<bool>(true));
+    A.CallTo(() => _sender.Send(A<ListRepositoryUploadTokensQuery>._, A<CancellationToken>._))
+     .ReturnsLazily(() => new ValueTask<IReadOnlyList<UploadToken>>(_tokens));
+    A.CallTo(() => _sender.Send(A<GetBadgeTokenQuery>._, A<CancellationToken>._)).Returns(new ValueTask<string?>("Kq7xT2"));
     A.CallTo(() => _sender.Send(A<GetRepositorySettingsQuery>._, A<CancellationToken>._))
      .ReturnsLazily(() => new ValueTask<DomainRepositorySettings>(new DomainRepositorySettings(_repository, Config())));
   }
@@ -209,6 +221,110 @@ public sealed class RepositorySettingsTests : UiTestContext
     cut.WaitForState(() => cut.RenderCount > renders);
     cut.Find("[data-panel=activation] [role=switch]").GetAttribute("aria-checked").ShouldBe("false");
   }
+
+  [Fact]
+  public void Render_ShouldShowTheTokensAndTheBadgeToken()
+  {
+    _tokens.Add(Token("azure-pipelines", "cv_12ab", imported: false));
+
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.Find("[data-panel=tokens] tbody tr").TextContent.ShouldContain("azure-pipelines");
+    cut.Find("[data-panel=badge-token] pre.cc-code").TextContent.ShouldBe("Kq7xT2");
+  }
+
+  // A public repository serves its badge without a token, and says so instead of showing an empty block.
+  [Fact]
+  public void Render_PublicRepository_ShouldSayTheBadgeNeedsNoToken()
+  {
+    A.CallTo(() => _sender.Send(A<GetBadgeTokenQuery>._, A<CancellationToken>._)).Returns(new ValueTask<string?>((string?)null));
+
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.Find("[data-panel=badge-token] [data-state=public]").TextContent.ShouldContain(L("BadgeToken_PublicRepository"));
+    cut.FindAll("[data-panel=badge-token] pre.cc-code").ShouldBeEmpty();
+  }
+
+  // The value of a created token is shown once, by its dialog, and the list is read again.
+  [Fact]
+  public void Create_ShouldShowTheValueOnceAndReadTheListAgain()
+  {
+    A.CallTo(() => _sender.Send(A<CreateRepositoryUploadTokenCommand>._, A<CancellationToken>._))
+     .Returns(new ValueTask<IssuedToken>(new IssuedToken(Token("azure-pipelines", "cv_12ab", imported: false), "d3f1a9e2")));
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.FindAll("[data-panel=tokens] .cc-panel__tools button").Last().Click();
+    cut.Find(".cc-dialog input").Input("azure-pipelines");
+    cut.FindAll(".cc-dialog__actions button").Last().Click();
+
+    cut.WaitForAssertion(() => cut.Find(".cc-dialog pre.cc-code").TextContent.ShouldBe("d3f1a9e2"));
+    A.CallTo(() => _sender.Send(A<GetRepositorySettingsQuery>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  // Decision 14: an import never opens the dialog of an issued value, since the user already holds it.
+  [Fact]
+  public void Import_ShouldNotShowAnyValue()
+  {
+    A.CallTo(() => _sender.Send(A<CreateRepositoryUploadTokenCommand>.That.Matches(c => c.ImportedValue != null), A<CancellationToken>._))
+     .Returns(new ValueTask<IssuedToken>(new IssuedToken(Token("codecov-import", "a71c", imported: true), "codecov-value")));
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.FindAll("[data-panel=tokens] .cc-panel__tools button").First().Click();
+    var inputs = cut.FindAll(".cc-dialog input");
+    inputs[0].Input("codecov-import");
+    inputs[1].Input("codecov-value");
+    cut.FindAll(".cc-dialog__actions button").Last().Click();
+
+    cut.WaitForAssertion(() => cut.FindAll(".cc-dialog").ShouldBeEmpty());
+    cut.Markup.ShouldNotContain("codecov-value");
+  }
+
+  [Fact]
+  public void Revoke_ShouldAskBeforeRevoking()
+  {
+    _tokens.Add(Token("azure-pipelines", "cv_12ab", imported: false));
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.Find("[data-panel=tokens] tbody tr button").Click();
+
+    cut.Find(".cc-dialog").TextContent.ShouldContain(L("Token_RevokeText"));
+    A.CallTo(() => _sender.Send(A<RevokeRepositoryUploadTokenCommand>._, A<CancellationToken>._)).MustNotHaveHappened();
+
+    cut.FindAll(".cc-dialog__actions button").Last().Click();
+
+    A.CallTo(() => _sender.Send(A<RevokeRepositoryUploadTokenCommand>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public void Renew_ShouldRotateTheBadgeTokenAndReadItAgain()
+  {
+    A.CallTo(() => _sender.Send(A<RotateBadgeTokenCommand>._, A<CancellationToken>._)).Returns(new ValueTask<string>("new-value"));
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.FindAll("[data-panel=badge-token] .cc-panel__tools button").First().Click();
+
+    A.CallTo(() => _sender.Send(A<RotateBadgeTokenCommand>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(A<GetBadgeTokenQuery>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  // The imported badge token is typed, never shown back: the panel reads the saved one again.
+  [Fact]
+  public void ImportBadgeToken_ShouldSaveItWithoutShowingIt()
+  {
+    var cut = Render<Web.Components.Pages.RepositorySettings>(Address());
+
+    cut.FindAll("[data-panel=badge-token] .cc-panel__tools button").Last().Click();
+    cut.Find(".cc-dialog input").Input("graphing-token");
+    cut.FindAll(".cc-dialog__actions button").Last().Click();
+
+    A.CallTo(() => _sender.Send(A<ImportBadgeTokenCommand>.That.Matches(c => c.Value == "graphing-token"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    cut.WaitForAssertion(() => cut.FindAll(".cc-dialog").ShouldBeEmpty());
+    cut.Markup.ShouldNotContain("graphing-token");
+  }
+
+  private static UploadToken Token(string label, string hint, bool imported) =>
+    UploadToken.Create(UploadTokenScope.Repository, 5, label, hint, new byte[UploadToken.HashLength], imported, "octocat", Now, null);
 
   private static EffectiveConfig Config() =>
     new(CoverageConfig.Create(ConfigNode.FromMap()), ConfigSource.Commit, Sha, ".codecov.yml", Yaml, [], []);

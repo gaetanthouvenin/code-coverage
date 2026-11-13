@@ -228,8 +228,16 @@ internal static class RepositoryMapper
     }
 
     var settings = await sender.Send(new GetRepositorySettingsQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false);
+    var tokens = await sender.ListRepositoryUploadTokenViewModelsAsync(forge, owner, name, cancellationToken).ConfigureAwait(false);
+    var badgeToken = await sender.GetBadgeTokenAsync(forge, owner, name, cancellationToken).ConfigureAwait(false);
 
-    return new RepositorySettingsViewModel(settings.Repository.Name, settings.Repository.DisabledAt is null, ToConfig(settings.Config));
+    return new RepositorySettingsViewModel(
+      settings.Repository.Name,
+      settings.Repository.DisabledAt is null,
+      ToConfig(settings.Config),
+      tokens,
+      badgeToken
+    );
   }
 
   /// <summary>Enables a repository again: its coverage is processed once more.</summary>

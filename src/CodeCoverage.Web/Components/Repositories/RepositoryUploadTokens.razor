@@ -1,0 +1,17 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RepositoryUploadTokens.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<TokenTable Title="@L["Tab_UploadTokens"]" Tokens="Tokens" EmptyDescription="@L["Token_EmptyRepository"]" OnRevokeAsked="AskRevoke">
+  <Tools>
+    <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Upload" OnClick="() => _importing = true">@L["Action_Import"]</CcButton>
+    <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary" Icon="CcIconName.Plus" OnClick="() => _creating = true">@L["Action_Create"]</CcButton>
+  </Tools>
+</TokenTable>
+
+<CreateTokenDialog Open="_creating" Create="CreateAsync" OnCreated="ShowIssuedAsync" OnClosed="() => _creating = false" />
+<ImportTokenDialog Open="_importing" Import="ImportAsync" OnImported="ImportedAsync" OnClosed="() => _importing = false" />
+<RevokeTokenDialog Token="_revoking" Revoke="RevokeAsync" OnRevoked="RevokedAsync" OnClosed="() => _revoking = null" />
+<IssuedTokenDialog Token="_issued" OnClosed="ForgetIssuedAsync" />

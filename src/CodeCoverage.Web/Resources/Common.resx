@@ -277,6 +277,42 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Tab_UploadTokens" xml:space="preserve"><value>Upload tokens</value></data>
+  <data name="Action_Create" xml:space="preserve"><value>Create</value></data>
+  <data name="Action_Import" xml:space="preserve"><value>Import</value></data>
+  <data name="Action_Revoke" xml:space="preserve"><value>Revoke</value></data>
+  <data name="Action_Renew" xml:space="preserve"><value>Renew</value></data>
+  <data name="Action_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Action_Copy" xml:space="preserve"><value>Copy</value></data>
+  <data name="Column_Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Column_Hint" xml:space="preserve"><value>Hint</value></data>
+  <data name="Column_Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Column_LastUsed" xml:space="preserve"><value>Last used</value></data>
+  <data name="Token_Created" xml:space="preserve"><value>Token created</value></data>
+  <data name="Token_CopyItNow" xml:space="preserve"><value>Copy it now: it will never be shown again.</value></data>
+  <data name="Token_Value" xml:space="preserve"><value>Value</value></data>
+  <data name="Token_Copied" xml:space="preserve"><value>Copied.</value></data>
+  <data name="Token_CopyFailed" xml:space="preserve"><value>The copy was refused by the browser: select the text instead.</value></data>
+  <data name="Token_ValueShownOnce" xml:space="preserve"><value>The value is shown once, at creation.</value></data>
+  <data name="Token_ShowRevoked" xml:space="preserve"><value>Show revoked</value></data>
+  <data name="Token_Revoked" xml:space="preserve"><value>Revoked</value></data>
+  <data name="Token_RevokedToast" xml:space="preserve"><value>Token revoked</value></data>
+  <data name="Token_Imported" xml:space="preserve"><value>Imported from Codecov</value></data>
+  <data name="Token_NeverUsed" xml:space="preserve"><value>Never</value></data>
+  <data name="Token_EmptyTitle" xml:space="preserve"><value>No token</value></data>
+  <data name="Token_EmptyRepository" xml:space="preserve"><value>Create one for this repository, or import its CODECOV_TOKEN so the pipelines keep working.</value></data>
+  <data name="Token_CreateTitle" xml:space="preserve"><value>Create a token</value></data>
+  <data name="Token_ImportTitle" xml:space="preserve"><value>Import a token</value></data>
+  <data name="Token_ImportText" xml:space="preserve"><value>Paste the current value of CODECOV_TOKEN: the pipelines keep working without any change.</value></data>
+  <data name="Token_ImportBadgeTitle" xml:space="preserve"><value>Import a badge token</value></data>
+  <data name="Token_ImportBadgeText" xml:space="preserve"><value>Paste the graphing token of Codecov: the badges of your READMEs keep working.</value></data>
+  <data name="Token_RevokeTitle" xml:space="preserve"><value>Revoke « {0} »?</value></data>
+  <data name="Token_RevokeText" xml:space="preserve"><value>Anything still using this token will stop working. This cannot be undone.</value></data>
+  <data name="Token_RevokeOf" xml:space="preserve"><value>Revoke {0}</value></data>
+  <data name="BadgeToken_Title" xml:space="preserve"><value>Badge token</value></data>
+  <data name="BadgeToken_PublicRepository" xml:space="preserve"><value>This repository is public: its badge is served without a token.</value></data>
+  <data name="BadgeToken_Renewed" xml:space="preserve"><value>Badge token renewed</value></data>
+  <data name="BadgeToken_UpdateReadme" xml:space="preserve"><value>Update the badge address in your README.</value></data>
   <data name="Repository_Active" xml:space="preserve"><value>Active</value></data>
   <data name="RepositorySettings_Title" xml:space="preserve"><value>Repository settings</value></data>
   <data name="RepositorySettings_Denied" xml:space="preserve"><value>Only the administrators of this repository, and the administrators of its organization, can open its settings.</value></data>
