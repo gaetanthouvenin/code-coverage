@@ -71,6 +71,25 @@ public sealed class AnnotatedSourceTests
     source.Lines.ShouldBeEmpty();
   }
 
+  [Fact]
+  public void WithPatch_ShouldMarkTheAddedLinesAndNameThePull()
+  {
+    var source = AnnotatedSource.Merge(File, Sha, null, "a\nb\nc\n").WithPatch(12, [2, 9]);
+
+    source.PatchPull.ShouldBe(12);
+    source.Lines.Select(static l => l.InPatch).ShouldBe([false, true, false]);
+  }
+
+  // Without a cached diff the pull request is named, nothing is marked.
+  [Fact]
+  public void WithPatch_NoAddedLine_ShouldMarkNothing()
+  {
+    var source = AnnotatedSource.Merge(File, Sha, null, "a\nb\n").WithPatch(12, null);
+
+    source.PatchPull.ShouldBe(12);
+    source.Lines.ShouldAllBe(static l => !l.InPatch);
+  }
+
   // Unavailable keeps the totals of the file: the page still shows them.
   [Theory]
   [InlineData(null)]

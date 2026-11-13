@@ -1,0 +1,102 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AnnotatedSource.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/commit/{Sha}/blob/{*Path}"
+
+<PageTitle>@L["PageTitle_Format", FileName]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Path ?? string.Empty)" Crumbs="Crumbs" ActiveTab="RepositoryTab.Commits">
+      <SubtitleContent>
+        <code>@ShortSha</code>
+        @if (Source?.PatchPull is { } pull)
+        {
+          @($" · {L["Source_FromPull"]} ")<a href="@PullHref(pull)" data-link="pull">#@pull</a>
+        }
+      </SubtitleContent>
+      <Actions>
+        @if (Source is { IsSourceAvailable: true } source)
+        {
+          @if (source.Flags.Count > 0)
+          {
+            <CcSelectField Label="@L["Column_Flag"]" Value="@(Flag ?? string.Empty)" ValueChanged="FlagChanged" Options="FlagOptions" Pill="true" LeadIcon="CcIconName.Filter" />
+          }
+          <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.ArrowDown" OnClick="NextUncoveredAsync" Class="cc-action-next">@L["Action_NextUncovered"]</CcButton>
+        }
+      </Actions>
+    </RepositoryHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Source is { IsCompacted: true })
+    {
+      <div class="cc-panel" data-state="compacted">
+        <CcEmptyState Title="@L["Source_CompactedTitle"]" Icon="CcIconName.File">
+          <ChildContent>@L["Commit_CompactedHint"]</ChildContent>
+          <Actions><CcButton Href="@CommitHref">@L["Source_BackToCommit"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Source is { } source)
+    {
+      <section class="cc-panel" data-panel="source">
+        <div class="cc-panel__stats">
+          <div class="cc-mini"><span class="cc-mini__label">@L["Column_Coverage"]</span><span class="cc-mini__value">@source.Coverage</span></div>
+          <div class="cc-mini"><span class="cc-mini__label">@L["Column_Lines"]</span><span class="cc-mini__value">@source.Lines</span></div>
+          <div class="cc-mini"><span class="cc-mini__label"><i class="cc-mini__dot cc-mini__dot--hit" aria-hidden="true"></i>@L["Column_Hits"]</span><span class="cc-mini__value">@source.Hits</span></div>
+          <div class="cc-mini"><span class="cc-mini__label"><i class="cc-mini__dot cc-mini__dot--partial" aria-hidden="true"></i>@L["Column_Partials"]</span><span class="cc-mini__value">@source.Partials</span></div>
+          <div class="cc-mini"><span class="cc-mini__label"><i class="cc-mini__dot cc-mini__dot--miss" aria-hidden="true"></i>@L["Column_Misses"]</span><span class="cc-mini__value">@source.Misses</span></div>
+        </div>
+        @if (!source.IsSourceAvailable)
+        {
+          <div data-state="unavailable">
+            <CcEmptyState Title="@L["Source_UnavailableTitle"]" Icon="CcIconName.Alert">
+              <ChildContent>@L["Source_UnavailableText"]</ChildContent>
+              <Actions><CcButton Href="@CommitHref">@L["Source_BackToCommit"]</CcButton></Actions>
+            </CcEmptyState>
+          </div>
+        }
+        else
+        {
+          @if (source.PatchPull is not null)
+          {
+            <div class="cc-legend"><span><i class="cc-legend__patch" aria-hidden="true"></i>@L["Source_ChangedInPull"]</span></div>
+          }
+          <div class="cc-source">
+            <table @ref="_table" aria-label="@source.Path">
+              <tbody @key="LoadKey">
+                @foreach (var line in source.SourceLines)
+                {
+                  <tr @key="line.Number" data-line="@line.Number" data-state="@StateOf(line.State)" class="@(line.InPatch ? "cc-source__patch" : null)" title="@TitleOf(line)" tabindex="-1">
+                    <td class="cc-source__ln">@line.Number</td>
+                    <td class="cc-source__hits">@line.Hits</td>
+                    <td class="cc-source__code">@line.Text</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+</CcPageContainer>

@@ -132,6 +132,17 @@ public partial class FileTree
 
   #region Methods
 
+  /// <summary>The address of the annotated source of a file: each segment escaped, so <c>#</c> or a space stays in the path.</summary>
+  /// <param name="root">The address of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="path">The path of the file in the report.</param>
+  /// <returns>The relative address.</returns>
+  internal static string SourceHref(string root, string sha, string path) =>
+    $"{root}/commit/{Uri.EscapeDataString(sha)}/blob/{string.Join('/', path.Split('/').Select(Uri.EscapeDataString))}";
+
+  private string SourceHref(string path) =>
+    SourceHref($"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}", Sha, path);
+
   private async Task LoadAsync()
   {
     var (forge, owner, name, sha, flag, format) = (Forge, Owner, Name, Sha, Flag, Format);

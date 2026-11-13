@@ -22,13 +22,20 @@ namespace CodeCoverage.Domain.Source;
 ///   or the file is too large or binary: <paramref name="Lines" /> is then empty.
 /// </param>
 /// <param name="Lines">The lines of the source, in order.</param>
+/// <param name="PatchPull">
+///   The pull request whose patch the lines mark, set only when its comparison was found for this commit, or
+///   <see langword="null" />.
+/// </param>
+/// <param name="Flags">The flags of the commit, for the selector of the page.</param>
 public sealed record AnnotatedSource(
   string Path,
   GitSha Sha,
   string? Flag,
   CoverageTotals Totals,
   bool IsSourceAvailable,
-  IReadOnlyList<AnnotatedLine> Lines)
+  IReadOnlyList<AnnotatedLine> Lines,
+  int? PatchPull = null,
+  IReadOnlyList<string>? Flags = null)
 {
   #region Fields
 
@@ -37,6 +44,22 @@ public sealed record AnnotatedSource(
   #endregion
 
   #region Methods
+
+  /// <summary>Marks the lines a pull request added or changed, from the diff its comparison stored.</summary>
+  /// <param name="pull">The number of the pull request.</param>
+  /// <param name="added">The numbers of the lines added or changed in this file, or <see langword="null" /> without a cached diff.</param>
+  /// <returns>The source, its lines marked; unchanged lines and an unavailable source stay as they are.</returns>
+  public AnnotatedSource WithPatch(int pull, IReadOnlyCollection<int>? added)
+  {
+    if (added is not { Count: > 0 })
+    {
+      return this with { PatchPull = pull };
+    }
+
+    var lines = added as IReadOnlySet<int> ?? added.ToHashSet();
+
+    return this with { PatchPull = pull, Lines = [.. Lines.Select(l => lines.Contains(l.Number) ? l with { InPatch = true } : l)] };
+  }
 
   /// <summary>Merges the text of a source file with the coverage of its lines.</summary>
   /// <param name="file">The coverage of the file in the report.</param>

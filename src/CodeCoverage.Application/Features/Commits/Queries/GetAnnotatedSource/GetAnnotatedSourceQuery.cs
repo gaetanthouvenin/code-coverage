@@ -21,11 +21,15 @@ namespace CodeCoverage.Application.Features.Commits.Queries.GetAnnotatedSource;
 /// <param name="Sha">The SHA of the commit.</param>
 /// <param name="Path">The path of the file, as the report of the commit holds it; a leading <c>/</c> is ignored.</param>
 /// <param name="Flag">The flag the coverage is restricted to, or <see langword="null" /> for every session.</param>
+/// <param name="Pull">
+///   The pull request the page comes from, whose patch lines are marked, or <see langword="null" />. The lines come from
+///   the diff its stored comparison cached, the database only: without it nothing is marked.
+/// </param>
 /// <remarks>
 ///   The source is read live from the forge after the access check, through a cache bounded in size and time, and never
 ///   stored. The path must be one of the report: an unknown path is refused before the forge is asked anything.
 /// </remarks>
-public sealed record GetAnnotatedSourceQuery(Forge Forge, string Owner, string Name, GitSha Sha, string Path, string? Flag)
+public sealed record GetAnnotatedSourceQuery(Forge Forge, string Owner, string Name, GitSha Sha, string Path, string? Flag, int? Pull = null)
   : IQuery<AnnotatedSource>, IRepositoryScoped
 {
   #region Properties

@@ -2262,3 +2262,151 @@ code {
 .cc-code__head {
   color: var(--cc-info-fg);
 }
+
+/* The annotated source (M3.29): the totals strip, the legend of the patch, one plain table of lines with a margin
+   coloured by state, and the colours of highlight.js under its cc-hl- prefix, on the tokens of both themes. */
+.cc-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 18px 0;
+}
+
+.cc-mini__dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
+.cc-mini__dot--hit {
+  background: var(--cc-hit-edge);
+}
+
+.cc-mini__dot--partial {
+  background: var(--cc-part-edge);
+}
+
+.cc-mini__dot--miss {
+  background: var(--cc-miss-edge);
+}
+
+.cc-legend {
+  display: flex;
+  gap: 18px;
+  padding: 14px 28px 0;
+  color: var(--cc-fg-2);
+  font-size: 13px;
+}
+
+.cc-legend__patch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: var(--cc-patch);
+  box-shadow: inset 0 0 0 1.5px var(--cc-accent);
+  vertical-align: -2px;
+}
+
+.cc-source {
+  margin: 14px 12px 12px;
+  overflow-x: auto;
+  border-radius: var(--cc-r-md);
+  background: var(--cc-code-bg);
+  font-family: var(--cc-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.cc-source table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.cc-source td {
+  padding: 0;
+  border: 0;
+  white-space: pre;
+}
+
+.cc-source tr:focus {
+  outline: 2px solid var(--cc-accent);
+  outline-offset: -2px;
+}
+
+.cc-source__ln,
+.cc-source__hits {
+  width: 1%;
+  color: var(--cc-fg-3);
+  text-align: right;
+  user-select: none;
+}
+
+.cc-source__ln {
+  padding: 0 10px 0 14px;
+}
+
+.cc-source__hits {
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+.cc-source__code {
+  padding: 0 16px 0 12px;
+  border-left: 3px solid transparent;
+}
+
+.cc-source tr[data-state="hit"] .cc-source__code {
+  border-left-color: var(--cc-hit-edge);
+  background: var(--cc-hit);
+}
+
+.cc-source tr[data-state="miss"] .cc-source__code {
+  border-left-color: var(--cc-miss-edge);
+  background: var(--cc-miss);
+}
+
+.cc-source tr[data-state="partial"] .cc-source__code {
+  border-left-color: var(--cc-part-edge);
+  background: var(--cc-part);
+}
+
+.cc-source tr.cc-source__patch .cc-source__ln {
+  background: var(--cc-patch);
+  color: var(--cc-accent-fg);
+  font-weight: 600;
+}
+
+.cc-hl-keyword,
+.cc-hl-built_in,
+.cc-hl-literal,
+.cc-hl-meta {
+  color: var(--cc-tk-k);
+}
+
+.cc-hl-type,
+.cc-hl-title,
+.cc-hl-class,
+.cc-hl-attr,
+.cc-hl-tag,
+.cc-hl-name {
+  color: var(--cc-tk-t);
+}
+
+.cc-hl-string,
+.cc-hl-number,
+.cc-hl-regexp,
+.cc-hl-symbol {
+  color: var(--cc-tk-s);
+}
+
+.cc-hl-comment,
+.cc-hl-doctag,
+.cc-hl-quote {
+  color: var(--cc-fg-3);
+  font-style: italic;
+}

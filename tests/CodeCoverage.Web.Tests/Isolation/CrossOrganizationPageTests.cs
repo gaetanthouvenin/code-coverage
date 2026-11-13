@@ -71,6 +71,23 @@ public sealed partial class CrossOrganizationPageTests(IsolationFixture fixture)
     own.Markup.ShouldNotContain("data-state=\"missing\"", Case.Insensitive);
   }
 
+  // The source probe addresses a real file: an administrator of the second organization sees it, its text included.
+  [Fact]
+  public async Task Render_SourceOfTheSecondOrganization_ShouldShowItToItsAdministrator()
+  {
+    var web = await fixture.WebAsync();
+    using var client = web.ClientOf(web.SecondUserId);
+    var address = $"/github/{TwoOrganizationWeb.SecondOwner}/app/commit/{TwoOrganizationWeb.SecondSha}/blob/{TwoOrganizationWeb.SecondFile}";
+
+    using var response = await client.GetAsync(new Uri(address, UriKind.Relative), Ct);
+    var markup = await response.Content.ReadAsStringAsync(Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    markup.ShouldNotContain("data-state=\"missing\"", Case.Insensitive);
+    markup.ShouldContain(TwoOrganizationWeb.SecondFile);
+    markup.ShouldContain(TwoOrganizationWeb.SourceText);
+  }
+
   public static TheoryData<string> Addressed()
   {
     var data = new TheoryData<string>();

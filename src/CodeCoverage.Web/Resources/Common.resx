@@ -523,4 +523,16 @@
   <data name="Comparison_Behind" xml:space="preserve"><value>Behind</value></data>
   <data name="Comparison_BehindBy" xml:space="preserve"><value>{0} is {1} commit(s) ahead of the base</value></data>
   <data name="Comparison_CoverageDiff" xml:space="preserve"><value>Coverage diff</value></data>
+  <data name="Action_NextUncovered" xml:space="preserve"><value>Next uncovered line</value></data>
+  <data name="Source_Crumb" xml:space="preserve"><value>Source</value></data>
+  <data name="Source_FromPull" xml:space="preserve"><value>from pull request</value></data>
+  <data name="Source_CompactedTitle" xml:space="preserve"><value>Compacted commit</value></data>
+  <data name="Source_BackToCommit" xml:space="preserve"><value>Back to the commit</value></data>
+  <data name="Source_UnavailableTitle" xml:space="preserve"><value>The source could not be read</value></data>
+  <data name="Source_UnavailableText" xml:space="preserve"><value>The forge did not return this file at this commit, or it is too large to show. The coverage figures above remain.</value></data>
+  <data name="Source_ChangedInPull" xml:space="preserve"><value>Changed in the pull request</value></data>
+  <data name="Source_Covered" xml:space="preserve"><value>Covered</value></data>
+  <data name="Source_NotCovered" xml:space="preserve"><value>Not covered</value></data>
+  <data name="Source_Partial" xml:space="preserve"><value>Partial</value></data>
+  <data name="Source_NoUncovered" xml:space="preserve"><value>No uncovered line</value></data>
 </root>

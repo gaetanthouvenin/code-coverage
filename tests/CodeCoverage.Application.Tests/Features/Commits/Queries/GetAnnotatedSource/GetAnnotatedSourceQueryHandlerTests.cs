@@ -14,7 +14,9 @@ using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Behaviors.Support;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Comparisons;
 using CodeCoverage.Domain.Coverage;
+using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -43,6 +45,12 @@ public sealed class GetAnnotatedSourceQueryHandlerTests
   private readonly IReportViewCache _views = A.Fake<IReportViewCache>();
 
   private readonly ISourceContentCache _sources = A.Fake<ISourceContentCache>();
+
+  private readonly IComparisonRepository _comparisons = A.Fake<IComparisonRepository>();
+
+  private readonly IDiffCacheRepository _diffs = A.Fake<IDiffCacheRepository>();
+
+  private static readonly GitSha ForkPoint = GitSha.Parse(new string('f', GitSha.Length));
 
   private readonly Commit _commit;
 
@@ -159,6 +167,67 @@ public sealed class GetAnnotatedSourceQueryHandlerTests
     A.CallTo(_reports).MustNotHaveHappened();
   }
 
+  // The lines the pull request added come from the diff its comparison of this very commit cached: database only.
+  [Fact]
+  public async Task Handle_PullWithCachedDiff_ShouldMarkAddedLines()
+  {
+    A.CallTo(() => _sources.GetSourceAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<string>._, A<CancellationToken>._)).Returns("covered();\nmissed();\n");
+    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns(Comparison(ForkPoint));
+    var patch = "@@ -1,1 +1,2 @@\n covered();\n+missed();";
+    A.CallTo(() => _diffs.FindAsync(5, ForkPoint, Sha, DiffSource.PullFiles, A<CancellationToken>._))
+     .Returns(new DiffSet([FileDiff.Create("src/A.cs", null, FileDiffStatus.Modified, patch)], false, DiffSource.PullFiles));
+
+    var source = await Handler().Handle(Query("src/A.cs") with { Pull = 12 }, Ct);
+
+    source.PatchPull.ShouldBe(12);
+    source.Lines.Select(static l => l.InPatch).ShouldBe([false, true]);
+  }
+
+  // No cached diff (expired, or never cached): nothing is marked, no forge is asked and nothing is written.
+  [Fact]
+  public async Task Handle_PullWithoutCachedDiff_ShouldNotHighlightNorCallTheForge()
+  {
+    A.CallTo(() => _sources.GetSourceAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<string>._, A<CancellationToken>._)).Returns("covered();\nmissed();\n");
+    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns(Comparison(ForkPoint));
+    A.CallTo(() => _diffs.FindAsync(A<long>._, A<GitSha>._, A<GitSha>._, A<DiffSource>._, A<CancellationToken>._)).Returns((DiffSet?)null);
+
+    var source = await Handler().Handle(Query("src/A.cs") with { Pull = 12 }, Ct);
+
+    source.PatchPull.ShouldBe(12);
+    source.Lines.ShouldAllBe(static l => !l.InPatch);
+    A.CallTo(() => _sources.GetSourceAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(_diffs).Where(static c => c.Method.Name != nameof(IDiffCacheRepository.FindAsync)).MustNotHaveHappened();
+    A.CallTo(_comparisons).Where(static c => c.Method.Name == nameof(IComparisonRepository.SaveAsync)).MustNotHaveHappened();
+  }
+
+  // A pull request this commit was never compared in marks nothing and is not named.
+  [Fact]
+  public async Task Handle_PullWithoutComparison_ShouldNotNameIt()
+  {
+    A.CallTo(() => _comparisons.FindAsync(9, 12, A<CancellationToken>._)).Returns((CommitComparison?)null);
+
+    var source = await Handler().Handle(Query("src/A.cs") with { Pull = 12 }, Ct);
+
+    source.PatchPull.ShouldBeNull();
+    A.CallTo(_diffs).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_ShouldListTheFlagsOfTheCommit()
+  {
+    _commit.MarkPending("main", null, Now);
+    _commit.RecordFinalization(CommitState.Complete, 1, new CoverageTotals(1, 0, 0, 0, 0), 1, 1, CarryforwardStatus.None, "default", Now);
+    A.CallTo(() => _reports.ListFlagTotalsAsync(9, A<CancellationToken>._))
+     .Returns([CommitFlagTotals.Create(_commit, CommitFlagTotals.ProjectFlag, default, false, null), CommitFlagTotals.Create(_commit, "unit", default, false, null), CommitFlagTotals.Create(_commit, "api", default, false, null)]);
+
+    var source = await Handler().Handle(Query("src/A.cs"), Ct);
+
+    source.Flags.ShouldBe(["api", "unit"]);
+  }
+
+  private static CommitComparison Comparison(GitSha forkPoint) =>
+    new(9, 12, forkPoint, forkPoint, 1, 1, DiffSource.PullFiles, new Comparison(default, null, PatchCoverage.Empty, [], [], [], false), Now);
+
   private static GetAnnotatedSourceQuery Query(string path) => new(Forge.GitHub, "octo-org", "app", Sha, path, null);
 
   private GetAnnotatedSourceQueryHandler Handler() =>
@@ -166,7 +235,10 @@ public sealed class GetAnnotatedSourceQueryHandlerTests
       new CommitLocator(_repositories, _commits),
       _commits,
       new CommitFileReader(_reports, _codec, new CommitFlagView(new CommitReportReader(_reports, _codec), _views)),
-      _sources
+      _sources,
+      _comparisons,
+      _diffs,
+      _reports
     );
 
   #endregion

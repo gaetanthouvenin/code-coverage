@@ -14,6 +14,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Serilog;
 
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Web.Configuration;
 using CodeCoverage.Web.Tests.Support;
@@ -79,6 +82,12 @@ public sealed class IsolationWebFactory(string connectionString) : WebApplicatio
     builder.ConfigureTestServices(static services =>
     {
       services.AddDataProtection().UseEphemeralDataProtectionProvider();
+
+      // The forge of the suite: every source it is asked for has the same text, and no network is reached.
+      var sources = A.Fake<ISourceContentCache>();
+      A.CallTo(() => sources.GetSourceAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<string>._, A<CancellationToken>._))
+       .Returns(TwoOrganizationWeb.SourceText);
+      services.AddScoped(_ => sources);
 
       // A header stands for the session cookie, as in the other host tests; the user it names is a real row.
       services.AddAuthentication(static o => o.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName)
