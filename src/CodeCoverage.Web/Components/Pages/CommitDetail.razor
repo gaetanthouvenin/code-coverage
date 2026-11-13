@@ -15,7 +15,7 @@
   }
   else
   {
-    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs" />
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@(Detail?.Title ?? L["Tab_Commits"])" Subtitle="@Subtitle" Crumbs="Crumbs" ActiveTab="RepositoryTab.Commits" />
 
     @if (State is PageState.Loading)
     {

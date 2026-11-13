@@ -57,6 +57,33 @@ public sealed class RepositoryTabsTests : UiTestContext
     cut.FindAll(".cc-pill-tabs__tab--active").ShouldHaveSingleItem().TextContent.Trim().ShouldBe(L()["Tab_Overview"].Value);
   }
 
+  // A commit, its source and a free comparison lie under no tab's address: the page imposes the commits tab, and no
+  // other one is active.
+  [Theory]
+  [InlineData("github/octo-org/app/commit/0123456789abcdef0123456789abcdef01234567", RepositoryTab.Commits, "Tab_Commits")]
+  [InlineData("github/octo-org/app/commit/0123456789abcdef0123456789abcdef01234567/blob/src/A.cs", RepositoryTab.Commits, "Tab_Commits")]
+  [InlineData("github/octo-org/app/compare/a...b", RepositoryTab.Commits, "Tab_Commits")]
+  [InlineData("github/octo-org/app/pull/7", RepositoryTab.Pulls, "Tab_Pulls")]
+  public void Render_ImposedTab_ShouldMarkItOnly(string address, RepositoryTab active, string label)
+  {
+    Navigation.NavigateTo(address);
+
+    var cut = Render<RepositoryTabs>(p => p.Add(t => t.Forge, "github").Add(t => t.Owner, "octo-org").Add(t => t.Name, "app").Add(t => t.Active, active));
+
+    cut.FindAll(".cc-pill-tabs__tab--active").ShouldHaveSingleItem().TextContent.Trim().ShouldBe(L()[label].Value);
+  }
+
+  // Without an imposed tab the address decides, and /commit/{sha} is not under /commits.
+  [Fact]
+  public void Render_CommitAddressWithoutImposedTab_ShouldMarkNone()
+  {
+    Navigation.NavigateTo("github/octo-org/app/commit/0123456789abcdef0123456789abcdef01234567");
+
+    var cut = Render<RepositoryTabs>(p => p.Add(t => t.Forge, "github").Add(t => t.Owner, "octo-org").Add(t => t.Name, "app"));
+
+    cut.FindAll(".cc-pill-tabs__tab--active").ShouldBeEmpty();
+  }
+
   private IStringLocalizer<Common> L() => Services.GetRequiredService<IStringLocalizer<Common>>();
 
   #endregion

@@ -61,6 +61,10 @@ public partial class RepositoryHeader
   [Parameter]
   public RenderFragment? Actions { get; set; }
 
+  /// <summary>Gets or sets the tab the page imposes, or <see langword="null" /> to let the address decide.</summary>
+  [Parameter]
+  public RepositoryTab? ActiveTab { get; set; }
+
   #endregion
 
   #region Injected services

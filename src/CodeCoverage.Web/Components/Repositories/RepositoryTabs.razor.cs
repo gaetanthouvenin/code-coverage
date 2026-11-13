@@ -39,6 +39,13 @@ public partial class RepositoryTabs
   [Parameter]
   public bool ShowSettings { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the tab the page imposes, or <see langword="null" /> to mark the tab whose address prefixes the
+  ///   current one: <c>/commit/{sha}</c> lies under no tab's address, yet belongs to the commits.
+  /// </summary>
+  [Parameter]
+  public RepositoryTab? Active { get; set; }
+
   #endregion
 
   #region Injected services
@@ -63,12 +70,19 @@ public partial class RepositoryTabs
 
     Items =
     [
-      new CcNavItem(root, L["Tab_Overview"], CcIconName.Chart, NavLinkMatch.All),
-      new CcNavItem($"{root}/commits", L["Tab_Commits"], CcIconName.Commit),
-      new CcNavItem($"{root}/pulls", L["Tab_Pulls"], CcIconName.PullRequest),
-      .. ShowSettings ? new[] { new CcNavItem($"{root}/settings", L["Tab_RepoSettings"], CcIconName.Gear) } : [],
+      new CcNavItem(root, L["Tab_Overview"], CcIconName.Chart, NavLinkMatch.All, IsActive(RepositoryTab.Overview)),
+      new CcNavItem($"{root}/commits", L["Tab_Commits"], CcIconName.Commit, Active: IsActive(RepositoryTab.Commits)),
+      new CcNavItem($"{root}/pulls", L["Tab_Pulls"], CcIconName.PullRequest, Active: IsActive(RepositoryTab.Pulls)),
+      .. ShowSettings ? new[] { new CcNavItem($"{root}/settings", L["Tab_RepoSettings"], CcIconName.Gear, Active: IsActive(RepositoryTab.Settings)) } : [],
     ];
   }
+
+  #endregion
+
+  #region Methods
+
+  // An imposed tab is the only active one; without it, the address decides.
+  private bool? IsActive(RepositoryTab tab) => Active is { } active ? active == tab : null;
 
   #endregion
 }

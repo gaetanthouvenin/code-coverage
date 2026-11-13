@@ -100,6 +100,17 @@ public sealed class CommitDetailTests : UiTestContext
     cut.FindAll(".cc-config-error").ShouldBeEmpty();
   });
 
+  // /commit/{sha} lies under no tab's address: the page imposes the commits tab.
+  [Fact]
+  public void Render_ShouldMarkTheCommitsTab()
+  {
+    Navigation.NavigateTo($"github/octo-org/app/commit/{Sha.Value}");
+
+    var cut = Render<CommitDetailPage>(Address());
+
+    cut.FindAll(".cc-pill-tabs__tab--active").ShouldHaveSingleItem().TextContent.Trim().ShouldBe(L("Tab_Commits"));
+  }
+
   [Fact]
   public void Render_ConfigError_ShouldShowBanner()
   {
