@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Mediator;
 
+using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncOrganizationInstallation;
 using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
 using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
@@ -16,6 +17,7 @@ using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositorySettings;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Application.Features.Repositories.Queries.ListOrganizationRepositories;
 using CodeCoverage.Application.Features.Repositories.Queries.ListRepositorySummaries;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
@@ -362,6 +364,56 @@ internal static class RepositoryMapper
     var page = $"{web}/{address}";
 
     return new BadgeSnippetsViewModel(image, page, $"[![coverage]({image})]({page})", $"<a href=\"{page}\"><img src=\"{image}\" alt=\"coverage\"></a>");
+  }
+
+  /// <summary>Lists every repository the installation of an organization serves, with its last upload.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The repositories by name; none when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IReadOnlyList<OrganizationRepositoryViewModel>> ListOrganizationRepositoryViewModelsAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return [];
+    }
+
+    var repositories = await sender.Send(new ListOrganizationRepositoriesQuery(parsed, login), cancellationToken).ConfigureAwait(false);
+
+    return [.. repositories.Select(static r => new OrganizationRepositoryViewModel(r.Repository.Name, r.Repository.DisabledAt is null, r.LastUploadAt))];
+  }
+
+  /// <summary>Asks for the repositories of the installations of an organization to be read again from the forge.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the reconciliation is queued.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> SyncOrganizationInstallationAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new SyncOrganizationInstallationCommand(parsed, login), cancellationToken).ConfigureAwait(false);
+
+    return true;
   }
 
   /// <summary>Reads a forge segment strictly: only the segment the console writes, never a default forge.</summary>

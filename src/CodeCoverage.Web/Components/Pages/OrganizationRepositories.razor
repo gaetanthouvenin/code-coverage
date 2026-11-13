@@ -1,0 +1,112 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="OrganizationRepositories.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/orgs/{Forge}/{Login}/repositories"
+@using CodeCoverage.Web.Mapping
+
+<PageTitle>@L["PageTitle_Format", L["OrganizationRepositories_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <CcHeader Title="@L["OrganizationRepositories_Title"]" Icon="CcIconName.Repo" Subtitle="@L["OrganizationRepositories_Subtitle"]" Breadcrumb="Crumbs">
+      <Tabs><OrganizationTabs Forge="@Forge" Login="@Login" /></Tabs>
+      <Actions>
+        @if (State is PageState.Ready)
+        {
+          <CcSearchBar Placeholder="@L["Search_Repositories"]" Value="@_search" ValueChanged="Search" />
+          <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Refresh" Disabled="_busy" OnClick="SyncAsync">@L["Action_Sync"]</CcButton>
+        }
+      </Actions>
+    </CcHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Denied)
+    {
+      <div class="cc-panel cc-status-page" data-state="denied">
+        <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["OrganizationRepositories_Denied"]</CcEmptyState>
+      </div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page" data-state="failed">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Repositories is not null)
+    {
+      <section class="cc-panel" data-panel="repositories">
+        @if (Repositories.Count == 0)
+        {
+          <div class="cc-panel__body" data-state="empty">
+            <CcEmptyState Title="@L["OrganizationRepositories_EmptyTitle"]" Icon="CcIconName.GitHub">
+              <ChildContent>@L["OrganizationRepositories_EmptyText"]</ChildContent>
+              <Actions><CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Refresh" OnClick="SyncAsync">@L["Action_Sync"]</CcButton></Actions>
+            </CcEmptyState>
+          </div>
+        }
+        else if (Shown.Count == 0)
+        {
+          <div class="cc-panel__body" data-state="noresult">
+            <CcEmptyState Title="@L["Home_NoMatchTitle"]" Icon="CcIconName.Search">@L["Home_NoMatchText"]</CcEmptyState>
+          </div>
+        }
+        else
+        {
+          <div class="cc-table-wrap">
+            <table class="cc-table">
+              <thead>
+                <tr>
+                  <th scope="col">@L["Column_Repository"]</th>
+                  <th scope="col">@L["Column_LastUpload"]</th>
+                  <th scope="col">@L["Column_State"]</th>
+                  <th scope="col" class="cc-r"><span class="cc-sr-only">@L["Repository_Active"]</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var repository in Shown)
+                {
+                  <tr data-repository="@repository.Name">
+                    <td>
+                      <div class="cc-cell">
+                        <span class="cc-thumb"><CcIcon Name="CcIconName.Repo" /></span>
+                        <strong>@repository.Name</strong>
+                      </div>
+                    </td>
+                    <td class="cc-muted cc-nowrap">@(repository.LastUploadAt is { } at ? AgeOf(at) : DisplayFormatter.Dash)</td>
+                    <td>
+                      @if (repository.IsActive)
+                      {
+                        <CcBadge Tone="CcTone.Success">@L["Repository_Active"]</CcBadge>
+                      }
+                      else
+                      {
+                        <CcBadge>@L["Repository_Inactive"]</CcBadge>
+                      }
+                    </td>
+                    <td class="cc-r">
+                      <CcSwitch Value="repository.IsActive" ValueChanged="active => ToggleAsync(repository, active)" Disabled="_busy"
+                                Label="@L["Repository_ActiveOf", repository.Name]" />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+</CcPageContainer>

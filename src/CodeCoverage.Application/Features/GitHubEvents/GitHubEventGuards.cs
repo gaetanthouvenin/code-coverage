@@ -9,6 +9,8 @@ using System.Diagnostics.CodeAnalysis;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.GitHub;
 
+using ApplicationException = CodeCoverage.Application.Exceptions.ApplicationException;
+
 namespace CodeCoverage.Application.Features.GitHubEvents;
 
 /// <summary>
@@ -57,6 +59,22 @@ internal static class GitHubEventGuards
       if (delivery is null)
       {
         throw new NotFoundException(GitHubEventErrors.DeliveryNotFound, "The delivery to handle does not exist.");
+      }
+    }
+  }
+
+  extension(UnprocessableEntityException)
+  {
+    /// <summary>Throws when no installation of the App serves the organization.</summary>
+    /// <param name="installationIds">The installations recorded for the organization.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="installationIds" /> is empty.</exception>
+    public static void ThrowIfNoInstallation(IReadOnlyCollection<long> installationIds)
+    {
+      ArgumentNullException.ThrowIfNull(installationIds);
+
+      if (installationIds.Count == 0)
+      {
+        throw new UnprocessableEntityException(GitHubEventErrors.NoInstallation, "No installation of the App serves this organization.");
       }
     }
   }

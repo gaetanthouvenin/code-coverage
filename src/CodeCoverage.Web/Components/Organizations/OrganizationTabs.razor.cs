@@ -14,7 +14,7 @@ using CodeCoverage.Web.Resources;
 namespace CodeCoverage.Web.Components.Organizations;
 
 /// <summary>The sections of an organization, in pill tabs, for its administrators.</summary>
-/// <remarks>Only the sections whose page exists are shown: the repositories (M3.39) land next.</remarks>
+/// <remarks>The order of the validated mockup: the repositories, the upload tokens, then the settings.</remarks>
 public partial class OrganizationTabs
 {
   #region Parameters
@@ -51,6 +51,7 @@ public partial class OrganizationTabs
 
     Items =
     [
+      new CcNavItem($"{root}/repositories", L["Tab_OrgRepositories"], CcIconName.Repo),
       new CcNavItem($"{root}/upload-tokens", L["Tab_UploadTokens"], CcIconName.Key),
       new CcNavItem($"{root}/settings", L["Tab_OrgSettings"], CcIconName.Gear),
     ];

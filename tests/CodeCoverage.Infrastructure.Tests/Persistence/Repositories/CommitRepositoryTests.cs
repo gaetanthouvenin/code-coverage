@@ -41,6 +41,63 @@ public sealed class CommitRepositoryTests(DatabaseFixture database)
 
   #region Methods
 
+  // The page of an organization reads the last upload of each of its repositories in one query.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListLastUploads_ShouldGiveTheLatestOfEachRepository(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var repository = new CommitRepository(context);
+    var older = await repository.GetOrCreateAsync(seed.FirstRepository, Head, Now, Ct);
+    var newer = await repository.GetOrCreateAsync(seed.FirstRepository, NewHead, Now, Ct);
+    older.MarkPending("main", null, Now.AddHours(-2));
+    newer.MarkPending("main", null, Now);
+    await repository.UpdateAsync(older, Ct);
+    await repository.UpdateAsync(newer, Ct);
+
+    var uploads = await repository.ListLastUploadsAsync([seed.FirstRepository], Ct);
+
+    uploads[seed.FirstRepository].ShouldBe(Now);
+  }
+
+  // A repository that never received an upload is simply absent, never a date of another one.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListLastUploads_WithoutUpload_ShouldAnswerNothingForIt(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    var repository = new CommitRepository(context);
+    await repository.GetOrCreateAsync(seed.FirstRepository, Head, Now, Ct);
+
+    var uploads = await repository.ListLastUploadsAsync([seed.FirstRepository], Ct);
+
+    uploads.ShouldBeEmpty();
+  }
+
+  // ADR-013: the organization filter applies, so the uploads of another organization are never answered.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListLastUploads_OfAnotherOrganization_ShouldAnswerNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+
+    await using (var second = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      var inSecond = new CommitRepository(second);
+      var commit = await inSecond.GetOrCreateAsync(seed.SecondRepository, Head, Now, Ct);
+      commit.MarkPending("main", null, Now);
+      await inSecond.UpdateAsync(commit, Ct);
+    }
+
+    await using var first = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    var uploads = await new CommitRepository(first).ListLastUploadsAsync([seed.FirstRepository, seed.SecondRepository], Ct);
+
+    uploads.ShouldBeEmpty();
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task GetOrCreate_New_ShouldAddAKnownCommit(DatabaseProvider provider)
