@@ -654,7 +654,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 
 | Endpoint | Rôle |
 |---|---|
-| `POST /api/v1/repos/{owner}/{repo}/commits/{sha}/uploads-complete` (même authentification) | Déclenchement manuel : notifie dès que tous les uploads sont traités et fusionnés dans le rapport, en ignorant `after_n_builds` et l'anti-rebond. Équivalent de `upload-complete` chez Codecov. Sur le SHA d'un commit de merge synthétique, dont les uploads ont été déplacés vers la tête de la PR (§1.4-2), la requête ne peut pas interroger la forge : elle répond avec les compteurs du commit nommé (zéro une fois les uploads déplacés) et met le job en file ; c'est le job qui retrouve la tête et lui remet la notification forcée. |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/uploads-complete` (même authentification) | Déclenchement manuel : notifie dès que tous les uploads sont traités et fusionnés dans le rapport, en ignorant `after_n_builds` et l'anti-rebond. Équivalent de `upload-complete` chez Codecov. Sur le SHA d'un commit de merge synthétique, dont les uploads ont été déplacés vers la tête de la PR (§1.4-2), la requête ne peut pas interroger la forge : elle répond avec les compteurs du commit nommé (zéro une fois les uploads déplacés) et met le job en file ; c'est le job qui retrouve la tête et lui remet la notification forcée. |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/uploads/{id}` (credential d'upload, ou jeton API d'un lecteur du dépôt ; un jeton API refusé répond 401 sans essayer le credential) | État et journal de traitement (chemins non résolus ou ambigus, formats inconnus). Interrogé par `coverage-upload --wait`. |
 | `GET /api/v1/uploader/{rid}` et `GET /api/v1/uploader/{rid}.sha256` (anonyme ; `linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`) | Uploader autonome mono-fichier embarqué dans l'image Api, avec sa somme SHA-256. Les mêmes binaires et sommes sont publiés dans la release GitHub du dépôt. Les templates CI épinglent une version et vérifient la somme. |
 | **M5, optionnel :** `POST /upload/github/{owner::::repo}/upload-coverage` plus `PUT /upload/raw/{id}?exp=&sig=` | Shim de compatibilité codecov-cli (mode appel unique seulement ; ni v4, ni mode pas à pas). Les étapes `codecov/codecov-action@v5` existantes fonctionnent alors en ajoutant `url:`. |
@@ -1305,7 +1305,7 @@ L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayP
 - **Jeton d'installation :** `POST /app/installations/{id}/access_tokens`. Mis en cache dans `IMemoryCache` jusqu'à expiration moins 10 minutes, avec un seul appel concurrent par installation (`SemaphoreSlim`). Jamais persisté.
 - **Client HTTP :** `HttpClient` typé `github` (`GitHubAppGateway`, `GitHubUserGateway`, records `System.Text.Json` générés dans `GitHubJsonContext`).
   - En-têtes : `X-GitHub-Api-Version: 2022-11-28`, `User-Agent: CodeCoverage`.
-  - `RateLimitHandler` : lit `x-ratelimit-remaining` et `x-ratelimit-reset`. Il lève `GitHubRateLimitedException(resetAt)` sur tout 429, et sur un 403 portant `retry-after`, `x-ratelimit-remaining: 0` ou un corps mentionnant « rate limit » (limites primaire et secondaire, comme GitHub le documente) ; tout autre 403 reste une réponse pour l'appelant. `resetAt` vient de `retry-after`, sinon de `x-ratelimit-reset` si le quota est vide, sinon de l'heure courante plus une minute. Le job doit alors être reprogrammé sans perte de tentative (§6.1), ce que `JobWorker` ne fait pas encore (PLAN §11, « Manques connus »). Il publie la métrique de quota restant par installation.
+  - `RateLimitHandler` : lit `x-ratelimit-remaining` et `x-ratelimit-reset`. Il lève `GitHubRateLimitedException(resetAt)` sur tout 429, et sur un 403 portant `retry-after`, `x-ratelimit-remaining: 0` ou un corps mentionnant « rate limit » (limites primaire et secondaire, comme GitHub le documente) ; tout autre 403 reste une réponse pour l'appelant. `resetAt` vient de `retry-after`, sinon de `x-ratelimit-reset` si le quota est vide, sinon de l'heure courante plus une minute. Le job est alors reprogrammé à `resetAt` sans perte de tentative (§6.1, `JobWorker`). Il publie la métrique de quota restant par installation.
   - `AddStandardResilienceHandler()` : 3 nouvelles tentatives sur 5xx et timeout, coupe-circuit ; 403 et 429 exclus.
   - Échec définitif : `BadGatewayException(GitHub.Unavailable)`.
 
@@ -1729,7 +1729,7 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 - Agrégation `commit`, `day` ou `week` (dernière valeur de la période) **calculée en C#** : portable sur les deux fournisseurs, sans `DISTINCT ON`.
 - Un point par flag et par période ; `flag` répété donne une série par flag. Semaines ISO, du lundi, en UTC ; le point d'un jour ou d'une semaine est daté de son premier instant. La requête borne `CompletedAt`, puis le C# refiltre sur la date du point (committer, à défaut `CompletedAt`) : un commit finalisé après `to` mais daté avant n'apparaît pas. Le Web affiche plusieurs séries dans `CcLineChart`.
 - Les totaux des commits sont conservés indéfiniment, donc l'historique survit aux purges.
-- **M5 :** import facultatif de l'historique Codecov via son API v2, à faire avant la résiliation de l'abonnement (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Ils servent aussi d'oracle de parité pendant le pilote.
+- **M5 :** import facultatif de l'historique Codecov via son API v2, à faire avant la résiliation de l'abonnement (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Un SHA déjà connu n'est jamais écrasé ; un commit importé n'est jamais retenu comme base ni comme tête d'une comparaison, et ne sert pas d'oracle de parité (la parité compare les deux API, M4.06).
 
 ---
 
@@ -1881,8 +1881,8 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 ### 13.2 Décisions encore ouvertes
 
 1. **Shim codecov-cli (M5).** Accepter `upload-coverage` et un `PUT` signé permettrait de migrer certains pipelines en ajoutant seulement `url:`, au prix d'un couplage à un protocole tiers mouvant (épinglage de la version et tests de rejeu). À décider selon l'effort réel de migration constaté pendant le pilote.
-2. **Exposition du Web** : public avec connexion GitHub, ou réseau interne uniquement.
-3. **Profil de défauts** : historique (projet et patch activés, retenu) ou centré patch (défauts Codecov post-2024).
+2. **Exposition du Web : tranché**, public avec connexion GitHub ([ADR-013](adr/0013-organization-isolation.md), PLAN §11-6).
+3. **Profil de défauts : tranché**, historique (projet et patch activés) ; le centré patch (défauts Codecov post-2024) est un écart nommé par le guide de migration (PLAN §11-7).
 4. **Rétention** : 30 jours de brut et 180 jours de rapports hors branche par défaut, à ajuster après mesure de la volumétrie réelle.
 5. **Hébergement** : VM Docker ou Azure Container Apps (les deux sont décrits).
 
@@ -1890,7 +1890,7 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 
 | Risque | Impact | Parade |
 |---|---|---|
-| Écarts de chiffres avec Codecov pendant le pilote | Perte de confiance, bascule retardée | Parseurs alignés sur le code Codecov (§6.3), oracle ReportGenerator, script de parité (totaux à ±0,01 %, lignes de patch identiques) sur N commits, différences expliquées une par une |
+| Écarts de chiffres avec Codecov pendant le pilote | Perte de confiance, bascule retardée | Parseurs alignés sur le code Codecov (§6.3), oracle ReportGenerator, script de parité (totaux à ±0,01 %, totaux de patch par fichier identiques, écart ligne à ligne consigné) sur N commits, différences expliquées une par une |
 | `Mediator` 3.x : montage du générateur dans une bibliothèque | Blocage en M0 | Spike M0 et test de compilation ; repli : générateur dans Api et Web avec `InternalsVisibleTo` |
 | Limites de diff GitHub (3000 et 300 fichiers, `patch` absent) | Patch partiel sur de très grosses PR | `DiffIncomplete` signalé ; carryforward abandonné plutôt que mal aligné ; vérification par SHA de blob |
 | Monorepo : statuts publiés avant le second upload | Statuts qui changent d'état | Anti-rebond, `after_n_builds` par flag, `--finalize`, guide d'intégration |
