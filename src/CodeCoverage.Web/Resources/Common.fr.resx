@@ -277,6 +277,13 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="ApiTokens_Title" xml:space="preserve"><value>Mes jetons API</value></data>
+  <data name="ApiTokens_Subtitle" xml:space="preserve"><value>Pour appeler l'API /api/v1 avec vos propres droits.</value></data>
+  <data name="ApiTokens_Scope" xml:space="preserve"><value>Portée</value></data>
+  <data name="ApiTokens_ScopeHelp" xml:space="preserve"><value>Un jeton appartient à exactement une organisation, choisie à la création.</value></data>
+  <data name="ApiTokens_CreateTitle" xml:space="preserve"><value>Créer un jeton API</value></data>
+  <data name="ApiTokens_EmptyTitle" xml:space="preserve"><value>Aucun jeton API</value></data>
+  <data name="ApiTokens_EmptyText" xml:space="preserve"><value>Créez-en un pour appeler l'API depuis un script.</value></data>
   <data name="Token_Panel" xml:space="preserve"><value>Jetons</value></data>
   <data name="Token_EmptyOrganization" xml:space="preserve"><value>Créez un jeton, ou importez le jeton d'organisation Codecov pour que les pipelines gardent leur secret.</value></data>
   <data name="OrganizationTokens_Title" xml:space="preserve"><value>Jetons d'upload de l'organisation</value></data>

@@ -277,6 +277,13 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="ApiTokens_Title" xml:space="preserve"><value>My API tokens</value></data>
+  <data name="ApiTokens_Subtitle" xml:space="preserve"><value>To call the /api/v1 API with your own rights.</value></data>
+  <data name="ApiTokens_Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="ApiTokens_ScopeHelp" xml:space="preserve"><value>A token belongs to exactly one organization, chosen at creation.</value></data>
+  <data name="ApiTokens_CreateTitle" xml:space="preserve"><value>Create an API token</value></data>
+  <data name="ApiTokens_EmptyTitle" xml:space="preserve"><value>No API token</value></data>
+  <data name="ApiTokens_EmptyText" xml:space="preserve"><value>Create one to call the API from a script.</value></data>
   <data name="Token_Panel" xml:space="preserve"><value>Tokens</value></data>
   <data name="Token_EmptyOrganization" xml:space="preserve"><value>Create a token, or import the organization token of Codecov so the pipelines keep their secret.</value></data>
   <data name="OrganizationTokens_Title" xml:space="preserve"><value>Organization upload tokens</value></data>

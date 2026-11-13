@@ -1,0 +1,122 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="AccountTokens.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/account/tokens"
+
+<PageTitle>@L["PageTitle_Format", L["ApiTokens_Title"]]</PageTitle>
+
+<CcPageContainer>
+  <CcHeader Title="@L["ApiTokens_Title"]" Icon="CcIconName.Key" Subtitle="@L["ApiTokens_Subtitle"]" Breadcrumb="Crumbs">
+    <Actions>
+      @if (State is PageState.Ready)
+      {
+        <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Plus" OnClick="() => _creating = true">@L["Action_Create"]</CcButton>
+      }
+    </Actions>
+  </CcHeader>
+
+  @if (State is PageState.Loading)
+  {
+    <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+  }
+  else if (State is PageState.Failed)
+  {
+    <div class="cc-panel cc-status-page" data-state="failed">
+      <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+        <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+      </CcEmptyState>
+    </div>
+  }
+  else if (Account is { } account)
+  {
+    <section class="cc-panel" data-panel="tokens">
+      <div class="cc-panel__head">
+        <h2 class="cc-panel__title">@L["Token_Panel"]</h2>
+        <div class="cc-panel__tools">
+          @if (HasRevoked)
+          {
+            <label class="cc-flag-check">
+              <input type="checkbox" checked="@_showRevoked" @onchange="ToggleRevoked" data-toggle="revoked" />
+              @L["Token_ShowRevoked"]
+            </label>
+          }
+        </div>
+      </div>
+      @if (Shown.Count == 0)
+      {
+        <div class="cc-panel__body" data-state="empty">
+          <CcEmptyState Title="@L["ApiTokens_EmptyTitle"]" Icon="CcIconName.Key">@L["ApiTokens_EmptyText"]</CcEmptyState>
+        </div>
+      }
+      else
+      {
+        <div class="cc-panel__body">
+          <p class="cc-muted">@L["Token_ValueShownOnce"]</p>
+          <div class="cc-table-wrap">
+            <table class="cc-table">
+              <thead>
+                <tr>
+                  <th scope="col">@L["Column_Name"]</th>
+                  <th scope="col">@L["ApiTokens_Scope"]</th>
+                  <th scope="col">@L["Column_Hint"]</th>
+                  <th scope="col">@L["Column_Created"]</th>
+                  <th scope="col">@L["Column_LastUsed"]</th>
+                  <th scope="col"><span class="cc-sr-only">@L["Action_Revoke"]</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var token in Shown)
+                {
+                  <tr data-token="@token.Id">
+                    <td>
+                      <div class="cc-cell">
+                        <span class="cc-thumb"><CcIcon Name="CcIconName.Key" /></span>
+                        <div>
+                          <strong>@token.Name</strong>
+                          @if (token.IsRevoked)
+                          {
+                            <CcBadge Tone="CcTone.Danger">@L["Token_Revoked"]</CcBadge>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      @if (token.Scope is { } scope)
+                      {
+                        <CcBadge Tone="CcTone.Info">@scope</CcBadge>
+                      }
+                      else
+                      {
+                        <CcBadge>@L["Nav_Instance"]</CcBadge>
+                      }
+                    </td>
+                    <td><code>@token.Hint</code></td>
+                    <td class="cc-muted cc-nowrap">@Date(token.CreatedAt)</td>
+                    <td class="cc-muted cc-nowrap">@(token.LastUsedAt is { } used ? Date(used) : L["Token_NeverUsed"])</td>
+                    <td class="cc-r">
+                      @if (!token.IsRevoked)
+                      {
+                        <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Danger" AriaLabel="@L["Token_RevokeOf", token.Name]"
+                                  OnClick="() => _revoking = new RevokedToken(token.Id, token.Name)">
+                          @L["Action_Revoke"]
+                        </CcButton>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </section>
+
+    <CreateApiTokenDialog Open="_creating" Organizations="account.Organizations" CanScopeToInstance="account.CanScopeToInstance"
+                          OnCreated="ShowIssuedAsync" OnClosed="() => _creating = false" />
+    <RevokeTokenDialog Token="_revoking" Revoke="RevokeAsync" OnRevoked="RevokedAsync" OnClosed="() => _revoking = null" />
+    <IssuedTokenDialog Token="_issued" OnClosed="ForgetIssued" />
+  }
+</CcPageContainer>

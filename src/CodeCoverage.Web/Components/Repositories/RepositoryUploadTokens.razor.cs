@@ -9,6 +9,7 @@ using Mediator;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 
+using CodeCoverage.Web.Components.Tokens;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.ViewModels.Tokens;
@@ -27,7 +28,7 @@ public partial class RepositoryUploadTokens
 
   private bool _importing;
 
-  private UploadTokenViewModel? _revoking;
+  private RevokedToken? _revoking;
 
   private IssuedTokenViewModel? _issued;
 
@@ -75,7 +76,7 @@ public partial class RepositoryUploadTokens
   private Task<bool> RevokeAsync(ISender sender, long tokenId, CancellationToken cancellationToken) =>
     sender.RevokeRepositoryUploadTokenAsync(Forge, Owner, Name, tokenId, cancellationToken);
 
-  private void AskRevoke(UploadTokenViewModel token) => _revoking = token;
+  private void AskRevoke(UploadTokenViewModel token) => _revoking = new RevokedToken(token.Id, token.Label);
 
   private async Task ShowIssuedAsync(IssuedTokenViewModel issued)
   {
