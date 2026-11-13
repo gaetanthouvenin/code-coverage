@@ -12,9 +12,15 @@ using Mediator;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Repositories;
+using CodeCoverage.Application.Features.Commits.Queries.ListCommits;
+using CodeCoverage.Application.Features.PullRequests.Queries.ListPullRequests;
+using CodeCoverage.Application.Features.Repositories.Queries.GetBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
@@ -22,7 +28,9 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.History;
+using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Web.Resources;
@@ -47,6 +55,12 @@ public sealed class RepositoryOverviewTests : UiTestContext
 
   private readonly Commit _head;
 
+  private readonly TestOptionsMonitor<UrlOptions> _urls = new(new UrlOptions
+  {
+    ApiPublicUrl = "https://coverage-api.example.com",
+    WebPublicUrl = "https://coverage.example.com",
+  });
+
   #endregion
 
   #region Ctors
@@ -55,6 +69,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
   {
     Services.AddFakeSenderRunner(_sender);
     Services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
+    Services.AddSingleton<IOptionsMonitor<UrlOptions>>(_urls);
 
     _head = Commit.Create(5, HeadSha, Now);
     _head.MarkPending("main", null, Now);
@@ -69,6 +84,7 @@ public sealed class RepositoryOverviewTests : UiTestContext
     Config(ConfigNode.FromMap(("coverage", ConfigNode.FromMap(("precision", ConfigNode.FromNumber(1)), ("round", ConfigNode.FromText("down"))))));
     A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>._, A<CancellationToken>._))
      .ReturnsLazily(call => new ValueTask<IReadOnlyList<CoverageSeries>>([.. call.GetArgument<GetCoverageHistoryQuery>(0)!.Flags.Select(Series)]));
+    Activity();
   }
 
   #endregion
@@ -197,6 +213,79 @@ public sealed class RepositoryOverviewTests : UiTestContext
   private static Action<ComponentParameterCollectionBuilder<OverviewPage>> Address(string forge = "github") =>
     p => p.Add(static c => c.Forge, forge).Add(static c => c.Owner, "octo-org").Add(static c => c.Name, "app");
 
+  // The lower half is one composed load: the repository and its configuration are read once, for the cards.
+  [Fact]
+  public void Render_ShouldShowTheActivityWithoutReadingTheRepositoryAgain()
+  {
+    var cut = Render<OverviewPage>(Address());
+
+    cut.WaitForAssertion(() => cut.FindAll("[data-panel=recent-commits] tbody tr").Count.ShouldBe(1));
+    cut.Find("[data-panel=recent-commits] tbody tr").TextContent.ShouldContain("Add the retry policy");
+    cut.Find("[data-panel=open-pulls] [data-pull='423']").TextContent.ShouldContain("feat(alerts): retry policy");
+    A.CallTo(() => _sender.Send(A<GetRepositoryQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(A<GetEffectiveConfigQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(A<ListCommitsQuery>.That.Matches(q => q.PageSize == 5 && q.Page == 1 && q.Branch == "main"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(A<ListPullRequestsQuery>.That.Matches(q => q.PageSize == 5 && q.State == ListPullRequestsQuery.OpenState), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  // Decision 11: a GitHub repository keeps the address of Codecov, so a README only changes host.
+  [Fact]
+  public void Render_PrivateRepository_ShouldWriteTheCodecovRouteWithTheToken()
+  {
+    Private();
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.WaitForAssertion(() => cut.Find("[data-panel=badge] pre.cc-code").TextContent.ShouldBe(
+      "[![coverage](https://coverage-api.example.com/github/octo-org/app/graph/badge.svg?token=Kq7xT2)](https://coverage.example.com/github/octo-org/app)"));
+    cut.Find("[data-panel=badge] img").GetAttribute("src")!.ShouldContain("token=Kq7xT2");
+  }
+
+  // A public repository serves its badge without a token, and the snippet carries none.
+  [Fact]
+  public void Render_PublicRepository_ShouldOmitTheToken()
+  {
+    var cut = Render<OverviewPage>(Address());
+
+    cut.WaitForAssertion(() => cut.Find("[data-panel=badge] pre.cc-code").TextContent.ShouldNotContain("token="));
+  }
+
+  // ADR-014: only GitHub has the route of Codecov; the other forges carry their own segment.
+  [Fact]
+  public void Render_OtherForge_ShouldWriteTheApiRoute()
+  {
+    var cut = Render<OverviewPage>(p => p.Add(static c => c.Forge, "bitbucket").Add(static c => c.Owner, "octo-org").Add(static c => c.Name, "app"));
+
+    cut.WaitForAssertion(() => cut.Find("[data-panel=badge] pre.cc-code").TextContent.ShouldContain(
+      "https://coverage-api.example.com/api/v1/badges/bitbucket/octo-org/app.svg"));
+  }
+
+  // Without the public addresses, the snippets are replaced by a banner.
+  [Fact]
+  public void Render_WithoutPublicUrls_ShouldShowTheBanner()
+  {
+    _urls.CurrentValue.ApiPublicUrl = null;
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.WaitForAssertion(() => cut.Find("[data-panel=badge] [data-state=nourls]").ShouldNotBeNull());
+  }
+
+  // A repository without any coverage shows its empty state only: there is nothing to list or to badge.
+  [Fact]
+  public void Render_WithoutCoverage_ShouldNotReadTheActivity()
+  {
+    Overview([]);
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.Find("[data-state=nodata]").ShouldNotBeNull();
+    cut.FindAll("[data-panel=recent-commits]").ShouldBeEmpty();
+    A.CallTo(() => _sender.Send(A<ListCommitsQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   // The project rose from 81.2 to 82.4 over the period; a flag without points has no change.
   private CoverageSeries Series(string flag) =>
     flag.Length == 0
@@ -205,12 +294,39 @@ public sealed class RepositoryOverviewTests : UiTestContext
 
   private static CoveragePoint Point(DateTimeOffset at, decimal coverage) => new(at, HeadSha, 100, 80, 20, 0, coverage);
 
-  private void Overview(IReadOnlyList<string> flags, params CommitFlagTotals[] totals)
-  {
-    var repository = TrackedRepository.Create(1, "2002", RepositorySlug.Parse("octo-org/app"), "main", false, "protected", Now);
+  private void Overview(IReadOnlyList<string> flags, params CommitFlagTotals[] totals) => Overview(flags, isPrivate: false, totals);
 
-    A.CallTo(() => _sender.Send(A<GetRepositoryQuery>.That.Matches(q => q.Forge == Forge.GitHub && q.Owner == "octo-org" && q.Name == "app"), A<CancellationToken>._))
+  private void Overview(IReadOnlyList<string> flags, bool isPrivate, params CommitFlagTotals[] totals)
+  {
+    var repository = TrackedRepository.Create(1, "2002", RepositorySlug.Parse("octo-org/app"), "main", isPrivate, "protected", Now);
+
+    A.CallTo(() => _sender.Send(A<GetRepositoryQuery>.That.Matches(q => q.Owner == "octo-org" && q.Name == "app"), A<CancellationToken>._))
      .Returns(new ValueTask<RepositoryOverview>(new RepositoryOverview(repository, [], flags, totals)));
+  }
+
+  // The same repository, private: its badge needs the token every reader may read.
+  private void Private()
+  {
+    Overview(
+      ["backend", "frontend"],
+      isPrivate: true,
+      CommitFlagTotals.Create(_head, CommitFlagTotals.ProjectFlag, new CoverageTotals(8247, 1753, 0, 0, 0), false, null));
+    A.CallTo(() => _sender.Send(A<GetBadgeTokenQuery>._, A<CancellationToken>._)).Returns(new ValueTask<string?>("Kq7xT2"));
+  }
+
+  // The panels of the lower half: five commits, five open pull requests, and no badge token for a public repository.
+  private void Activity()
+  {
+    var git = GitCommit.Create(5, new ForgeCommitInfo(HeadSha, [], "Add the retry policy", "jo-rivera", Now.AddHours(-3)), Now);
+    A.CallTo(() => _sender.Send(A<ListCommitsQuery>._, A<CancellationToken>._))
+     .ReturnsLazily(call => new ValueTask<CommitSummaryPage>(
+                      new CommitSummaryPage([new CommitSummary(_head, git, 1.2m)], 1, call.GetArgument<ListCommitsQuery>(0)!.PageSize, 1)));
+
+    var pull = PullRequest.Create(5, new ForgePullInfo(423, ForgePullState.Open, "feat(alerts): retry policy", "jo-rivera", HeadSha, "feature/retry", "main", OriginSha), Now);
+    A.CallTo(() => _sender.Send(A<ListPullRequestsQuery>._, A<CancellationToken>._))
+     .ReturnsLazily(call => new ValueTask<PullRequestSummaryPage>(
+                      new PullRequestSummaryPage([new PullRequestSummary(pull, null)], 1, call.GetArgument<ListPullRequestsQuery>(0)!.PageSize, 1)));
+    A.CallTo(() => _sender.Send(A<GetBadgeTokenQuery>._, A<CancellationToken>._)).Returns(new ValueTask<string?>((string?)null));
   }
 
   private void Config(ConfigNode root) =>

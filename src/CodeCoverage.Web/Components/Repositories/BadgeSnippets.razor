@@ -1,0 +1,33 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="BadgeSnippets.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" data-panel="badge">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["Overview_Badge"]</h2>
+  </div>
+  <div class="cc-panel__body cc-stack">
+    @if (Badge is { } badge)
+    {
+      <p class="cc-muted">@(IsPrivate ? L["Overview_BadgePrivate"] : L["Overview_BadgePublic"])</p>
+      <img src="@badge.ImageUrl" alt="@L["Overview_BadgeAlt"]" />
+      <CcFolderTabs Tabs="Formats" @bind-Value="_format" AriaLabel="@L["Overview_BadgeFormat"]" />
+      @if (string.Equals(_format, MarkdownFormat, StringComparison.Ordinal))
+      {
+        <CopyBlock Text="@badge.Markdown" Label="@L["Overview_BadgeMarkdown"]" />
+      }
+      else
+      {
+        <CopyBlock Text="@badge.Html" Label="@L["Overview_BadgeHtml"]" />
+      }
+    }
+    else
+    {
+      <div data-state="nourls">
+        <CcBanner Tone="CcTone.Info">@L["Overview_BadgeNoUrls"]</CcBanner>
+      </div>
+    }
+  </div>
+</section>

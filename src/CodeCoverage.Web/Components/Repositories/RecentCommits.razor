@@ -1,0 +1,62 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="RecentCommits.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@using CodeCoverage.Web.Mapping
+
+<section class="cc-panel" data-panel="recent-commits">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["Overview_RecentCommits"]</h2>
+    <div class="cc-panel__tools">
+      <CcButton Size="CcButtonSize.Small" Href="@($"{Root}/commits")">@L["Overview_AllCommits"]</CcButton>
+    </div>
+  </div>
+  @if (Commits.Count == 0)
+  {
+    <div class="cc-panel__body" data-state="empty">
+      <CcEmptyState Title="@L["Commits_EmptyTitle"]" Icon="CcIconName.Commit">@L["Overview_NoCommitText"]</CcEmptyState>
+    </div>
+  }
+  else
+  {
+    <div class="cc-table-wrap">
+      <table class="cc-table">
+        <thead>
+          <tr>
+            <th scope="col">@L["Column_Commit"]</th>
+            <th scope="col">@L["Column_Author"]</th>
+            <th scope="col" class="cc-r">@L["Column_Coverage"]</th>
+            <th scope="col" class="cc-r">Δ</th>
+            <th scope="col">@L["Column_State"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var commit in Commits)
+          {
+            <tr data-commit="@commit.ShortSha">
+              <td>
+                <a href="@($"{Root}/commit/{commit.Sha}")" class="cc-ellip">@(commit.Message ?? commit.ShortSha)</a>
+                <code>@commit.ShortSha</code>
+              </td>
+              <td class="cc-nowrap">@(commit.Author ?? DisplayFormatter.Dash)</td>
+              <td class="cc-r cc-num cc-strong">@commit.Coverage</td>
+              <td class="cc-r">
+                @if (commit.Delta is { } delta)
+                {
+                  <span class="@DeltaClass(commit.Trend) cc-num">@delta</span>
+                }
+                else
+                {
+                  <span class="cc-dim">@DisplayFormatter.Dash</span>
+                }
+              </td>
+              <td><CommitStateBadge Status="commit.Status" /></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

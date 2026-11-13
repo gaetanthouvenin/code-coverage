@@ -1,0 +1,46 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="OpenPullRequests.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@using CodeCoverage.Web.Mapping
+
+<section class="cc-panel" data-panel="open-pulls">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["Overview_OpenPulls"]</h2>
+    <div class="cc-panel__tools">
+      <CcButton Size="CcButtonSize.Small" Href="@($"{Root}/pulls")">@L["Overview_AllPulls"]</CcButton>
+    </div>
+  </div>
+  @if (Pulls.Count == 0)
+  {
+    <div class="cc-panel__body" data-state="empty">
+      <CcEmptyState Title="@L["Pulls_EmptyTitle"]" Icon="CcIconName.PullRequest">@L["Overview_NoPullText"]</CcEmptyState>
+    </div>
+  }
+  else
+  {
+    <div class="cc-list">
+      @foreach (var pull in Pulls)
+      {
+        <div class="cc-list__row" data-pull="@pull.Number">
+          <span class="cc-thumb"><CcIcon Name="CcIconName.PullRequest" /></span>
+          <div class="cc-list__grow">
+            @* The number links to its page from M3.31 on; until then it reads as the list of the pull requests does. *@
+            <span class="cc-ellip">#@pull.Number @pull.Title</span>
+            <span class="cc-dim cc-small">@(pull.Author ?? DisplayFormatter.Dash)</span>
+          </div>
+          @if (pull.Patch is { } patch)
+          {
+            <span class="cc-num cc-strong">@patch</span>
+          }
+          else
+          {
+            <CcBadge>@L["Commit_Pending"]</CcBadge>
+          }
+        </div>
+      }
+    </div>
+  }
+</section>

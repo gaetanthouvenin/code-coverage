@@ -15,6 +15,7 @@ using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositoryPermission;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepositorySettings;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Application.Features.Repositories.Queries.ListRepositorySummaries;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
@@ -39,6 +40,9 @@ internal static class RepositoryMapper
 
   /// <summary>The fixed number of decimals of the coverage on the home page, which does not read every configuration.</summary>
   public const int HomePrecision = 2;
+
+  /// <summary>The forge segment whose badges keep the addresses of Codecov.</summary>
+  private static readonly string GitHubSegment = ForgeSegments.ToSegment(Forge.GitHub);
 
   #endregion
 
@@ -74,7 +78,7 @@ internal static class RepositoryMapper
 
     if (overview.Totals.Count == 0)
     {
-      return new RepositoryOverviewViewModel(repository.DefaultBranch, [], branches, named, ToFormat(CoverageConfig.Create(ConfigNode.Null)));
+      return new RepositoryOverviewViewModel(repository.DefaultBranch, [], branches, named, ToFormat(CoverageConfig.Create(ConfigNode.Null)), repository.IsPrivate);
     }
 
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
@@ -97,7 +101,8 @@ internal static class RepositoryMapper
       [.. flags.Select(flag => ToCard(flag, overview.Totals.FirstOrDefault(t => string.Equals(t.Flag, flag, StringComparison.Ordinal)), changes.GetValueOrDefault(flag), config))],
       branches,
       named,
-      ToFormat(config)
+      ToFormat(config),
+      repository.IsPrivate
     );
   }
 
@@ -292,6 +297,71 @@ internal static class RepositoryMapper
     await sender.Send(new DeactivateRepositoryCommand(parsed, owner, name), cancellationToken).ConfigureAwait(false);
 
     return true;
+  }
+
+  /// <summary>The number of rows the panels of the overview show.</summary>
+  public const int ActivityRows = 5;
+
+  /// <summary>Reads what the lower half of the overview shows: the latest commits, the open pull requests and the badge.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="branch">The default branch, already read by the overview.</param>
+  /// <param name="format">How the repository writes a coverage, already read by the overview.</param>
+  /// <param name="apiPublicUrl">The public address of the Api, or <see langword="null" /> when it is not set.</param>
+  /// <param name="webPublicUrl">The public address of the console, or <see langword="null" /> when it is not set.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The panels, or <see langword="null" /> when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> or <paramref name="format" /> is <see langword="null" />.</exception>
+  /// <remarks>
+  ///   One composed load: neither the repository nor its configuration is read again, since the overview already
+  ///   passed what they say.
+  /// </remarks>
+  public static async Task<RepositoryActivityViewModel?> GetRepositoryActivityViewModelAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    string branch,
+    CoverageFormatViewModel format,
+    string? apiPublicUrl,
+    string? webPublicUrl,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+    ArgumentNullException.ThrowIfNull(format);
+
+    if (!TryParseForge(forge, out var parsed))
+    {
+      return null;
+    }
+
+    var commits = await sender.ListRecentCommitRowsAsync(parsed, owner, name, branch, format, ActivityRows, cancellationToken).ConfigureAwait(false);
+    var pulls = await sender.ListOpenPullRequestRowsAsync(parsed, owner, name, format, ActivityRows, cancellationToken).ConfigureAwait(false);
+    var token = await sender.GetBadgeTokenAsync(forge, owner, name, cancellationToken).ConfigureAwait(false);
+
+    return new RepositoryActivityViewModel(commits, pulls, ToSnippets(forge, owner, name, token, apiPublicUrl, webPublicUrl));
+  }
+
+  // The badge of a GitHub repository keeps the address of Codecov, so a README only changes host; the other forges
+  // carry their own segment (ADR-014). Without the public addresses, no snippet can be written at all.
+  private static BadgeSnippetsViewModel? ToSnippets(string forge, string owner, string name, string? token, string? apiPublicUrl, string? webPublicUrl)
+  {
+    if (string.IsNullOrWhiteSpace(apiPublicUrl) || string.IsNullOrWhiteSpace(webPublicUrl))
+    {
+      return null;
+    }
+
+    var (api, web) = (apiPublicUrl.TrimEnd('/'), webPublicUrl.TrimEnd('/'));
+    var address = $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
+    var path = string.Equals(forge, GitHubSegment, StringComparison.Ordinal)
+                 ? $"{api}/{address}/graph/badge.svg"
+                 : $"{api}/api/v1/badges/{address}.svg";
+    var image = token is null ? path : $"{path}?token={Uri.EscapeDataString(token)}";
+    var page = $"{web}/{address}";
+
+    return new BadgeSnippetsViewModel(image, page, $"[![coverage]({image})]({page})", $"<a href=\"{page}\"><img src=\"{image}\" alt=\"coverage\"></a>");
   }
 
   /// <summary>Reads a forge segment strictly: only the segment the console writes, never a default forge.</summary>

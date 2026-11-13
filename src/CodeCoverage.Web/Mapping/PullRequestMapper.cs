@@ -9,6 +9,8 @@ using Mediator;
 using CodeCoverage.Application.Features.PullRequests.Queries.ListPullRequests;
 using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Domain.Config;
+using CodeCoverage.Web.ViewModels.Repositories;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Web.ViewModels.PullRequests;
 
@@ -60,7 +62,39 @@ internal static class PullRequestMapper
     return new PullRequestPageViewModel(listed, [.. pulls.Items.Select(p => ToRow(p, config))], pulls.Page, pulls.PageSize, pulls.TotalCount);
   }
 
-  private static PullRequestRowViewModel ToRow(PullRequestSummary summary, CoverageConfig config)
+  /// <summary>Reads the open pull requests of a repository, for the panel of the overview.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="format">How the repository writes a coverage, already read by the overview.</param>
+  /// <param name="count">The number of rows.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The rows, the newest first.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> or <paramref name="format" /> is <see langword="null" />.</exception>
+  /// <remarks>The configuration is not read again: the overview passes what it already has.</remarks>
+  internal static async Task<IReadOnlyList<PullRequestRowViewModel>> ListOpenPullRequestRowsAsync(
+    this ISender sender,
+    Forge forge,
+    string owner,
+    string name,
+    CoverageFormatViewModel format,
+    int count,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+    ArgumentNullException.ThrowIfNull(format);
+
+    var query = new ListPullRequestsQuery(forge, owner, name, ListPullRequestsQuery.OpenState, 1, count);
+    var pulls = await sender.Send(query, cancellationToken).ConfigureAwait(false);
+    var rounding = Enum.Parse<RoundingMode>(format.Rounding);
+
+    return [.. pulls.Items.Select(p => ToRow(p, format.Precision, rounding))];
+  }
+
+  private static PullRequestRowViewModel ToRow(PullRequestSummary summary, CoverageConfig config) => ToRow(summary, config.Precision, config.Rounding);
+
+  private static PullRequestRowViewModel ToRow(PullRequestSummary summary, int precision, RoundingMode rounding)
   {
     var pull = summary.PullRequest;
     var delta = summary.Comparison?.Delta;
@@ -77,8 +111,8 @@ internal static class PullRequestMapper
         PullRequestState.Closed => PullRequestStatus.Closed,
         var _ => PullRequestStatus.Open,
       },
-      summary.Comparison is { } comparison ? DisplayFormatter.Percent(comparison.Patch.Coverage, config.Precision, config.Rounding) : null,
-      DisplayFormatter.Delta(delta, config.Precision, config.Rounding),
+      summary.Comparison is { } comparison ? DisplayFormatter.Percent(comparison.Patch.Coverage, precision, rounding) : null,
+      DisplayFormatter.Delta(delta, precision, rounding),
       delta is { } value ? Math.Sign(value) : 0
     );
   }
