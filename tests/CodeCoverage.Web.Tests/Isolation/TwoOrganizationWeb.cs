@@ -8,6 +8,11 @@ using System.Globalization;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Comparisons;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Coverage;
+using CodeCoverage.Domain.Diffs;
+using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -33,6 +38,15 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
 
   /// <summary>The repository of each organization.</summary>
   public const string RepositoryName = "app";
+
+  /// <summary>The pull request seeded in the second organization, whose head is <see cref="SecondSha" />.</summary>
+  public const int SecondPull = 7;
+
+  /// <summary>The head commit seeded in the second organization: a valid SHA, so a probe reaches the gate.</summary>
+  public static readonly GitSha SecondSha = GitSha.Parse("b" + new string('2', GitSha.Length - 1));
+
+  /// <summary>The commit the head of the second organization was compared to.</summary>
+  public static readonly GitSha SecondBaseSha = GitSha.Parse("a" + new string('1', GitSha.Length - 1));
 
   private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
@@ -168,6 +182,28 @@ public sealed class TwoOrganizationWeb : IAsyncLifetime
       var accesses = services.GetRequiredService<IUserRepositoryAccessRepository>();
       await accesses.UpsertAsync(UserId, externalId, RepositoryPermission.Admin, Now, cancellationToken);
     }
+    else
+    {
+      await SeedComparisonAsync(services, repository.Id, cancellationToken);
+    }
+  }
+
+  // Real rows of the organization the user knows nothing about: a probe addressed to them reaches the gate with a
+  // resource that exists, so the refusal it receives is the gate's and not the absence of the row.
+  private static async Task SeedComparisonAsync(IServiceProvider services, long repositoryId, CancellationToken cancellationToken)
+  {
+    var commits = services.GetRequiredService<ICommitRepository>();
+    var baseCommit = await commits.GetOrCreateAsync(repositoryId, SecondBaseSha, Now, cancellationToken);
+    var head = await commits.GetOrCreateAsync(repositoryId, SecondSha, Now, cancellationToken);
+    head.MarkPending("feature", SecondPull, Now);
+    await commits.UpdateAsync(head, cancellationToken);
+
+    var pull = new ForgePullInfo(SecondPull, ForgePullState.Open, "Isolation", "someone", SecondSha, "feature", "main", SecondBaseSha);
+    await services.GetRequiredService<IPullRequestRepository>().UpsertAsync(repositoryId, pull, Now, cancellationToken);
+
+    var result = new Comparison(new CoverageTotals(1, 0, 0, 0, 0), null, PatchCoverage.Empty, [], [], [], DiffIncomplete: false);
+    var comparison = new CommitComparison(head.Id, SecondPull, baseCommit.Sha, baseCommit.Sha, 0, null, DiffSource.PullFiles, result, Now);
+    await services.GetRequiredService<IComparisonRepository>().SaveAsync(comparison, cancellationToken);
   }
 
   #endregion
