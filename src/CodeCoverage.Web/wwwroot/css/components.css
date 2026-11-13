@@ -2250,6 +2250,11 @@ code {
   color: var(--cc-accent);
 }
 
+/* The range form of the free comparison (M3.33). */
+.cc-compare-form {
+  max-width: 520px;
+}
+
 /* The diff table of a comparison (M3.31): the signs stay in the text, the colour only repeats them. */
 .cc-code__add {
   color: var(--cc-ok-fg);

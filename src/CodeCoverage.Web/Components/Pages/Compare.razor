@@ -1,0 +1,66 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="Compare.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/compare/{Range}"
+
+<PageTitle>@L["PageTitle_Format", L["Compare_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@Title" Subtitle="@L["Compare_Subtitle"]" Crumbs="Crumbs" ActiveTab="RepositoryTab.Commits" />
+
+    @if (Invalid)
+    {
+      <section class="cc-panel" data-state="invalid">
+        <div class="cc-panel__body">
+          <form class="cc-stack cc-compare-form" @onsubmit="SubmitRange">
+            <CcTextField Label="@L["Compare_Base"]" @bind-Value="BaseInput" Error="@(IsFull(BaseInput) ? null : L["Compare_FullShaExpected"].Value)" />
+            <CcTextField Label="@L["Compare_Head"]" @bind-Value="HeadInput" Error="@(IsFull(HeadInput) ? null : L["Compare_FullShaExpected"].Value)" />
+            <div><CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Compare_Action"]</CcButton></div>
+          </form>
+        </div>
+      </section>
+    }
+    else if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Commits is { Comparison: null })
+    {
+      <div class="cc-panel" data-state="notcomputed">
+        <CcEmptyState Title="@L["Compare_NotComputed"]" Icon="CcIconName.Layers">@L["Compare_NotComputedText"]</CcEmptyState>
+      </div>
+    }
+    else if (Commits is { Comparison: { } comparison })
+    {
+      <ComparisonWarnings Comparison="comparison" />
+      <ComparisonSummary Comparison="comparison">
+        <MainContent><ImpactedFiles Files="comparison.Files" /></MainContent>
+      </ComparisonSummary>
+      <div class="cc-grid cc-grid--2">
+        <BaseExplanation Base="comparison.Base" />
+        <DiffTable Lines="comparison.Diff" />
+      </div>
+      <div class="cc-grid cc-grid--2">
+        <FlagComparisons Flags="comparison.Flags" />
+        <IndirectChanges Changes="comparison.Indirect" />
+      </div>
+    }
+  }
+</CcPageContainer>
