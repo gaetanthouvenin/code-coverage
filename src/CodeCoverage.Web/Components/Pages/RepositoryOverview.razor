@@ -41,6 +41,17 @@
       <CoverageCards Cards="Overview.Cards" />
       <CoverageHistoryChart Forge="@Forge" Owner="@Owner" Name="@Name" DefaultBranch="@Overview.DefaultBranch"
                             Branches="Overview.Branches" Flags="Overview.Flags" Format="Overview.Format" />
+
+      @if (Activity is { } activity)
+      {
+        <div class="cc-grid cc-grid--main">
+          <RecentCommits Forge="@Forge" Owner="@Owner" Name="@Name" Commits="activity.Commits" />
+          <div class="cc-stack">
+            <OpenPullRequests Forge="@Forge" Owner="@Owner" Name="@Name" Pulls="activity.Pulls" />
+            <BadgeSnippets Badge="activity.Badge" IsPrivate="Overview.IsPrivate" />
+          </div>
+        </div>
+      }
     }
   }
 </CcPageContainer>

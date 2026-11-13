@@ -277,6 +277,20 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactifs</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactif</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Réglages</value></data>
+  <data name="Overview_RecentCommits" xml:space="preserve"><value>Commits récents</value></data>
+  <data name="Overview_AllCommits" xml:space="preserve"><value>Tous les commits</value></data>
+  <data name="Overview_NoCommitText" xml:space="preserve"><value>Aucun commit de cette branche ne porte encore de couverture.</value></data>
+  <data name="Overview_OpenPulls" xml:space="preserve"><value>Pull requests ouvertes</value></data>
+  <data name="Overview_AllPulls" xml:space="preserve"><value>Toutes</value></data>
+  <data name="Overview_NoPullText" xml:space="preserve"><value>Aucune pull request n'est ouverte sur ce dépôt.</value></data>
+  <data name="Overview_Badge" xml:space="preserve"><value>Badge</value></data>
+  <data name="Overview_BadgeAlt" xml:space="preserve"><value>Badge de couverture du dépôt</value></data>
+  <data name="Overview_BadgePrivate" xml:space="preserve"><value>Dépôt privé : le snippet porte le jeton de badge.</value></data>
+  <data name="Overview_BadgePublic" xml:space="preserve"><value>Dépôt public : le snippet n'a pas besoin de jeton.</value></data>
+  <data name="Overview_BadgeFormat" xml:space="preserve"><value>Format du snippet</value></data>
+  <data name="Overview_BadgeMarkdown" xml:space="preserve"><value>Snippet Markdown du badge</value></data>
+  <data name="Overview_BadgeHtml" xml:space="preserve"><value>Snippet HTML du badge</value></data>
+  <data name="Overview_BadgeNoUrls" xml:space="preserve"><value>Les adresses publiques de la console et de l'API ne sont pas définies : un administrateur les renseigne dans les paramètres de l'instance avant que les snippets puissent être écrits.</value></data>
   <data name="Tab_UploadTokens" xml:space="preserve"><value>Jetons d'upload</value></data>
   <data name="Action_Create" xml:space="preserve"><value>Créer</value></data>
   <data name="Action_Import" xml:space="preserve"><value>Importer</value></data>

@@ -14,6 +14,8 @@ using CodeCoverage.Application.Features.Repositories.Queries.GetEffectiveConfig;
 using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
+using CodeCoverage.Web.ViewModels.Repositories;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Web.ViewModels.Commits;
 
@@ -200,7 +202,40 @@ internal static class CommitMapper
   // The first line of the message: the subject of the commit.
   private static string? Subject(string? message) => message?.Split('\n', 2)[0].TrimEnd('\r');
 
-  private static CommitRowViewModel ToRow(CommitSummary summary, CoverageConfig config)
+  /// <summary>Reads the newest commits of a branch, for the panel of the overview.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="branch">The branch to read.</param>
+  /// <param name="format">How the repository writes a coverage, already read by the overview.</param>
+  /// <param name="count">The number of rows.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The rows, the newest first.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> or <paramref name="format" /> is <see langword="null" />.</exception>
+  /// <remarks>The repository and its configuration are not read again: the overview passes what it already has.</remarks>
+  internal static async Task<IReadOnlyList<CommitRowViewModel>> ListRecentCommitRowsAsync(
+    this ISender sender,
+    Forge forge,
+    string owner,
+    string name,
+    string branch,
+    CoverageFormatViewModel format,
+    int count,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+    ArgumentNullException.ThrowIfNull(format);
+
+    var commits = await sender.Send(new ListCommitsQuery(forge, owner, name, branch, 1, count), cancellationToken).ConfigureAwait(false);
+    var rounding = Enum.Parse<RoundingMode>(format.Rounding);
+
+    return [.. commits.Items.Select(c => ToRow(c, format.Precision, rounding))];
+  }
+
+  private static CommitRowViewModel ToRow(CommitSummary summary, CoverageConfig config) => ToRow(summary, config.Precision, config.Rounding);
+
+  private static CommitRowViewModel ToRow(CommitSummary summary, int precision, RoundingMode rounding)
   {
     var commit = summary.Commit;
 
@@ -210,8 +245,8 @@ internal static class CommitMapper
       Subject(summary.Git?.Message),
       summary.Git?.AuthorLogin,
       summary.Git?.CommittedAt ?? commit.CompletedAt ?? commit.CreatedAt,
-      DisplayFormatter.Percent(commit.Coverage, config.Precision, config.Rounding),
-      DisplayFormatter.Delta(summary.Delta, config.Precision, config.Rounding),
+      DisplayFormatter.Percent(commit.Coverage, precision, rounding),
+      DisplayFormatter.Delta(summary.Delta, precision, rounding),
       summary.Delta is { } delta ? Math.Sign(delta) : 0,
       ToStatus(commit.State),
       commit.SessionCount

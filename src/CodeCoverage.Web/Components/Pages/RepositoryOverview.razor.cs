@@ -6,6 +6,9 @@
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
+
+using CodeCoverage.Application.Configuration;
 
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
@@ -51,6 +54,9 @@ public partial class RepositoryOverview
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private IOptionsMonitor<UrlOptions> Urls { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -58,6 +64,8 @@ public partial class RepositoryOverview
   private PageState State { get; set; } = PageState.Loading;
 
   private RepositoryOverviewViewModel? Overview { get; set; }
+
+  private RepositoryActivityViewModel? Activity { get; set; }
 
   private string? Subtitle => Overview is { } loaded ? L["Repository_DefaultBranch", loaded.DefaultBranch].Value : null;
 
@@ -69,7 +77,7 @@ public partial class RepositoryOverview
   protected override Task OnParametersSetAsync()
   {
     State = PageState.Loading;
-    Overview = null;
+    (Overview, Activity) = (null, null);
 
     return LoadAsync();
   }
@@ -96,6 +104,38 @@ public partial class RepositoryOverview
       { Succeeded: true } or { NotFound: true } => (PageState.Missing, null),
       var _ => (PageState.Failed, Overview),
     };
+
+    if (Overview is { HasCoverage: true } loaded)
+    {
+      await LoadActivityAsync(ticket, loaded).ConfigureAwait(true);
+    }
+  }
+
+  // The panels of the lower half are read after the cards, with what the cards already know: the repository and its
+  // configuration are not read again.
+  private async Task LoadActivityAsync(long ticket, RepositoryOverviewViewModel overview)
+  {
+    var (forge, owner, name) = (Forge, Owner, Name);
+    var urls = Urls.CurrentValue;
+    var result = await Runner
+                      .RunAsync((sender, ct) => sender.GetRepositoryActivityViewModelAsync(
+                                  forge,
+                                  owner,
+                                  name,
+                                  overview.DefaultBranch,
+                                  overview.Format,
+                                  urls.ApiPublicUrl,
+                                  urls.WebPublicUrl,
+                                  ct))
+                      .ConfigureAwait(true);
+
+    // A navigation to another repository started since: its own load shows it.
+    if (!_latest.IsLatest(ticket))
+    {
+      return;
+    }
+
+    Activity = result is { Succeeded: true, Value: { } activity } ? activity : null;
   }
 
   #endregion

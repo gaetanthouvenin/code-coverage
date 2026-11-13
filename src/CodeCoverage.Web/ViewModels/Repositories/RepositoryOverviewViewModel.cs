@@ -12,12 +12,14 @@ namespace CodeCoverage.Web.ViewModels.Repositories;
 /// <param name="Branches">The branches of the repository, for the chart of history.</param>
 /// <param name="Flags">The flags of the repository in ordinal order, without the project.</param>
 /// <param name="Format">How the repository writes a coverage, for the values of the chart.</param>
+/// <param name="IsPrivate">Whether the repository is private, which its badge snippet says.</param>
 public sealed record RepositoryOverviewViewModel(
   string DefaultBranch,
   IReadOnlyList<FlagCardViewModel> Cards,
   IReadOnlyList<string> Branches,
   IReadOnlyList<string> Flags,
-  CoverageFormatViewModel Format)
+  CoverageFormatViewModel Format,
+  bool IsPrivate)
 {
   #region Properties
 
