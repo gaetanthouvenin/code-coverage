@@ -278,6 +278,39 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Setup_Title" xml:space="preserve"><value>First start</value></data>
+  <data name="Setup_Subtitle" xml:space="preserve"><value>Three steps set this instance up: its public addresses, its GitHub App, and its administrators.</value></data>
+  <data name="Setup_Steps" xml:space="preserve"><value>Steps of the setup</value></data>
+  <data name="Setup_StepUrls" xml:space="preserve"><value>Public addresses</value></data>
+  <data name="Setup_StepApp" xml:space="preserve"><value>GitHub App</value></data>
+  <data name="Setup_StepAdmins" xml:space="preserve"><value>Administrators</value></data>
+  <data name="Setup_InvalidTokenTitle" xml:space="preserve"><value>Setup token required</value></data>
+  <data name="Setup_InvalidTokenText" xml:space="preserve"><value>Open this page with the one-time token the server wrote in its log at start, as /setup?token=…</value></data>
+  <data name="Setup_CompleteTitle" xml:space="preserve"><value>The instance is set up</value></data>
+  <data name="Setup_CompleteText" xml:space="preserve"><value>The App is known, the addresses are saved and the administrators are named. Sign in with GitHub to go on.</value></data>
+  <data name="Setup_UrlsHelp" xml:space="preserve"><value>They are the addresses the badges, the links of the comments and the webhooks use. They are saved before the App, since its manifest carries them.</value></data>
+  <data name="Setup_WebUrl" xml:space="preserve"><value>Public address of the console</value></data>
+  <data name="Setup_ApiUrl" xml:space="preserve"><value>Public address of the Api</value></data>
+  <data name="Setup_AppNeedsUrls" xml:space="preserve"><value>Save the public addresses first: the manifest of the App carries them.</value></data>
+  <data name="Setup_AppName" xml:space="preserve"><value>Name of the App</value></data>
+  <data name="Setup_AppNameDefault" xml:space="preserve"><value>CodeCoverage</value></data>
+  <data name="Setup_AppOrganization" xml:space="preserve"><value>Organization</value></data>
+  <data name="Setup_AppOrganizationHelp" xml:space="preserve"><value>Leave it empty to create the App on your personal account.</value></data>
+  <data name="Setup_ManifestStart" xml:space="preserve"><value>Prepare the App</value></data>
+  <data name="Setup_ManifestReady" xml:space="preserve"><value>Continue on GitHub, accept the manifest, and you will come back here.</value></data>
+  <data name="Setup_ManifestContinue" xml:space="preserve"><value>Continue on GitHub</value></data>
+  <data name="Setup_InvalidState" xml:space="preserve"><value>This return from GitHub does not match the one this browser started: start the App again.</value></data>
+  <data name="Setup_ManualTitle" xml:space="preserve"><value>Enter an App created by hand</value></data>
+  <data name="Setup_ManualHelp" xml:space="preserve"><value>Read these values on the page of the App, on the forge. They are stored protected and never shown again.</value></data>
+  <data name="Setup_AppId" xml:space="preserve"><value>Identifier of the App</value></data>
+  <data name="Setup_ClientId" xml:space="preserve"><value>Client identifier</value></data>
+  <data name="Setup_ClientSecret" xml:space="preserve"><value>Client secret</value></data>
+  <data name="Setup_WebhookSecret" xml:space="preserve"><value>Webhook secret</value></data>
+  <data name="Setup_PrivateKey" xml:space="preserve"><value>Private key (PEM)</value></data>
+  <data name="Setup_AppSlug" xml:space="preserve"><value>Slug of the App</value></data>
+  <data name="Setup_AdminsHelp" xml:space="preserve"><value>The numeric GitHub identifiers of the administrators of the instance, separated by commas.</value></data>
+  <data name="Setup_AdminIds" xml:space="preserve"><value>Administrators</value></data>
+  <data name="Setup_Finish" xml:space="preserve"><value>Finish the setup</value></data>
   <data name="Tab_OrgRepositories" xml:space="preserve"><value>Repositories</value></data>
   <data name="Action_Sync" xml:space="preserve"><value>Synchronize</value></data>
   <data name="Column_LastUpload" xml:space="preserve"><value>Last upload</value></data>

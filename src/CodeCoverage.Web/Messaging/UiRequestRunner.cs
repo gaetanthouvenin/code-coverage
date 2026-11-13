@@ -100,6 +100,10 @@ public sealed class UiRequestRunner(
   ///   <see cref="ValidationException" />; <see langword="null" /> outside a form.
   /// </param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <param name="reportUnauthenticated">
+  ///   Whether an unrecognized caller comes back as a result instead of a navigation to the sign-in; the first-start
+  ///   wizard asks for it, since the sign-in sends a visitor back to it.
+  /// </param>
   /// <returns>
   ///   The value returned, a <see cref="UiResult{T}.NotFound" /> result, or a refused result already
   ///   reported to the user.
@@ -109,7 +113,8 @@ public sealed class UiRequestRunner(
   public async Task<UiResult<T>> RunAsync<T>(
     Func<ISender, CancellationToken, Task<T>> request,
     EditContext? form = null,
-    CancellationToken cancellationToken = default)
+    CancellationToken cancellationToken = default,
+    bool reportUnauthenticated = false)
   {
     ArgumentNullException.ThrowIfNull(request);
 
@@ -133,6 +138,11 @@ public sealed class UiRequestRunner(
     {
       // The page shows its denied state: a toast would only repeat it.
       return UiResult<T>.Denied();
+    }
+    catch (UnauthorizedException) when (reportUnauthenticated)
+    {
+      // The page says so itself: the wizard of the first start would be sent back to itself by the sign-in.
+      return UiResult<T>.Unknown();
     }
     catch (UnauthorizedException)
     {

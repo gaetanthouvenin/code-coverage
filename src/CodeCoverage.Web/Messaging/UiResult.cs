@@ -37,12 +37,14 @@ public sealed class UiResult<T>
   /// <param name="value">The value returned, or <see langword="default" />.</param>
   /// <param name="notFound">Whether the requested resource was not found.</param>
   /// <param name="forbidden">Whether the server refused the user.</param>
-  private UiResult(bool succeeded, T? value, bool notFound, bool forbidden = false)
+  /// <param name="unauthenticated">Whether the server did not recognize the caller.</param>
+  private UiResult(bool succeeded, T? value, bool notFound, bool forbidden = false, bool unauthenticated = false)
   {
     Succeeded = succeeded;
     Value = value;
     NotFound = notFound;
     Forbidden = forbidden;
+    Unauthenticated = unauthenticated;
   }
 
   #endregion
@@ -71,6 +73,12 @@ public sealed class UiResult<T>
   /// </summary>
   public bool Forbidden { get; }
 
+  /// <summary>
+  ///   Gets a value indicating whether the server did not recognize the caller, for a page that says so itself: the
+  ///   first-start wizard, whose own redirection would send a visitor back to it forever.
+  /// </summary>
+  public bool Unauthenticated { get; }
+
   #endregion
 
   #region Methods
@@ -91,6 +99,10 @@ public sealed class UiResult<T>
   /// <summary>Creates the result of a request the server refused to the user, reported by the page itself.</summary>
   /// <returns>A <see cref="Forbidden" /> result.</returns>
   internal static UiResult<T> Denied() => new(false, default, false, true);
+
+  /// <summary>Creates the result of a request whose caller the server did not recognize, reported by the page itself.</summary>
+  /// <returns>An <see cref="Unauthenticated" /> result.</returns>
+  internal static UiResult<T> Unknown() => new(false, default, false, false, true);
 
   #endregion
 }

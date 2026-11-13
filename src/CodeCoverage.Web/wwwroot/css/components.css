@@ -2161,3 +2161,48 @@ code {
   right: 9px;
   background: var(--cc-card);
 }
+
+/* Steps of the first-start wizard, from the mockup. */
+.cc-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  counter-reset: cc-step;
+}
+
+.cc-stepper__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--cc-line);
+  border-radius: var(--cc-r-xl);
+  color: var(--cc-fg-3);
+  font-size: 13px;
+}
+
+.cc-stepper__step::before {
+  counter-increment: cc-step;
+  content: counter(cc-step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--cc-card);
+  font-weight: 600;
+}
+
+.cc-stepper__step--done {
+  border-color: var(--cc-ok-fg);
+  color: var(--cc-fg);
+}
+
+.cc-stepper__step--done::before {
+  background: var(--cc-ok-bg);
+  color: var(--cc-ok-fg);
+}
