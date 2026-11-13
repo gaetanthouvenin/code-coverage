@@ -39,6 +39,9 @@ public sealed class BadgeTokenEndpointsTests
 
   private readonly IRepositoryAccessService _access = A.Fake<IRepositoryAccessService>();
 
+  // The gate of a repository action also reads the role in the organization: here, none.
+  private readonly IOrganizationRoleResolver _roles = A.Fake<IOrganizationRoleResolver>();
+
   private readonly IAuditLog _auditLog = A.Fake<IAuditLog>();
 
   #endregion
@@ -126,6 +129,7 @@ public sealed class BadgeTokenEndpointsTests
                                   s.AddScoped(_ => _organization);
                                   s.AddScoped(_ => _repositories);
                                   s.AddScoped(_ => _access);
+                                  s.AddScoped(_ => _roles);
                                   s.AddScoped(_ => _auditLog);
                                 }))
             .CreateClient()
