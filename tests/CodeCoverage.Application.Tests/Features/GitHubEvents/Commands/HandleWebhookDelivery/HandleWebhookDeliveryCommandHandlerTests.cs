@@ -109,7 +109,7 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
       _currentOrganization,
       _jobQueue,
       reconciler,
-      new InstallationLifecycle(_directory, _installations, _auditLog, _clock),
+      new InstallationLifecycle(_directory, _installations, _clock),
       new PushProcessor(
         _branches,
         _commits,
@@ -364,23 +364,24 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     _directory.Current!.State.ShouldBe(OrganizationState.Suspended);
   }
 
-  // F18. The account was renamed to a reserved login: the installation event that tells it suspends the organization,
-  // and the suspension is audited as one an administrator decides.
+  // M3.43a: a login that names a route of the product is an account like any other, since an address names its forge
+  // first (ADR-014). The installation is recorded, and nothing is suspended or audited.
   [Fact]
-  public async Task Handle_InstallationCreatedUnderAReservedLogin_ShouldSuspendWithAnAuditEntry()
+  public async Task Handle_InstallationCreatedUnderTheLoginOfARoute_ShouldRecordItLikeAnyOther()
   {
     Stored("installation", "created", InstallationBody(Installation, 1001, "admin"));
 
     await HandleAsync();
 
-    _directory.Current!.State.ShouldBe(OrganizationState.Suspended);
-    _directory.Current.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
-    ReservedLoginAudited("GitHub/admin");
+    _directory.Current!.Login.ShouldBe("admin");
+    _directory.Current.SuspensionReason.ShouldBeNull();
+    A.CallTo(() => _auditLog.RecordAsync("Organization.Suspend", A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
+     .MustNotHaveHappened();
   }
 
-  // F18. Installed again under a login that became reserved meanwhile: it stays suspended for that reason, audited.
+  // M3.43a: the application installed again brings back an organization suspended by its removal, whatever its login.
   [Fact]
-  public async Task Handle_ReinstalledUnderAReservedLogin_ShouldStaySuspendedWithAnAuditEntry()
+  public async Task Handle_ReinstalledUnderTheLoginOfARoute_ShouldBeActiveAgain()
   {
     OnTheLaneOfTheInstance();
     var organization = _directory.Add("2002", "former", admitted: true);
@@ -389,9 +390,8 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
     await HandleAsync();
 
-    organization.State.ShouldBe(OrganizationState.Suspended);
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
-    ReservedLoginAudited("GitHub/admin");
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
   }
 
   [Theory]
@@ -1029,8 +1029,9 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     _directory.Current.AccountType.ShouldBe(OrganizationAccountType.User);
   }
 
+  // M3.43a: a rename to the login of a route of the product changes the login and nothing else.
   [Fact]
-  public async Task Handle_RenamedToReservedLogin_ShouldSuspend()
+  public async Task Handle_RenamedToTheLoginOfARoute_ShouldOnlyChangeTheLogin()
   {
     Stored("installation_target", "renamed", Renamed(1001, "admin", "Organization"));
 
@@ -1039,34 +1040,14 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     var organization = _directory.Current.ShouldNotBeNull();
 
     organization.Login.ShouldBe("admin");
-    organization.State.ShouldBe(OrganizationState.Suspended);
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
-    // The worker refuses a job of an organization that is not active: none is queued for it.
-    _queued.ShouldBeEmpty();
-    A.CallTo(
-       () => _auditLog.RecordAsync(
-         "Organization.Suspend",
-         "GitHub/admin",
-         A<IReadOnlyDictionary<string, string>?>.That.Matches(d => d != null && d["Reason"] == "ReservedLogin"),
-         A<CancellationToken>._
-       )
-     )
-     .MustHaveHappenedOnceExactly();
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
+    A.CallTo(() => _auditLog.RecordAsync("Organization.Suspend", A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
+     .MustNotHaveHappened();
     A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-
-    // The delivery again, then a login that is free: nothing lifts the suspension, only an administrator does.
-    await HandleAsync();
-    Stored("installation_target", "renamed", Renamed(1001, "octo-again", "Organization"));
-    await HandleAsync();
-
-    organization.Login.ShouldBe("octo-again");
-    organization.State.ShouldBe(OrganizationState.Suspended);
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
-    _queued.ShouldBeEmpty();
-    A.CallTo(_auditLog).MustHaveHappenedOnceExactly();
   }
 
-  // A pending organization stays pending under a reserved login: nothing was suspended, nothing is audited.
+  // A pending organization stays pending whatever its new login: nothing was suspended, nothing is audited.
   [Fact]
   public async Task Handle_PendingOrganizationRenamedOnTheLaneOfTheInstance_ShouldUpdateLoginAndQueueNothing()
   {

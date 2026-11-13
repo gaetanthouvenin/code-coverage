@@ -37,8 +37,6 @@ internal sealed class AdmitOrganizationCommandHandler(
   {
     ArgumentNullException.ThrowIfNull(command);
 
-    UnprocessableEntityException.ThrowIfOrganizationLoginReserved(ReservedLogins.IsReserved(command.Login), command.Login);
-
     var existing = await directory.FindByAccountIdAsync(command.Forge, command.ExternalAccountId, cancellationToken).ConfigureAwait(false);
 
     ConflictException.ThrowIfOrganizationNotPending(existing);

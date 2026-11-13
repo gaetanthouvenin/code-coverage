@@ -138,19 +138,20 @@ public sealed class AdmitOrganizationCommandHandlerTests
     admitted.AdmittedBy.ShouldBe("root-admin");
   }
 
+  // M3.43a: a login that names a route of the product is admitted like any other, since an address names its forge
+  // first (ADR-014).
   [Theory]
   [InlineData("admin")]
   [InlineData("API")]
-  public async Task Handle_ReservedLogin_ShouldThrow(string login)
+  public async Task Handle_LoginOfARouteOfTheProduct_ShouldAdmitIt(string login)
   {
-    var exception = await Should.ThrowAsync<UnprocessableEntityException>(
-                      async () => await Handler().Handle(new AdmitOrganizationCommand(Forge.GitHub, login, AccountId), Ct)
-                    );
+    var pending = Organization.CreatePending(Forge.GitHub, AccountId, login, OrganizationAccountType.Organization, Now);
+    Knows(pending);
 
-    exception.ErrorCode.ShouldBe(OrganizationErrors.ReservedLogin);
-    A.CallTo(_directory).MustNotHaveHappened();
-    A.CallTo(_audit).MustNotHaveHappened();
-    A.CallTo(_jobQueue).MustNotHaveHappened();
+    var admitted = await Handler().Handle(new AdmitOrganizationCommand(Forge.GitHub, login, AccountId), Ct);
+
+    admitted.State.ShouldBe(OrganizationState.Active);
+    admitted.Login.ShouldBe(login);
   }
 
   [Fact]

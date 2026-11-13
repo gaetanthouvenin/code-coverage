@@ -17,9 +17,6 @@ public static class OrganizationErrors
   /// </summary>
   public const string NotFound = "Organization.NotFound";
 
-  /// <summary>The login is a segment of a route of the product, so this account cannot be admitted.</summary>
-  public const string ReservedLogin = "Organization.ReservedLogin";
-
   /// <summary>The organization was already admitted or is suspended: only a pending one can be admitted.</summary>
   public const string NotPending = "Organization.NotPending";
 
