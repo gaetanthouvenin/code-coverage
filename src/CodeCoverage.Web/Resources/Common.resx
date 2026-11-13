@@ -277,6 +277,13 @@
   <data name="Filter_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Repository_Inactive" xml:space="preserve"><value>Inactive</value></data>
   <data name="Tab_RepoSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Token_Panel" xml:space="preserve"><value>Tokens</value></data>
+  <data name="Token_EmptyOrganization" xml:space="preserve"><value>Create a token, or import the organization token of Codecov so the pipelines keep their secret.</value></data>
+  <data name="OrganizationTokens_Title" xml:space="preserve"><value>Organization upload tokens</value></data>
+  <data name="OrganizationTokens_Subtitle" xml:space="preserve"><value>Valid only for the repositories of this organization.</value></data>
+  <data name="OrganizationTokens_Denied" xml:space="preserve"><value>Only the administrators of this organization can see its upload tokens.</value></data>
+  <data name="OrganizationTokens_RotationTitle" xml:space="preserve"><value>Token rotation advised</value></data>
+  <data name="OrganizationTokens_RotationText" xml:space="preserve"><value>A repository left this organization. An organization token kept in its CI secrets stays valid until you revoke it.</value></data>
   <data name="Overview_RecentCommits" xml:space="preserve"><value>Recent commits</value></data>
   <data name="Overview_AllCommits" xml:space="preserve"><value>All commits</value></data>
   <data name="Overview_NoCommitText" xml:space="preserve"><value>No commit of this branch carries coverage yet.</value></data>

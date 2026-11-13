@@ -1,0 +1,62 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="OrganizationUploadTokens.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/orgs/{Forge}/{Login}/upload-tokens"
+
+<PageTitle>@L["PageTitle_Format", L["OrganizationTokens_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <CcHeader Title="@L["OrganizationTokens_Title"]" Icon="CcIconName.Key" Subtitle="@L["OrganizationTokens_Subtitle"]" Breadcrumb="Crumbs">
+      <Tabs><OrganizationTabs Forge="@Forge" Login="@Login" /></Tabs>
+    </CcHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Denied)
+    {
+      <div class="cc-panel cc-status-page" data-state="denied">
+        <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">@L["OrganizationTokens_Denied"]</CcEmptyState>
+      </div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page" data-state="failed">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Tokens is not null)
+    {
+      @if (RotationAdvised)
+      {
+        <div data-state="rotation">
+          <CcBanner Tone="CcTone.Warning" Title="@L["OrganizationTokens_RotationTitle"]">@L["OrganizationTokens_RotationText"]</CcBanner>
+        </div>
+      }
+
+      <TokenTable Title="@L["Token_Panel"]" Tokens="Tokens" EmptyDescription="@L["Token_EmptyOrganization"]" OnRevokeAsked="AskRevoke">
+        <Tools>
+          <CcButton Size="CcButtonSize.Small" Icon="CcIconName.Upload" OnClick="() => _importing = true">@L["Action_Import"]</CcButton>
+          <CcButton Size="CcButtonSize.Small" Variant="CcButtonVariant.Primary" Icon="CcIconName.Plus" OnClick="() => _creating = true">@L["Action_Create"]</CcButton>
+        </Tools>
+      </TokenTable>
+
+      <CreateTokenDialog Open="_creating" Create="CreateAsync" OnCreated="ShowIssuedAsync" OnClosed="() => _creating = false" />
+      <ImportTokenDialog Open="_importing" Import="ImportAsync" OnImported="ImportedAsync" OnClosed="() => _importing = false" />
+      <RevokeTokenDialog Token="_revoking" Revoke="RevokeAsync" OnRevoked="RevokedAsync" OnClosed="() => _revoking = null" />
+      <IssuedTokenDialog Token="_issued" OnClosed="ForgetIssued" />
+    }
+  }
+</CcPageContainer>

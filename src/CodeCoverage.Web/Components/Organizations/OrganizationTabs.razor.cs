@@ -14,10 +14,7 @@ using CodeCoverage.Web.Resources;
 namespace CodeCoverage.Web.Components.Organizations;
 
 /// <summary>The sections of an organization, in pill tabs, for its administrators.</summary>
-/// <remarks>
-///   Only the sections whose page exists are shown: the settings now, the repositories (M3.39) and the upload tokens
-///   (M3.38) when they land.
-/// </remarks>
+/// <remarks>Only the sections whose page exists are shown: the repositories (M3.39) land next.</remarks>
 public partial class OrganizationTabs
 {
   #region Parameters
@@ -52,7 +49,11 @@ public partial class OrganizationTabs
   {
     var root = $"orgs/{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Login)}";
 
-    Items = [new CcNavItem($"{root}/settings", L["Tab_OrgSettings"], CcIconName.Gear)];
+    Items =
+    [
+      new CcNavItem($"{root}/upload-tokens", L["Tab_UploadTokens"], CcIconName.Key),
+      new CcNavItem($"{root}/settings", L["Tab_OrgSettings"], CcIconName.Gear),
+    ];
   }
 
   #endregion

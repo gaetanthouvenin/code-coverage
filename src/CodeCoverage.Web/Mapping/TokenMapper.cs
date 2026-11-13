@@ -9,8 +9,11 @@ using Mediator;
 using CodeCoverage.Application.Features.Repositories.Commands.ImportBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Commands.RotateBadgeToken;
 using CodeCoverage.Application.Features.Repositories.Queries.GetBadgeToken;
+using CodeCoverage.Application.Features.UploadTokens.Commands.CreateOrganizationUploadToken;
 using CodeCoverage.Application.Features.UploadTokens.Commands.CreateRepositoryUploadToken;
+using CodeCoverage.Application.Features.UploadTokens.Commands.RevokeOrganizationUploadToken;
 using CodeCoverage.Application.Features.UploadTokens.Commands.RevokeRepositoryUploadToken;
+using CodeCoverage.Application.Features.UploadTokens.Queries.ListOrganizationUploadTokens;
 using CodeCoverage.Application.Features.UploadTokens.Queries.ListRepositoryUploadTokens;
 using CodeCoverage.Domain.Tokens;
 using CodeCoverage.Web.ViewModels.Tokens;
@@ -216,6 +219,118 @@ internal static class TokenMapper
     }
 
     await sender.Send(new ImportBadgeTokenCommand(parsed, owner, name, value), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Reads the upload tokens of an organization, the revoked ones included.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The tokens and whether a rotation is advised; empty when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<OrganizationTokensViewModel> ListOrganizationUploadTokenViewModelsAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed))
+    {
+      return new OrganizationTokensViewModel([], false);
+    }
+
+    var tokens = await sender.Send(new ListOrganizationUploadTokensQuery(parsed, login), cancellationToken).ConfigureAwait(false);
+
+    // A rotation is advised while a token that was live when a repository left is still live.
+    return new OrganizationTokensViewModel(
+      [.. tokens.OrderByDescending(static t => t.CreatedAt).Select(ToViewModel)],
+      tokens.Any(static t => t.RotationAdvisedAt is not null && t.RevokedAt is null)
+    );
+  }
+
+  /// <summary>Creates an upload token of an organization, whose value is given back this one time.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="label">The name given to the token.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The token with its value, or <see langword="null" /> when the forge segment is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IssuedTokenViewModel?> CreateOrganizationUploadTokenAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    string label,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed))
+    {
+      return null;
+    }
+
+    var issued = await sender.Send(new CreateOrganizationUploadTokenCommand(parsed, login, label, null, null), cancellationToken).ConfigureAwait(false);
+
+    return new IssuedTokenViewModel(issued.Token.Label, issued.Value);
+  }
+
+  /// <summary>Imports the organization token of Codecov: the pipelines of its repositories keep working.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="label">The name given to the token.</param>
+  /// <param name="value">The value held by the user.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the token is saved.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> ImportOrganizationUploadTokenAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    string label,
+    string value,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new CreateOrganizationUploadTokenCommand(parsed, login, label, value, null), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Revokes an upload token of an organization: anything still using it stops working.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the organization.</param>
+  /// <param name="login">The login of the organization.</param>
+  /// <param name="tokenId">The identifier of the token.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the token is revoked.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> RevokeOrganizationUploadTokenAsync(
+    this ISender sender,
+    string forge,
+    string login,
+    long tokenId,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed))
+    {
+      return false;
+    }
+
+    await sender.Send(new RevokeOrganizationUploadTokenCommand(parsed, login, tokenId), cancellationToken).ConfigureAwait(false);
 
     return true;
   }
