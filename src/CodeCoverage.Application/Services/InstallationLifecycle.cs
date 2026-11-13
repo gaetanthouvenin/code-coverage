@@ -16,7 +16,6 @@ namespace CodeCoverage.Application.Services;
 /// <summary>What an installation of the GitHub App does to the organization of its account.</summary>
 /// <param name="directory">The directory of the organizations.</param>
 /// <param name="installations">The repository of the installations.</param>
-/// <param name="auditLog">The audit trail.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   <para>
@@ -28,15 +27,10 @@ namespace CodeCoverage.Application.Services;
 ///     Nothing here admits an organization: an unknown account gets a pending one, and a suspension is lifted
 ///     only when the removal of the application caused it (<see cref="Organization.Reactivate" />).
 ///   </para>
-///   <para>
-///     A login that became reserved suspends an active organization, or keeps suspended one the application is
-///     installed again on: each time, an audit entry says so, as a suspension decided by an administrator does.
-///   </para>
 /// </remarks>
 internal sealed class InstallationLifecycle(
   IOrganizationDirectory directory,
   IInstallationRepository installations,
-  IAuditLog auditLog,
   IClock clock)
 {
   #region Methods
@@ -70,11 +64,6 @@ internal sealed class InstallationLifecycle(
                            cancellationToken
                          )
                          .ConfigureAwait(false);
-
-    if (wasActive && organization is { State: OrganizationState.Suspended, SuspensionReason: SuspensionReason.ReservedLogin })
-    {
-      await RecordReservedLoginAsync(organization, cancellationToken).ConfigureAwait(false);
-    }
 
     if (await installations.FindOwnerAsync(installation.Id, cancellationToken).ConfigureAwait(false) is not null)
     {
@@ -133,26 +122,8 @@ internal sealed class InstallationLifecycle(
     var saved = await directory.ChangeAsync(Forge.GitHub, organization.ExternalAccountId, row => row.Reactivate(now), cancellationToken)
                                .ConfigureAwait(false);
 
-    // Installed again under a login that became reserved meanwhile: it stays suspended, for that reason.
-    if (saved is { State: OrganizationState.Suspended, SuspensionReason: SuspensionReason.ReservedLogin })
-    {
-      await RecordReservedLoginAsync(saved, cancellationToken).ConfigureAwait(false);
-    }
-
     return saved ?? organization;
   }
-
-  /// <summary>Records the suspension of an organization whose login became reserved.</summary>
-  /// <param name="organization">The organization, as saved.</param>
-  /// <param name="cancellationToken">A token to cancel the saving.</param>
-  /// <returns>A task that completes when the entry is saved.</returns>
-  private Task RecordReservedLoginAsync(Organization organization, CancellationToken cancellationToken) =>
-    auditLog.RecordAsync(
-      "Organization.Suspend",
-      $"{organization.Forge}/{organization.Login}",
-      new Dictionary<string, string>(StringComparer.Ordinal) { ["Reason"] = nameof(SuspensionReason.ReservedLogin) },
-      cancellationToken
-    );
 
   #endregion
 }

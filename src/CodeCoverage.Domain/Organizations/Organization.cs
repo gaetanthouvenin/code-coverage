@@ -225,11 +225,6 @@ public sealed class Organization
       $"Only a pending organization can be admitted; this one is {State}."
     );
 
-    InvalidOperationException.ThrowIf(
-      ReservedLogins.IsReserved(Login),
-      $"The login '{Login}' is reserved and cannot be admitted."
-    );
-
     State = OrganizationState.Active;
     AdmittedBy = admittedBy;
     Touch(at);
@@ -292,13 +287,6 @@ public sealed class Organization
       return true;
     }
 
-    if (ReservedLogins.IsReserved(Login))
-    {
-      SuspensionReason = Organizations.SuspensionReason.ReservedLogin;
-
-      return false;
-    }
-
     State = OrganizationState.Active;
     SuspensionReason = null;
 
@@ -309,8 +297,8 @@ public sealed class Organization
   /// <param name="newLogin">The login reported by the forge.</param>
   /// <param name="at">The current time; converted to UTC.</param>
   /// <remarks>
-  ///   A reserved login suspends an active organization. A pending organization stays pending, since
-  ///   <see cref="Admit" /> refuses it as long as the login is reserved.
+  ///   Every login the forge reports is taken as it comes: an address of the product names its forge first (ADR-014),
+  ///   so no login of an account can shadow a route of either host.
   /// </remarks>
   /// <exception cref="ArgumentNullException"><paramref name="newLogin" /> is <see langword="null" />.</exception>
   /// <exception cref="ArgumentException"><paramref name="newLogin" /> is not a well-formed login.</exception>
@@ -326,12 +314,6 @@ public sealed class Organization
     Login = newLogin;
     NormalizedLogin = NormalizeLogin(newLogin);
     Touch(at);
-
-    if (State is OrganizationState.Active && ReservedLogins.IsReserved(newLogin))
-    {
-      State = OrganizationState.Suspended;
-      SuspensionReason = Organizations.SuspensionReason.ReservedLogin;
-    }
   }
 
   /// <summary>Applies the kind of account that the forge reports.</summary>

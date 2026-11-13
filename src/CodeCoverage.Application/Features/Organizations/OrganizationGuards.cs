@@ -58,21 +58,6 @@ internal static class OrganizationGuards
     }
   }
 
-  extension(UnprocessableEntityException)
-  {
-    /// <summary>Throws when a login is reserved and cannot be admitted.</summary>
-    /// <param name="reserved">Whether the login is reserved.</param>
-    /// <param name="login">The login.</param>
-    /// <exception cref="UnprocessableEntityException"><paramref name="reserved" /> is <see langword="true" />.</exception>
-    public static void ThrowIfOrganizationLoginReserved([DoesNotReturnIf(true)] bool reserved, string login)
-    {
-      if (reserved)
-      {
-        throw new UnprocessableEntityException(OrganizationErrors.ReservedLogin, $"The login '{login}' cannot be admitted.");
-      }
-    }
-  }
-
   extension(ConflictException)
   {
     /// <summary>Throws when an organization that already exists is not pending: only a pending one can be admitted.</summary>

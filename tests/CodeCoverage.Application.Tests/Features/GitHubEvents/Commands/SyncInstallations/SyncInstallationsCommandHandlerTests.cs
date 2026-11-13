@@ -63,7 +63,7 @@ public sealed class SyncInstallationsCommandHandlerTests
       _installations,
       _directory,
       _jobQueue,
-      new InstallationLifecycle(_directory, _installations, _auditLog, clock)
+      new InstallationLifecycle(_directory, _installations, clock)
     );
   }
 
@@ -277,16 +277,18 @@ public sealed class SyncInstallationsCommandHandlerTests
 
   // F18. The listing tells that an active account took a reserved login: suspended, and audited.
   [Fact]
-  public async Task Handle_AccountRenamedToAReservedLogin_ShouldSuspendWithAnAuditEntry()
+  public async Task Handle_AccountRenamedToTheLoginOfARoute_ShouldOnlyChangeTheLogin()
   {
     var organization = _directory.Add("1001", "octo", admitted: true);
     Listed(Installed(42, "1001", "admin"));
 
     await _handler.Handle(new SyncInstallationsCommand(), Ct);
 
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
-    A.CallTo(() => _auditLog.RecordAsync("Organization.Suspend", "GitHub/admin", A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
-     .MustHaveHappenedOnceExactly();
+    organization.Login.ShouldBe("admin");
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
+    A.CallTo(() => _auditLog.RecordAsync("Organization.Suspend", A<string>._, A<IReadOnlyDictionary<string, string>?>._, A<CancellationToken>._))
+     .MustNotHaveHappened();
   }
 
   [Fact]

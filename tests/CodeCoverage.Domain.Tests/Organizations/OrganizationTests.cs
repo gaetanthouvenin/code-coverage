@@ -96,17 +96,18 @@ public sealed class OrganizationTests
     organization.Version.ShouldBe(1);
   }
 
+  // M3.43a: a login that names a route of the product is admitted like any other, since an address names its forge
+  // first (ADR-014).
   [Theory]
   [InlineData("admin")]
   [InlineData("API")]
-  public void Admit_ReservedLogin_ShouldThrow(string login)
+  public void Admit_LoginOfARouteOfTheProduct_ShouldAdmitIt(string login)
   {
     var organization = Pending(login);
 
-    Should.Throw<InvalidOperationException>(() => organization.Admit("admin-user", Later));
+    organization.Admit("admin-user", Later);
 
-    organization.State.ShouldBe(OrganizationState.Pending);
-    organization.Version.ShouldBe(0);
+    organization.State.ShouldBe(OrganizationState.Active);
   }
 
   [Fact]
@@ -242,17 +243,18 @@ public sealed class OrganizationTests
     organization.Version.ShouldBe(version);
   }
 
+  // M3.43a: a rename no longer suspends anything, so the application installed again brings the organization back.
   [Fact]
-  public void Reactivate_LoginBecameReserved_ShouldStaySuspendedForThatReason()
+  public void Reactivate_RenamedToARouteOfTheProduct_ShouldBeActiveAgain()
   {
     var organization = Active("octo-org");
     organization.Suspend(SuspensionReason.AppUninstalled, Later);
     organization.Rename("Setup", Later);
 
-    organization.Reactivate(Later.AddHours(1)).ShouldBeFalse();
+    organization.Reactivate(Later.AddHours(1)).ShouldBeTrue();
 
-    organization.State.ShouldBe(OrganizationState.Suspended);
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
   }
 
   [Fact]
@@ -269,20 +271,21 @@ public sealed class OrganizationTests
     organization.UpdatedAt.ShouldBe(Later);
   }
 
+  // M3.43a: every login the forge reports is taken as it comes, whatever it looks like.
   [Fact]
-  public void Rename_ReservedLogin_ShouldSuspend()
+  public void Rename_ToARouteOfTheProduct_ShouldStayActive()
   {
     var organization = Active("octo-org");
 
     organization.Rename("Setup", Later);
 
-    organization.State.ShouldBe(OrganizationState.Suspended);
-    organization.SuspensionReason.ShouldBe(SuspensionReason.ReservedLogin);
+    organization.State.ShouldBe(OrganizationState.Active);
+    organization.SuspensionReason.ShouldBeNull();
     organization.Login.ShouldBe("Setup");
   }
 
   [Fact]
-  public void Rename_PendingToReservedLogin_ShouldStayPending()
+  public void Rename_PendingToARouteOfTheProduct_ShouldStayPending()
   {
     var organization = Pending("octo-org");
 

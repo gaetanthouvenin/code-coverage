@@ -72,7 +72,6 @@
   <data name="Organization.InvalidLogin" xml:space="preserve"><value>This login is not one a forge can give.</value></data>
   <data name="Organization.NotFound" xml:space="preserve"><value>This organization does not exist, or you do not have access to it.</value></data>
   <data name="Organization.NotPending" xml:space="preserve"><value>This organization was already admitted or is suspended.</value></data>
-  <data name="Organization.ReservedLogin" xml:space="preserve"><value>This login is a segment of the product's addresses: this account cannot be admitted.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>This repository is known and its coverage is not tracked.</value></data>
