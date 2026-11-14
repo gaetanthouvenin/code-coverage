@@ -5,7 +5,8 @@
 #
 # - Caddy on the VM itself: keep the loopback upstreams below (published by docker-compose.yml).
 # - Caddy as a container on the compose network: set CC_API_UPSTREAM=api:8080 and
-#   CC_WEB_UPSTREAM=web:8080.
+#   CC_WEB_UPSTREAM=web:8080. The production compose of a VM (deploy/vm/docker-compose.prod.yml)
+#   ships its own container variant: deploy/vm/Caddyfile.
 #
 # Then declare the address Caddy connects from in FORWARDED_KNOWN_PROXIES (.env), so that the Api and
 # the Web trust its X-Forwarded-For / X-Forwarded-Proto (the Web needs it to build the https callback of

@@ -1,0 +1,20 @@
+# Caddyfile of deploy/vm/docker-compose.prod.yml (M4.02): Caddy as a container on the compose network,
+# in front of the Api and the Web. The host names and the ACME address come from .env.
+# Caddy obtains and renews the certificates itself: ports 80 and 443 must be reachable from the Internet.
+# For a Caddy installed on the VM itself, use Caddyfile.example at the root of the repository instead.
+{
+  email {$ACME_EMAIL}
+}
+
+# The Api: reached by GitHub (webhooks), the CI agents (uploads) and the badge proxies.
+{$CC_API_HOST} {
+  encode zstd gzip
+  # No body size limit here: the Api enforces its own upload limit (a setting reloaded without restart).
+  reverse_proxy api:8080
+}
+
+# The Web console (Blazor Server: Caddy forwards the WebSocket upgrade by itself).
+{$CC_WEB_HOST} {
+  encode zstd gzip
+  reverse_proxy web:8080
+}
