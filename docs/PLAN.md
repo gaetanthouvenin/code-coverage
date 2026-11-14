@@ -449,6 +449,12 @@ graph TD
   M4_02f["M4.02f Formulaires de /setup et administrateurs par login"]
   M5_01 --> M4_02g["M4.02g SHA-256 de l'action sur Windows"]
   M4_02h["M4.02h Jauge en français, barre du haut et marge des tableaux"]
+  M4_02f --> M4_02i["M4.02i Appartenances et installation de l'App"]
+  M4_02j["M4.02j Parcours de connexion"]
+  M4_02g --> M4_02k["M4.02k Premier upload guidé"]
+  M4_02i --> M4_02k
+  M4_02l["M4.02l Liens de navigation"]
+  M4_02m["M4.02m Messages et pages d'erreur"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2594,6 +2600,104 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Mesure dans le navigateur** : la barre réelle (rendue par bUnit en français, administrateur d'instance, quatre onglets) sur les feuilles de style du dépôt, de 1041 à 1400 px : marque, sélecteur, onglets et fin de barre ne se chevauchent jamais.
   - **Propriétaire** : la jauge en demi-cercle, la barre du haut et la marge du tableau sur l'instance, après déploiement.
 - **Acceptation :** en français comme en anglais, la jauge est un demi-cercle régulier ; de 1041 à 1400 px, le sélecteur d'organisation ne recouvre jamais les onglets ; un tableau premier enfant d'une carte a la même marge en haut qu'en bas.
+- **Dépend de :** M3.43
+
+> M4.02i à M4.02m viennent de l'audit des parcours utilisateur du 2026-11-14 (29 constats confirmés sur le code, un réfuté), mené après le premier démarrage de l'instance de production.
+
+#### M4.02i — Appartenances à jour, lien d'installation de l'App et admission guidée
+- **Issue :** à créer
+- **Objectif :** qu'un utilisateur voie ses organisations sans se déconnecter, et que l'administrateur d'instance sache installer l'App puis admettre un compte. Trois défauts sont prouvés :
+  1. **Appartenances figées à la connexion.** `RefreshUserMemberships` n'est mis en file que par `SignInUserCommandHandler` et par les webhooks `member` et `membership`. `OrganizationRoleResolver` ignore une appartenance plus vieille que `Access:HardExpiryMinutes` (60 minutes), alors que le cookie vit 7 jours en glissement. Conséquence : toutes les organisations disparaissent une heure après la connexion. De plus, `AdmitOrganizationCommandHandler` ne met en file que `SyncInstallations`, donc l'administrateur qui vient d'admettre un compte ne le voit pas avant de se reconnecter. Constaté sur l'instance de production.
+  2. **Aucun lien d'installation de l'App.** `GitHub:AppSlug` est stocké mais n'est affiché nulle part : aucune URL `github.com/apps/…/installations/new` n'existe dans `src`. Le manifest n'a pas de `setup_url`.
+  3. **Rattrapage nocturne seulement.** Une installation dont le webhook a été perdu n'apparaît qu'au `SyncInstallations` de minuit UTC. Le dialogue d'admission demande un identifiant numérique sans aide.
+- **Couches :** Application, Infrastructure, Web, docs.
+- **Fichiers :**
+  - **Rafraîchissement à la lecture** : quand la liste des organisations de l'utilisateur ou son rôle est lu avec une appartenance plus vieille que le délai doux, `RefreshUserMemberships` est mis en file (dédoublonné par utilisateur), sans travail lourd dans la requête, comme `RepositoryAccessService` pour les accès aux dépôts. La remarque fausse de `SignInUserCommandHandler` est corrigée.
+  - **Admission** : `AdmitOrganizationCommandHandler` met aussi en file `RefreshUserMemberships` pour l'administrateur qui admet.
+  - **Lien d'installation** : `https://github.com/apps/{AppSlug}/installations/new`, construit par la configuration du Web, affiché à la fin de `/setup`, dans l'en-tête et l'état vide de `/admin/organizations`, et dans l'état vide de l'accueil pour un administrateur d'instance. `setup_url` est ajouté au manifest (`GitHubAppManifest.cs`) pour revenir à la console.
+  - **Vérifier les installations** : commande `IAdminOnly`, auditée, qui met en file `SyncInstallations` tout de suite, avec un bouton dans `/admin/organizations`.
+  - **Admission par login** : le dialogue accepte un login, résolu en identifiant de compte par le port de lecture `GET /users/{login}` de M4.02f, avec confirmation « login → identifiant ».
+  - **Documents** : `docs/operations.md` (premier démarrage : installer l'App) et `docs/operations/organization-onboarding.md`.
+- **Tests :**
+  - **Application** : une appartenance périmée lue met le rafraîchissement en file, une seule fois ; l'admission met en file `SyncInstallations` et `RefreshUserMemberships`.
+  - **Web.Tests** : le lien d'installation dans les trois écrans ; le bouton Vérifier les installations met le job en file ; l'admission par login.
+  - **Manifest** : `setup_url` présent.
+  - **Propriétaire** : sur l'instance, admettre un compte et le voir sans se reconnecter, puis toujours le voir deux heures après la connexion.
+- **Acceptation :** aucune reconnexion n'est nécessaire, ni après une admission, ni au bout d'une heure ; l'App s'installe depuis la console ; une installation manquée se rattrape par un bouton ; un compte s'admet par son login.
+- **Dépend de :** M4.02f
+
+#### M4.02j — Parcours de connexion
+- **Issue :** à créer
+- **Objectif :** qu'un visiteur sache où se connecter, et revienne à la page qu'il voulait. Défauts prouvés par l'audit :
+  1. aucun lien « Se connecter » : `NavMenu` n'affiche le menu utilisateur que si `Model` n'est pas nul ;
+  2. un lien profond suivi sans être connecté, par exemple depuis un commentaire de PR ou un statut, affiche « Introuvable ou inaccessible ». Aucune page ne porte `[Authorize]`, donc le `LoginPath` du cookie ne se déclenche jamais, et `AuthorizationBehavior` renvoie 404 à un anonyme ;
+  3. `returnUrl` n'est jamais renseigné : `UiRequestRunner` envoie vers la constante `signin?expired=true`, et toute connexion aboutit à `/` ;
+  4. « Votre session a expiré » s'affiche à qui ne s'est jamais connecté ;
+  5. le membre d'une organisation installée mais pas encore admise se voit dire « demandez l'installation de la GitHub App » (`Access.NoRepository`).
+- **Couches :** Application, Web.
+- **Fichiers :**
+  - **`NavMenu.razor(.cs)`** : un bouton « Se connecter » vers `/signin?returnUrl=…` quand personne n'est connecté.
+  - **`UiRequestRunner.cs`** : pour un anonyme, un refus 404 ou 401 envoie vers `/signin?returnUrl={page courante}`. `expired=true` n'est ajouté que si un cookie de session a été présenté puis rejeté par `SessionCookieEvents`. Un utilisateur connecté garde la page « Introuvable », qui ne révèle rien.
+  - **`RepositoryInaccessible.razor`** : pour un anonyme, une action « Se connecter » à la place du seul retour à l'accueil.
+  - **Organisation en attente** : `SignInUserCommandHandler` distingue l'utilisateur dont une installation désigne une organisation `Pending`, avec la nouvelle raison `PendingAdmission` dans `AccessDeniedReasons.cs`. Le message correspondant, dans `Common.resx` et `Common.fr.resx`, explique que l'administrateur de l'instance doit admettre le compte. `AccessDenied.razor` propose de se reconnecter.
+- **Tests :**
+  - **Web.Tests** (`WebApplicationFactory`) : un GET anonyme d'un dépôt privé redirige vers `/signin?returnUrl=…`, sans `expired` ; un cookie rejeté donne `expired=true` ; la connexion revient au `returnUrl` local et refuse une URL externe.
+  - **bUnit** : `NavMenu` anonyme rend le bouton « Se connecter ».
+  - **Application** : `SignInUserCommandHandler` avec une organisation `Pending` renvoie `PendingAdmission`.
+- **Acceptation :** un visiteur voit toujours où se connecter ; un lien profond le ramène, après connexion, à la page demandée ; « session expirée » n'apparaît qu'après une vraie session ; un membre d'une organisation en attente sait qu'il attend une admission.
+- **Dépend de :** M3.43
+
+#### M4.02k — Premier upload guidé
+- **Issue :** à créer
+- **Objectif :** qu'un administrateur de dépôt sache quoi mettre dans son workflow, et qu'un upload refusé dise pourquoi. Défauts prouvés par l'audit :
+  1. l'état vide de la vue d'ensemble d'un dépôt n'a aucune action ; rien dans le Web ne mentionne l'action, l'uploader ni `id-token` ;
+  2. `UploadClient` n'affiche que le code d'erreur, et ignore le `detail` du ProblemDetails ;
+  3. la documentation renvoie à `action@v1`, qui n'existe pas ;
+  4. un dépôt désactivé se dit encore « suivi » alors que ses uploads sont refusés (`Repository.Inactive`).
+- **Couches :** Web, Uploader, docs.
+- **Fichiers :**
+  - **`RepositoryOverview.razor(.cs)`** : l'état vide propose « Configurer l'envoi », avec un extrait GitHub Actions prêt à copier : `permissions: id-token: write`, l'action épinglée sur la version déployée (version informationnelle de l'assembly), `url` égal à `Urls.ApiPublicUrl`. Un lien renvoie vers le template Azure Pipelines et vers les jetons d'upload.
+  - **Dépôt désactivé** : `RepositoryOverviewViewModel` porte l'état désactivé, et la page l'affiche à la place de « suivi ».
+  - **`Uploader/UploadClient.cs`** : affiche le `detail` et un conseil par code d'erreur (App non installée ou compte non admis, dépôt inactif, jeton invalide), sans révéler plus que l'Api.
+  - **Documents** : `action/README.md`, `docs/migration-from-codecov.md` et `docs/ARCHITECTURE.md` citent `@vX.Y.Z`, avec un exemple sur la dernière release. Le tag majeur `v1` est posé par le propriétaire à la première version stable.
+- **Tests :**
+  - **bUnit** : l'état vide rend l'extrait avec l'URL de l'Api et la version ; un dépôt désactivé est affiché comme tel.
+  - **Uploader.Tests** : un refus 401, 404 ou 422 affiche le détail et le conseil.
+  - **Contrôle de source** : aucun document ne cite `action@v1` tant que le tag n'existe pas.
+- **Acceptation :** depuis un dépôt sans couverture, un administrateur copie un workflow qui fonctionne ; un upload refusé dit quoi faire.
+- **Dépend de :** M4.02g, M4.02i
+
+#### M4.02l — Liens de navigation manquants
+- **Issue :** à créer
+- **Objectif :** rendre accessibles les vues qu'on ne peut atteindre qu'en tapant l'adresse. Défauts prouvés par l'audit :
+  1. la page Comparer n'a aucun lien ;
+  2. la page d'une PR n'a de lien ni vers son commit de tête, ni vers sa base ;
+  3. les noms de `/orgs/{forge}/{org}/repositories` ne sont pas des liens.
+- **Couches :** Web.
+- **Fichiers :**
+  - `PullRequestDetail.razor`, `BaseExplanation.razor` et `ComparisonSummary.razor` : liens vers les commits de tête, de base et le point de fourche, et un lien « Comparer » vers `/compare/{base}...{head}`.
+  - `OrganizationRepositories.razor` : le nom du dépôt devient un lien, par le même `HrefOf` que l'accueil.
+- **Tests :** bUnit des liens de chaque composant, avec un chemin et des SHA encodés.
+- **Acceptation :** chaque vue de dépôt s'atteint par un clic, depuis l'accueil, une organisation ou une PR.
+- **Dépend de :** M3.43
+
+#### M4.02m — Messages de validation et pages d'erreur
+- **Issue :** à créer
+- **Objectif :** des messages compris par l'utilisateur. Défauts prouvés par l'audit :
+  1. les messages de validation restent en anglais, parce que `ValidationException` ne garde que `ErrorMessage` ;
+  2. un refus d'étape de `/setup` n'affiche que « Certaines valeurs ne sont pas valides », sans champ ;
+  3. toute réponse 4xx ou 5xx sans corps devient « Page introuvable » (`UseStatusCodePagesWithReExecute` sans filtre) ;
+  4. base de données arrêtée, un utilisateur connecté obtient une 500 brute, parce que `/error` repasse par `SessionCookieEvents` ;
+  5. l'accueil dit « n'appartient à aucune organisation » à un compte personnel.
+- **Couches :** Application, Web.
+- **Fichiers :**
+  - **Validation** : `ValidationException` garde le code d'erreur de chaque champ ; `UiRequestRunner` traduit ce code par `IStringLocalizer<Common>`, avec repli sur le message.
+  - **`Setup.razor.cs`** : passe son `EditContext` pour afficher les erreurs par champ.
+  - **Pages d'erreur** : `Program.cs` réserve `/not-found` au 404, et les autres codes vont vers `/error`. La page `/error` ne dépend pas de la base pour un utilisateur connecté.
+  - **Textes** : « compte ou organisation » dans `Home_EmptyText`, dans `Common.resx` et `Common.fr.resx`.
+- **Tests :**
+  - **Web.Tests** : une erreur de validation en `fr-FR` est affichée en français, sur son champ ; un 400 sans corps n'affiche pas « introuvable » ; `/error` répond avec une base injoignable.
+- **Acceptation :** aucun message anglais dans l'interface française ; une erreur dit ce qui s'est passé, et où.
 - **Dépend de :** M3.43
 
 #### M4.03 — Déploiement Azure Container Apps (option)
