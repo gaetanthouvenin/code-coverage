@@ -2,7 +2,7 @@
 
 This guide moves the pipelines of a repository from Codecov to a CodeCoverage instance. It assumes the
 organization is already onboarded (the GitHub App installed and the organization admitted, see
-the organization onboarding guide (`docs/operations/organization-onboarding.md`, M4.02a)). The `codecov.yml` of
+[the organization onboarding guide](operations/organization-onboarding.md)). The `codecov.yml` of
 the repository stays as it is: CodeCoverage reads it (`codecov.yml`, `.codecov.yml`, `.github/` and
 `dev/` variants) with the same semantics.
 
