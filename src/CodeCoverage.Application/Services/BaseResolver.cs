@@ -186,7 +186,8 @@ internal sealed class BaseResolver(
     {
       var candidate = await commits.FindByShaAsync(repositoryId, current, cancellationToken).ConfigureAwait(false);
 
-      if (candidate is { State: CommitState.Complete })
+      // An imported commit has totals and no session: as a base, it would give totals at zero. It is walked over.
+      if (candidate is { State: CommitState.Complete, IsImported: false })
       {
         return (candidate, hops);
       }

@@ -80,5 +80,11 @@ public static class JobTypes
   /// </summary>
   public const string PurgeExpiredData = "PurgeExpiredData";
 
+  /// <summary>
+  ///   Imports the history of a repository from the API of Codecov, with the protected token of its
+  ///   <c>CodecovImports</c> row (M5.06).
+  /// </summary>
+  public const string ImportCodecovHistory = "ImportCodecovHistory";
+
   #endregion
 }

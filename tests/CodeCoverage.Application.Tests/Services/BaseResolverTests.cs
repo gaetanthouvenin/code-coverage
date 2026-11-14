@@ -11,6 +11,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
@@ -190,6 +191,24 @@ public sealed class BaseResolverTests
     // The patch of a push build covers every commit that has no report since the base.
     resolution.PatchDiff.Files.ShouldHaveSingleItem().Path.ShouldBe("since-the-report.cs");
     resolution.ComparisonDiff.ShouldBeSameAs(resolution.PatchDiff);
+  }
+
+  // An imported commit has totals and no session: as a base it would give totals at zero, so it is walked over.
+  [Fact]
+  public async Task Resolve_ImportedParent_ShouldNotBeBase()
+  {
+    Git(Head, Parent);
+    Git(Parent, GrandParent);
+    Git(GrandParent);
+    var imported = Commit.Import(RepositoryId, Parent, "main", 3, new CoverageTotals(1, 1, 1, 0, 0), Now.AddDays(-2), Now.AddDays(-1));
+    A.CallTo(() => _commits.FindByShaAsync(A<long>._, Parent, A<CancellationToken>._)).Returns(imported);
+    var grandParent = Reported(GrandParent);
+    Compared(GrandParent, Head, mergeBase: GrandParent, behindBy: 0, "since-the-report.cs");
+
+    var resolution = await ResolveAsync(HeadCommit());
+
+    resolution.ComparedTo.ShouldBe(grandParent);
+    resolution.Hops.ShouldBe(1);
   }
 
   [Fact]

@@ -159,7 +159,8 @@ internal sealed class FinalizeCommitCommandHandler(
 
     return
     [
-      .. found.Where(static head => head.State is CommitState.Complete or CommitState.Error)
+      // An imported commit is never notified.
+      .. found.Where(static head => head.State is CommitState.Complete or CommitState.Error && !head.IsImported)
               .OrderBy(static head => head.Id)
               .Select(head => NotifyCommitJobs.Create(head.Id, clock.UtcNow, debounce, maxDelay)),
     ];

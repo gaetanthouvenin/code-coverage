@@ -30,6 +30,8 @@ public sealed class PurgeExpiredDataCommandHandlerTests
 
   private readonly IRetentionRepository _retention = A.Fake<IRetentionRepository>();
 
+  private readonly ICodecovImportRepository _codecovImports = A.Fake<ICodecovImportRepository>();
+
   private readonly RetentionOptions _options = new() { RawDays = 30, BranchReportDays = 180, JobDays = 14, WebhookDays = 7, DiffCacheDays = 30 };
 
   private readonly List<JobRequest> _queued = [];
@@ -56,6 +58,7 @@ public sealed class PurgeExpiredDataCommandHandlerTests
       _directory,
       _jobQueue,
       _retention,
+      _codecovImports,
       options,
       clock,
       NullLogger<PurgeExpiredDataCommandHandler>.Instance
@@ -90,6 +93,7 @@ public sealed class PurgeExpiredDataCommandHandlerTests
     A.CallTo(() => _retention.PurgeRawUploadsAsync(A<DateTimeOffset>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(() => _retention.CompactCommitsAsync(A<DateTimeOffset>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(() => _retention.PurgeForgeCachesAsync(A<DateTimeOffset>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(_codecovImports).MustNotHaveHappened();
 
     _queued.Select(static j => j.OrganizationId).ShouldBe([first.Id, second.Id]);
     _queued.ShouldAllBe(static j => j.Type == JobTypes.PurgeExpiredData
@@ -113,6 +117,8 @@ public sealed class PurgeExpiredDataCommandHandlerTests
     A.CallTo(() => _retention.PurgeRawUploadsAsync(Now, PurgeExpiredDataJobs.BatchSize, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _retention.CompactCommitsAsync(Now.AddDays(-180), PurgeExpiredDataJobs.BatchSize, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _retention.PurgeForgeCachesAsync(Now.AddDays(-30), PurgeExpiredDataJobs.BatchSize, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    // The credentials of the imports of the history of Codecov never outlive seven days.
+    A.CallTo(() => _codecovImports.PurgeAsync(Now.AddDays(-7), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _retention.PurgeJobsAsync(A<DateTimeOffset>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(() => _retention.PurgeWebhookDeliveriesAsync(A<DateTimeOffset>._, A<int>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(_jobQueue).MustNotHaveHappened();

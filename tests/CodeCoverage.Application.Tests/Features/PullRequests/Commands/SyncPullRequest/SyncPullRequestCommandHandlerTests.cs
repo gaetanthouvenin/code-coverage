@@ -10,6 +10,7 @@ using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Git;
@@ -194,6 +195,19 @@ public sealed class SyncPullRequestCommandHandlerTests
     // After the pull request is saved: a notification that ran before it would take the commit for a push.
     A.CallTo(() => _pullRequests.UpsertAsync(RepositoryId, A<ForgePullInfo>._, A<DateTimeOffset>._, A<CancellationToken>._)).MustHaveHappened()
      .Then(A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).MustHaveHappened());
+  }
+
+  // An imported commit is never notified: it is no head.
+  [Fact]
+  public async Task Handle_OpenWithAnImportedHead_ShouldQueueNothing()
+  {
+    Reports(Pull(ForgePullState.Open));
+    var head = Commit.Import(RepositoryId, Head, "feature", 1, new CoverageTotals(1, 0, 0, 0, 0), Now, Now);
+    A.CallTo(() => _commits.ListByShasAsync(RepositoryId, A<IReadOnlyCollection<GitSha>>.That.Contains(Head), A<CancellationToken>._)).Returns([head]);
+
+    await HandleAsync();
+
+    _queued.ShouldBeEmpty();
   }
 
   [Theory]

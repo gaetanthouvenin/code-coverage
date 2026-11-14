@@ -6,6 +6,7 @@
 
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
@@ -99,6 +100,19 @@ public sealed class BranchHeadTrackerTests
 
     (await TrackAsync(9)).ShouldNotBe(shared.Id);
     (await TrackAsync(1)).ShouldBe(shared.Id);
+  }
+
+  // An imported commit has no report to show: it never heads a branch.
+  [Fact]
+  public async Task Track_ImportedAncestor_ShouldBeSkipped()
+  {
+    History(1, 2, 3);
+    var imported = Commit.Import(RepositoryId, Sha(2), "main", 1, new CoverageTotals(1, 0, 0, 0, 0), Now, Now);
+    typeof(Commit).GetProperty(nameof(Commit.Id))!.SetValue(imported, ++_nextId);
+    _stored[imported.Sha] = imported;
+    var real = Stored(3, CommitState.Complete);
+
+    (await TrackAsync(1)).ShouldBe(real.Id);
   }
 
   [Fact]

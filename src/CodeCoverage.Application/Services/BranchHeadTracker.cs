@@ -77,7 +77,8 @@ internal sealed class BranchHeadTracker(ICommitRepository commits, CommitAncestr
         continue;
       }
 
-      if (bySha.TryGetValue(sha, out var commit) && commit.State is CommitState.Complete)
+      // An imported commit has no report to show: it never heads a branch.
+      if (bySha.TryGetValue(sha, out var commit) && commit is { State: CommitState.Complete, IsImported: false })
       {
         return commit.Id;
       }

@@ -389,9 +389,10 @@ internal static partial class CommitMapper
   };
 
   // The stored row says what was really applied; without it, the source recorded on the commit is shown as it is.
+  // An imported commit has no stored row: its source is named, not shown as the raw text.
   private static CommitConfigViewModel ToConfig(CommitConfig? stored, string? recorded) =>
     stored is null
-      ? new CommitConfigViewModel(null, recorded, null, [], [])
+      ? new CommitConfigViewModel(recorded is Commit.ImportedConfigSource ? "ConfigSource_CodecovImport" : null, recorded, null, [], [])
       : new CommitConfigViewModel(
         $"ConfigSource_{stored.Source}",
         recorded,

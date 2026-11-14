@@ -37,6 +37,54 @@ public sealed class CommitTests
   }
 
   [Fact]
+  public void Import_ShouldBeCompleteWithTotalsOnlyAndDatedByCodecov()
+  {
+    var made = new DateTimeOffset(2026, 10, 2, 12, 15, 0, TimeSpan.FromHours(2));
+
+    var commit = Commit.Import(1, Sha, "main", 12, new CoverageTotals(150, 40, 10, 8, 30), made, Now);
+
+    commit.State.ShouldBe(CommitState.Complete);
+    commit.IsImported.ShouldBeTrue();
+    commit.ConfigSource.ShouldBe(Commit.ImportedConfigSource);
+    commit.Branch.ShouldBe("main");
+    commit.Files.ShouldBe(12);
+    commit.Lines.ShouldBe(200);
+    commit.Hits.ShouldBe(150);
+    commit.Misses.ShouldBe(40);
+    commit.Partials.ShouldBe(10);
+    commit.Branches.ShouldBe(8);
+    commit.Methods.ShouldBe(30);
+    commit.Coverage.ShouldBe(75m);
+    commit.SessionCount.ShouldBe(0);
+    commit.UploadedSessionCount.ShouldBe(0);
+    commit.ReportRevision.ShouldBe(0);
+    commit.LastUploadAt.ShouldBeNull();
+    commit.CompletedAt.ShouldBe(made);
+    commit.CompletedAt!.Value.Offset.ShouldBe(TimeSpan.Zero);
+    commit.NotifiedAt.ShouldBe(made);
+    commit.CreatedAt.ShouldBe(Now);
+  }
+
+  [Fact]
+  public void IsImported_FinalizedCommit_ShouldBeFalse()
+  {
+    var commit = Commit.Create(1, Sha, Now);
+    commit.RecordFinalization(CommitState.Complete, 1, default, 1, 1, CarryforwardStatus.None, "Commit", Now);
+
+    commit.IsImported.ShouldBeFalse();
+  }
+
+  [Fact]
+  public void Import_InvalidArguments_ShouldThrow()
+  {
+    Should.Throw<ArgumentOutOfRangeException>(() => Commit.Import(0, Sha, "main", 1, default, Now, Now));
+    Should.Throw<ArgumentNullException>(() => Commit.Import(1, null!, "main", 1, default, Now, Now));
+    Should.Throw<ArgumentException>(() => Commit.Import(1, Sha, " ", 1, default, Now, Now));
+    Should.Throw<ArgumentException>(() => Commit.Import(1, Sha, new string('b', Commit.BranchMaxLength + 1), 1, default, Now, Now));
+    Should.Throw<ArgumentOutOfRangeException>(() => Commit.Import(1, Sha, "main", -1, default, Now, Now));
+  }
+
+  [Fact]
   public void Create_RepositoryNotPositive_ShouldThrow()
   {
     Should.Throw<ArgumentOutOfRangeException>(() => Commit.Create(0, Sha, Now));

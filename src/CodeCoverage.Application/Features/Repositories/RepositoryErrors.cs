@@ -29,5 +29,23 @@ public static class RepositoryErrors
   /// </summary>
   public const string InvalidHistory = "Repository.InvalidHistory";
 
+  /// <summary>
+  ///   The API token of Codecov given to import the history is empty, too long or holds spaces. Maps to HTTP 400 Bad
+  ///   Request.
+  /// </summary>
+  public const string InvalidCodecovToken = "Repository.InvalidCodecovToken";
+
+  /// <summary>
+  ///   Codecov refused the import of the history for good: the token is not valid or not allowed, or Codecov does not
+  ///   have the repository. The job fails; maps to HTTP 422 Unprocessable Entity.
+  /// </summary>
+  public const string CodecovRefused = "Repository.CodecovRefused";
+
+  /// <summary>
+  ///   The forge of the repository has no counterpart on Codecov (Azure DevOps): its history cannot be imported. Maps to
+  ///   HTTP 422 Unprocessable Entity.
+  /// </summary>
+  public const string CodecovUnsupportedForge = "Repository.CodecovUnsupportedForge";
+
   #endregion
 }

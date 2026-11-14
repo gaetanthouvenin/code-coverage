@@ -100,6 +100,18 @@ public interface ICommitReportRepository
     FinalizationWakeUps wakeUps,
     CancellationToken cancellationToken);
 
+  /// <summary>Inserts a commit imported from the history of Codecov, with the totals of its project, when its SHA is unknown.</summary>
+  /// <param name="commit">The commit, built by <see cref="Commit.Import" />, not saved yet.</param>
+  /// <param name="cancellationToken">A token to cancel the writing.</param>
+  /// <returns><see langword="false" /> when the repository already has a commit of that SHA, which is kept as it is.</returns>
+  /// <remarks>
+  ///   The commit and its <c>CommitFlagTotals</c> row of the project are written in one transaction, with no blob, no
+  ///   session, no wake-up of a waiting commit and no job: an imported commit is never notified.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="commit" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="commit" /> is not an imported commit, or is saved already.</exception>
+  Task<bool> SaveImportedAsync(Commit commit, CancellationToken cancellationToken);
+
   /// <summary>Lists the sessions of a commit, for reading only.</summary>
   /// <param name="commitId">The identifier of the commit.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>

@@ -77,6 +77,7 @@ public static class ApiProbes
     ApiProbe.Addressed("RepositoriesController.DeactivateAsync", HttpMethod.Post, $"{Repository}/deactivate"),
     ApiProbe.Addressed("RepositoriesController.RotateBadgeTokenAsync", HttpMethod.Post, $"{Repository}/badge-token"),
     ApiProbe.Addressed("RepositoriesController.ImportBadgeTokenAsync", HttpMethod.Put, $"{Repository}/badge-token", "{\"value\":\"imported\"}"),
+    ApiProbe.Addressed("RepositoriesController.StartCodecovImportAsync", HttpMethod.Post, $"{Repository}/codecov-import", "{\"token\":\"codecov-token\"}"),
     ApiProbe.Addressed("RepositoriesController.GetEffectiveConfigAsync", HttpMethod.Get, $"{Repository}/config"),
 
     ApiProbe.NotAddressed("SettingsController.GetAsync", "The settings of the instance, reserved to its administrators."),

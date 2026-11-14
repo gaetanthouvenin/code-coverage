@@ -194,6 +194,9 @@
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Seul un job en échec ou mort peut être relancé, et pas tant que le même travail attend déjà.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>La page va de 1 à 21474836, et une page contient de 1 à 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>Un jeton de badge contient de 1 à 64 lettres, chiffres, tirets bas ou tirets.</value></data>
+  <data name="Repository.InvalidCodecovToken" xml:space="preserve"><value>Le jeton d’API Codecov contient de 1 à 256 caractères imprimables, sans espace.</value></data>
+  <data name="Repository.CodecovRefused" xml:space="preserve"><value>Codecov a refusé l’import : le jeton n’est pas valide ou pas autorisé, ou Codecov n’a pas le dépôt.</value></data>
+  <data name="Repository.CodecovUnsupportedForge" xml:space="preserve"><value>Codecov n’a pas d’équivalent de cette forge (Azure DevOps) : son historique ne peut pas être importé.</value></data>
   <data name="Repository.InvalidHistory" xml:space="preserve"><value>Un historique demande commit, day ou week, un début avant sa fin, et au plus 20 flags.</value></data>
   <data name="Inaccessible_Title" xml:space="preserve"><value>Introuvable ou inaccessible</value></data>
   <data name="Inaccessible_Description" xml:space="preserve"><value>Cette adresse n’existe pas, ou votre compte GitHub ne peut pas la lire.</value></data>
@@ -267,6 +270,7 @@
   <data name="ConfigSource_RepositoryDefault" xml:space="preserve"><value>Fichier de la branche par défaut</value></data>
   <data name="ConfigSource_Organization" xml:space="preserve"><value>Configuration de l’organisation</value></data>
   <data name="ConfigSource_Builtin" xml:space="preserve"><value>Valeurs par défaut</value></data>
+  <data name="ConfigSource_CodecovImport" xml:space="preserve"><value>Importé de Codecov</value></data>
   <data name="Config.InvalidValue" xml:space="preserve"><value>Valeur invalide, ignorée :</value></data>
   <data name="Config.UnsupportedPattern" xml:space="preserve"><value>Motif non pris en charge, ignoré :</value></data>
   <data name="Config.ClampedValue" xml:space="preserve"><value>Valeur hors limites, bornée :</value></data>
