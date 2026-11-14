@@ -11,9 +11,9 @@
 
 ### 1.1 Objectif
 
-Remplacer `codecov.io` par un service auto-hébergé et pouvoir résilier l'abonnement à la fin du MVP. Une même instance héberge plusieurs organisations, isolées les unes des autres (ADR-013). Le service ingère les rapports Cobertura, LCOV, OpenCover, JaCoCo et Clover produits par GitHub Actions et Azure Pipelines. Il publie sur GitHub des statuts de commit et un commentaire de PR, sert des badges SVG et affiche l'historique de couverture.
+Fournir un service de couverture auto-hébergé, compatible avec Codecov, pour ne jamais dépendre d'un abonnement à `codecov.io`. Une organisation qui vient de Codecov garde son `codecov.yml`, ses noms de statuts et ses secrets, et dispose d'un chemin de bascule (M4.05 à M4.08) ; ce chemin est une option, pas un prérequis. Une même instance héberge plusieurs organisations, isolées les unes des autres (ADR-013). Le service ingère les rapports Cobertura, LCOV, OpenCover, JaCoCo et Clover produits par GitHub Actions et Azure Pipelines. Il publie sur GitHub des statuts de commit et un commentaire de PR, sert des badges SVG et affiche l'historique de couverture.
 
-### 1.2 MVP : ce qui est livré avant la résiliation
+### 1.2 MVP : ce qui est livré avant la mise en production
 
 | Besoin indispensable | Contenu du MVP | Reporté |
 |---|---|---|
@@ -36,7 +36,7 @@ Transverse MVP :
 
 Test analytics, bundle analysis, notifications Slack/Teams/e-mail, GraphQL, facturation et sièges. GitLab auto-hébergé et les versions serveur des forges restent hors portée.
 
-L'identité, les adresses et le port principal sont indépendants de la forge (ADR-014), mais seul GitHub est implémenté avant la bascule. Azure DevOps Services, Bitbucket Cloud et GitLab.com sont des jalons ultérieurs (M7, M8 et M9).
+L'identité, les adresses et le port principal sont indépendants de la forge (ADR-014), mais seul GitHub est implémenté avant la mise en production. Azure DevOps Services, Bitbucket Cloud et GitLab.com sont des jalons ultérieurs (M7, M8 et M9).
 
 ### 1.4 Principes non négociables
 
@@ -1741,7 +1741,7 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 - Agrégation `commit`, `day` ou `week` (dernière valeur de la période) **calculée en C#** : portable sur les deux fournisseurs, sans `DISTINCT ON`.
 - Un point par flag et par période ; `flag` répété donne une série par flag. Semaines ISO, du lundi, en UTC ; le point d'un jour ou d'une semaine est daté de son premier instant. La requête borne `CompletedAt`, puis le C# refiltre sur la date du point (committer, à défaut `CompletedAt`) : un commit finalisé après `to` mais daté avant n'apparaît pas. Le Web affiche plusieurs séries dans `CcLineChart`.
 - Les totaux des commits sont conservés indéfiniment, donc l'historique survit aux purges.
-- **M5 :** import facultatif de l'historique Codecov via son API v2, à faire avant la résiliation de l'abonnement (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Un SHA déjà connu n'est jamais écrasé ; un commit importé n'est jamais retenu comme base ni comme tête d'une comparaison, et ne sert pas d'oracle de parité (la parité compare les deux API, M4.06).
+- **M5 :** import facultatif de l'historique Codecov via son API v2, pour une organisation qui quitte Codecov, à faire avant sa résiliation (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Un SHA déjà connu n'est jamais écrasé ; un commit importé n'est jamais retenu comme base ni comme tête d'une comparaison, et ne sert pas d'oracle de parité (la parité compare les deux API, M4.06).
   - Déclenchement (M5.06) : `POST /api/v1/repos/{forge}/{owner}/{repo}/codecov-import` (`IRepositoryScoped(Admin)`) ou `tools/rollout/Start-CodecovImport.ps1`. Le job lit `GET /api/v2/{service}/{owner}/repos/{repo}/commits/` de Codecov ; seuls les commits `complete` avec des totaux et une branche sont gardés.
   - Écriture : `Commit.Import` (état `Complete`, sans upload ni session, `CompletedAt` = horodatage Codecov, couverture recalculée depuis hits, misses et partials par la formule de Codecov) et la ligne de projet de `CommitFlagTotals`, en une transaction, sans `QueueWakeUpsAsync` : aucun commit en attente n'est réveillé, aucun statut ni commentaire n'est publié.
   - Gardes : `BaseResolver`, `SyncPullRequest`, `BranchHeadTracker` et le réveil des PR dépendantes de `FinalizeCommit` ignorent un commit importé (`Commit.IsImported`) ; le carryforward l'ignore déjà (aucune session).
@@ -1916,8 +1916,8 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | Volumétrie en base | Coût, sauvegardes | Blobs Brotli, références au lieu de copies pour le carryforward, purge par lots, totaux seuls conservés indéfiniment |
 | Deux fournisseurs de base | Coût de tests | Un seul modèle EF, SQL brut limité au dialecte de la file, Testcontainers pour les deux en CI |
 | Protection du trousseau Data Protection oubliée | Secrets exposés par une fuite de sauvegarde | Démarrage refusé en Production sans certificat ou Key Vault |
-| Effort de migration des pipelines | Bascule retardée | Templates GitHub Actions et Azure, import des `CODECOV_TOKEN` et des jetons de badge, PR d'une ligne scriptées avec `gh` ; shim en option |
-| Sous-estimation | Abonnement prolongé | Estimation réaliste : **12 à 15 semaines** pour 2 développeurs jusqu'à la bascule (§14) ; le périmètre MVP est figé |
+| Effort de migration des pipelines (organisation venant de Codecov) | Bascule retardée | Templates GitHub Actions et Azure, import des `CODECOV_TOKEN` et des jetons de badge, PR d'une ligne scriptées avec `gh` ; shim en option |
+| Sous-estimation | Mise en production retardée | Estimation réaliste : **12 à 15 semaines** pour 2 développeurs jusqu'à la mise en production (§14) ; le périmètre MVP est figé |
 
 ---
 
@@ -1931,6 +1931,6 @@ Le détail des tâches fait l'objet d'un plan séparé. L'estimation est donnée
 | **M1 – Ingestion** (3 sem.) | Uploader (détection GitHub Actions et Azure, `ls-files`, multipart gzip, `--wait`) et binaires servis par l'Api ; `POST /uploads` en flux ; jetons d'organisation et de dépôt (avec import) ; OIDC ; stockage brut par morceaux ; les 5 parseurs ; `PathFixer` ; `ProcessUpload` ; `FinalizeCommit` avec flags, carryforward et décalage de lignes ; `CommitFlagTotals` ; passerelle GitHub minimale (installation, commits, trees, compare) ; correction du commit de merge | Uploads réels coverlet et Vitest depuis 3 dépôts pilotes (GitHub Actions et Azure) : totaux à ±0,01 % de Codecov sur 20 commits |
 | **M2 – Notification GitHub** (3 sem.) | Webhooks (livraisons, installation, push, pull_request, repository) ; `BaseResolver` ; `DiffProvider` et caches ; patch ; `ChangeDetector` ; `StatusEvaluator` (projet, patch, changes, flags, `adjust_base` et variantes, `informational`, `if_not_found`) ; `NotificationGate`, anti-rebond et `SweepPendingCommits` ; `CommentComposer` (sections, `behavior`, `require_changes`) ; résolution YAML et `/validate` | Les PR pilotes reçoivent `coverage/project`, `coverage/patch` et un commentaire, identiques à Codecov aux arrondis près |
 | **M3 – Web, badges, historique** (3 sem.) | Connexion GitHub, jetons serveur et rafraîchissement, accès par dépôt ; jetons API ; toutes les pages (§10bis), dont la source annotée et l'assistant `/setup` (manifest) ; badges (routes compatibles, jeton, import) ; historique ; administration (paramètres, jetons, opérations, audit) ; rétention | L'équipe utilise l'UI ; badges des README basculés en changeant l'hôte |
-| **M4 – Pilote et bascule** (2 à 3 sem.) | Tous les dépôts envoient leurs uploads aux deux services ; script de parité quotidien ; ajustements ; passage de `StatusContextPrefix` à `codecov` (protection de branche inchangée) ; retrait de l'App et des étapes Codecov ; **résiliation** | Codecov désinstallé, abonnement résilié |
+| **M4 – Mise en production** (2 à 3 sem.) | Release de l'uploader ; VM de production avec sauvegardes (ou Azure en option) ; vérification sur deux organisations réelles et guide d'accueil ; alertes. En option, pour une organisation qui quitte Codecov : guide de migration, parité quotidienne, double upload, passage de `StatusContextPrefix` à `codecov` (protection de branche inchangée), retrait de l'App Codecov et résiliation | Une instance de production sert les dépôts du propriétaire (release publiée, sauvegarde restaurée une fois, alertes branchées) |
 | **M5 – Confort et compatibilité** (2 à 3 sem.) | Action composite et template Azure ; outil dotnet sur le flux ; `behavior: new`/`spammy` ; Check Runs avec annotations des lignes de patch non couvertes ; import de l'historique Codecov ; shim codecov-cli si la décision 13.2-1 est prise | — |
 | **M6 – Plus tard** | `wait_for_ci`/`require_ci_to_pass` (webhooks `check_suite`/`status`) ; `component_management` ; notifications Teams/Slack ; graphes `tree`/`sunburst` ; GitHub Enterprise | — |
