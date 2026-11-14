@@ -1,0 +1,1 @@
+{"pullNumber":9,"bases":{"headSha":"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3","forkPointSha":"d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4","comparedToSha":"d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4","isExact":true},"files":[{"path":"src/a.cs","status":"modified","patch":{"lines":1,"hits":1,"misses":0,"partials":0,"coverage":100.0}}],"diffIncomplete":false}

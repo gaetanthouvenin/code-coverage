@@ -1,26 +1,18 @@
-Totals of octo-org/app, Codecov against CodeCoverage (coverage in %, lines as Codecov/CodeCoverage):
+Parity of octo-org/app with Codecov
 
-Commit     Flag      Codecov  CodeCoverage Delta    Lines       Counts Carried Status
-------     ----      -------  ------------ -----    -----       ------ ------- ------
-a1a1a1a1a1 (project) 85.71000 85.71429     +0.00429 14/14       same           ok
-a1a1a1a1a1 back      90.00000 90.00000     0.00000  10/10       same           ok
-a1a1a1a1a1 front     75.00000 75.00000     0.00000  4/4         same           ok
-b2b2b2b2b2 (project) 85.71000 85.71429     +0.00429 14/14       same           ok
-b2b2b2b2b2 back      90.00000 90.01000     +0.01000 10000/10000 differ         ok
-b2b2b2b2b2 front     75.00000 75.02000     +0.02000 10000/10000 differ         gap
-c3c3c3c3c3 (project) 80.50000 80.00000     -0.50000 200/100     differ         gap
-c3c3c3c3c3 back      90.00000 90.00000     0.00000  10/10       same   yes     ok
-d4d4d4d4d4 (project) -        50.00000     -        -/10        -              missing-codecov
-e5e5e5e5e5 (project) 50.00000 -            -        20/-        -              missing-codecoverage
-e5e5e5e5e5 e2e       50.00000 -            -        8/-         -              missing-codecoverage
-f6f6f6f6f6 (project) -        -            -        0/0         same           ok
+Totals
+Commit     Flag            Codecov  CodeCoverage     Delta Counts Status
+a1a1a1a1a1 (project)      85.71000      85.71429  +0.00429 same   ok
+a1a1a1a1a1 unit           90.00000      90.00000   0.00000 same   ok
+b2b2b2b2b2 (project)      75.00000      75.02000  +0.02000 differ gap
+c3c3c3c3c3 (project)                   100.00000                  missing-codecov
 
-Gaps beyond 0.01 point, or totals missing on one side (5):
-  b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2 front: delta +0.02000
-  c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3 (project): delta -0.50000
-  d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4 (project): missing-codecov
-  e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5 (project): missing-codecoverage
-  e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5 e2e: missing-codecoverage
+Patch totals per file (hits/misses/partials)
+Pull   File                                     Codecov      CodeCoverage Status
+7      src/a.cs                                 3/1/0        3/1/0        ok
+7      src/b.cs                                 2/0/0        1/1/0        gap
+7      src/old/c.cs                             0/2/0                     missing-codecoverage
+8                                                                         base-differs
+9                                                                         head-differs
 
-2 of 4 compared commits within the tolerance (6 asked).
-Exit criterion of M1 (20 commits within the tolerance): not met.
+4 totals and 5 patch lines compared, 6 not ok.

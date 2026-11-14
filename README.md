@@ -74,10 +74,11 @@ the forge of the organization.
 
 ## Parity with Codecov
 
-`tools/parity/Compare-TotalsWithCodecov.ps1` measures the exit criterion of the M1 pilot: for each
-commit and each flag, the totals of Codecov against those of CodeCoverage, with the gaps beyond
-±0.01 point. See `tools/parity/README.md`; `pwsh tools/parity/Test-CompareTotals.ps1` runs it on a
-frozen sample, without network nor database.
+`tools/parity/Compare-WithCodecov.ps1` compares an instance with Codecov through both APIs: the
+project and flag totals of each commit (within ±0.01 point) and the patch totals of each file of a
+pull request. `.github/workflows/parity.yml` runs it daily during the pilot; every gap is explained in
+[docs/parity-log.md](docs/parity-log.md). See `tools/parity/README.md`;
+`pwsh tools/parity/Test-CompareWithCodecov.ps1` runs it on a frozen sample, without network.
 
 ## Documentation
 

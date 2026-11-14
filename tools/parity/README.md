@@ -1,138 +1,56 @@
-# Parity with Codecov: totals of the M1 pilot
+# Parity with Codecov
 
-The exit criterion of M1 is « uploads from 3 pilot repositories: totals within ±0.01 % of Codecov on 20
-commits ». `Compare-TotalsWithCodecov.ps1` measures it: for each commit, it compares the totals Codecov
-holds with the rows of `CommitFlagTotals`, for the project and for each flag.
+`Compare-WithCodecov.ps1` compares a CodeCoverage instance with Codecov through both APIs (M4.06). It
+replaces the SQL tool of the M1 pilot (M1.47): it reads no database, so it never reads across
+organizations.
 
-It is a tool of the pilot. A version that reads the API of CodeCoverage replaces it in M4.06.
+## What it compares
 
-## What it reads
+| Line | CodeCoverage | Codecov | Rule |
+|---|---|---|---|
+| Project and flag totals of a commit | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}` (`totals`, `flags`) | `GET /api/v2/{service}/{owner}/repos/{repo}/report/?sha={sha}` and `&flag={flag}` (`totals`) | coverage within `-Tolerance` points (0.01, bounds included): `ok`, else `gap`; the counters are reported `same` or `differ` |
+| Patch totals of each file of a pull request | `GET /api/v1/repos/{forge}/{owner}/{repo}/pulls/{number}` (`files[].patch`) | `GET /api/v2/{service}/{owner}/repos/{repo}/compare/?pullid={number}` (`files[].totals.patch`) | identical hits, misses and partials: `ok`, else `gap`; when the two services compared different bases, the pull request is `base-differs` (`head-differs` for different heads) and its files are not judged; a file is matched on its head name, or its base name when the head lacks it |
 
-| Side | Source | Option |
-|---|---|---|
-| Codecov | answers of its API v2, `GET /api/v2/{service}/{owner}/repos/{repo}/report/?sha={sha}` then `&flag={flag}` for each flag | `-CodecovToken` (or `CODECOV_API_TOKEN`), or `-CodecovSamplePath` for frozen answers |
-| CodeCoverage | the rows of `CommitFlagTotals`, joined with their commit, repository and organization | `-Container` with `-Provider`, or `-TotalsPath` for the frozen output of the query |
+Other statuses: `missing-codecov`, `missing-codecoverage`, `missing-both`. CodeCoverage does not serve
+the patch lines (M3.10): a line-by-line gap found by hand is explained in
+[docs/parity-log.md](../../docs/parity-log.md), with every other gap.
 
-Only the `totals` object of a Codecov answer is read: `lines`, `hits`, `misses`, `partials`, `coverage`.
+The shapes of the answers of Codecov come from its public documentation; they are checked at the first
+real run.
 
 ## Running it
 
-On the frozen sample, without network nor database:
+A dry run by default: it lists the calls it would make and reads nothing.
 
-```shell
-pwsh tools/parity/Compare-TotalsWithCodecov.ps1 -Slug octo-org/app -CommitsFile tools/parity/samples/commits.txt `
-  -CodecovSamplePath tools/parity/samples/codecov -TotalsPath tools/parity/samples/codecoverage/commit-flag-totals.json
+```bash
+export COVERAGE_API_TOKEN=cvp_...   # a reader of the repository, in ONE organization
+export CODECOV_API_TOKEN=...        # an API token of Codecov, not an upload token
+pwsh tools/parity/Compare-WithCodecov.ps1 -ApiUrl https://coverage-api.example.com -Slug my-org/my-repo -Execute -OutputJson parity.json
 ```
 
-On a pilot, against the database of the compose stack (`docker ps` gives the name of the container):
+- Without `-CommitsFile` (one full SHA per line), the 20 most recent commits CodeCoverage lists are
+  compared (`-Count`); without `-Pulls 7,8`, its 20 most recent open pull requests.
+- One organization per run: a `cvp_` token acts in the organization of its user. Run once per
+  organization, with its own token.
+- `-Anonymize` writes no repository name nor file path, for a report others can read.
+- The script exits with 0 whatever it finds: a gap is a finding to explain, not a failure. An API
+  that answers an error stops the run of that repository; with `-Anonymize`, the message names the
+  side (codecov, codecoverage) and the status, never the address.
 
-```shell
-$env:CODECOV_API_TOKEN = '<API token of Codecov, not an upload token>'
-pwsh tools/parity/Compare-TotalsWithCodecov.ps1 -Slug my-org/my-repo -CommitsFile pilot-commits.txt `
-  -Provider PostgreSql -Container code-coverage-db-1 -OutputJson parity.json
+## Daily run
+
+`.github/workflows/parity.yml` runs it every day (and on demand) for the repositories of
+`PARITY_REPOSITORIES`, with the secrets `PARITY_COVERAGE_TOKEN` and `PARITY_CODECOV_TOKEN`; it is
+skipped while they are not set. A failed repository is reported by its index only, the others still
+run, the artifact is uploaded anyway, and the run fails at the end. Its artifact is anonymized: run it from a private copy of the
+repository to keep full reports of private repositories. A scheduled workflow is disabled by GitHub
+after 60 days without activity in the repository.
+
+## Offline self-test
+
+```bash
+pwsh tools/parity/Test-CompareWithCodecov.ps1
 ```
 
-`-Provider SqlServer` reads a SQL Server container the same way. With a login other than `sa`, give its
-password in the `SQLCMDPASSWORD` variable, or type it when the script asks (without echo):
-
-```shell
-$env:SQLCMDPASSWORD = Read-Host -AsSecureString 'Password of parity' | ConvertFrom-SecureString -AsPlainText
-pwsh tools/parity/Compare-TotalsWithCodecov.ps1 -Slug my-org/my-repo -CommitsFile pilot-commits.txt `
-  -Provider SqlServer -Container code-coverage-db-1 -DatabaseUser parity
-```
-
-The commits file holds one full SHA per line; blank lines and lines starting with `#` are skipped.
-
-The answers of Codecov can be frozen once and compared offline afterwards: save each answer as
-`{sha}.json` (project) and `{sha}.{flag}.json` (flag) in a folder, and pass it as `-CodecovSamplePath`.
-
-## The report
-
-```text
-Commit     Flag      Codecov  CodeCoverage Delta    Lines       Counts Carried Status
-a1a1a1a1a1 (project) 85.71000 85.71429     +0.00429 14/14       same           ok
-b2b2b2b2b2 front     75.00000 75.02000     +0.02000 10000/10000 differ         gap
-```
-
-- One line per commit and per flag; the project comes first. `Delta` is CodeCoverage minus Codecov, in
-  percentage points.
-- `Status` is `ok` within the tolerance (`-Tolerance`, 0.01 by default, bounds included), `gap` beyond it,
-  `missing-codecov` or `missing-codecoverage` when one side has no totals for the line, `missing-both`
-  when neither side knows the commit. A flag asked with `-Flags` that neither side holds for the commit
-  is `not-applicable`: it is not one of its flags, so it is neither a gap nor a reason to leave the commit
-  out of the count.
-- `Counts` tells whether lines, hits, misses and partials are equal. They can differ with an equal
-  percentage: it is shown, not counted as a gap, since the criterion is on the percentage.
-- `Carried` marks a flag CodeCoverage carried forward from an ancestor.
-- The gaps are listed after the table, then the count of commits within the tolerance and whether the
-  criterion (`-RequiredCommits`, 20 by default) is met. A commit counts when its project and every one of
-  its flags are `ok`.
-
-The exit code is 0, unless `-FailOnGap` is given and a line is neither `ok` nor `not-applicable`.
-`-OutputJson` writes the lines and the summary; `-PassThru` returns the lines as objects.
-
-## Read-only access to the database
-
-- The query is one `SELECT`, in `sql/commit-flag-totals.postgresql.sql` and
-  `sql/commit-flag-totals.sqlserver.sql`. It takes no parameter and writes nothing.
-- It runs inside the database container, with the client the image ships (`psql`, `sqlcmd`): nothing is
-  installed on the host.
-- PostgreSQL: the session is opened with `default_transaction_read_only=on`, so a write would be refused
-  by the server. No password goes through the script.
-- SQL Server: the connection declares the `ReadOnly` application intent, which the server does not
-  enforce on a single instance. Use a login that can only read (`-DatabaseUser`, member of
-  `db_datareader`); the default `sa` of the compose overlay can write. The password of `sa` is read inside
-  the container (`MSSQL_SA_PASSWORD`). The password of another login comes from `SQLCMDPASSWORD`, or is
-  asked without echo; `docker exec -e SQLCMDPASSWORD` passes it to `sqlcmd` by the name of the variable,
-  so it is neither in an argument nor in the output.
-
-  ```sql
-  CREATE LOGIN parity WITH PASSWORD = N'<password>';
-  USE codecoverage;
-  CREATE USER parity FOR LOGIN parity;
-  ALTER ROLE db_datareader ADD MEMBER parity;
-  ```
-- The query reads every organization: it is an operator reading the database, outside the application
-  and its organization filter. The script keeps the rows of `-Slug` and `-Forge` only.
-- `Infrastructure.Tests/Parity/ParityQueryTests` runs both files against PostgreSQL and SQL Server.
-
-To freeze the output of the query yourself:
-
-```shell
-docker exec -i -e PGOPTIONS="-c default_transaction_read_only=on" <db container> \
-  psql -U cc -d codecoverage -At -q -f - < tools/parity/sql/commit-flag-totals.postgresql.sql > totals.json
-```
-
-## Differences with Codecov to keep in mind
-
-- **Rounding.** Codecov answers a coverage rounded to 2 decimals; CodeCoverage stores 5. A difference
-  under 0.005 point is this rounding, and is within the tolerance.
-- **No coverable line.** Both sides give no coverage (`null`) for a report without line: the line is `ok`.
-- **Carried forward flags.** Both products carry a flag forward from an ancestor commit; the ancestor
-  they pick can differ when uploads are still being processed. The `Carried` column tells where to look.
-- **Flag names.** A flag is compared by its exact name: `Backend` and `backend` are two flags, as in
-  `CommitFlagTotals`. A frozen answer is named after the flag, with every character other than a letter,
-  a digit, `.`, `-` and `_` replaced by `_`.
-
-## The frozen sample
-
-`samples/` is **synthetic**: its Codecov answers follow the shape of the API v2 but were written for this
-tool, not recorded from Codecov, and the real API is never called by the tests. Check the shape against
-one real answer when the pilot starts.
-
-| Commit | What it shows |
-|---|---|
-| `a1a1…` | project and two flags equal, up to the rounding of Codecov |
-| `b2b2…` | a flag exactly at the tolerance (`ok`), another beyond it (`gap`) |
-| `c3c3…` | the project beyond the tolerance, a flag carried forward and equal |
-| `d4d4…` | unknown to Codecov |
-| `e5e5…` | unknown to CodeCoverage, with a flag that only Codecov holds |
-| `f6f6…` | no coverable line on either side |
-
-`samples/codecoverage/commit-flag-totals.json` also holds rows of another organization, another forge,
-another repository and a namespace: the report must leave them out. It also holds commit `0707…`, outside
-`commits.txt`, with the flags `Backend` and `backend`: `Test-CompareTotals.ps1` checks that they stay two
-lines with their own totals.
-
-`pwsh tools/parity/Test-CompareTotals.ps1` runs the script on the sample and checks it against
-`samples/expected/report.txt` and `report.json`; `-Update` rewrites these references.
+It runs the comparison on the synthetic answers of `samples/` (see `samples/README.md`) and checks the
+reference outputs of `samples/expected/`; the CI runs it on every pull request.

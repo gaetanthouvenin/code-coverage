@@ -1,0 +1,1 @@
+{"base_commit":"d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4","head_commit":"f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6","files":[{"name":{"base":"src/a.cs","head":"src/a.cs"},"totals":{"patch":{"hits":1,"misses":0,"partials":0,"coverage":100.0}}}]}

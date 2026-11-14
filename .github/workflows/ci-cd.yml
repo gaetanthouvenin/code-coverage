@@ -103,11 +103,11 @@ jobs:
             --logger "trx" \
             --results-directory TestResults
 
-      # The parity tool of the M1 pilot (tools/parity), on its frozen sample: neither network nor
-      # database, and the Codecov API is never called.
+      # The parity tool (tools/parity, M4.06), on its synthetic answers of both APIs: no network, and
+      # neither the Codecov API nor an instance is ever called.
       - name: Parity tool on its frozen sample
         shell: pwsh
-        run: ./tools/parity/Test-CompareTotals.ps1
+        run: ./tools/parity/Test-CompareWithCodecov.ps1
 
       # The Prometheus alert rules of deploy/observability (M4.04), checked and unit tested by promtool
       # from the Prometheus image pinned by digest (prom/prometheus:v3.5.0).
