@@ -61,5 +61,27 @@ public interface IGitHubAppGateway
     string userLogin,
     CancellationToken cancellationToken);
 
+  /// <summary>Creates a completed check run on a commit, in place of a commit status (M5.05).</summary>
+  /// <param name="repository">The repository, on GitHub.</param>
+  /// <param name="run">The check run, with its first annotations (50 at most).</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>
+  ///   The identifier of the check run, or <see langword="null" /> when GitHub refuses it: the installation lacks the
+  ///   Checks permission (the App was not updated, or the organization did not accept it), the repository or the commit
+  ///   is unknown. The caller publishes the status instead; it is never a failure of the job.
+  /// </returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  Task<long?> CreateCheckRunAsync(ForgeRepositoryRef repository, GitHubCheckRun run, CancellationToken cancellationToken);
+
+  /// <summary>Updates a check run: its conclusion and summary, and adds annotations (50 at most per call).</summary>
+  /// <param name="repository">The repository, on GitHub.</param>
+  /// <param name="checkRunId">The identifier of the check run.</param>
+  /// <param name="run">The new state of the check run and the annotations of this call.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns><see langword="false" /> when GitHub no longer has the check run or refuses the update (permission withdrawn).</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="checkRunId" /> is zero or negative.</exception>
+  Task<bool> UpdateCheckRunAsync(ForgeRepositoryRef repository, long checkRunId, GitHubCheckRun run, CancellationToken cancellationToken);
+
   #endregion
 }

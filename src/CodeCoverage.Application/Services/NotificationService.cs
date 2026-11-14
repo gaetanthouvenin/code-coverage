@@ -27,6 +27,7 @@ namespace CodeCoverage.Application.Services;
 /// <param name="posted">The repository of the published statuses.</param>
 /// <param name="gateways">The gateways of the forges.</param>
 /// <param name="comments">What publishes the comment of a pull request.</param>
+/// <param name="checkRuns">What publishes a status as a GitHub check run.</param>
 /// <param name="organizationSettings">The settings of the organization of the scope.</param>
 /// <param name="urls">The public addresses of the instance.</param>
 /// <param name="clock">The clock.</param>
@@ -49,6 +50,7 @@ internal sealed partial class NotificationService(
   IRepositoryFlagRepository repositoryFlags,
   IForgeGatewayProvider gateways,
   CommentPublisher comments,
+  CheckRunPublisher checkRuns,
   IOrganizationSettingsProvider organizationSettings,
   IOptionsMonitor<UrlOptions> urls,
   IClock clock,
@@ -131,8 +133,13 @@ internal sealed partial class NotificationService(
       }
 
       var targetUrl = TargetUrl(repository, forge, commit, context.Resolution.PullRequest?.Number);
+      var checks = UsesChecks(forge, config, settings);
+      IReadOnlyList<CheckRunAnnotation> annotations = checks && config.GitHubChecks.Annotations && context.HeadView is { } head
+                                                        ? CheckRunAnnotationBuilder.Build(head, context.Resolution.PatchDiff)
+                                                        : [];
+      var patch = StatusContext.Build(settings.StatusContextPrefix, StatusType.Patch, StatusRule.DefaultName);
 
-      published = await PublishAsync(repository, forge, commit, statuses, targetUrl, cancellationToken).ConfigureAwait(false);
+      published = await PublishAsync(repository, forge, commit, statuses, targetUrl, checks, patch, annotations, cancellationToken).ConfigureAwait(false);
     }
 
     // After the statuses: the pull request is saved once, with what the comment and the comparison change on it.
@@ -162,13 +169,23 @@ internal sealed partial class NotificationService(
 
     if (!config.Notify.NotifyError)
     {
-      return await PublishAsync(repository, forge, commit, [], targetUrl, cancellationToken).ConfigureAwait(false);
+      return 0;
     }
 
     var format = new StatusFormat(settings.StatusContextPrefix, config.Precision, config.Rounding);
     var knownFlags = await repositoryFlags.ListAsync(repository.Id, cancellationToken).ConfigureAwait(false);
 
-    return await PublishAsync(repository, forge, commit, FailedStatuses(commit, config, knownFlags, format, targetUrl), targetUrl, cancellationToken)
+    return await PublishAsync(
+               repository,
+               forge,
+               commit,
+               FailedStatuses(commit, config, knownFlags, format, targetUrl),
+               targetUrl,
+               UsesChecks(forge, config, settings),
+               patchContext: null,
+               [],
+               cancellationToken
+             )
              .ConfigureAwait(false);
   }
 
@@ -278,20 +295,45 @@ internal sealed partial class NotificationService(
     return statuses;
   }
 
+  /// <summary>Tells whether the statuses of a commit are published as GitHub check runs (M5.05, ADR-007).</summary>
+  /// <param name="forge">The forge of the repository: check runs are GitHub's only (ADR-014).</param>
+  /// <param name="config">The configuration of the commit: <c>github_checks: false</c> keeps the statuses.</param>
+  /// <param name="settings">The settings of the organization: <c>Notifications:ChecksEnabled</c>, off by default.</param>
+  /// <returns><see langword="true" /> when check runs replace the statuses.</returns>
+  private static bool UsesChecks(Forge forge, CoverageConfig config, OrganizationSettingsSnapshot settings) =>
+    forge is Forge.GitHub && settings.ChecksEnabled && config.GitHubChecks.Enabled;
+
   /// <summary>Publishes the statuses that differ from those already published, and stores them.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="forge">The forge.</param>
   /// <param name="commit">The commit.</param>
   /// <param name="statuses">The statuses of the commit.</param>
   /// <param name="targetUrl">The address the statuses link to.</param>
+  /// <param name="checks">Whether they are published as GitHub check runs.</param>
+  /// <param name="patchContext">The context of the default patch status, the one check run that carries annotations.</param>
+  /// <param name="annotations">The annotations of the patch check run.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>How many statuses were published.</returns>
+  /// <returns>How many statuses (or check runs) were published.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     A check run that GitHub refuses (the installation lacks the Checks permission) is published as a status, and so
+  ///     are the next ones of this notification: the refusal never fails the job (ADR-007).
+  ///   </para>
+  ///   <para>
+  ///     When a name switches between a status and a check run, the earlier publication stays on GitHub: it is given the
+  ///     new state too (a status of the same context, or an update of the earlier check run), so that a required check
+  ///     never keeps an old state.
+  ///   </para>
+  /// </remarks>
   private async Task<int> PublishAsync(
     TrackedRepository repository,
     Forge forge,
     Commit commit,
     IReadOnlyList<CommitStatus> statuses,
     string? targetUrl,
+    bool checks,
+    string? patchContext,
+    IReadOnlyList<CheckRunAnnotation> annotations,
     CancellationToken cancellationToken)
   {
     if (statuses.Count == 0)
@@ -300,7 +342,7 @@ internal sealed partial class NotificationService(
     }
 
     var known = (await posted.ListByCommitAsync(commit.Id, cancellationToken).ConfigureAwait(false))
-      .ToDictionary(static p => p.Status.Context, static p => p.Status, StringComparer.Ordinal);
+      .ToDictionary(static p => p.Status.Context, StringComparer.Ordinal);
     var gateway = gateways.GetGateway(forge);
     var address = repository.ToForgeRef(forge);
     var published = 0;
@@ -308,7 +350,11 @@ internal sealed partial class NotificationService(
     // Two rules can give the same context (a named rule and a flag of the same name): the first one wins.
     foreach (var status in statuses.DistinctBy(static s => s.Context, StringComparer.Ordinal))
     {
-      if (known.TryGetValue(status.Context, out var last) && last.State == status.State && string.Equals(last.Description, status.Description, StringComparison.Ordinal))
+      // Unchanged, and published the same way: a status that becomes a check run is published again.
+      if (known.TryGetValue(status.Context, out var last)
+          && last.Status.State == status.State
+          && string.Equals(last.Status.Description, status.Description, StringComparison.Ordinal)
+          && last.CheckRunId is not null == checks)
       {
         continue;
       }
@@ -320,8 +366,38 @@ internal sealed partial class NotificationService(
         continue;
       }
 
-      await gateway.CreateStatusAsync(address, commit.Sha, status, targetUrl, cancellationToken).ConfigureAwait(false);
-      await posted.UpsertAsync(new PostedStatus(commit.Id, status, targetUrl, clock.UtcNow), cancellationToken).ConfigureAwait(false);
+      long? checkRunId = null;
+
+      if (checks)
+      {
+        var notes = string.Equals(status.Context, patchContext, StringComparison.Ordinal) ? annotations : [];
+
+        checkRunId = await checkRuns.PublishAsync(address, commit.Sha, status, targetUrl, notes, cancellationToken).ConfigureAwait(false);
+
+        if (checkRunId is null)
+        {
+          LogChecksRefused(logger, commit.Id);
+          checks = false;
+        }
+      }
+
+      if (checkRunId is null)
+      {
+        await gateway.CreateStatusAsync(address, commit.Sha, status, targetUrl, cancellationToken).ConfigureAwait(false);
+
+        // A check run published earlier under this name keeps its state on GitHub: it takes the new one.
+        if (last is { CheckRunId: { } earlier })
+        {
+          await checkRuns.SupersedeAsync(address, earlier, commit.Sha, status, targetUrl, cancellationToken).ConfigureAwait(false);
+        }
+      }
+      else if (last is { CheckRunId: null })
+      {
+        // A status published earlier under this name keeps its state on GitHub, beside the check run: it takes the new one.
+        await gateway.CreateStatusAsync(address, commit.Sha, status, targetUrl, cancellationToken).ConfigureAwait(false);
+      }
+
+      await posted.UpsertAsync(new PostedStatus(commit.Id, status, targetUrl, clock.UtcNow) { CheckRunId = checkRunId }, cancellationToken).ConfigureAwait(false);
       published++;
     }
 
@@ -330,6 +406,13 @@ internal sealed partial class NotificationService(
 
   [LoggerMessage(EventId = 1400, Level = LogLevel.Warning, Message = "A status of commit {CommitId} is not published: its context holds {Length} characters")]
   private static partial void LogContextTooLong(ILogger logger, long commitId, int length);
+
+  [LoggerMessage(
+    EventId = 1403,
+    Level = LogLevel.Warning,
+    Message = "GitHub refused the check runs of commit {CommitId}: the installation lacks the Checks permission; its statuses are published instead"
+  )]
+  private static partial void LogChecksRefused(ILogger logger, long commitId);
 
   #endregion
 }

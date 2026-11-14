@@ -30,7 +30,7 @@
    `Get{Thing}ViewModelAsync`).
 6. **Coverage tooling never breaks a build.** The uploader exits with 0 unless `--fail-on-error`.
 7. **Settings live in the database**, are edited in the web console and reloaded without a restart
-   (`IOptionsMonitor<T>`). The 4 settings of an organization (`SettingScope.Organization`) are read
+   (`IOptionsMonitor<T>`). The 5 settings of an organization (`SettingScope.Organization`) are read
    through the scoped `IOrganizationSettingsProvider` instead. The environment only carries the
    bootstrap values (connection string, provider, Data Protection); no functional parameter in
    `appsettings.json`.

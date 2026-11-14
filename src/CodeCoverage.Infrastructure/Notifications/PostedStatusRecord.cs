@@ -31,5 +31,11 @@ internal sealed class PostedStatusRecord
   /// <summary>Gets or sets when the status was published, in UTC.</summary>
   public DateTimeOffset PostedAt { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the identifier of the GitHub check run published in place of the status (M5.05), or
+  ///   <see langword="null" /> when it was published as a status.
+  /// </summary>
+  public long? CheckRunId { get; set; }
+
   #endregion
 }

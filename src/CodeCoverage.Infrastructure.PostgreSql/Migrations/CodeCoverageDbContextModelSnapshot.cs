@@ -1545,6 +1545,9 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(446)
                         .HasColumnType("character varying(446)");
 
+                    b.Property<long?>("CheckRunId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(140)

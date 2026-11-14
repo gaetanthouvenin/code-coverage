@@ -64,7 +64,7 @@ public sealed class OrganizationsControllerTests
   #region Methods
 
   [Fact]
-  public async Task Get_Admin_ShouldReturnTheFourKeys()
+  public async Task Get_Admin_ShouldReturnTheFiveKeys()
   {
     using var client = Client();
 
@@ -72,7 +72,7 @@ public sealed class OrganizationsControllerTests
     using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
 
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
-    body.RootElement.GetArrayLength().ShouldBe(4);
+    body.RootElement.GetArrayLength().ShouldBe(5);
     body.RootElement.EnumerateArray().ShouldAllBe(e => e.GetProperty("source").GetString() == "Default");
   }
 

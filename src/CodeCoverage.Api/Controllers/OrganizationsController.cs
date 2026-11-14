@@ -39,7 +39,7 @@ public sealed class OrganizationsController(ISender sender) : ControllerBase
 
   /// <summary>Read the settings of an organization</summary>
   /// <remarks>
-  ///   The four settings of the scope of an organization, with their value and its source (the organization or the
+  ///   The five settings of the scope of an organization, with their value and its source (the organization or the
   ///   catalog). None is secret, and there is no secret route. Requires an administrator of the organization.
   /// </remarks>
   /// <param name="forge">The forge of the organization.</param>

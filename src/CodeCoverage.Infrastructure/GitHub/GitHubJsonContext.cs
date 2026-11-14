@@ -19,6 +19,8 @@ namespace CodeCoverage.Infrastructure.GitHub;
   PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
   RespectNullableAnnotations = true,
   RespectRequiredConstructorParameters = true)]
+[JsonSerializable(typeof(GitHubCheckRunRequest))]
+[JsonSerializable(typeof(GitHubCheckRunResponse))]
 [JsonSerializable(typeof(GitHubCommitResponse))]
 [JsonSerializable(typeof(GitHubCompareResponse))]
 [JsonSerializable(typeof(GitHubInstallationResponse))]

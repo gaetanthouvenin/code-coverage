@@ -40,7 +40,7 @@ internal sealed class PostedStatusRepository(CodeCoverageDbContext context) : IP
     return
     [
       .. rows.OrderBy(static s => s.Context, StringComparer.Ordinal)
-             .Select(static s => new PostedStatus(s.CommitId, new CommitStatus(s.Context, s.State, s.Description), s.TargetUrl, s.PostedAt)),
+             .Select(static s => new PostedStatus(s.CommitId, new CommitStatus(s.Context, s.State, s.Description), s.TargetUrl, s.PostedAt) { CheckRunId = s.CheckRunId }),
     ];
   }
 
@@ -72,6 +72,7 @@ internal sealed class PostedStatusRepository(CodeCoverageDbContext context) : IP
       row.Description = status.Status.Description;
       row.TargetUrl = status.TargetUrl;
       row.PostedAt = status.PostedAt;
+      row.CheckRunId = status.CheckRunId;
 
       try
       {

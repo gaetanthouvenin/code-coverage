@@ -116,10 +116,14 @@ internal static class GitHubHttpClientConfiguration
 
   /// <summary>Tells whether a request may be sent again after a failure.</summary>
   /// <param name="request">The request, or <see langword="null" /> when the pipeline does not know it.</param>
-  /// <returns><see langword="false" /> for a POST that is not marked <see cref="Repeatable" />, or an unknown request.</returns>
+  /// <returns>
+  ///   The value of <see cref="Repeatable" /> when the request sets it (a PATCH that appends, such as the annotations of a
+  ///   check run, sets it to <see langword="false" />); otherwise <see langword="false" /> for a POST, and for an unknown
+  ///   request.
+  /// </returns>
   private static bool CanBeSentAgain(HttpRequestMessage? request) =>
     request is not null
-    && (request.Method != HttpMethod.Post || (request.Options.TryGetValue(Repeatable, out var repeatable) && repeatable));
+    && (request.Options.TryGetValue(Repeatable, out var repeatable) ? repeatable : request.Method != HttpMethod.Post);
 
   /// <summary>Tells whether an outcome is a transient failure of GitHub.</summary>
   /// <param name="outcome">The outcome of an attempt.</param>

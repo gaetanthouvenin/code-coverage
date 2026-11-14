@@ -134,6 +134,12 @@ public static class SettingDefinitions
   /// <summary>The key of the switch of the pull request comments.</summary>
   public const string NotificationsCommentsEnabled = "Notifications:CommentsEnabled";
 
+  /// <summary>
+  ///   The key of the switch that publishes GitHub Check Runs in place of the commit statuses (M5.05, ADR-007), off by
+  ///   default: each organization turns it on once it granted the Checks permission to the App.
+  /// </summary>
+  public const string NotificationsChecksEnabled = "Notifications:ChecksEnabled";
+
   /// <summary>The key of the time waited for further uploads before notifying, in seconds.</summary>
   public const string NotificationsDebounceSeconds = "Notifications:DebounceSeconds";
 
@@ -245,6 +251,7 @@ public static class SettingDefinitions
     Text(NotificationsStatusContextPrefix, NotificationsGroup, SettingScope.Organization, "coverage"),
     Flag(NotificationsStatusesEnabled, NotificationsGroup, SettingScope.Organization, true),
     Flag(NotificationsCommentsEnabled, NotificationsGroup, SettingScope.Organization, true),
+    Flag(NotificationsChecksEnabled, NotificationsGroup, SettingScope.Organization, false),
     Number(NotificationsDebounceSeconds, NotificationsGroup, SettingScope.Instance, 20, 0, 600),
     Number(NotificationsMaxDelaySeconds, NotificationsGroup, SettingScope.Instance, 300),
     Flag(NotificationsAfterNBuildsCountsCarryforward, NotificationsGroup, SettingScope.Instance, true),

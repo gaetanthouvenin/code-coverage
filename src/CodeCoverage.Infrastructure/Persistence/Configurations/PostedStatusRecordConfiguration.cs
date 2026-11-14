@@ -61,6 +61,7 @@ internal sealed class PostedStatusRecordConfiguration : IEntityTypeConfiguration
     builder.Property(static s => s.Description).IsRequired().HasMaxLength(CommitStatus.DescriptionMaxLength);
     builder.Property(static s => s.TargetUrl).HasMaxLength(PostedStatus.TargetUrlMaxLength);
     builder.Property(static s => s.PostedAt).IsRequired();
+    builder.Property(static s => s.CheckRunId);
 
     builder.HasOne<Commit>().WithMany().HasForeignKey(static s => s.CommitId).OnDelete(DeleteBehavior.Restrict);
   }

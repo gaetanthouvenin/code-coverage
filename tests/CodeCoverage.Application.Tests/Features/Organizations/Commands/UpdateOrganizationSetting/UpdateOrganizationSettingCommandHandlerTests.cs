@@ -108,14 +108,14 @@ public sealed class UpdateOrganizationSettingCommandHandlerTests
   }
 
   [Fact]
-  public async Task Get_ShouldListTheFourKeysWithTheirSource()
+  public async Task Get_ShouldListTheFiveKeysWithTheirSource()
   {
     var prefix = SettingDefinitions.Find(SettingDefinitions.NotificationsStatusContextPrefix)!;
     A.CallTo(() => _settings.ListAsync(A<CancellationToken>._)).Returns([SettingValue.Create(prefix, "codecov", SettingSource.Store, Now, "octocat")]);
 
     var values = await new GetOrganizationSettingsQueryHandler(_settings).Handle(new GetOrganizationSettingsQuery(Forge.GitHub, "octo-org"), Ct);
 
-    values.Count.ShouldBe(4);
+    values.Count.ShouldBe(5);
     values.Single(v => v.Key == prefix.Key).Source.ShouldBe(SettingSource.Store);
     values.Where(v => v.Key != prefix.Key).ShouldAllBe(v => v.Source == SettingSource.Default);
   }

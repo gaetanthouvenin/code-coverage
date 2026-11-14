@@ -1548,6 +1548,9 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasColumnType("nvarchar(446)")
                         .UseCollation("Latin1_General_100_BIN2");
 
+                    b.Property<long?>("CheckRunId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(140)

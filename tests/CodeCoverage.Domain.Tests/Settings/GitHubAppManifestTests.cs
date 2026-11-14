@@ -45,6 +45,8 @@ public sealed class GitHubAppManifestTests
     permissions.GetProperty("contents").GetString().ShouldBe("read");
     permissions.GetProperty("statuses").GetString().ShouldBe("write");
     permissions.GetProperty("pull_requests").GetString().ShouldBe("write");
+    // M5.05: the Check Runs replace the statuses once an organization turns Notifications:ChecksEnabled on.
+    permissions.GetProperty("checks").GetString().ShouldBe("write");
   }
 
   [Fact]

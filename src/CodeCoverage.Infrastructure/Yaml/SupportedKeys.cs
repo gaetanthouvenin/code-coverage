@@ -73,6 +73,8 @@ internal static class SupportedKeys
       "comment.require_base",
       "comment.require_changes",
       "comment.require_head",
+      "github_checks",
+      "github_checks.annotations",
       "comment.show_carryforward_flags",
       "coverage",
       "coverage.precision",
@@ -128,7 +130,6 @@ internal static class SupportedKeys
   private static readonly FrozenSet<string> WithoutEffect = ToSet(
     [
       "component_management",
-      "github_checks",
       .. Combine(Statuses, "if_ci_failed", "if_no_uploads", "measurement"),
     ]);
 

@@ -177,7 +177,6 @@ public sealed class YamlCoverageConfigParserTests
   [InlineData("coverage: {status: {project: {default: {if_ci_failed: error}}}}", SupportedKeys.WithoutEffectKey, "coverage.status.project.default.if_ci_failed")]
   [InlineData("coverage: {status: {patch: {default: {if_no_uploads: error}}}}", SupportedKeys.WithoutEffectKey, "coverage.status.patch.default.if_no_uploads")]
   [InlineData("flag_management: {individual_flags: [{statuses: [{measurement: line}]}]}", SupportedKeys.WithoutEffectKey, "flag_management.individual_flags[0].statuses[0].measurement")]
-  [InlineData("github_checks: {annotations: false}", SupportedKeys.WithoutEffectKey, "github_checks")]
   [InlineData("component_management: {default_rules: {}}", SupportedKeys.WithoutEffectKey, "component_management")]
   [InlineData("codecov: {require_ci_to_pass: true}", SupportedKeys.WithoutEffectKey, "codecov.require_ci_to_pass")]
   [InlineData("codecov: {notify: {wait_for_ci: yes}}", SupportedKeys.WithoutEffectKey, "codecov.notify.wait_for_ci")]
@@ -213,12 +212,32 @@ public sealed class YamlCoverageConfigParserTests
   [InlineData("beta_groups: [a]")]
   [InlineData("codecov: {require_ci_to_pass: false}")]
   [InlineData("codecov: {notify: {wait_for_ci: off}}")]
+  [InlineData("github_checks: false")]
+  [InlineData("github_checks: {annotations: false}")]
   public void Parse_SilentlyIgnoredKey_ShouldNotWarn(string yaml)
   {
     var result = Parser.Parse(yaml);
 
     result.Error.ShouldBeNull();
     result.Warnings.ShouldBeEmpty();
+  }
+
+  // M5.05: github_checks is a rule now (Check Runs, behind Notifications:ChecksEnabled).
+  [Theory]
+  [InlineData("comment: false", true, true)]
+  [InlineData("github_checks: false", false, false)]
+  [InlineData("github_checks: true", true, true)]
+  [InlineData("github_checks: {annotations: false}", true, false)]
+  [InlineData("github_checks: {annotations: true}", true, true)]
+  public void Parse_GitHubChecks_ShouldReadTheRule(string yaml, bool enabled, bool annotations)
+  {
+    var result = Parser.Parse(yaml);
+
+    result.Error.ShouldBeNull();
+    result.Warnings.ShouldBeEmpty();
+    var rule = CoverageConfig.Create(result.Root!).GitHubChecks;
+    rule.Enabled.ShouldBe(enabled);
+    rule.Annotations.ShouldBe(annotations);
   }
 
   [Theory]

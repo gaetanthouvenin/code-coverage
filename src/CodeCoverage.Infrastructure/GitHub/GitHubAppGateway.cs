@@ -67,6 +67,17 @@ internal sealed partial class GitHubAppGateway(
   private static readonly HttpStatusCode[] NotFound = [HttpStatusCode.NotFound];
 
   /// <summary>
+  ///   The refusals of a check run that are not failures: the Checks permission missing (403, or 404, which GitHub
+  ///   answers to an installation that may not see the checks of a private repository). The caller falls back to a
+  ///   status. A 422 is a request GitHub cannot take: a status would not fix it, it is a failure.
+  /// </summary>
+  private static readonly HttpStatusCode[] CheckRunRefused =
+  [
+    HttpStatusCode.Forbidden,
+    HttpStatusCode.NotFound,
+  ];
+
+  /// <summary>
   ///   The refusals of a new comment that are not failures: the pull request is gone, locked, or no longer takes
   ///   comments.
   /// </summary>
@@ -435,6 +446,13 @@ internal sealed partial class GitHubAppGateway(
   )]
   private static partial void LogMembersNotReadable(ILogger logger, string organization, long installationId);
 
+  [LoggerMessage(
+    EventId = 1501,
+    Level = LogLevel.Warning,
+    Message = "GitHub answered 404 to the check run {Address} (installation {InstallationId}): treated as the Checks permission missing, a status is published instead"
+  )]
+  private static partial void LogCheckRunNotFound(ILogger logger, string address, long installationId);
+
   /// <inheritdoc />
   /// <remarks>
   ///   A comment was written by this application when its author is the bot account of the App,
@@ -544,6 +562,71 @@ internal sealed partial class GitHubAppGateway(
     using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
     return !IsAbsent(response, address, NotFound);
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the check run for another reason, does not answer, or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<long?> CreateCheckRunAsync(ForgeRepositoryRef repository, GitHubCheckRun run, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(run);
+
+    var (installationId, root) = Locate(repository);
+    var address = $"{root}/check-runs";
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Post;
+    request.Content = JsonContent.Create(ToRequest(run, creation: true), GitHubJsonContext.Default.GitHubCheckRunRequest);
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    // A 404 falls back like a 403, logged apart: it may also be a repository the installation lost.
+    if (response.StatusCode is HttpStatusCode.NotFound)
+    {
+      LogCheckRunNotFound(logger, address, installationId);
+    }
+
+    // The rate limits were thrown by the pipeline: a 403 left is the Checks permission the installation lacks, which
+    // the caller turns into a status. Never a permanent failure of the job.
+    var created = await ReadAsync(
+                    response,
+                    address,
+                    GitHubJsonContext.Default.GitHubCheckRunResponse,
+                    CheckRunRefused,
+                    static run => run,
+                    cancellationToken
+                  ).ConfigureAwait(false);
+
+    return created?.Id;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the update for another reason, or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<bool> UpdateCheckRunAsync(ForgeRepositoryRef repository, long checkRunId, GitHubCheckRun run, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentNullException.ThrowIfNull(run);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(checkRunId);
+
+    var (installationId, root) = Locate(repository);
+    var address = string.Create(CultureInfo.InvariantCulture, $"{root}/check-runs/{checkRunId}");
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Patch;
+    request.Content = JsonContent.Create(ToRequest(run, creation: false), GitHubJsonContext.Default.GitHubCheckRunRequest);
+
+    // GitHub appends the annotations of a PATCH: sent again after a lost answer, a batch would show twice.
+    request.Options.Set(GitHubHttpClientConfiguration.Repeatable, false);
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return !IsAbsent(response, address, CheckRunRefused);
   }
 
   /// <inheritdoc />
@@ -894,6 +977,28 @@ internal sealed partial class GitHubAppGateway(
     );
 
     return (installationId, string.Create(CultureInfo.InvariantCulture, $"repositories/{repositoryId}"));
+  }
+
+  /// <summary>Builds the body of a check run: <c>completed</c>, with a conclusion of <c>success</c> or <c>failure</c>.</summary>
+  /// <param name="run">The check run.</param>
+  /// <param name="creation">Whether it is created: an update sends neither its name nor its commit.</param>
+  /// <returns>The body.</returns>
+  /// <remarks>A status in error has no counterpart among the conclusions that keep a branch blocked but <c>failure</c>.</remarks>
+  private static GitHubCheckRunRequest ToRequest(GitHubCheckRun run, bool creation)
+  {
+    var conclusion = run.State is StatusState.Success ? "success" : "failure";
+    var annotations = run.Annotations
+                         .Select(static a => new GitHubCheckRunAnnotation(a.Path, a.StartLine, a.EndLine, "warning", a.Message))
+                         .ToList();
+
+    return new GitHubCheckRunRequest(
+      creation ? run.Name : null,
+      creation ? run.HeadSha.Value : null,
+      "completed",
+      conclusion,
+      run.DetailsUrl,
+      new GitHubCheckRunOutput(run.Summary, run.Summary, annotations)
+    );
   }
 
   /// <summary>Tells whether a response says that what was asked for does not exist.</summary>

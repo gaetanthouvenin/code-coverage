@@ -115,7 +115,7 @@ internal sealed class ComparisonBuilder(
 
     await comparisons.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
 
-    return new ComparisonContext(stored, resolution, headSessions, baseSessions);
+    return new ComparisonContext(stored, resolution, headSessions, baseSessions, headView);
   }
 
   #endregion

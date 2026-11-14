@@ -594,7 +594,7 @@ public sealed class NotifyCommitCommandHandlerTests
     var commentOptions = A.Fake<IOptionsMonitor<NotificationOptions>>();
     A.CallTo(() => commentOptions.CurrentValue).Returns(new NotificationOptions());
     var comments = new CommentPublisher(gateways, _pullRequests, commentOptions, urls, _clock, NullLogger<CommentPublisher>.Instance);
-    var service = new NotificationService(builder, views, _posted, A.Fake<IRepositoryFlagRepository>(), gateways, comments, _settings, urls, _clock, NullLogger<NotificationService>.Instance);
+    var service = new NotificationService(builder, views, _posted, A.Fake<IRepositoryFlagRepository>(), gateways, comments, new CheckRunPublisher(A.Fake<IGitHubAppGateway>()), _settings, urls, _clock, NullLogger<NotificationService>.Instance);
 
     var mergeCommits = new MergeCommitDetector(gateways, new CommitAncestry(A.Fake<IGitCommitRepository>(), gateways, _clock));
 
