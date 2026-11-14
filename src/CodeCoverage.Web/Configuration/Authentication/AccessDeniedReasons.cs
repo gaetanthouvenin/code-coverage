@@ -14,5 +14,8 @@ public static class AccessDeniedReasons
   /// <summary>The sign-in was refused: the account reaches no repository of an active organization.</summary>
   public const string NoRepository = "no-repository";
 
+  /// <summary>The sign-in was refused: the account only reaches organizations that wait for their admission.</summary>
+  public const string PendingAdmission = "pending-admission";
+
   #endregion
 }

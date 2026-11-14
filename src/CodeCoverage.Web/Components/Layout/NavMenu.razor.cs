@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.ViewModels.Access;
@@ -18,7 +19,7 @@ namespace CodeCoverage.Web.Components.Layout;
 /// <summary>
 ///   Builds the top bar of the validated mockup: its entries (Repositories; Organization for the administrators of an
 ///   organization; Instance for the administrators of the instance; My account), the switcher of organization and the
-///   user menu.
+///   user menu, or the sign-in button when nobody is signed in.
 /// </summary>
 /// <remarks>
 ///   The entries only hide what the user cannot use: every page keeps checking the access itself. The entries of pages
@@ -43,6 +44,11 @@ public partial class NavMenu : IDisposable
   /// <summary>Gets or sets the navigation of the signed-in user, or <see langword="null" /> when nobody is signed in.</summary>
   [Parameter]
   public NavigationViewModel? Model { get; set; }
+
+  /// <summary>Gets or sets a value indicating whether a user is signed in; when not, the bar offers to sign in.</summary>
+  /// <remarks>Told apart from a <see langword="null" /> <see cref="Model" />, which a failed reading also leaves.</remarks>
+  [Parameter]
+  public bool SignedIn { get; set; }
 
   #endregion
 
@@ -69,6 +75,9 @@ public partial class NavMenu : IDisposable
   private string? SwitcherPlaceholder { get; set; }
 
   private string? RoleLabel { get; set; }
+
+  // The sign-in brings the visitor back to the page it was on.
+  private string SignInHref { get; set; } = string.Empty;
 
   #endregion
 
@@ -170,6 +179,7 @@ public partial class NavMenu : IDisposable
     Switcher = SwitcherOptions(organizations, allowAll: section.Length == 0);
     SwitcherPlaceholder = CurrentOrganization is null && !Switcher.Any(static o => o.Value.Length == 0) ? L["Org_Choose"].Value : null;
     RoleLabel = Model is null ? null : RoleOf(Model);
+    SignInHref = AuthenticationEndpoints.SignInUri(new Uri(Navigation.Uri).PathAndQuery);
   }
 
   private IReadOnlyList<CcSelectOption> SwitcherOptions(IReadOnlyList<NavigationOrganizationViewModel> organizations, bool allowAll)

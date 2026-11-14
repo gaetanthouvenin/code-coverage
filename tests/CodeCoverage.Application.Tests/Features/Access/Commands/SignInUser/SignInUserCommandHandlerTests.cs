@@ -92,7 +92,7 @@ public sealed class SignInUserCommandHandlerTests
 
     var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
 
-    _handler = new SignInUserCommandHandler(_userGateway, _users, protector, updater, _jobQueue, access, bootstrap, clock);
+    _handler = new SignInUserCommandHandler(_userGateway, _users, protector, updater, _directory, _jobQueue, access, bootstrap, clock);
   }
 
   #endregion
@@ -120,15 +120,52 @@ public sealed class SignInUserCommandHandlerTests
   [Fact]
   public async Task Handle_NoActiveOrganization_ShouldThrowForbidden()
   {
-    _directory.Add("1001", "pending-org");
     _directory.Add("2002", "suspended-org", admitted: true).Suspend(SuspensionReason.Administrator, Now);
-    Reaches(Installed(42, "1001", "pending-org"), Installed(43, "2002", "suspended-org"), Installed(44, "3003", "unknown-org"));
+    Reaches(Installed(43, "2002", "suspended-org"), Installed(44, "3003", "unknown-org"));
 
     var exception = await Should.ThrowAsync<ForbiddenException>(async () => await HandleAsync());
 
     exception.ErrorCode.ShouldBe(AccessErrors.NoRepository);
     _saved.ShouldNotBeNull().ShouldBeEmpty();
     _queued.ShouldBeEmpty();
+  }
+
+  // M4.02j: the App is installed, the organization waits for the administrator of the instance; nothing to install.
+  [Fact]
+  public async Task Handle_PendingOrganization_ShouldThrowPendingAdmission()
+  {
+    _directory.Add("1001", "pending-org");
+    _directory.Add("2002", "suspended-org", admitted: true).Suspend(SuspensionReason.Administrator, Now);
+    Reaches(Installed(42, "1001", "pending-org"), Installed(43, "2002", "suspended-org"), Installed(44, "3003", "unknown-org"));
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(async () => await HandleAsync());
+
+    exception.ErrorCode.ShouldBe(AccessErrors.PendingAdmission);
+    _saved.ShouldNotBeNull().ShouldBeEmpty();
+    _queued.ShouldBeEmpty();
+  }
+
+  // A suspended installation of a pending organization gives no access once admitted either.
+  [Fact]
+  public async Task Handle_SuspendedInstallationOfAPendingOrganization_ShouldThrowNoRepository()
+  {
+    _directory.Add("1001", "pending-org");
+    Reaches(new GitHubInstallationInfo(42, "1001", "pending-org", OrganizationAccountType.Organization, true));
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(async () => await HandleAsync());
+
+    exception.ErrorCode.ShouldBe(AccessErrors.NoRepository);
+  }
+
+  // An active organization lets the user in, whatever another installation waits for.
+  [Fact]
+  public async Task Handle_ActiveAndPendingOrganizations_ShouldSignIn()
+  {
+    _directory.Add("1001", "pending-org");
+    _directory.Add("2002", "octo-org", admitted: true);
+    Reaches(Installed(42, "1001", "pending-org"), Installed(43, "2002", "octo-org"));
+
+    (await HandleAsync()).ShouldBe(UserId);
   }
 
   [Fact]

@@ -150,6 +150,41 @@ public sealed class RepositoryOverviewTests : UiTestContext
     cut.FindAll(".cc-header").ShouldBeEmpty();
   }
 
+  // M4.02j: nobody signed in, the refusal may only mean « sign in first »: the sign-in brings the visitor back.
+  [Fact]
+  public void Render_NotFoundWhileAnonymous_ShouldLeaveForTheSignInWithoutExpired()
+  {
+    Services.AddAnonymousSession();
+    Navigation.NavigateTo("github/octo-org/app");
+    A.CallTo(() => _sender.Send(A<GetRepositoryQuery>._, A<CancellationToken>._)).ThrowsAsync(new NotFoundException(RepositoryErrors.NotFound, "Missing."));
+
+    Render<OverviewPage>(Address());
+
+    Navigation.Uri.ShouldBe("http://localhost/signin?returnUrl=%2Fgithub%2Focto-org%2Fapp");
+  }
+
+  // An address nothing is read for offers the sign-in to a visitor, back to the same address.
+  [Fact]
+  public void Render_UnknownForgeWhileAnonymous_ShouldOfferToSignIn()
+  {
+    Services.AddAnonymousSession();
+    Navigation.NavigateTo("svn/octo-org/app");
+
+    var cut = Render<OverviewPage>(Address("svn"));
+
+    cut.Find("[data-state=missing] a[href='signin?returnUrl=%2Fsvn%2Focto-org%2Fapp']").TextContent.ShouldContain(L("Nav_SignIn"));
+  }
+
+  [Fact]
+  public void Render_NotFound_ShouldNotOfferToSignInToASignedInUser()
+  {
+    A.CallTo(() => _sender.Send(A<GetRepositoryQuery>._, A<CancellationToken>._)).ThrowsAsync(new NotFoundException(RepositoryErrors.NotFound, "Missing."));
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.FindAll("[data-state=missing] a[href^='signin']").ShouldBeEmpty();
+  }
+
   // A forge segment the console does not write is the same inaccessible state, and nothing is read.
   [Theory]
   [InlineData("orgs")]

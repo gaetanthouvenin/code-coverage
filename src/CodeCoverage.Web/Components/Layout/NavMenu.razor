@@ -30,5 +30,9 @@
         </form>
       </CcUserMenu>
     }
+    else if (!SignedIn)
+    {
+      <CcButton Class="cc-topnav__signin" Variant="CcButtonVariant.Primary" Icon="CcIconName.GitHub" Href="@SignInHref">@L["Nav_SignIn"]</CcButton>
+    }
   </UserMenu>
 </CcTopNav>

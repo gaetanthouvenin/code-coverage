@@ -15,7 +15,9 @@ namespace CodeCoverage.Web.Components.Pages;
 /// <summary>The page shown to a signed-in person who lacks the permission a page requires.</summary>
 /// <remarks>
 ///   A sign-in refused because the account reaches no repository lands here with
-///   <c>?reason=</c><see cref="AccessDeniedReasons.NoRepository" />, and no session.
+///   <c>?reason=</c><see cref="AccessDeniedReasons.NoRepository" />, and no session; one refused because its organizations
+///   wait for their admission, with <c>?reason=</c><see cref="AccessDeniedReasons.PendingAdmission" />, and a way to sign
+///   in again once they are admitted.
 /// </remarks>
 public partial class AccessDenied
 {
@@ -38,7 +40,15 @@ public partial class AccessDenied
 
   /// <summary>Gets the explanation shown, which follows the reason.</summary>
   private string Description =>
-    Reason == AccessDeniedReasons.NoRepository ? L["Access.NoRepository"] : L["AccessDenied_Description"];
+    Reason switch
+    {
+      AccessDeniedReasons.NoRepository => L["Access.NoRepository"],
+      AccessDeniedReasons.PendingAdmission => L["Access.PendingAdmission"],
+      var _ => L["AccessDenied_Description"],
+    };
+
+  /// <summary>Gets a value indicating whether the page offers to sign in again rather than to go home.</summary>
+  private bool SignInAgain => Reason == AccessDeniedReasons.PendingAdmission;
 
   #endregion
 }

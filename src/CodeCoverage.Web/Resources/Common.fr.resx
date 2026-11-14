@@ -18,6 +18,7 @@
   <data name="Access.InvalidApiTokenExpiry" xml:space="preserve"><value>L’expiration doit être dans le futur.</value></data>
   <data name="Access.Forbidden" xml:space="preserve"><value>Vous n’avez pas la permission de faire cela.</value></data>
   <data name="Access.NoRepository" xml:space="preserve"><value>Vous ne pouvez pas vous connecter : votre compte GitHub n’accède à aucun dépôt où CodeCoverage est installé. Demandez à un administrateur de votre organisation d’installer l’App GitHub.</value></data>
+  <data name="Access.PendingAdmission" xml:space="preserve"><value>Votre compte GitHub accède à une organisation où CodeCoverage est installé, mais l’administrateur de cette instance ne l’a pas encore admise. Reconnectez-vous une fois l’admission faite.</value></data>
   <data name="Access.Unauthenticated" xml:space="preserve"><value>Votre session a expiré. Reconnectez-vous pour continuer.</value></data>
   <data name="AccessDenied_Description" xml:space="preserve"><value>Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin.</value></data>
   <data name="AccessDenied_Title" xml:space="preserve"><value>Accès refusé</value></data>
@@ -116,6 +117,7 @@
   <data name="Toast_RequestFailed" xml:space="preserve"><value>L’action n’a pas pu aboutir</value></data>
   <data name="Action_SignIn" xml:space="preserve"><value>Se connecter avec GitHub</value></data>
   <data name="Nav_SignOut" xml:space="preserve"><value>Se déconnecter</value></data>
+  <data name="Nav_SignIn" xml:space="preserve"><value>Se connecter</value></data>
   <data name="Loading" xml:space="preserve"><value>Chargement…</value></data>
   <data name="Action_Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Action_Cancel" xml:space="preserve"><value>Annuler</value></data>
@@ -199,6 +201,7 @@
   <data name="SignIn_Failed" xml:space="preserve"><value>La connexion avec GitHub n’a pas abouti. Réessayez.</value></data>
   <data name="SignIn_SignedInAs" xml:space="preserve"><value>Session ouverte au nom de {0}.</value></data>
   <data name="SignIn_Continue" xml:space="preserve"><value>Continuer</value></data>
+  <data name="SignIn_Again" xml:space="preserve"><value>Se reconnecter</value></data>
   <data name="Operations.JobNotFound" xml:space="preserve"><value>Ce job n’existe pas.</value></data>
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Seul un job en échec ou mort peut être relancé, et pas tant que le même travail attend déjà.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>La page va de 1 à 21474836, et une page contient de 1 à 100 jobs.</value></data>

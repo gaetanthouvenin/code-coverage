@@ -68,6 +68,37 @@ public sealed class NavMenuTests : UiTestContext
     cut.FindAll(".cc-topnav__org").ShouldBeEmpty();
   }
 
+  // M4.02j: a visitor always sees where to sign in, and comes back to the page it was on.
+  [Fact]
+  public void Render_SignedOut_ShouldOfferToSignInAndComeBack()
+  {
+    Navigation.NavigateTo("github/octo-org/app/commits?branch=main");
+
+    var cut = Render<NavMenu>();
+
+    var signIn = cut.Find("a.cc-topnav__signin");
+    signIn.TextContent.Trim().ShouldBe(Common("Nav_SignIn"));
+    signIn.GetAttribute("href").ShouldBe("signin?returnUrl=%2Fgithub%2Focto-org%2Fapp%2Fcommits%3Fbranch%3Dmain");
+  }
+
+  // Signed in but the navigation could not be read: no user menu, and no sign-in offered either.
+  [Fact]
+  public void Render_SignedInWithoutNavigation_ShouldNotOfferToSignIn()
+  {
+    var cut = Render<NavMenu>(p => p.Add(n => n.SignedIn, true));
+
+    cut.FindAll(".cc-topnav__signin").ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Render_SignedIn_ShouldNotOfferToSignIn()
+  {
+    var cut = Render<NavMenu>(p => p.Add(n => n.Model, new NavigationViewModel("octocat", false, [])).Add(n => n.SignedIn, true));
+
+    cut.FindAll(".cc-topnav__signin").ShouldBeEmpty();
+    cut.FindAll(".cc-user-menu").ShouldHaveSingleItem();
+  }
+
   // The switcher: hidden without organization, « All organizations » on the home page only, a login of two forges
   // told apart by its forge.
   [Fact]

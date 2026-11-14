@@ -57,6 +57,9 @@ public partial class MainLayout : IDisposable
   /// </summary>
   private NavigationViewModel? UserNavigation { get; set; }
 
+  /// <summary>Gets a value indicating whether a user is signed in: the bar offers to sign in otherwise.</summary>
+  private bool SignedIn { get; set; }
+
   #endregion
 
   #region Lifecycle
@@ -71,6 +74,8 @@ public partial class MainLayout : IDisposable
     {
       return;
     }
+
+    SignedIn = true;
 
     var result = await Runner.RunAsync(static (sender, ct) => sender.GetNavigationViewModelAsync(ct)).ConfigureAwait(true);
 

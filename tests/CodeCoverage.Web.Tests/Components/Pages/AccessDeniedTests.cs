@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Bunit;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
@@ -33,6 +35,19 @@ public sealed class AccessDeniedTests : UiTestContext
     var cut = Render<AccessDenied>();
 
     cut.Markup.ShouldContain(L["Access.NoRepository"].Value);
+  }
+
+  // M4.02j: an account whose organization waits for its admission has nothing to install; it signs in again later.
+  [Fact]
+  public void Render_PendingAdmissionReason_ShouldExplainAndOfferToSignInAgain()
+  {
+    Navigation.NavigateTo($"access-denied?reason={AccessDeniedReasons.PendingAdmission}");
+
+    var cut = Render<AccessDenied>();
+
+    cut.Markup.ShouldContain(L["Access.PendingAdmission"].Value);
+    cut.Markup.ShouldNotContain(L["Access.NoRepository"].Value);
+    cut.Find("a[href='signin']").TextContent.ShouldContain(L["SignIn_Again"].Value);
   }
 
   [Fact]

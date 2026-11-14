@@ -15,6 +15,7 @@ namespace CodeCoverage.Web.Configuration.Authentication;
 /// <summary>Checks the session cookie on each request, and sets the principal of the request scope.</summary>
 /// <param name="users">The repository of the users.</param>
 /// <param name="currentUser">The principal of the request scope.</param>
+/// <param name="session">Records a rejected cookie, for the pages to say the session expired.</param>
 /// <remarks>
 ///   <para>
 ///     A session goes on only while its user exists and keeps a token GitHub could accept: a renewal GitHub refused
@@ -27,7 +28,7 @@ namespace CodeCoverage.Web.Configuration.Authentication;
 ///     message.
 ///   </para>
 /// </remarks>
-internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserContext currentUser) : CookieAuthenticationEvents
+internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserContext currentUser, SessionState session) : CookieAuthenticationEvents
 {
   #region Overrides of CookieAuthenticationEvents
 
@@ -42,6 +43,7 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
     if (user is null)
     {
       context.RejectPrincipal();
+      session.Reject();
       await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
 
       return;

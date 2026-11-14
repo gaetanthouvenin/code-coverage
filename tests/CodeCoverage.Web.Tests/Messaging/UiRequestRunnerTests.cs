@@ -19,10 +19,13 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Diagnostics.Queries.Ping;
 using CodeCoverage.Application.Security;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Web.Components.Ui.Models;
 using CodeCoverage.Web.Components.Ui.Services;
 using CodeCoverage.Web.Configuration;
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Extensions;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -70,6 +73,8 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
   private IStringLocalizer<Common> L => _circuit.ServiceProvider.GetRequiredService<IStringLocalizer<Common>>();
 
   private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+  private RecordingNavigationManager Navigation => (RecordingNavigationManager)_circuit.ServiceProvider.GetRequiredService<NavigationManager>();
 
   #endregion
 
@@ -179,6 +184,8 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
   [Fact]
   public async Task RunAsync_WithNotFound_ShouldReturnNotFoundResult()
   {
+    SignIn();
+
     var result = await Runner.RunAsync<int>((_, _) => throw NotFoundException.For("Repository", "42"), cancellationToken: Token);
 
     result.NotFound.ShouldBeTrue();
@@ -186,18 +193,54 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
     Toasts.Toasts.ShouldBeEmpty("the page shows its « not found » empty state instead");
   }
 
-  // The session ended: the page leaves for the sign-in page, with a full load that checks the cookie again.
+  // M4.02j: a deep link followed by a visitor leads to the sign-in, which brings it back; no session ever expired.
   [Fact]
-  public async Task RunAsync_WithUnauthorized_ShouldLeaveForTheSignInPage()
+  public async Task RunAsync_WithNotFoundWhileAnonymous_ShouldLeaveForTheSignInWithoutExpired()
   {
+    Navigation.NavigateTo("github/octo-org/app/commits?branch=main");
+
+    var result = await Runner.RunAsync<int>((_, _) => throw NotFoundException.For("Repository", "42"), cancellationToken: Token);
+
+    result.NotFound.ShouldBeFalse("a visitor is not told the address is missing before signing in");
+    result.Succeeded.ShouldBeFalse();
+    Navigation.Uri.ShouldBe("http://localhost/signin?returnUrl=%2Fgithub%2Focto-org%2Fapp%2Fcommits%3Fbranch%3Dmain");
+    Navigation.ForcedLoad.ShouldBeTrue();
+  }
+
+  [Fact]
+  public async Task RunAsync_WithUnauthorizedWhileAnonymous_ShouldNotSayTheSessionExpired()
+  {
+    await Runner.RunAsync<int>((_, _) => throw new UnauthorizedException(SecurityErrors.Unauthenticated, "No user."), cancellationToken: Token);
+
+    Navigation.Uri.ShouldBe("http://localhost/signin?returnUrl=%2F");
+  }
+
+  // The cookie of the request was rejected: the session existed, and ended.
+  [Fact]
+  public async Task RunAsync_WithNotFoundAfterARejectedCookie_ShouldSayTheSessionExpired()
+  {
+    Navigation.NavigateTo("github/octo-org/app");
+    _circuit.ServiceProvider.GetRequiredService<SessionState>().Reject();
+
+    await Runner.RunAsync<int>((_, _) => throw NotFoundException.For("Repository", "42"), cancellationToken: Token);
+
+    Navigation.Uri.ShouldBe("http://localhost/signin?returnUrl=%2Fgithub%2Focto-org%2Fapp&expired=true");
+  }
+
+  // The session of the circuit ended: the page leaves for the sign-in page, with a full load that checks the cookie again.
+  [Fact]
+  public async Task RunAsync_WithUnauthorizedWhileSignedIn_ShouldLeaveForTheSignInPageAndSayTheSessionExpired()
+  {
+    SignIn();
+    Navigation.NavigateTo("account/tokens");
+
     var result = await Runner.RunAsync<int>((_, _) => throw new UnauthorizedException(SecurityErrors.Unauthenticated, "No user."), cancellationToken: Token);
 
     result.Succeeded.ShouldBeFalse();
     result.NotFound.ShouldBeFalse();
     Toasts.Toasts.ShouldBeEmpty();
-    var navigation = (RecordingNavigationManager)_circuit.ServiceProvider.GetRequiredService<NavigationManager>();
-    navigation.Uri.ShouldBe("http://localhost/signin?expired=true");
-    navigation.ForcedLoad.ShouldBeTrue();
+    Navigation.Uri.ShouldBe("http://localhost/signin?returnUrl=%2Faccount%2Ftokens&expired=true");
+    Navigation.ForcedLoad.ShouldBeTrue();
   }
 
   [Fact]
@@ -218,6 +261,9 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
 
     Toasts.Toasts.ShouldBeEmpty();
   }
+
+  private void SignIn() =>
+    _circuit.ServiceProvider.GetRequiredService<CurrentUserContext>().SetUser(42, "octocat", Forge.GitHub, "583231");
 
   #endregion
 
