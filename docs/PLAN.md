@@ -443,6 +443,9 @@ graph TD
   M4_02 --> M4_02a["M4.02a Vérification sur deux organisations"]
   M4_01 --> M4_02b["M4.02b Déploiement continu"]
   M4_02 --> M4_02b
+  M4_02b --> M4_02c["M4.02c COMPOSE_FILE relatif"]
+  M4_02b --> M4_02d["M4.02d Exclusion des mises à jour d'images"]
+  M4_02d --> M4_02e["M4.02e PostgreSQL 18"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2501,6 +2504,38 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** unitaires et d'hôte de `KnownNetworks` dans `Api.Tests` et `Web.Tests` ; `Test-DeployProduction.ps1` et le test du crochet en CI ; puis un premier déploiement réel par une pré-version (propriétaire).
 - **Acceptation :** un tag `v*` dont la CI réussit est déployé après approbation dans `/data03/docker/code-coverage` ; l'Api et le Web sont prêts derrière NPX ; l'uploader servi est celui de la release ; une image dont la révision diffère du tag est refusée ; un job d'une PR qui vise le label est refusé par le crochet (propriétaire).
 - **Dépend de :** M4.01, M4.02
+
+#### M4.02c — Chemins relatifs de `COMPOSE_FILE` au déploiement
+- **Issue :** [#259](https://github.com/gaetanthouvenin/code-coverage/issues/259)
+- **Objectif :** qu'un `COMPOSE_FILE` relatif dans le `.env` de l'hôte (`docker-compose.prod.yml:docker-compose.host.yml`, la forme de `.env.example`) désigne les fichiers du dossier de déploiement. Constaté au premier déploiement du 2026-11-14 : `docker compose --project-directory <Directory>` lit bien le `.env` de ce dossier, mais résout les chemins relatifs de `COMPOSE_FILE` depuis le dossier courant, celui du runner (`stat …/_work/code-coverage/code-coverage/docker-compose.prod.yml: no such file or directory`). Le contournement actuel est un `COMPOSE_FILE` en chemins absolus.
+- **Couches :** déploiement, CI, docs.
+- **Fichiers :** `scripts/Deploy-Production.ps1` (chaque commande compose lancée avec `<Directory>` comme dossier courant, rétabli après la commande, échec compris ; les commandes affichées pour un retour manuel commencent par `cd <Directory>`) ; `scripts/Test-DeployProduction.ps1` (le faux `docker` consigne son dossier courant et échoue, comme compose, quand un chemin relatif de `COMPOSE_FILE` n'existe pas depuis ce dossier) ; `deploy/vm/.env.example` (les deux formes, relative et absolue, sont admises) ; `docs/operations.md` (section « Continuous deployment »).
+- **Tests :** `Test-DeployProduction.ps1` lancé depuis un autre dossier que le dossier de déploiement, avec un `COMPOSE_FILE` relatif puis absolu ; puis un déploiement réel avec la forme relative (propriétaire).
+- **Acceptation :** un `.env` qui reprend `COMPOSE_FILE` tel quel depuis `.env.example` se déploie par le job `deploy` ; aucune commande compose du script ne dépend du dossier courant du runner.
+- **Dépend de :** M4.02b
+
+#### M4.02d — Conteneurs exclus des outils de mise à jour automatique d'images
+- **Issue :** [#260](https://github.com/gaetanthouvenin/code-coverage/issues/260)
+- **Objectif :** qu'un outil de mise à jour d'images de l'hôte ne recrée jamais un conteneur de CodeCoverage ; seul un tag `v*` déployé par M4.02b change une image. Constaté le 2026-11-14 : WUD (What's Up Docker) a recréé `code-coverage-db-1` en `postgres:18-alpine3.24` une minute après l'initialisation de la base par PostgreSQL 17. PostgreSQL 18 a refusé ces données, et l'Api ne résolvait plus `db`. WUD est arrêté sur l'hôte jusqu'à cette micro-feature.
+- **Couches :** déploiement, docs.
+- **Fichiers :** `deploy/vm/docker-compose.prod.yml` (labels `wud.watch: "false"` et `com.centurylinklabs.watchtower.enable: "false"` sur chaque service, sans effet sur un hôte sans ces outils ; commentaire d'en-tête : les images sont épinglées par condensé et ne changent que par une release) ; `docs/operations.md` (section « Continuous deployment » : outils de mise à jour d'images de l'hôte, labels posés, vérification avant de relancer WUD).
+- **Tests :** contrôle dans `compose-smoke` que `docker compose config` de `deploy/vm/docker-compose.prod.yml`, avec et sans `docker-compose.host.yml`, porte les deux labels sur chaque service ; puis WUD relancé sur l'hôte sans qu'il recrée un conteneur de CodeCoverage (propriétaire).
+- **Acceptation :** après un déploiement, WUD relancé liste les conteneurs de CodeCoverage comme ignorés et ne les recrée pas (propriétaire).
+- **Dépend de :** M4.02b
+
+#### M4.02e — Passage à PostgreSQL 18
+- **Issue :** [#261](https://github.com/gaetanthouvenin/code-coverage/issues/261)
+- **Objectif :** passer de PostgreSQL 17 à PostgreSQL 18, la dernière version majeure, partout où le dépôt fixe la version, et migrer la base de l'hôte. PostgreSQL 17 avait été pris par défaut au démarrage du projet, sans décision écrite (ARCHITECTURE, CONVENTIONS et tests) ; il reste maintenu jusqu'en novembre 2029. Les images 18 rangent les données dans `/var/lib/postgresql/18/docker` et refusent de démarrer quand `/var/lib/postgresql/data` contient une base : le montage passe à `/var/lib/postgresql`, et une base 17 existante passe par une sauvegarde puis une restauration.
+- **Couches :** déploiement, tests, docs.
+- **Fichiers :**
+  - **Images** : `postgres:18-alpine` épinglé par condensé, avec la version en commentaire, dans `deploy/vm/docker-compose.prod.yml` (services `db` et `backup`) et `deploy/vm/backup/Dockerfile` ; `postgres:18-alpine` dans `docker-compose.yml`, `Infrastructure.Tests/Support/DatabaseFixture.cs`, `Api.Tests/Isolation/IsolationDatabase.cs` et `Web.Tests/Isolation/IsolationDatabase.cs`.
+  - **Montage** : volume `db` monté sur `/var/lib/postgresql` dans les deux compose ; `docker-compose.host.yml` inchangé (le dossier `DATA_DIR/db` reçoit le sous-dossier `18/docker`).
+  - **Garde de déploiement** : `scripts/Deploy-Production.ps1` lit `DATA_DIR/db/PG_VERSION` (et `DATA_DIR/db/*/docker/PG_VERSION`) et refuse, sans rien changer, une version majeure différente de celle de l'image `db`, en nommant la procédure de migration ; cas ajouté à `Test-DeployProduction.ps1`.
+  - **Migration** : `scripts/Migrate-PostgreSqlMajor.ps1`, en simulation par défaut (sauvegarde `BACKUP_ONCE` par l'image de la version source, arrêt de l'Api et du Web, ancien dossier de données renommé et jamais supprimé, base neuve sur la nouvelle image, `pg_restore`, comptes de lignes comparés, redémarrage de l'Api puis du Web, retour arrière par le dossier renommé) ; `docs/operations.md` (section « PostgreSQL major upgrade »).
+  - **Documents** : ARCHITECTURE et CONVENTIONS (version de PostgreSQL), `scripts/test-backup-restore.ps1` (restauration d'un dump 17 dans une base 18).
+- **Tests :** toute la suite de base de données sur PostgreSQL 18 (Testcontainers) ; `compose-smoke` sur l'image 18 ; `test-backup-restore.ps1` d'un dump 17 vers une base 18 ; garde de version dans `Test-DeployProduction.ps1` ; puis la migration de la base de l'hôte (propriétaire).
+- **Acceptation :** la CI est verte sur PostgreSQL 18 ; un déploiement sur une base 17 est refusé avec la procédure nommée ; la base de l'hôte est migrée sans perte, comptes de lignes identiques, et l'ancien dossier est gardé jusqu'à sa suppression par le propriétaire.
+- **Dépend de :** M4.02b, M4.02d
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
