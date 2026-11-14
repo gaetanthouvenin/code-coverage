@@ -1,0 +1,91 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - Prometheus alert rules (ARCHITECTURE.md §12.6, M4.04)
+# The metrics leave the hosts through OTLP only (meter "CodeCoverage"); the collector of
+# docker-compose.observability.yml exports them to Prometheus under these names. Thresholds live
+# here, never in the configuration of the hosts (AGENT.md rule 7). The receiver of the alerts
+# (Alertmanager, mail, chat) is an operations choice kept out of this public repository.
+# Checked in CI by `promtool check rules` and `promtool test rules alerts.test.yml`.
+# Metrics are not split by organization (ADR-013): an alert describes the instance.
+# ------------------------------------------------------------------------------------------------
+groups:
+  - name: codecoverage
+    rules:
+      # A dead job used all its attempts: the work it carried (a notification, a parse, an import)
+      # never happened. Retry it from /admin/operations once the cause is fixed.
+      - alert: CodeCoverageDeadJobs
+        expr: max(jobs_dead) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} dead job(s) in the queue"
+          description: "Jobs used all their attempts. Read their last error on /admin/operations, fix the cause, then retry them (POST /api/v1/ops/jobs/{id}/retry)."
+
+      # The oldest job that may run has waited more than 10 minutes: the workers are stopped,
+      # saturated or failing.
+      - alert: CodeCoverageJobQueueStalled
+        expr: max(job_oldest_queued_age_seconds) > 600
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The oldest runnable job has waited {{ $value | humanizeDuration }}"
+          description: "No worker takes the queue. Check that an Api with Worker:Enabled runs, its logs, and the database."
+
+      # The last beat of a worker is older than 2 minutes (a worker beats every 15 s): every Api
+      # that runs the worker is stopped or stuck. Every Api reads the same row: max(), so that the
+      # last value of an Api that stopped (kept a few minutes by the collector) hides nothing.
+      - alert: CodeCoverageWorkerHeartbeatStale
+        expr: max(worker_heartbeat_age_seconds) > 120
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No worker heartbeat for {{ $value | humanizeDuration }}"
+          description: "No Api runs the job worker. Start one (Worker:Enabled true), or read why it stopped."
+
+      # The Apis export the job gauges but no heartbeat age: no worker ever beat on this instance, or the
+      # last beat is older than the purge of WorkerHeartbeats (24 h), where the stale rule resolves.
+      - alert: CodeCoverageWorkerHeartbeatMissing
+        expr: absent(worker_heartbeat_age_seconds) and on() count(job_oldest_queued_age_seconds) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No worker heartbeat is recorded"
+          description: "No Api has run the job worker for a day, or ever. Start one (Worker:Enabled true), or read why it stopped."
+
+      # No Api exports the job gauges any more: the hosts are down, or the OTLP pipeline is broken.
+      - alert: CodeCoverageMetricsAbsent
+        expr: absent_over_time(job_oldest_queued_age_seconds[5m])
+        labels:
+          severity: critical
+        annotations:
+          summary: "No Api has exported the job gauges for 5 minutes"
+          description: "Every Api is down, or OTEL_EXPORTER_OTLP_ENDPOINT, the collector or Prometheus is broken."
+
+      # Webhook deliveries with an invalid signature: a secret out of step after a rotation, or a
+      # forged request. Counters reset when a host restarts: increase() only. The series of a host
+      # appears at its first failure, already at 1, where increase() sees nothing: a series absent ten
+      # minutes ago counts by its value.
+      - alert: CodeCoverageWebhookSignatureFailures
+        expr: >-
+          (sum(increase(webhook_signature_failures_total[10m])) > 0)
+          or
+          (sum(webhook_signature_failures_total) > 0 and on() absent(webhook_signature_failures_total offset 10m))
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} webhook delivery(ies) with an invalid signature in 10 minutes"
+          description: "Compare GitHub:WebhookSecret with the secret of the App, or look for forged requests."
+
+      # Less than 10 % of the GitHub quota of an installation is left. Both gauges come from the same
+      # GitHubQuotas rows (a quota past its reset counts as full), never from the memory of one process.
+      - alert: CodeCoverageGitHubQuotaLow
+        expr: (min by (installation) (github_ratelimit_recorded_remaining)) / (max by (installation) (github_ratelimit_limit)) < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Installation {{ $labels.installation }} has {{ $value | humanizePercentage }} of its GitHub quota left"
+          description: "Jobs that call GitHub will wait for the reset (they are rescheduled without losing an attempt)."

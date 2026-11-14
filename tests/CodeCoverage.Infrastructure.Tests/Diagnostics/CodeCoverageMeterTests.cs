@@ -60,10 +60,55 @@ public sealed class CodeCoverageMeterTests : IDisposable
     _recorder.Of(CodeCoverageMeter.JobOldestQueuedAgeSeconds).ShouldHaveSingleItem().Value.ShouldBe(42.5);
   }
 
+  // M4.04: the gauges the alerts read, from the operational tables, through the snapshot of the sampler.
+  [Fact]
+  public void ReportJobQueue_ShouldPublishTheDeadJobsTheHeartbeatAndTheQuotaSizes()
+  {
+    _meter.ReportJobQueue(
+      new JobQueueSnapshot(
+        new Dictionary<string, long>(StringComparer.Ordinal),
+        0,
+        Dead: 3,
+        HeartbeatAgeSeconds: 12.5,
+        GitHubLimits: new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 5000, ["202"] = 15000 },
+        GitHubRemaining: new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 450, ["202"] = 15000 }
+      )
+    );
+
+    _recorder.Collect();
+
+    _recorder.Of(CodeCoverageMeter.JobsDead).ShouldHaveSingleItem().Value.ShouldBe(3);
+    _recorder.Of(CodeCoverageMeter.WorkerHeartbeatAgeSeconds).ShouldHaveSingleItem().Value.ShouldBe(12.5);
+    var limits = _recorder.Of(CodeCoverageMeter.GitHubRateLimitLimit);
+    limits.Count.ShouldBe(2);
+    limits.Single(m => Equals(m.Tags["installation"], "101")).Value.ShouldBe(5000);
+    limits.Single(m => Equals(m.Tags["installation"], "202")).Value.ShouldBe(15000);
+    var remaining = _recorder.Of(CodeCoverageMeter.GitHubRateLimitRecordedRemaining);
+    remaining.Count.ShouldBe(2);
+    remaining.Single(m => Equals(m.Tags["installation"], "101")).Value.ShouldBe(450);
+  }
+
+  // No worker ever beat: no age is published, so that absent_over_time and the stale rule tell the cases apart.
+  [Fact]
+  public void ReportJobQueue_NoHeartbeat_ShouldPublishNoAge()
+  {
+    _meter.ReportJobQueue(new JobQueueSnapshot(new Dictionary<string, long>(StringComparer.Ordinal), 0));
+
+    _recorder.Collect();
+
+    _recorder.Of(CodeCoverageMeter.WorkerHeartbeatAgeSeconds).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.GitHubRateLimitLimit).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.GitHubRateLimitRecordedRemaining).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.JobsDead).ShouldHaveSingleItem().Value.ShouldBe(0);
+  }
+
   [Fact]
   public void JobGauges_BeforeAnyReport_ShouldPublishNothing()
   {
     _recorder.Collect();
+
+    _recorder.Of(CodeCoverageMeter.JobsDead).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.WorkerHeartbeatAgeSeconds).ShouldBeEmpty();
 
     _recorder.Of(CodeCoverageMeter.JobsQueued).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.JobOldestQueuedAgeSeconds).ShouldBeEmpty();

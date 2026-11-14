@@ -318,6 +318,48 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
     snapshot.OldestDueAgeSeconds.ShouldBe(180, tolerance: 0.001);
   }
 
+  // M4.04: the dead jobs, the last beat of a worker and the quota sizes, read from the operational tables.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Measure_ShouldReadTheDeadJobsTheHeartbeatAndTheQuotaSizes(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+
+    await using (var empty = DatabaseFixture.CreateContext(provider, connectionString))
+    {
+      var none = await CreateQueue(empty).MeasureAsync(Ct);
+      none.Dead.ShouldBe(0);
+      none.HeartbeatAgeSeconds.ShouldBeNull();
+      none.GitHubLimits.ShouldNotBeNull().ShouldBeEmpty();
+      none.GitHubRemaining.ShouldNotBeNull().ShouldBeEmpty();
+    }
+
+    await using (var seed = DatabaseFixture.CreateContext(provider, connectionString))
+    {
+      seed.Jobs.AddRange(Record(JobState.Dead, dedupKey: null, lockKey: null), Record(JobState.Dead, dedupKey: null, lockKey: null), Record(JobState.Failed, dedupKey: null, lockKey: null));
+      seed.WorkerHeartbeats.AddRange(
+        WorkerHeartbeat.Create("api-1", Start.AddHours(-1), Start.AddSeconds(-40)),
+        WorkerHeartbeat.Create("api-2", Start.AddHours(-1), Start.AddSeconds(-300))
+      );
+      seed.GitHubQuotas.AddRange(
+        GitHubQuota.Create("101", 450, 5000, Start.AddMinutes(30), Start),
+        GitHubQuota.Create("202", 10, null, null, Start),
+        GitHubQuota.Create("303", 3, 5000, Start.AddMinutes(-1), Start.AddMinutes(-20))
+      );
+      await seed.SaveChangesAsync(Ct);
+    }
+
+    await using var context = DatabaseFixture.CreateContext(provider, connectionString);
+    var snapshot = await CreateQueue(context).MeasureAsync(Ct);
+
+    snapshot.Dead.ShouldBe(2);
+    // The freshest worker decides: one live worker is enough.
+    snapshot.HeartbeatAgeSeconds.ShouldNotBeNull().ShouldBe(40, tolerance: 0.001);
+    snapshot.GitHubLimits.ShouldNotBeNull().ShouldBe(new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 5000, ["303"] = 5000 });
+    // The remaining requests come from the same rows; a quota past its reset time is full again.
+    snapshot.GitHubRemaining.ShouldNotBeNull().ShouldBe(new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 450, ["303"] = 5000 });
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task Insert_Default_ShouldStampCurrentOrganization(DatabaseProvider provider)

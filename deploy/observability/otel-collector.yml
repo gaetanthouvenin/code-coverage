@@ -1,0 +1,36 @@
+# OpenTelemetry Collector of docker-compose.observability.yml: receives the OTLP metrics of the
+# Api and the Web, and exposes them to Prometheus on :9464. Traces and logs are dropped here: the
+# overlay only serves the alerts (M4.04).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    # The names of the meter already carry their unit and _total: nothing is appended.
+    add_metric_suffixes: false
+    resource_to_telemetry_conversion:
+      enabled: false
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      exporters: [debug]

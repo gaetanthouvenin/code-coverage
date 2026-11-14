@@ -1,0 +1,57 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - observability overlay (M4.04): an OpenTelemetry Collector and Prometheus with the
+# alert rules of alerts.yml. Laid over the stack of the repository root:
+#
+#   docker compose -f docker-compose.yml -f deploy/observability/docker-compose.observability.yml up -d
+#
+# The Api and the Web export OTLP to the collector (OTEL_EXPORTER_OTLP_ENDPOINT, a bootstrap value);
+# Prometheus scrapes the collector and evaluates the rules: http://localhost:9090/alerts.
+# Images are pinned by digest. Nothing here is secret; a notification receiver (Alertmanager, mail,
+# chat) is added by the operator outside this repository.
+# Metrics are not split by organization (ADR-013): this stack sees every organization, like the
+# database backups.
+# ------------------------------------------------------------------------------------------------
+services:
+  api:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      # Short export interval, so that a provoked alert shows within a minute.
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  web:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  otel-collector:
+    # otel/opentelemetry-collector-contrib:0.130.0
+    image: otel/opentelemetry-collector-contrib@sha256:867d1074c2f750936fb9358ec9eefa009308053cf156b2c7ca1761ba5ef78452
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./deploy/observability/otel-collector.yml:/etc/otelcol/config.yml:ro
+    restart: unless-stopped
+
+  prometheus:
+    # prom/prometheus:v3.5.0
+    image: prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
