@@ -22,6 +22,9 @@
 7. [Jalon M4 – Mise en production](#7-jalon-m4--mise-en-production)
 8. [Jalon M5 – Confort et compatibilité](#8-jalon-m5--confort-et-compatibilité)
 9. [Jalon M6 – Plus tard](#9-jalon-m6--plus-tard)
+   - 9.1 Jalon M7 – Azure DevOps Services
+   - 9.2 Jalon M8 – Bitbucket Cloud
+   - 9.3 Jalon M9 – GitLab.com
 10. [Écarts et compléments par rapport à l'architecture](#10-écarts-et-compléments-par-rapport-à-larchitecture)
 11. [Décisions ouvertes](#11-décisions-ouvertes)
 
@@ -458,6 +461,358 @@ graph TD
   M5_05["M5.05 Check Runs"]
   M5_06["M5.06 Import historique Codecov (option)"] --> M4_08
   M5_07["M5.07 Shim codecov-cli (conditionnel)"]
+```
+
+### 2.7 M7 – Azure DevOps Services
+
+```mermaid
+graph TD
+  M7_01["M7.01 Calcul du diff sur Azure DevOps (spike)"]
+  M7_02["M7.02 Amendement d'ADR-014 et ADR-015 (connexions de…"]
+  M7_03["M7.03 Limitation de débit et indisponibilité neutres"]
+  M7_04["M7.04 Résolution des passerelles par forge"]
+  M7_05["M7.05 Disponibilité des forges : admission et connex…"]
+  M7_06["M7.06 Table ForgeConnections et son port"]
+  M7_07["M7.07 TrackedRepository.ConnectionId en texte"]
+  M7_08["M7.08 Appelants sans long.Parse de la connexion"]
+  M7_09["M7.09 Port neutre de l'annuaire et synchronisation d…"]
+  M7_10["M7.10 Coordinateur SyncConnections"]
+  M7_11["M7.11 Synchronisation manuelle, transfert et réécrit…"]
+  M7_12["M7.12 Admission d'une organisation par connexion"]
+  M7_12a["M7.12a Enregistrement d'une organisation et de sa con…"]
+  M7_13["M7.13 Rotation des secrets d'une connexion"]
+  M7_14["M7.14 Santé des connexions (CheckConnections)"]
+  M7_15["M7.15 Port neutre de l'utilisateur et forge de SignI…"]
+  M7_16["M7.16 Port neutre du jeton de l'utilisateur"]
+  M7_17["M7.17 Adhésions et droits neutres"]
+  M7_18["M7.18 Livraisons de webhooks par forge"]
+  M7_19["M7.19 Événements neutres de push, de pull request et…"]
+  M7_20["M7.20 Traduction par forge et traitement neutre des…"]
+  M7_21["M7.21 Réception neutre des webhooks par connexion"]
+  M7_22["M7.22 Table ForgeHooks"]
+  M7_23["M7.23 Gestion neutre des hooks : EnsureForgeHooks et…"]
+  M7_24["M7.24 Liens par forge"]
+  M7_25["M7.25 Capacités de commentaire par forge"]
+  M7_26["M7.26 PullRequests.BaseShaGitHub renommé BaseShaForge"]
+  M7_27["M7.27 Forge et slug à plusieurs niveaux dans l'uploa…"]
+  M7_28["M7.28 Quotas par forge : stockage et suivi"]
+  M7_29["M7.29 Quotas par forge : métriques et alertes"]
+  M7_30["M7.30 Table des segments Codecov par forge"]
+  M7_31["M7.31 Maquette : connexion par forge, listes de forg…"]
+  M7_32["M7.32 Maquette : /setup multi-forge et administrateu…"]
+  M7_33["M7.33 Maquette : page de connexion d'une organisation"]
+  M7_34["M7.34 Page de connexion à choix de forge"]
+  M7_35["M7.35 Libellés et listes de forges neutres dans l'in…"]
+  M7_36["M7.36 Opérations : forge des livraisons et quotas pa…"]
+  M7_37["M7.37 Administrateurs de l'instance sur toute forge"]
+  M7_38["M7.38 Page de connexion d'une organisation"]
+  M7_39["M7.39 Réglages AzureDevOps:* et jetons Entra ID"]
+  M7_40["M7.40 Vérification d'une connexion Azure DevOps"]
+  M7_41["M7.41 Formulaire d'admission Azure DevOps et ligne d…"]
+  M7_42["M7.42 Assistant /setup indépendant de la forge"]
+  M7_43["M7.43 Synchronisation des projets et des dépôts Azur…"]
+  M7_44["M7.44 AzureDevOpsGateway : dépôts, commits et pull r…"]
+  M7_45["M7.45 AzureDevOpsGateway : arbres et contenus"]
+  M7_46["M7.46 AzureDevOpsGateway : comparaison et fichiers d…"]
+  M7_47["M7.47 AzureDevOpsGateway : statuts"]
+  M7_48["M7.48 AzureDevOpsGateway : commentaire de pull request"]
+  M7_49["M7.49 Réception des service hooks Azure DevOps"]
+  M7_50["M7.50 Traduction des service hooks Azure DevOps"]
+  M7_51["M7.51 Abonnements des service hooks Azure DevOps"]
+  M7_52["M7.52 Passerelle utilisateur et jeton délégué Azure…"]
+  M7_53["M7.53 Connexion Web par Microsoft Entra ID"]
+  M7_54["M7.54 Adhésions et droits sur les dépôts Azure DevOps"]
+  M7_55["M7.55 Upload par jeton pour Azure DevOps"]
+  M7_56["M7.56 Uploader sur Azure Pipelines avec Azure Repos"]
+  M7_57["M7.57 Documentation d'onboarding Azure DevOps"]
+  M7_58["M7.58 Pilote sur une organisation Azure DevOps réelle"]
+  M7_01 --> M7_02
+  M7_02 --> M7_03
+  M7_02 --> M7_04
+  M7_04 --> M7_05
+  M7_02 --> M7_06
+  M7_06 --> M7_07
+  M7_07 --> M7_08
+  M7_04 --> M7_09
+  M7_08 --> M7_09
+  M7_09 --> M7_10
+  M7_09 --> M7_11
+  M7_05 --> M7_12
+  M7_09 --> M7_12
+  M7_12a --> M7_12
+  M7_06 --> M7_12a
+  M7_09 --> M7_12a
+  M7_12 --> M7_13
+  M7_10 --> M7_14
+  M7_12 --> M7_14
+  M7_04 --> M7_15
+  M7_15 --> M7_16
+  M7_09 --> M7_17
+  M7_16 --> M7_17
+  M7_02 --> M7_18
+  M7_18 --> M7_19
+  M7_11 --> M7_20
+  M7_19 --> M7_20
+  M7_06 --> M7_21
+  M7_18 --> M7_21
+  M7_20 --> M7_21
+  M7_06 --> M7_22
+  M7_10 --> M7_23
+  M7_21 --> M7_23
+  M7_22 --> M7_23
+  M7_04 --> M7_24
+  M7_04 --> M7_25
+  M7_02 --> M7_26
+  M7_02 --> M7_27
+  M7_03 --> M7_28
+  M7_28 --> M7_29
+  M7_02 --> M7_30
+  M7_02 --> M7_31
+  M7_02 --> M7_32
+  M7_02 --> M7_33
+  M7_05 --> M7_34
+  M7_31 --> M7_34
+  M7_24 --> M7_35
+  M7_34 --> M7_35
+  M7_18 --> M7_36
+  M7_28 --> M7_36
+  M7_31 --> M7_36
+  M7_32 --> M7_37
+  M7_11 --> M7_38
+  M7_13 --> M7_38
+  M7_14 --> M7_38
+  M7_23 --> M7_38
+  M7_33 --> M7_38
+  M7_03 --> M7_39
+  M7_05 --> M7_39
+  M7_06 --> M7_39
+  M7_12 --> M7_40
+  M7_39 --> M7_40
+  M7_35 --> M7_41
+  M7_40 --> M7_41
+  M7_33 --> M7_41
+  M7_05 --> M7_42
+  M7_32 --> M7_42
+  M7_39 --> M7_42
+  M7_10 --> M7_43
+  M7_40 --> M7_43
+  M7_04 --> M7_44
+  M7_39 --> M7_44
+  M7_44 --> M7_45
+  M7_01 --> M7_46
+  M7_44 --> M7_46
+  M7_44 --> M7_47
+  M7_24 --> M7_48
+  M7_25 --> M7_48
+  M7_40 --> M7_48
+  M7_44 --> M7_48
+  M7_21 --> M7_49
+  M7_39 --> M7_49
+  M7_20 --> M7_50
+  M7_44 --> M7_50
+  M7_23 --> M7_51
+  M7_43 --> M7_51
+  M7_49 --> M7_51
+  M7_15 --> M7_52
+  M7_16 --> M7_52
+  M7_39 --> M7_52
+  M7_34 --> M7_53
+  M7_52 --> M7_53
+  M7_17 --> M7_54
+  M7_52 --> M7_54
+  M7_08 --> M7_55
+  M7_27 --> M7_55
+  M7_30 --> M7_55
+  M7_43 --> M7_55
+  M7_27 --> M7_56
+  M7_41 --> M7_57
+  M7_51 --> M7_57
+  M7_53 --> M7_57
+  M7_56 --> M7_57
+  M7_26 --> M7_58
+  M7_29 --> M7_58
+  M7_36 --> M7_58
+  M7_37 --> M7_58
+  M7_38 --> M7_58
+  M7_42 --> M7_58
+  M7_45 --> M7_58
+  M7_46 --> M7_58
+  M7_47 --> M7_58
+  M7_48 --> M7_58
+  M7_50 --> M7_58
+  M7_54 --> M7_58
+  M7_55 --> M7_58
+  M7_57 --> M7_58
+```
+
+### 2.8 M8 – Bitbucket Cloud
+
+```mermaid
+graph TD
+  M8_01["M8.01 Vérification des endpoints Bitbucket Cloud (sp…"]
+  M8_02["M8.02 ADR-014 : section Bitbucket Cloud et écarts no…"]
+  M8_03["M8.03 Réglages Bitbucket:* et client typé bitbucket"]
+  M8_04["M8.04 Identifiants de connexion Bitbucket"]
+  M8_05["M8.05 Refus détaillés d'une vérification de connexion"]
+  M8_06["M8.06 Vérification d'une connexion Bitbucket"]
+  M8_07["M8.07 Maquette : champs Bitbucket de l'admission et…"]
+  M8_08["M8.08 Formulaire d'admission Bitbucket, rotation et…"]
+  M8_09["M8.09 Synchronisation des dépôts d'un workspace"]
+  M8_10["M8.10 BitbucketGateway : dépôts et commits"]
+  M8_11["M8.11 BitbucketGateway : arbres et contenus"]
+  M8_12["M8.12 Découpage du diff unifié Bitbucket"]
+  M8_13["M8.13 BitbucketGateway : comparaisons et pull requests"]
+  M8_14["M8.14 Liens Bitbucket"]
+  M8_15["M8.15 BitbucketGateway : statuts de build"]
+  M8_16["M8.16 BitbucketGateway : commentaire de pull request"]
+  M8_17["M8.17 Commentaire sans <details> : capacité de forge"]
+  M8_18["M8.18 Réception des webhooks Bitbucket"]
+  M8_19["M8.19 Traduction des événements Bitbucket"]
+  M8_20["M8.20 Webhook de workspace"]
+  M8_21["M8.21 Passerelle utilisateur et adhésions Bitbucket"]
+  M8_22["M8.22 Jeton délégué d'un utilisateur Bitbucket"]
+  M8_23["M8.23 Connexion au Web avec Bitbucket"]
+  M8_24["M8.24 OIDC d'upload par forge : identité et port neu…"]
+  M8_25["M8.25 Validateur OIDC de Bitbucket Pipelines"]
+  M8_26["M8.26 Uploader : contexte Bitbucket Pipelines"]
+  M8_27["M8.27 Uploader : source de jeton OIDC neutre (IOidcT…"]
+  M8_28["M8.28 Uploader : jeton OIDC de Bitbucket Pipelines"]
+  M8_29["M8.29 Badges Codecov /bb/… et /bitbucket/…"]
+  M8_30["M8.30 Étape Bitbucket de l'assistant /setup"]
+  M8_31["M8.31 Documentation d'onboarding Bitbucket"]
+  M8_32["M8.32 Pilote sur un workspace Bitbucket réel"]
+  M8_01 --> M8_02
+  M8_02 --> M8_03
+  M8_03 --> M8_04
+  M8_02 --> M8_05
+  M8_04 --> M8_06
+  M8_05 --> M8_06
+  M8_02 --> M8_07
+  M8_06 --> M8_08
+  M8_07 --> M8_08
+  M8_06 --> M8_09
+  M8_04 --> M8_10
+  M8_10 --> M8_11
+  M8_01 --> M8_12
+  M8_10 --> M8_13
+  M8_12 --> M8_13
+  M8_03 --> M8_14
+  M8_10 --> M8_15
+  M8_14 --> M8_15
+  M8_10 --> M8_16
+  M8_06 --> M8_16
+  M8_01 --> M8_17
+  M8_16 --> M8_17
+  M8_03 --> M8_18
+  M8_01 --> M8_19
+  M8_10 --> M8_19
+  M8_18 --> M8_19
+  M8_04 --> M8_20
+  M8_18 --> M8_20
+  M8_06 --> M8_21
+  M8_03 --> M8_22
+  M8_21 --> M8_23
+  M8_22 --> M8_23
+  M8_02 --> M8_24
+  M8_01 --> M8_25
+  M8_24 --> M8_25
+  M8_26 --> M8_28
+  M8_27 --> M8_28
+  M8_08 --> M8_30
+  M8_08 --> M8_31
+  M8_20 --> M8_31
+  M8_23 --> M8_31
+  M8_28 --> M8_31
+  M8_29 --> M8_31
+  M8_09 --> M8_32
+  M8_11 --> M8_32
+  M8_13 --> M8_32
+  M8_15 --> M8_32
+  M8_17 --> M8_32
+  M8_19 --> M8_32
+  M8_25 --> M8_32
+  M8_30 --> M8_32
+  M8_31 --> M8_32
+```
+
+### 2.9 M9 – GitLab.com
+
+```mermaid
+graph TD
+  M9_01["M9.01 Ce que GitLab.com permet sur le plan Free (spi…"]
+  M9_02["M9.02 ADR-014 et plan amendés pour GitLab.com"]
+  M9_03["M9.03 Réglages GitLab:* et client HTTP typé"]
+  M9_04["M9.04 Jeton de connexion GitLab pour la passerelle"]
+  M9_05["M9.05 Vérification d'une connexion GitLab"]
+  M9_06["M9.06 Expiration et révocation des jetons GitLab"]
+  M9_07["M9.07 GitLabGateway : projet, commits et merge request"]
+  M9_08["M9.08 GitLabGateway : comparaison et fichiers de MR"]
+  M9_09["M9.09 GitLabGateway : arbre et contenus"]
+  M9_10["M9.10 GitLabGateway : statuts de commit"]
+  M9_11["M9.11 GitLabGateway : note de merge request, liens e…"]
+  M9_12["M9.12 Synchronisation des projets d'un groupe GitLab"]
+  M9_13["M9.13 Webhooks de projet GitLab"]
+  M9_14["M9.14 Réception des webhooks GitLab"]
+  M9_15["M9.15 Traduction des événements GitLab"]
+  M9_16["M9.16 Passerelle utilisateur et jeton délégué GitLab"]
+  M9_17["M9.17 Connexion Web avec GitLab"]
+  M9_18["M9.18 Adhésions à un groupe GitLab"]
+  M9_19["M9.19 OIDC de GitLab CI"]
+  M9_20["M9.20 Contexte GitLab CI dans l'uploader"]
+  M9_21["M9.21 Jeton OIDC de GitLab CI dans l'uploader et mod…"]
+  M9_22["M9.22 Badges Codecov /gl/… et /gitlab/…"]
+  M9_23["M9.23 Maquette : admission et connexion GitLab"]
+  M9_24["M9.24 Admission GitLab dans la console et en ligne d…"]
+  M9_24b["M9.24b Étape GitLab de l'assistant /setup"]
+  M9_25["M9.25 Quotas de débit de GitLab"]
+  M9_26["M9.26 Alertes d'échéance des connexions et de webhoo…"]
+  M9_27["M9.27 Documentation d'onboarding GitLab"]
+  M9_28["M9.28 Pilote sur un groupe GitLab.com réel"]
+  M9_01 --> M9_02
+  M9_02 --> M9_03
+  M9_03 --> M9_04
+  M9_04 --> M9_05
+  M9_05 --> M9_06
+  M9_04 --> M9_07
+  M9_07 --> M9_08
+  M9_07 --> M9_09
+  M9_07 --> M9_10
+  M9_07 --> M9_11
+  M9_05 --> M9_12
+  M9_12 --> M9_13
+  M9_14 --> M9_13
+  M9_03 --> M9_14
+  M9_07 --> M9_15
+  M9_03 --> M9_16
+  M9_16 --> M9_17
+  M9_12 --> M9_18
+  M9_12 --> M9_19
+  M9_02 --> M9_20
+  M9_20 --> M9_21
+  M9_12 --> M9_22
+  M9_02 --> M9_23
+  M9_05 --> M9_24
+  M9_23 --> M9_24
+  M9_23 --> M9_24b
+  M9_03 --> M9_25
+  M9_06 --> M9_26
+  M9_13 --> M9_26
+  M9_13 --> M9_27
+  M9_17 --> M9_27
+  M9_21 --> M9_27
+  M9_24 --> M9_27
+  M9_26 --> M9_27
+  M9_08 --> M9_28
+  M9_09 --> M9_28
+  M9_10 --> M9_28
+  M9_11 --> M9_28
+  M9_15 --> M9_28
+  M9_18 --> M9_28
+  M9_19 --> M9_28
+  M9_22 --> M9_28
+  M9_24b --> M9_28
+  M9_25 --> M9_28
+  M9_27 --> M9_28
 ```
 
 ---
@@ -2732,25 +3087,2064 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - graphes `tree` et `sunburst` ;
 - GitHub Enterprise.
 
-### 9.1 Jalons M7, M8 et M9 – Autres forges (ADR-014)
+### 9.1 Jalon M7 – Azure DevOps Services
 
-Ces jalons ne sont pas découpés ; ils le seront après la bascule. GitHub reste la seule forge implémentée jusque-là. Les durées sont des ordres de grandeur non mesurés.
+**Critère de sortie :** une organisation Azure DevOps Services du propriétaire est admise et connectée par une identité Microsoft Entra ID (M7.12, M7.40, M7.41). Ses dépôts sont suivis sous l'owner `org:project` (M7.43). Un membre s'y connecte dans le Web avec son compte Entra et ne voit que les dépôts qu'il peut lire (M7.53, M7.54). Une pull request d'un dépôt pilote reçoit, après un upload par jeton depuis Azure Pipelines (M7.55, M7.56), tous les statuts émis par `NotificationService` et un commentaire unique mis à jour en place (M7.47, M7.48), déclenchés par les service hooks (M7.49 à M7.51). Sur les pull requests pilotes, la couverture du patch calculée correspond au patch retenu par le spike (M7.01, M7.46) (propriétaire). GitHub ne régresse pas : `Architecture.Tests` et les tests GitHub restent verts après chaque refactor neutre (M7.03 à M7.38).
 
-- **M7 – Azure DevOps Services (environ 28 sessions) :**
-  - spike du diff, l'API documentant des changements par fichier sans les lignes modifiées (risque principal d'ADR-014) ;
-  - table de connexions par organisation et authentification Microsoft Entra ID ;
-  - adaptateur `IForgeGateway`, service hooks, statuts et commentaires de pull request ;
-  - owner adressé en `org:project`, colonne `Repositories.Namespace` ;
-  - détection dans l'uploader, connexion Web et accès aux dépôts, pilote.
-- **M8 – Bitbucket Cloud (environ 20 sessions) :**
-  - vérification du diff unifié et des UUID de workspace ;
-  - connexions, adaptateur `IForgeGateway`, webhooks signés, statuts de build et commentaires ;
-  - OIDC de Bitbucket Pipelines, badges `/bb/…` et `/bitbucket/…`, connexion Web et accès aux dépôts, pilote.
-- **M9 – GitLab.com (environ 22 sessions) :**
-  - spike : accès à l'API sur le plan Free (jetons de groupe et de projet réservés à Premium), diffs incomplets, forme réelle des badges de sous-groupes chez Codecov ;
-  - connexions, adaptateur `IForgeGateway`, webhooks par projet signés par HMAC, statuts et notes de merge request ;
-  - owner adressé en `group:sub:sub2`, `Repositories.Namespace` portant les sous-groupes ;
-  - OIDC de GitLab CI lié à `project_id`, badges `/gl/…` et `/gitlab/…`, connexion Web et accès aux dépôts, pilote.
+**Toutes les forges sont implémentées.** Décision du propriétaire du 2026-11-14 : Azure DevOps (M7), puis Bitbucket (M8), puis GitLab.com (M9) sont implémentés, pas seulement préparés ; M7.02 amende ADR-014 en ce sens. M7 est la première forge après GitHub. Il porte donc aussi les refactors neutres que M8 et M9 réutilisent : ports, résolution par forge, connexions, admission, réception et traitement des webhooks, hooks, santé des connexions, administrateurs, libellés, maquettes, uploader, quotas et table des segments Codecov. Chacun est une micro-feature placée avant l'adaptateur Azure DevOps. Azure DevOps n'a pas de référence Codecov : son comportement suit GitHub, et chaque écart est nommé dans ADR-014 (règle critique 1).
+
+**Cadrage**
+
+#### M7.01 — Calcul du diff sur Azure DevOps (spike)
+- **Issue :** à créer
+- **Objectif :** établir comment obtenir les lignes modifiées d'une pull request Azure DevOps, et fixer la voie retenue avec ses preuves. C'est le risque principal d'ADR-014 : l'API ne renvoie que des changements par fichier. Le spike tranche aussi quatre questions annexes dont dépendent M7.40, M7.47, M7.48 et M7.54.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/research/azure-devops-diff.md`** : comparaison mesurée de trois voies sur au moins dix pull requests réelles d'une organisation de test :
+    - `Diffs - Get` (GA, par fichier) avec `diffCommonCommit=true` ;
+    - `FileDiffs` (préversion, `lineDiffBlocks`) ;
+    - diff local de deux blobs (`Blobs - Get` sur `originalObjectId` et `objectId`), entre la base de fusion (`commonRefCommit` de l'itération) et la tête de la PR.
+
+    Pour chaque voie : écart avec `git diff -U0` sur les mêmes SHA, coût en TSTU (`X-RateLimit-*`), fichiers binaires, renommages, fichiers au-delà d'un plafond de taille, PR de plus de 100 fichiers (pagination `$top`/`$skip`, `allChangesIncluded`).
+  - **Recommandation** : voie retenue, plafond de taille, cas où le patch est « inconnu » (jamais vide), et besoin ou non d'un paquet de diff (aucun paquet tiers sans l'accord du propriétaire, CONVENTIONS).
+  - **Questions annexes, chacune classée prouvée ou probable** :
+    1. identifiant de commentaire : un fil créé par l'application ne contient qu'un commentaire, d'identifiant 1, donc l'identifiant du fil (`long`) suffit (B9) ;
+    2. identifiant stable de l'organisation dans `_apis/connectionData` ;
+    3. recherche de la PR active dont un commit est la tête (`pullrequestquery`) ;
+    4. appartenance à « Project Collection Administrators » lisible avec le jeton de l'application.
+  - **Fixtures enregistrées pour M7.46** : `tests/fixtures/azure-devops/diffs/{commits,blob-base,blob-head}.json` et le `git diff` attendu `tests/fixtures/azure-devops/patches/*.diff`.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** la voie retenue reproduit `git diff -U0` sur au moins neuf PR sur dix, et chaque divergence est décrite comme écart nommé ou comme patch inconnu. Chaque affirmation est classée prouvée ou probable. Si l'identifiant de fil ne suffit pas, le document le prouve et M7.02 ajoute une micro-feature d'identifiant de commentaire texte avant M7.48.
+- **Dépend de :** M4.02a
+
+#### M7.02 — Amendement d'ADR-014 et ADR-015 (connexions de forge)
+- **Issue :** à créer
+- **Objectif :** remplacer « préparer maintenant, implémenter GitHub seul » par la décision du propriétaire d'implémenter Azure DevOps, Bitbucket puis GitLab.com ; trancher les choix d'Azure DevOps établis par le spike et la recherche ; consigner la place des connexions de forge dans l'isolation (ADR-013).
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/adr/0014-multi-forge.md`** : Décision, Conséquences et Arbitrages, plus une section Azure DevOps :
+    - application Entra ID multi-tenant de l'instance, ajoutée à chaque organisation Azure DevOps avec un accès Basic ;
+    - connexion Web par Entra ID OpenID Connect, l'OAuth Azure DevOps étant déprécié ;
+    - service hooks authentifiés par un secret d'en-tête propre à la connexion, charge utile `Minimal` puis relecture par l'API ;
+    - statuts `genre=codecov` ;
+    - commentaire publié dans un fil de PR unique, identifié par l'identifiant du fil (M7.01) ;
+    - upload par jeton seulement ; diff selon M7.01.
+
+    Écarts nommés et non configurables : pas de route de badge Codecov, pas de signature HMAC, pas d'OIDC d'upload, comptes Microsoft personnels non pris en charge tant qu'Entra ne les accepte pas.
+  - **`docs/adr/0015-forge-connections.md`** :
+    - **Classement** : la table `ForgeConnections` est **globale**, comme `Installations` (`TableClassification.Global`), avec une clé étrangère `OrganizationId`, `UX(OrganizationId, Id)` et des secrets chiffrés par `ISecretProtector`. Une réception de webhook doit en effet trouver l'organisation avant d'y entrer, et `IgnoreQueryFilters` reste interdit sans exception.
+    - **Routes** : toute route de webhook d'une forge à connexion porte l'identifiant de la connexion, `/api/v1/{forge}/webhooks/{connectionId}`, jamais un identifiant lu dans le corps.
+    - **GitHub** reste sur `Installations` : aucune ligne `ForgeConnections` n'est créée pour lui, et `Repositories.ConnectionId` n'a pas de clé étrangère (pour GitHub, il vaut l'identifiant d'installation en texte).
+    - **Portes d'isolation** : chaque réception et chaque coordinateur qui lit `ForgeConnections` est une porte nommée dans `OrganizationIsolationTests`.
+  - **`docs/adr/README.md`** (index : ADR-015, ADR-014 amendé).
+  - **`docs/PLAN.md`** : §2.1, graphes du §2, §9.1 remplacée par les §9.1 (M7), §9.2 (M8) et §9.3 (M9), nouvelles lignes du §10 à partir de 27 (connexions globales, ports neutres ajoutés), item 12 du §11.
+  - **`docs/ARCHITECTURE.md`** §1.3 et §8 (renvoi à ADR-014 et ADR-015 pour les autres forges).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** ADR-014 et le plan ne disent plus « GitHub seul ». Chaque écart d'Azure DevOps avec GitHub est nommé et déclaré non configurable. ADR-015 tranche le classement global, la route par connexion et le cas de GitHub, et il est accepté par le propriétaire (propriétaire).
+- **Dépend de :** M7.01
+
+**Refactors neutres (partagés avec M8 et M9) : socle des forges**
+
+#### M7.03 — Limitation de débit et indisponibilité neutres
+- **Issue :** à créer
+- **Objectif :** que le worker et le cache de contenu reconnaissent la limitation de débit de n'importe quelle forge, et que les refus de statut et l'indisponibilité ne portent plus de code GitHub. Bitbucket et GitLab réutilisent ces codes, sans en créer d'autres.
+- **Couches :** Infrastructure, Web.
+- **Fichiers :**
+  - `Infrastructure/Forges/ForgeRateLimitedException.cs` (forge, `RetryAfter`) ;
+  - `Infrastructure/GitHub/GitHubRateLimitedException.cs` dérive de la nouvelle exception. `GitHubAppGateway`, `GitHubUserGateway` et `GitHubAppTokenProvider` continuent de lever le type dérivé, qui disparaît des `catch` ;
+  - `Infrastructure/Jobs/JobWorker.cs` et `Infrastructure/Caching/BoundedSourceContentCache.cs` (`catch (ForgeRateLimitedException)`) ;
+  - `Infrastructure/Forges/ForgeErrors.cs` (`Forge.StatusRefused`, `Forge.Unavailable`) remplace les codes équivalents de `Infrastructure/GitHub/GitHubErrors.cs` ;
+  - `Web/Resources/Common.resx` et `Common.fr.resx` : clés renommées, texte « la forge » au lieu de « GitHub ».
+- **Tests :**
+  - `Infrastructure.Tests/Jobs/JobWorkerTests` — `RunAsync_ForgeRateLimited_ShouldRescheduleAfterRetryAfter` ;
+  - `Infrastructure.Tests/Caching/BoundedSourceContentCacheTests` — `GetAsync_ForgeRateLimited_ShouldReturnUnavailable` ;
+  - `Infrastructure.Tests/GitHub/RateLimitHandlerTests` (existants, code d'erreur mis à jour) ;
+  - `Web.Tests/Resources/CommonTests` vert.
+- **Acceptation :** aucun `catch (GitHubRateLimitedException)` hors `Infrastructure/GitHub` ; les codes `GitHub.*` d'indisponibilité ont disparu des resx.
+- **Dépend de :** M7.02
+
+#### M7.04 — Résolution des passerelles par forge
+- **Issue :** à créer
+- **Objectif :** que `ForgeGatewayProvider` choisisse l'adaptateur par la forge, au lieu de recevoir `GitHubAppGateway` dans son constructeur, pour qu'un adaptateur s'ajoute sans toucher au fournisseur. Les ports neutres suivants (annuaire, utilisateur, jeton, liens, vérification, webhooks, événements, hooks) sont enregistrés de la même façon, en services à clé `Forge`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/Forges/ForgeGatewayProvider.cs` : services à clé `Forge` (`IServiceProvider.GetKeyedService<IForgeGateway>`), `NotSupportedException` conservée pour une forge sans adaptateur ;
+  - `Infrastructure/DependencyInjection.GitHub.cs` : `AddKeyedScoped<IForgeGateway, GitHubAppGateway>(Forge.GitHub)`.
+- **Tests :** `Infrastructure.Tests/Forges/ForgeGatewayProviderTests` — `GetGateway_RegisteredForge_ShouldReturnItsAdapter`, `GetGateway_UnregisteredForge_ShouldThrowNotSupported`.
+- **Acceptation :** `ForgeGatewayProvider` ne nomme plus aucun type GitHub ; les tests GitHub existants restent verts.
+- **Dépend de :** M7.02
+
+#### M7.05 — Disponibilité des forges : admission et connexion
+- **Issue :** à créer
+- **Objectif :** savoir, par forge, si une organisation peut être admise (adaptateur enregistré et réglages de connexion remplis) et si un utilisateur peut se connecter (client OAuth ou OpenID Connect configuré). Ce sont deux notions distinctes : un adaptateur enregistré avant sa connexion Web ne doit pas afficher de bouton de connexion.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Ports/IForgeAvailability.cs` (`AdmissionForges`, `SignInForges` ; ajout, §10) et `Domain/Organizations/ForgeAvailabilitySnapshot.cs` ;
+  - `Infrastructure/Forges/ForgeAvailability.cs` : compose les contributeurs à clé `Forge` ; `Infrastructure/Forges/IForgeAvailabilityContributor.cs` (`CanAdmit`, `CanSignIn`, lus par `IOptionsMonitor<T>`) ; `Infrastructure/GitHub/GitHubAvailabilityContributor.cs` (`GitHub:AppId` pour l'admission, `GitHub:ClientId` pour la connexion) ;
+  - UC `Features/Organizations/Queries/GetForgeAvailability` (`IAnonymousEntry` : la liste des forges ne protège rien et sert la page de connexion).
+
+  Le mapper Web `GetForgeAvailabilityViewModelAsync` (segments de forge, aucun type du Domain dans les pages) arrive avec la première page qui le lit (M7.34).
+- **Tests :**
+  - `Infrastructure.Tests/Forges/ForgeAvailabilityTests` — `AdmissionForges_GitHubAppConfigured_ShouldListGitHub`, `SignInForges_ClientIdMissing_ShouldBeEmpty` ;
+  - `Application.Tests/Features/Organizations/Queries/GetForgeAvailability/GetForgeAvailabilityQueryHandlerTests` — `Handle_TwoContributors_ShouldListBoth`.
+- **Acceptation :** avec GitHub seul et configuré, les deux listes valent `[GitHub]` ; un changement de réglage prend effet sans redémarrage.
+- **Dépend de :** M7.04
+
+**Refactors neutres : connexions**
+
+#### M7.06 — Table `ForgeConnections` et son port
+- **Issue :** à créer
+- **Objectif :** donner à chaque organisation d'une forge à connexion (Azure DevOps, Bitbucket, GitLab) une connexion qui porte ses identifiants chiffrés, avec ses colonnes définitives pour M8 et M9 : aucune migration conditionnelle plus tard. La table est globale (ADR-015).
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - **`Domain/Connections/ForgeConnection.cs`** :
+    - identité et rattachement : `Id` texte ≤ 64, `OrganizationId`, `Forge`, `Kind`, `ExternalAccountId`, `BaseAddress`, `TenantId` ;
+    - compte de service : `ServiceAccountExternalId`, l'auteur des commentaires (M7.48, M8, M9) ;
+    - secrets protégés : `CredentialProtected`, `WebhookSecretProtected`, `WebhookSecretPreviousProtected` ;
+    - échéance et état : `ExpiresAt`, `Status`, `ConnectedAt`, `SuspendedAt`, `LastCheckedAt`, `LastError` ;
+    - méthodes `Create`, `Suspend`, `RotateWebhookSecret`, `RecordCheck`.
+  - **Énumérations, stockées en texte (une nouvelle valeur n'exige aucune migration)** : `Domain/Connections/ForgeConnectionKind.cs` (`AzureDevOpsEntraApplication`, puis les valeurs de M8 et M9) et `Domain/Connections/ForgeConnectionStatus.cs` (`Active`, `Failing`, `Expiring`, `Suspended`).
+  - **`Domain/Ports/IForgeConnectionRepository.cs`**, sur le modèle d'`IInstallationRepository`, `CancellationToken` obligatoire partout :
+    - `FindOwnerAsync(id)` : organisation et état, lu avant l'entrée dans une organisation ;
+    - `FindAsync(id)`, `ListForOrganizationAsync(organizationId)`, `ListActiveAsync` ;
+    - `AddAsync` et `UpdateAsync`.
+  - **Persistance** :
+    - `Infrastructure/Persistence/Configurations/ForgeConnectionConfiguration.cs` : table globale, sans `IsOrganizationOwned`, `HasOne<Organization>()` en `Restrict`, `UX(OrganizationId, Id)` ;
+    - `Infrastructure/Persistence/Repositories/ForgeConnectionRepository.cs` : secrets chiffrés par `ISecretProtector`, comme `CodecovImportRepository` ;
+    - `Infrastructure/DependencyInjection.Repositories.cs`.
+  - **`Infrastructure/Persistence/Organizations/TableClassification.cs`** : `ForgeConnections` dans `Global`.
+  - **Migration `AddForgeConnections`**.
+- **Tests :**
+  - `Domain.Tests/Connections/ForgeConnectionTests` — `Create_EmptyAccount_ShouldThrow`, `Suspend_Active_ShouldRecordTheDate`, `RotateWebhookSecret_Current_ShouldKeepItAsPrevious` ;
+  - `Infrastructure.Tests/Persistence/Repositories/ForgeConnectionRepositoryTests`, sur deux organisations et sur les deux fournisseurs (ignorés avec une raison explicite sans Docker) — `FindOwnerAsync_AnyOrganization_ShouldReturnItsOwner`, `ListForOrganizationAsync_TwoOrganizations_ShouldReturnOnlyItsOwn`, `AddAsync_Secrets_ShouldStoreThemProtected` ;
+  - `Model_EveryEntity_ShouldBeClassifiedOnce` vert.
+- **Acceptation :** aucun secret en clair en base ; le test « aucun changement de modèle sans migration » est vert ; aucun `IgnoreQueryFilters`.
+- **Dépend de :** M7.02
+
+#### M7.07 — `TrackedRepository.ConnectionId` en texte
+- **Issue :** à créer
+- **Objectif :** rattacher un dépôt suivi à sa connexion de forge par un identifiant texte, `InstallationId` ne restant que pour GitHub.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Domain/Repositories/TrackedRepository.cs` : `ConnectionId` texte ≤ 64, `InstallationId` nullable, `ToForgeRef` lit `ConnectionId`, `Create` et `Activate` reçoivent la connexion ;
+  - `Infrastructure/Persistence/Configurations/TrackedRepositoryConfiguration.cs` : aucune clé étrangère vers `ForgeConnections` ni `Installations` (ADR-015) ;
+  - Migration `AddRepositoryConnectionId`, colonne remplie depuis `InstallationId` dans la migration.
+- **Tests :**
+  - `Domain.Tests/Repositories/TrackedRepositoryTests` — `ToForgeRef_AnyForge_ShouldCarryTheConnectionId` ;
+  - `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `Migration_ExistingGitHubRepository_ShouldKeepItsInstallationAsConnection` (deux fournisseurs).
+- **Acceptation :** un dépôt GitHub existant garde la même `ForgeRepositoryRef` après la migration. Pour GitHub, `ConnectionId` vaut l'identifiant d'installation en texte, sans clé étrangère, et aucune ligne `ForgeConnections` n'est créée (ADR-015).
+- **Dépend de :** M7.06
+
+#### M7.08 — Appelants sans `long.Parse` de la connexion
+- **Issue :** à créer
+- **Objectif :** que l'upload, la réconciliation et leurs jobs ne supposent plus qu'une connexion est une installation GitHub numérique.
+- **Couches :** Domain, Application.
+- **Fichiers :**
+  - UC `Features/Uploads/Commands/ReceiveUpload` : `EnsureInstallationAsync` seulement pour `Forge.GitHub`, sinon la connexion de l'organisation ;
+  - `Application/Services/RepositoryReconciler.cs` : `Create(ForgeConnectionInfo, ForgeRepositoryInfo)` ;
+  - `Domain/Contracts/Jobs/RepositoryReconciliationJobs.cs` : `ForConnection(string)`, clé `connection:{id}`, `ForInstallation` conservé comme alias GitHub.
+- **Tests :**
+  - `Application.Tests/Features/Uploads/Commands/ReceiveUpload/ReceiveUploadCommandHandlerTests` — `Handle_NonGitHubConnection_ShouldTrackWithoutInstallation` ;
+  - `Application.Tests/Services/RepositoryReconcilerTests` — `Create_AzureDevOpsConnection_ShouldSetTheConnection` ;
+  - `Domain.Tests/Contracts/Jobs/RepositoryReconciliationJobsTests` (nouveau) — `ForConnection_Id_ShouldPrefixTheKey`.
+- **Acceptation :** aucun `long.Parse` d'un `ConnectionId` dans `src`.
+- **Dépend de :** M7.07
+
+**Refactors neutres : annuaire, synchronisation et admission**
+
+#### M7.09 — Port neutre de l'annuaire et synchronisation des dépôts d'une connexion
+- **Issue :** à créer
+- **Objectif :** lister le compte et les dépôts d'une connexion par un port neutre, faire de la synchronisation des dépôts un job valable pour toute forge, et appliquer au même endroit le renommage du compte.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - **Port** : `Domain/Ports/IForgeDirectoryGateway.cs` (`GetAccountAsync`, `ListRepositoriesAsync(ForgeConnectionRef)`), avec `Domain/Contracts/Forges/ForgeConnectionRef.cs` et `ForgeAccountInfo.cs` (ajout, §10 : `ExternalAccountId`, `Login`, `ServiceAccountExternalId?` et `ExpiresAt?`, ces deux derniers renvoyés par les vérificateurs de M7.40, M8 et M9 et enregistrés par `ConnectOrganization`) ; `Domain/Ports/IForgeGatewayProvider.cs` (`GetDirectory(Forge)`).
+  - **GitHub** : `Infrastructure/GitHub/GitHubDirectoryGateway.cs`, qui enveloppe `IGitHubAppGateway.ListInstallationRepositoriesAsync`, enregistré à clé `Forge.GitHub`.
+  - **Cas d'usage** : UC `Features/Connections/Commands/SyncConnectionRepositories` (`ISystemOnly`) remplace `Features/GitHubEvents/Commands/SyncInstallationRepositories`. Quand `ForgeAccountInfo` porte un nouveau nom, l'étape neutre de renommage met à jour le login de l'organisation (M9 s'en sert).
+  - **Job** : `JobTypes.SyncConnectionRepositories` ; dans `Infrastructure/Jobs/JobDispatcher.cs`, le cas de l'ancien type `SyncInstallationRepositories` (clé `installation:{id}`) est gardé une version pour les jobs déjà en file au déploiement.
+  - **Isolation** : `OrganizationIsolationTests` mis à jour pour les chemins déplacés.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Commands/SyncConnectionRepositories/SyncConnectionRepositoriesCommandHandlerTests` — `Handle_NewRepository_ShouldTrackIt`, `Handle_MissingRepository_ShouldDeactivateIt`, `Handle_AccountRenamed_ShouldRenameTheOrganization` ;
+  - `Infrastructure.Tests/GitHub/GitHubDirectoryGatewayTests` (WireMock) — `ListRepositoriesAsync_Installation_ShouldMapNamespaceEmpty` ;
+  - `Infrastructure.Tests/Jobs/JobDispatcherTests` — `DispatchAsync_LegacySyncInstallationRepositories_ShouldRunTheNewCommand`.
+- **Acceptation :** la synchronisation GitHub passe par le port neutre sans changer de résultat ; un job de l'ancien type en file au déploiement aboutit ; aucune règle d'isolation n'est assouplie.
+- **Dépend de :** M7.04, M7.08
+
+#### M7.10 — Coordinateur `SyncConnections`
+- **Issue :** à créer
+- **Objectif :** rattraper chaque jour les dépôts des forges à connexion, par un coordinateur qui met en file un enfant par organisation. `SyncInstallations` reste le coordinateur de GitHub seul, ce qui évite deux coordinateurs quotidiens pour GitHub (`ForgeConnections` n'a pas de ligne GitHub).
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - UC `Features/Connections/Commands/SyncConnections` (`ISystemOnly`, voie de l'instance) : il lit `ForgeConnections.ListActiveAsync` et `Organizations`, et met en file un `SyncConnectionRepositories` par connexion active avec `JobRequest.ForOrganization` ;
+  - `Domain/Contracts/Jobs/SyncConnectionsJobs.cs` ; `JobTypes.SyncConnections` ;
+  - `Infrastructure/Jobs/JobDispatcher.cs` ; `Infrastructure/Jobs/RecurringJobCatalog.cs` (quotidien) ;
+  - `tests/CodeCoverage.Architecture.Tests/OrganizationIsolationTests.cs` : `ConnectionCoordinator` dans `CrossOrganizationEnqueueAllowList`, avec sa justification.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Commands/SyncConnections/SyncConnectionsCommandHandlerTests` — `Handle_TwoOrganizations_ShouldQueueOneChildEach`, `Handle_SuspendedConnection_ShouldSkipIt` ;
+  - `Infrastructure.Tests/Jobs/JobDispatcherTests` — `DispatchAsync_SyncConnections_ShouldRunTheCoordinator`.
+- **Acceptation :** `OrganizationIsolationTests` nomme le coordinateur comme porte inter-organisations ; aucun `IgnoreQueryFilters`.
+- **Dépend de :** M7.09
+
+#### M7.11 — Synchronisation manuelle, transfert et réécriture d'owner neutres
+- **Issue :** à créer
+- **Objectif :** que le bouton « synchroniser » de l'écran des dépôts, la réconciliation d'un transfert et la réécriture d'owner marchent pour toute forge, et pas seulement pour une installation GitHub.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - **Synchronisation manuelle** : UC `Features/Connections/Commands/SyncOrganizationConnection` (`IOrganizationScoped`, administrateur de l'organisation) remplace `Features/GitHubEvents/Commands/SyncOrganizationInstallation`. Il passe par l'installation pour GitHub et par la connexion sinon, puis met en file `SyncConnectionRepositories`.
+  - **Erreurs** : `Features/Connections/ConnectionErrors.cs` (`Connection.NotConnected`, qui remplace `GitHubEvent.NoInstallation` dans ce chemin) et `ConnectionGuards.cs`.
+  - **Transfert et owner** : `Features/GitHubEvents/Commands/ReconcileRepositoryTransfer` et `RewriteRepositoryOwner` déplacés en `Features/Repositories/Commands/ReconcileRepositoryTransfer` et `RewriteRepositoryOwner`, avec des identifiants externes texte et la forge ; `Domain/Contracts/Jobs/RewriteRepositoryOwnerJobs.cs`.
+  - **Web** : `Web/Mapping/RepositoryMapper.cs` (`SyncOrganizationConnectionAsync`) et `Web/Components/Pages/OrganizationRepositories.razor.cs`. Le code seul change, pas le rendu.
+  - **Libellés** : resx de `Connection.NotConnected`.
+- **Tests :**
+  - tests déplacés vers `Application.Tests/Features/Connections/Commands/SyncOrganizationConnection/` et `Application.Tests/Features/Repositories/Commands/{ReconcileRepositoryTransfer,RewriteRepositoryOwner}/` — `Handle_AzureDevOpsConnection_ShouldQueueTheSync`, `Handle_NoConnection_ShouldThrowNotConnected` ;
+  - `Web.Tests/Components/Pages/OrganizationRepositoriesTests` (bouton inchangé).
+- **Acceptation :** le bouton marche pour GitHub comme avant ; aucun type `Domain/Contracts/GitHub` dans les trois cas d'usage.
+- **Dépend de :** M7.09, M4.02i
+
+#### M7.12 — Admission d'une organisation par connexion
+- **Issue :** à créer
+- **Objectif :** admettre une organisation d'une forge à connexion, par une seule voie que M8 et M9 réutilisent :
+  1. vérifier l'accès par un port propre à chaque forge ;
+  2. créer l'organisation et sa connexion dans une même transaction ;
+  3. mettre en file la synchronisation des dépôts et le rafraîchissement des appartenances de l'administrateur (comme M4.02i).
+
+  L'admission GitHub reste `AdmitOrganization`, par l'installation, et n'est touchée qu'une fois ici.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - **Port** : `Domain/Ports/IForgeConnectionVerifier.cs`, à clé `Forge` (ajout, §10) : `VerifyAsync(ForgeConnectionRequest)` renvoie `ForgeAccountInfo` ou un refus. Contrats `Domain/Contracts/Forges/ForgeConnectionRequest.cs` et `ForgeConnectionCheck.cs`. `IForgeGatewayProvider.GetVerifier(Forge)`.
+  - **Cas d'usage** : UC `Features/Connections/Commands/ConnectOrganization` `+V` (`IAdminOnly`, audité). Le login doit respecter la règle de forme d'ADR-014, la forge doit figurer dans `IForgeAvailability.AdmissionForges`, et la forge GitHub est refusée (elle passe par `AdmitOrganization`).
+  - **Admission GitHub** : UC `Features/Organizations/Commands/AdmitOrganization` (validateur) renvoie une forge à connexion vers `ConnectOrganization` avec un code explicite. Ce changement est fait une fois ici, et non dans M9.
+  - **Enregistrement** : l'organisation, la connexion et les deux jobs sont écrits par `IForgeConnectionRepository.AddWithOrganizationAsync` (M7.12a), dans sa transaction. `ForgeConnection.Create` reçoit `ServiceAccountExternalId` et `ExpiresAt` de `ForgeAccountInfo`.
+  - **Erreurs** : `Features/Connections/ConnectionErrors.cs` et `ConnectionGuards.cs` (`Connection.ForgeAccessDenied`, `Connection.ForgeNotAvailable`, `Connection.UseInstallation`) ; `Features/Organizations/OrganizationErrors.cs` (`Organization.UseConnection`) ; resx.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Commands/ConnectOrganization/ConnectOrganizationCommandHandlerTests` — `Handle_Verified_ShouldCreateOrganizationAndConnection`, `Handle_Verified_ShouldStoreServiceAccountAndExpiry`, `Handle_VerifierRefuses_ShouldThrowForgeAccessDenied`, `Handle_SameLoginOnAnotherForge_ShouldCreateASecondOrganization`, `Handle_Connected_ShouldQueueSyncAndMemberships` ;
+  - `ConnectOrganizationCommandValidatorTests` — `Validate_GitHub_ShouldRefuse`, `Validate_LoginOutOfShape_ShouldRefuse` ;
+  - `Application.Tests/Features/Organizations/Commands/AdmitOrganization/AdmitOrganizationCommandHandlerTests` — `Handle_ConnectionForge_ShouldThrowUseConnection`.
+- **Acceptation :** l'appel à la forge est une vérification légère, et la synchronisation reste un job. Un même nom sur deux forges donne deux organisations. Aucune connexion n'est créée sans organisation, ni l'inverse.
+- **Dépend de :** M7.05, M7.09, M7.12a, M4.02i
+
+#### M7.12a — Enregistrement d'une organisation et de sa connexion dans une même transaction
+- **Issue :** à créer
+- **Objectif :** donner à `ConnectOrganization` une méthode de dépôt qui crée l'organisation et sa connexion et met en file leurs jobs dans une seule transaction, sans unité de travail : les jobs sont mis en file par la méthode de dépôt du changement, comme le veut la règle des jobs. L'admission GitHub garde `IOrganizationDirectory.UpsertFromForgeAsync`.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Domain/Ports/IForgeConnectionRepository.cs` : `AddWithOrganizationAsync(organization, connection, jobs, ct)` ;
+  - `Infrastructure/Persistence/Repositories/ForgeConnectionRepository.cs` : organisation, connexion (secrets chiffrés par `ISecretProtector`) et lignes `Jobs` (synchronisation des dépôts de M7.09, rafraîchissement des appartenances de M4.02i) dans la même transaction.
+- **Tests :** `Infrastructure.Tests/Persistence/Repositories/ForgeConnectionRepositoryTests`, sur les deux fournisseurs (ignorés avec une raison explicite sans Docker) — `AddWithOrganizationAsync_JobFails_ShouldRollBackBoth`, `AddWithOrganizationAsync_Valid_ShouldStoreAllThree`.
+- **Acceptation :** aucune connexion n'est créée sans organisation, ni l'inverse ; aucune unité de travail ; aucun `IgnoreQueryFilters`.
+- **Dépend de :** M7.06, M7.09, M4.02i
+
+#### M7.13 — Rotation des secrets d'une connexion
+- **Issue :** à créer
+- **Objectif :** remplacer l'identifiant ou le secret de webhook d'une connexion sans interrompre les livraisons : l'ancien secret de webhook reste accepté jusqu'à la rotation suivante.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - UC `Features/Connections/Commands/RotateConnectionSecret` `+V` (`IOrganizationScoped`, rôle administrateur de l'organisation, audité, jamais le secret dans l'audit) : `Kind` vaut `Credential` ou `WebhookSecret` ; le nouvel identifiant est vérifié par `IForgeConnectionVerifier` avant d'être enregistré ;
+  - `ConnectionGuards.ThrowIfNotInOrganization` : une connexion d'une autre organisation donne 404 ;
+  - `Domain/Connections/ForgeConnection.cs` (`RotateCredential`) ;
+  - resx des erreurs (`Connection.NotFound`, `Connection.CredentialRefused`).
+- **Tests :** `Application.Tests/Features/Connections/Commands/RotateConnectionSecret/RotateConnectionSecretCommandHandlerTests` — `Handle_WebhookSecret_ShouldKeepThePreviousOne`, `Handle_OtherOrganizationConnection_ShouldThrowNotFound`, `Handle_CredentialRefused_ShouldKeepTheOldOne`.
+- **Acceptation :** aucune rotation ne fait perdre une livraison signée avec l'ancien secret ; aucun secret n'est journalisé.
+- **Dépend de :** M7.12
+
+#### M7.14 — Santé des connexions (`CheckConnections`)
+- **Issue :** à créer
+- **Objectif :** vérifier chaque jour chaque connexion par `IForgeConnectionVerifier`, enregistrer son état et signaler une échéance proche. M9 n'y ajoute que la règle d'expiration de GitLab.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - UC `Features/Connections/Commands/CheckConnections` : coordinateur `ISystemOnly` de la voie de l'instance, qui lit `ForgeConnections` et met en file un `CheckConnection` par connexion active (`JobRequest.ForOrganization`) ;
+  - UC `Features/Connections/Commands/CheckConnection` (`ISystemOnly`, dans l'organisation) : vérification, `ForgeConnection.RecordCheck`, statut `Failing` ou `Expiring` (`ExpiresAt` à moins du délai), jamais de suspension automatique ;
+  - `JobTypes.CheckConnections` et `JobTypes.CheckConnection` ; `Infrastructure/Jobs/JobDispatcher.cs` ; `Infrastructure/Jobs/RecurringJobCatalog.cs` (quotidien) ;
+  - `OrganizationIsolationTests` : `ConnectionHealthCoordinator` dans `CrossOrganizationEnqueueAllowList`.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Commands/CheckConnections/CheckConnectionsCommandHandlerTests` — `Handle_TwoOrganizations_ShouldQueueOneChildEach` ;
+  - `Application.Tests/Features/Connections/Commands/CheckConnection/CheckConnectionCommandHandlerTests` — `Handle_VerifierRefuses_ShouldMarkFailing`, `Handle_ExpiresSoon_ShouldMarkExpiring`.
+- **Acceptation :** une connexion révoquée apparaît en échec le lendemain sans faire échouer d'autre job ; la porte est nommée dans `OrganizationIsolationTests`.
+- **Dépend de :** M7.10, M7.12
+
+**Refactors neutres : accès des utilisateurs**
+
+#### M7.15 — Port neutre de l'utilisateur et forge de `SignInUserCommand`
+- **Issue :** à créer
+- **Objectif :** que la connexion d'un utilisateur passe par un port neutre, et que `SignInUserCommand` porte la forge.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :**
+  - `Domain/Ports/IForgeUserGateway.cs` (`GetUserAsync`, `ListAccountsAsync`, `ListRepositoryPermissionsAsync`), avec `Domain/Contracts/Forges/ForgeUser.cs`, `ForgeUserAccount.cs` et `ForgeRepositoryPermission.cs` ;
+  - `IForgeGatewayProvider.GetUserGateway(Forge)` ; `Infrastructure/GitHub/GitHubUserGateway.cs` implémente le port neutre, à clé `Forge.GitHub` ;
+  - UC `Features/Access/Commands/SignInUser` : `Forge` sur la commande, plus de `Forge.GitHub` en dur. Le handler appelle encore `MembershipUpdater` à travers un adaptateur des types GitHub jusqu'à M7.17, ce qui évite un cycle caché entre M7.15 et M7.17 ;
+  - `Web/Configuration/Authentication/GitHubSignInEvents.cs`, une ligne : forge `GitHub` transmise.
+- **Tests :**
+  - `Application.Tests/Features/Access/Commands/SignInUser/SignInUserCommandHandlerTests` — `Handle_Forge_ShouldFindTheUserOnThatForge`, `Handle_UnknownUser_ShouldCreateItOnTheCommandForge` ;
+  - `Web.Tests/Authentication/GitHubSignInEventsTests` (forge `GitHub` transmise).
+- **Acceptation :** `IGitHubUserGateway` n'est plus nommé dans `Features/Access/Commands/SignInUser`.
+- **Dépend de :** M7.04
+
+#### M7.16 — Port neutre du jeton de l'utilisateur
+- **Issue :** à créer
+- **Objectif :** que le renouvellement du jeton délégué d'un utilisateur passe par un port neutre.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Ports/IForgeUserTokenProvider.cs` ; `IForgeGatewayProvider.GetUserTokenProvider(Forge)` ;
+  - `Infrastructure/GitHub/GitHubUserTokenProvider.cs`, à clé `Forge.GitHub` ;
+  - UC `Features/Access/Commands/RefreshUserAccess`, par le port neutre.
+- **Tests :**
+  - `Infrastructure.Tests/GitHub/GitHubUserTokenProviderTests` (existants, résolus par la clé) ;
+  - `Application.Tests/Features/Access/Commands/RefreshUserAccess/RefreshUserAccessCommandHandlerTests` — `Handle_ExpiredToken_ShouldRenewThroughTheForgeProvider`.
+- **Acceptation :** `IGitHubUserTokenProvider` n'est plus nommé dans `Application`.
+- **Dépend de :** M7.15
+
+#### M7.17 — Adhésions et droits neutres
+- **Issue :** à créer
+- **Objectif :** calculer le rôle d'un utilisateur et ses droits sur les dépôts à partir de contrats neutres, l'adhésion étant lue avec l'identifiant de la connexion.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Contracts/Forges/ForgeMembership.cs` (`Active`, `Admin`) remplace `GitHubOrganizationMembership` dans `Domain/Organizations/OrganizationRoles.cs` ;
+  - `Application/Services/MembershipUpdater.cs` : `IReadOnlyList<ForgeUserAccount>`, port `IForgeDirectoryGateway.GetMembershipAsync` ; l'adaptateur de M7.15 disparaît ;
+  - UC `Features/Access/Commands/RefreshUserAccess` et `RefreshUserMemberships`, par les ports neutres de M7.15 et M7.16 ;
+  - `Infrastructure/GitHub/GitHubDirectoryGateway.cs` (adhésion) ;
+  - `OrganizationIsolationTests` : le chemin `MembershipRefresh` est vérifié, et mis à jour s'il change.
+- **Tests :**
+  - `Domain.Tests/Organizations/OrganizationRolesTests` (nouveau) — `Of_AdminMembership_ShouldBeAdmin` ;
+  - `Application.Tests/Features/Access/Commands/RefreshUserAccess/RefreshUserAccessCommandHandlerTests` — `Handle_ForgePermissions_ShouldReplaceTheAccess` ;
+  - `Application.Tests/Features/Access/Commands/RefreshUserMemberships/RefreshUserMembershipsCommandHandlerTests` — `Handle_ForgeMembership_ShouldUpdateTheRole`.
+- **Acceptation :** aucun type `Domain/Contracts/GitHub` dans `OrganizationRoles`, `MembershipUpdater`, `RefreshUserAccess` ni `RefreshUserMemberships`.
+- **Dépend de :** M7.09, M7.16
+
+**Refactors neutres : webhooks, événements et hooks**
+
+#### M7.18 — Livraisons de webhooks par forge
+- **Issue :** à créer
+- **Objectif :** stocker une livraison avec sa forge et des identifiants neutres, pour que toute réception rejoigne la même file.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Infrastructure/GitHub/WebhookDeliveryRecord.cs` déplacé en `Infrastructure/Webhooks/WebhookDeliveryRecord.cs`, avec les colonnes `Forge`, `RepositoryExternalId` (texte, remplace `RepositoryGitHubId`) et `ConnectionId` (texte, remplace `InstallationId`) ;
+  - `Infrastructure/Persistence/Configurations/WebhookDeliveryConfiguration.cs` : la clé primaire `PK_WebhookDeliveries` devient `(Forge, DeliveryId)`, et les longueurs ne viennent plus de `GitHubWebhookEvent` ;
+  - Migration `AddWebhookDeliveryForge` : valeur `GitHub` pour les lignes existantes, colonnes converties ;
+  - `Domain/Ports/IWebhookDeliveryRepository.cs` (forge) ; `Domain/Operations/WebhookDeliverySummary.cs` (forge) ;
+  - `Infrastructure/Jobs/JobDispatcher.cs` : `HandleWebhook` reste le cas GitHub.
+- **Tests :**
+  - `Infrastructure.Tests/Persistence/Repositories/WebhookDeliveryRepositoryTests` — `AddAsync_SameDeliveryIdOnTwoForges_ShouldKeepBoth`, `Migration_ExistingGitHubDelivery_ShouldKeepItsIdentifiers` (deux fournisseurs).
+- **Acceptation :** les livraisons GitHub existantes restent lisibles et rejouables ; le test « aucun changement de modèle sans migration » est vert.
+- **Dépend de :** M7.02
+
+#### M7.19 — Événements neutres de push, de pull request et de dépôt
+- **Issue :** à créer
+- **Objectif :** que `PushProcessor`, la synchronisation des PR et la réconciliation des dépôts reçoivent des événements neutres, GitHub traduisant les siens.
+- **Couches :** Domain, Application.
+- **Fichiers :**
+  - `Domain/Contracts/Forges/ForgePushEvent.cs`, `ForgePullRequestEvent.cs` et `ForgeRepositoryEvent.cs` (créé, renommé, supprimé, transféré), avec `ForgeRepositoryEventKind.cs` ;
+  - `Application/Services/PushProcessor.cs`, qui prend `ForgePushEvent` ;
+  - UC `Features/GitHubEvents/Commands/HandleWebhookDelivery` : traduit `GitHubPushEvent`, `GitHubPullRequestEvent` et `GitHubRepositoryEvent` avant les traitements.
+- **Tests :**
+  - `Application.Tests/Services/PushProcessorTests` (événement neutre) ;
+  - `Application.Tests/Features/GitHubEvents/Commands/HandleWebhookDelivery/HandleWebhookDeliveryCommandHandlerTests` — `Handle_Push_ShouldPassANeutralEvent`, `Handle_RepositoryRenamed_ShouldPassANeutralEvent`.
+- **Acceptation :** `PushProcessor` ne nomme plus aucun type GitHub ; les tests GitHub restent verts.
+- **Dépend de :** M7.18
+
+#### M7.20 — Traduction par forge et traitement neutre des livraisons
+- **Issue :** à créer
+- **Objectif :** traiter les livraisons de toute forge à connexion par un seul cas d'usage. Chaque adaptateur n'écrit que son traducteur, placé dans `Infrastructure/{Forge}/Events/`.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - **Port** : `Domain/Ports/IForgeEventTranslator.cs`, à clé `Forge` (ajout, §10), qui renvoie un `ForgeEvent` ou « ignoré » ; contrats `Domain/Contracts/Forges/ForgeEvent.cs` et `ForgeDelivery.cs`. `IForgeGatewayProvider.GetEventTranslator(Forge)`.
+  - **Cas d'usage** : UC `Features/Webhooks/Commands/HandleForgeDelivery` (`ISystemOnly`) aiguille l'événement traduit :
+    - `ForgePushEvent` vers `PushProcessor` ;
+    - `ForgePullRequestEvent` vers `SyncPullRequestJobs` ;
+    - `ForgeRepositoryEvent` vers `RepositoryReconciliationJobs.ForConnection`, `ReconcileRepositoryTransfer` ou `RewriteRepositoryOwner` ;
+    - un événement inconnu ou ignoré est marqué ignoré, jamais en échec.
+  - **Job** : `JobTypes.HandleForgeDelivery` ; dans `Infrastructure/Jobs/JobDispatcher.cs`, un cas pour toute forge autre que GitHub.
+- **Tests :**
+  - `Application.Tests/Features/Webhooks/Commands/HandleForgeDelivery/HandleForgeDeliveryCommandHandlerTests` — `Handle_Push_ShouldProcessTheBranch`, `Handle_PullRequest_ShouldQueueItsSync`, `Handle_RepositoryRenamed_ShouldQueueReconciliation`, `Handle_Ignored_ShouldMarkTheDeliveryIgnored` ;
+  - `Infrastructure.Tests/Jobs/JobDispatcherTests` — `DispatchAsync_HandleForgeDelivery_ShouldRouteByForge`.
+- **Acceptation :** aucun type d'une forge dans le cas d'usage ; M8 et M9 n'ajoutent ni cas d'usage ni cas de dispatcher.
+- **Dépend de :** M7.11, M7.19
+
+#### M7.21 — Réception neutre des webhooks par connexion
+- **Issue :** à créer
+- **Objectif :** recevoir le webhook d'une forge à connexion en quelques millisecondes, sans appel à la forge pendant la requête (règle critique 3) :
+  1. trouver la connexion par l'identifiant de la route, avant d'entrer dans une organisation ;
+  2. l'authentifier par un validateur propre à la forge, avec le secret courant ou précédent de la connexion ;
+  3. stocker la livraison et la mettre en file.
+
+  Les contrôleurs par forge restent minces : seuls leurs en-têtes diffèrent.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - **Port** : `Domain/Ports/IForgeWebhookValidator.cs`, à clé `Forge` (ajout, §10). Il reçoit `Domain/Contracts/Webhooks/ForgeWebhookRequest.cs` (forge, connexion, identifiant de livraison, événement, en-têtes utiles, corps) et les secrets déchiffrés. Le validateur GitHub (`IWebhookSignatureValidator`, `GitHub:WebhookSecret`) reste celui des installations, comme le dit ADR-015.
+  - **Cas d'usage** : UC `Features/Webhooks/Commands/ReceiveForgeWebhook` `+V` (`IAnonymousEntry`, authentifiée dans son handler) :
+    - `IForgeConnectionRepository.FindOwnerAsync` ;
+    - comparaison en temps constant par le validateur ;
+    - livraison stockée dans `WebhookDeliveries` avec sa forge ;
+    - `HandleForgeDelivery` mis en file par `JobRequest.ForOrganization` ;
+    - une livraison déjà reçue n'est stockée qu'une fois.
+  - **Erreurs** : `Features/Webhooks/WebhookErrors.cs` et `WebhookGuards.cs` (`Webhook.InvalidSignature` pour une connexion inconnue comme pour une signature fausse, sans oracle ; `Webhook.InvalidPayload`) ; resx.
+  - **Isolation** : `OrganizationIsolationTests`, `ForgeWebhookReception` dans `CrossOrganizationEnqueueAllowList`.
+  - **Route** : `/api/v1/{forge}/webhooks/{connectionId}`, rappelée dans la remarque XML du cas d'usage.
+- **Tests :** `Application.Tests/Features/Webhooks/Commands/ReceiveForgeWebhook/ReceiveForgeWebhookCommandHandlerTests` — `Handle_ValidSignature_ShouldStoreAndQueue`, `Handle_PreviousSecret_ShouldAccept`, `Handle_UnknownConnection_ShouldThrowUnauthorized`, `Handle_WrongSignature_ShouldThrowUnauthorized`, `Handle_SameDeliveryTwice_ShouldStoreOnce`.
+- **Acceptation :** le handler n'appelle aucune forge ; la porte est nommée dans `OrganizationIsolationTests` ; aucun `IgnoreQueryFilters`.
+- **Dépend de :** M7.06, M7.18, M7.20
+
+#### M7.22 — Table `ForgeHooks`
+- **Issue :** à créer
+- **Objectif :** garder l'état des hooks qu'une connexion a créés chez sa forge (par connexion, projet ou dépôt), pour les vérifier et pour afficher un hook manquant ou interdit dans l'écran de l'organisation. Une seule table sert les trois forges.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Domain/Connections/ForgeHook.cs` : `ConnectionId`, `ScopeKind`, `ScopeExternalId`, `ExternalId`, `State`, `LastCheckedAt`, `LastError` ; `Domain/Connections/ForgeHookScopeKind.cs` (`Connection`, `Project`, `Repository`) et `ForgeHookState.cs` (`Active`, `Disabled`, `Missing`, `Forbidden`), stockés en texte ;
+  - `Domain/Ports/IForgeHookRepository.cs` ;
+  - `Infrastructure/Persistence/Configurations/ForgeHookConfiguration.cs` (`IsOrganizationOwned()`, `HasOrganizationForeignKey()`, `UX(OrganizationId, ConnectionId, ScopeKind, ScopeExternalId)`) ; `Infrastructure/Persistence/Repositories/ForgeHookRepository.cs` ; `Infrastructure/DependencyInjection.Repositories.cs` ;
+  - `TableClassification.OrganizationOwned` (`ForgeHooks`) ;
+  - Migration `AddForgeHooks`.
+- **Tests :**
+  - `Domain.Tests/Connections/ForgeHookTests` — `MarkForbidden_Active_ShouldRecordTheError` ;
+  - `Infrastructure.Tests/Persistence/Repositories/ForgeHookRepositoryTests`, sur deux organisations et deux fournisseurs — `ListAsync_OtherOrganization_ShouldReturnNothing`, `UpsertAsync_SameScope_ShouldNotDuplicate`.
+- **Acceptation :** `Model_EveryEntity_ShouldBeClassifiedOnce` est vert ; le test « aucun changement de modèle sans migration » est vert.
+- **Dépend de :** M7.06
+
+#### M7.23 — Gestion neutre des hooks : `EnsureForgeHooks` et `CheckForgeHooks`
+- **Issue :** à créer
+- **Objectif :** créer et vérifier par l'API les hooks de chaque connexion, avec son secret de webhook, pour que l'onboarding n'exige pas de les créer à la main. M8 et M9 n'écrivent que leur adaptateur.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - **Port** : `Domain/Ports/IForgeHookManager.cs`, à clé `Forge` (ajout, §10) : `EnsureAsync(ForgeConnectionRef, scopes, callback)` et `CheckAsync`, qui renvoient l'état par portée.
+  - **Cas d'usage** :
+    - UC `Features/Webhooks/Commands/EnsureForgeHooks` (`ISystemOnly`, dans l'organisation) : crée ce qui manque et enregistre l'état ; un refus donne `Forbidden`, jamais un job en échec ;
+    - UC `Features/Webhooks/Commands/CheckForgeHooks` : coordinateur `ISystemOnly` qui met en file un `EnsureForgeHooks` par connexion active (`JobRequest.ForOrganization`).
+  - **Jobs** : `JobTypes.EnsureForgeHooks` et `JobTypes.CheckForgeHooks` ; `Infrastructure/Jobs/JobDispatcher.cs` ; `Infrastructure/Jobs/RecurringJobCatalog.cs` (quotidien) ; UC `Features/Connections/Commands/SyncConnectionRepositories`, qui met en file `EnsureForgeHooks` quand une portée apparaît.
+  - **Isolation** : `OrganizationIsolationTests`, `HookCoordinator` dans `CrossOrganizationEnqueueAllowList`.
+- **Tests :**
+  - `Application.Tests/Features/Webhooks/Commands/EnsureForgeHooks/EnsureForgeHooksCommandHandlerTests` — `Handle_MissingScope_ShouldCreateTheHook`, `Handle_Forbidden_ShouldRecordForbidden` ;
+  - `Application.Tests/Features/Webhooks/Commands/CheckForgeHooks/CheckForgeHooksCommandHandlerTests` — `Handle_TwoOrganizations_ShouldQueueOneChildEach` ;
+  - `Application.Tests/Features/Connections/Commands/SyncConnectionRepositories/SyncConnectionRepositoriesCommandHandlerTests` — `Handle_NewProject_ShouldQueueEnsureForgeHooks`.
+- **Acceptation :** une portée sans droit est enregistrée `Forbidden` au lieu de faire échouer la synchronisation ; la porte est nommée dans `OrganizationIsolationTests`.
+- **Dépend de :** M7.10, M7.21, M7.22
+
+**Refactors neutres : liens, commentaires et pull requests**
+
+#### M7.24 — Liens par forge
+- **Issue :** à créer
+- **Objectif :** que le lien « voir le commentaire » (et ceux d'une PR ou d'un commit) vienne de la forge, et non de `https://github.com` en dur.
+- **Couches :** Domain, Infrastructure, Web.
+- **Fichiers :**
+  - `Domain/Ports/IForgeLinks.cs`, à clé `Forge` (`PullRequest`, `Comment`, `Commit`) ; `IForgeGatewayProvider.GetLinks(Forge)` ;
+  - `Infrastructure/GitHub/GitHubLinks.cs`, dérivé de `GitHub:ApiBaseUrl` ;
+  - `Web/Mapping/ComparisonMapper.cs` : lien par `IForgeLinks`, au lieu de `https://github.com/…#issuecomment-…`.
+- **Tests :**
+  - `Infrastructure.Tests/GitHub/GitHubLinksTests` — `Comment_PublicGitHub_ShouldMatchTheCurrentLink` ;
+  - `Web.Tests/Mapping/ComparisonMapperTests` (nouveau dossier `Web.Tests/Mapping/`) — `ToViewModel_AnyForge_ShouldUseTheForgeLink`.
+- **Acceptation :** plus de `github.com` en dur dans `Web/Mapping` ; le lien GitHub rendu ne change pas.
+- **Dépend de :** M7.04
+
+#### M7.25 — Capacités de commentaire par forge
+- **Issue :** à créer
+- **Objectif :** que le plafond de longueur du commentaire vienne de la forge et non d'une constante GitHub. M8 étend ces capacités au HTML et à `<details>`.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - `Domain/Contracts/Forges/ForgeCapabilities.cs` (`CommentMaxLength`) ; `IForgeGatewayProvider.GetCapabilities(Forge)` ; `Infrastructure/GitHub/GitHubCapabilities.cs` (valeur actuelle) ;
+  - `Application/Services/Comments/CommentTruncator.cs` (plafond reçu) ; `Application/Services/CommentPublisher.cs`.
+- **Tests :** `Application.Tests/Services/Comments/CommentTruncatorTests` — `Truncate_ForgeLimit_ShouldRespectIt` ; snapshots `CommentComposer*Tests` inchangés.
+- **Acceptation :** aucune constante de longueur GitHub dans `Application`.
+- **Dépend de :** M7.04
+
+#### M7.26 — `PullRequests.BaseShaGitHub` renommé `BaseShaForge`
+- **Issue :** à créer
+- **Objectif :** donner un nom neutre à la base de la PR rapportée par la forge. C'est un renommage mécanique, sans autre changement.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Domain/PullRequests/PullRequest.cs` ;
+  - `Infrastructure/Persistence/Configurations/PullRequestConfiguration.cs` ; `Infrastructure/Persistence/Repositories/RetentionRepository.cs` ;
+  - `Application/Services/BaseResolver.cs` et `Application/Services/CommentComposer.cs` ;
+  - Migration `RenamePullRequestBaseShaForge` (renommage de colonne).
+- **Tests :** tests existants de `Application.Tests/Services/BaseResolverTests` et de `Infrastructure.Tests/Persistence/Repositories/PullRequestRepositoryTests` (deux fournisseurs) verts.
+- **Acceptation :** les données existantes sont conservées par le renommage ; plus aucun `BaseShaGitHub` dans `src` hors migrations historiques.
+- **Dépend de :** M7.02
+
+**Refactors neutres : uploader, quotas et badges**
+
+#### M7.27 — Forge et slug à plusieurs niveaux dans l'uploader
+- **Issue :** à créer
+- **Objectif :** que l'uploader envoie la forge du dépôt au lieu que l'adresse de finalisation suppose `github`, et qu'il sache adresser un owner à plusieurs niveaux (`org:project`, `group:sub`).
+- **Couches :** Uploader.
+- **Fichiers :**
+  - **`Uploader/Commands/UploadCommandFactory.cs`** :
+    - `--forge`, valeurs de `ForgeSegments`, défaut issu du contexte CI ;
+    - alias `--git-service`, l'option de codecov-cli (`github`, `gitlab`, `bitbucket`) ;
+    - aide de `--slug` : « owner/repo, ou org/project/repo » ;
+    - un dépôt sans forge détectée garde `github`.
+  - **`Uploader/Ci/DetectedContext.cs`** : propriété `Forge`.
+  - **`Uploader/Ci/LocalContext.cs`** : `ParseSlug` accepte deux segments ou plus.
+  - **`Uploader/Http/MultipartBuilder.cs`** : champ `forge`, déjà lu par `Api/Mapping/UploadMapper.cs`.
+  - **`Uploader/Http/FinalizeClient.cs`** :
+    - segment de la forge au lieu de la constante `github` ;
+    - `BuildAddress` coupe le slug au **dernier** `/` ;
+    - un owner à plusieurs segments est écrit avec `:`.
+- **Tests :**
+  - `Uploader.Tests/Http/FinalizeClientTests` — `BuildAddress_ThreeLevels_ShouldWriteColonOwner`, `CompleteAsync_AzureDevOps_ShouldUseItsSegment` ;
+  - `Uploader.Tests/Http/MultipartBuilderTests` (nouveau) — `Build_Forge_ShouldSendTheField` ;
+  - `Uploader.Tests/Commands/UploadCommandFactoryTests` — `Create_GitServiceAlias_ShouldSetTheForge` ;
+  - `Uploader.Tests/Ci/CiContextDetectorTests` — `Detect_LocalThreeLevelSlug_ShouldKeepIt`.
+- **Acceptation :** un uploader sans `--forge` sur GitHub Actions envoie `github` ; un ancien uploader sans le champ continue de fonctionner ; l'uploader sort en 0 sans `--fail-on-error` sur une forge inconnue (règle critique 6).
+- **Dépend de :** M7.02
+
+#### M7.28 — Quotas par forge : stockage et suivi
+- **Issue :** à créer
+- **Objectif :** suivre le débit restant de chaque forge et de chaque connexion, et non des seules installations GitHub.
+- **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Domain/Operations/ForgeQuota.cs` (forge, connexion, restant, limite, remise à zéro) remplace `GitHubQuota.cs` ; `Domain/Operations/SystemStatus.cs` (`ForgeQuotas`) ;
+  - `Infrastructure/Persistence/Configurations/GitHubQuotaConfiguration.cs` devient `ForgeQuotaConfiguration.cs` ; table `ForgeQuotas` opérationnelle (`TableClassification.Operational`) ;
+  - Migration `RenameGitHubQuotasToForgeQuotas` (données conservées, forge `GitHub`) ;
+  - `Infrastructure/Forges/ForgeQuotaTracker.cs` : suivi neutre (forge, connexion, restant, limite, remise à zéro), que M8 et M9 appellent depuis leur gestionnaire de limitation de débit sans écrire de suivi propre ;
+  - `Infrastructure/GitHub/GitHubQuotaTracker.cs` ne fait plus que lire les en-têtes GitHub et les transmettre à `ForgeQuotaTracker` ; `Infrastructure/Jobs/SqlJobQueue.cs` (lecture de `ForgeQuotas`) ; `Infrastructure/Jobs/OperationalStatusPublisher.cs`.
+- **Tests :**
+  - `Infrastructure.Tests/Forges/ForgeQuotaTrackerTests` — `Record_TwoConnections_ShouldKeepOneQuotaEach` ;
+  - `Infrastructure.Tests/GitHub/GitHubQuotaTrackerTests` (forge `GitHub`) ;
+  - `Infrastructure.Tests/Jobs/OperationalStatusPublisherTests` — `PublishAsync_TwoForges_ShouldWriteOneQuotaEach` ;
+  - `Infrastructure.Tests/Jobs/SqlJobQueueTests` (deux fournisseurs, lecture de `ForgeQuotas`).
+- **Acceptation :** les quotas GitHub existants restent lus ; `Model_EveryEntity_ShouldBeClassifiedOnce` est vert.
+- **Dépend de :** M7.03
+
+#### M7.29 — Quotas par forge : métriques et alertes
+- **Issue :** à créer
+- **Objectif :** une seule métrique et une seule alerte de quota, étiquetées par forge et par connexion, que M8 et M9 réutilisent sans en créer d'autres.
+- **Couches :** Infrastructure, exploitation.
+- **Fichiers :**
+  - `Infrastructure/Diagnostics/CodeCoverageMeter.cs` : `forge_ratelimit_limit`, `forge_ratelimit_remaining` et `forge_ratelimit_recorded_remaining`, étiquettes `forge` et `connection`. La valeur de `forge` est le segment de `ForgeSegments` (`github`, `azure-devops`, `bitbucket`, `gitlab`), jamais le nom de l'énumération. Les noms `github_ratelimit_*` restent publiés une version, et le changement est noté dans `docs/operations.md` ;
+  - `deploy/observability/alerts.yml` : `CodeCoverageForgeQuotaLow` remplace `CodeCoverageGitHubQuotaLow`, étiquette `forge` ; `deploy/observability/alerts.test.yml`.
+- **Tests :** `Infrastructure.Tests/Diagnostics/CodeCoverageMeterTests` — `Report_TwoForges_ShouldLabelEachSeries` ; tests d'alertes de `alerts.test.yml` (CI).
+- **Acceptation :** une alerte de quota bas nomme la forge et la connexion.
+- **Dépend de :** M7.28
+
+#### M7.30 — Table des segments Codecov par forge
+- **Issue :** à créer
+- **Objectif :** tirer d'une seule table « forge → segments Codecov » les routes compatibles Codecov de `BadgesController` et les extraits de badge. M8 et M9 n'y ajoutent qu'une ligne ; une forge sans ligne (Azure DevOps) n'a que la route neutre.
+- **Couches :** Domain, Api, Web.
+- **Fichiers :**
+  - `Domain/Organizations/CodecovServiceSegments.cs` (`GitHub` → `gh`, `github`) ;
+  - `Api/Configuration/Routing/CodecovServiceRouteConstraint.cs`, qui remplace la contrainte `regex(^(gh|github)$)` des deux routes de `Api/Controllers/BadgesController.cs` ;
+  - `Web/Mapping/RepositoryMapper.cs` (`ToSnippets` : route Codecov si la forge a une ligne, sinon `/api/v1/badges/{forge}/{owner}/{repo}.svg`).
+- **Tests :**
+  - `Domain.Tests/Organizations/CodecovServiceSegmentsTests` — `TryParse_Gh_ShouldReturnGitHub` ;
+  - `Api.Tests/Badges/BadgesControllerTests` — `Get_GitHubAliases_ShouldStillRender`, `Get_UnknownService_ShouldReturnNotFound` ;
+  - `Web.Tests/Components/Repositories/BadgeSnippetsTests` — `Render_ForgeWithoutCodecovSegment_ShouldUseTheNeutralRoute`.
+- **Acceptation :** les URL Codecov GitHub existantes répondent à l'identique (règle critique 1).
+- **Dépend de :** M7.02
+
+**Maquettes (avant tout changement d'interface)**
+
+#### M7.31 — Maquette : connexion par forge, listes de forges et opérations
+- **Issue :** à créer
+- **Objectif :** valider avant tout code les écrans neutres qui changent :
+  - la page de connexion avec un bouton par forge disponible ;
+  - le choix de la forge dans le dialogue d'admission de `/admin/organizations` ;
+  - la colonne forge des livraisons et les cartes de quota par forge et par connexion de `/admin/operations` ;
+  - le libellé « Voir le commentaire sur {forge} » de la page PR.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (sections ajoutées, CSS `cc-signin__forge`, icônes Azure DevOps, Bitbucket et GitLab).
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant M7.34, M7.35 et M7.36 (propriétaire).
+- **Dépend de :** M7.02
+
+#### M7.32 — Maquette : `/setup` multi-forge et administrateurs par forge
+- **Issue :** à créer
+- **Objectif :** valider l'assistant de premier démarrage avec une étape « forges » (GitHub, Azure DevOps, puis Bitbucket et GitLab), l'App GitHub devenant facultative, et une saisie des administrateurs qualifiés par forge.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (section `/setup`).
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant M7.37 et M7.42 (propriétaire).
+- **Dépend de :** M7.02, M4.02f
+
+#### M7.33 — Maquette : page de connexion d'une organisation
+- **Issue :** à créer
+- **Objectif :** valider une page générique, valable pour toutes les forges à connexion. M8 et M9 n'y ajoutent que leurs champs.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html`, avec deux sections :
+  - **dialogue d'admission par forge** : nom, tenant pour Azure DevOps, identifiant ;
+  - **page `/orgs/{forge}/{org}/connection`** : état et dernière vérification, échéance, rotation des secrets, état des hooks par portée (actif, manquant, interdit), bouton synchroniser.
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant M7.38 et M7.41 (propriétaire).
+- **Dépend de :** M7.02
+
+**Refactors neutres : interface**
+
+#### M7.34 — Page de connexion à choix de forge
+- **Issue :** à créer
+- **Objectif :** proposer un bouton par forge de `SignInForges` sur la page de connexion, avec un chemin de défi par forge.
+- **Couches :** Web.
+- **Fichiers :**
+  - `Web/Components/Pages/SignIn.razor(.cs)`, boutons tirés de `GetForgeAvailabilityViewModelAsync` ;
+  - `Web/Mapping/OrganizationsMapper.cs` (`GetForgeAvailabilityViewModelAsync`) ; `Web/ViewModels/Organizations/ForgeAvailabilityViewModel.cs` (segments) ;
+  - `Web/Configuration/Authentication/AuthenticationEndpoints.cs` : `/signin/{forge}` lu par `ForgeSegments`, schéma par forge ;
+  - `Web/Components/Ui/Icons/CcIconName.cs` et `CcIconPaths.cs` (`AzureDevOps`, `Bitbucket`, `GitLab`) ; CSS `cc-signin__forge` ;
+  - resx `Forge_AzureDevOps`, `Forge_Bitbucket`, `Forge_GitLab` et `SignIn_With`. M8 et M9 ne les ajoutent pas une seconde fois.
+- **Tests :**
+  - `Web.Tests/Components/Pages/SignInTests` (nouveau, bUnit) — `Render_GitHubOnly_ShouldShowOneButton`, `Render_TwoForges_ShouldShowTwoButtons` ;
+  - `Web.Tests/Authentication/AuthenticationEndpointsTests` — `Challenge_UnknownForge_ShouldReturnNotFound`, `Challenge_GitHub_ShouldKeepItsPath` ;
+  - `Web.Tests/Components/Ui/CcIconTests` (nouvelles icônes).
+- **Acceptation :** avec GitHub seul, la page est identique à aujourd'hui. Le chemin de retour OAuth `/signin-github`, enregistré dans l'App GitHub, ne change pas, et `/signin/github` fonctionne toujours.
+- **Dépend de :** M7.05, M7.31
+
+#### M7.35 — Libellés et listes de forges neutres dans l'interface
+- **Issue :** à créer
+- **Objectif :** retirer « GitHub » et « installation » des textes qui valent pour toute forge, et tirer les listes de forges de `AdmissionForges`.
+- **Couches :** Web.
+- **Fichiers :**
+  - `Web/Resources/Common.resx` et `Common.fr.resx`, environ 40 clés : `Home_*`, `Pulls_EmptyText`, `Inaccessible_Description`, `OrganizationRepositories_*`, `AdminOrganizations_*`, `Operations_Webhooks`, `SuspensionReason_AppUninstalled`… ; `Pull_ViewComment` = « Voir le commentaire sur {0} » ;
+  - `Web/Components/Pages/AdminOrganizations.razor(.cs)` (forges d'admission) ; `Web/Components/Organizations/AdmitAccountForm.cs` (forge obligatoire, plus de défaut `github`) ;
+  - `Web/Mapping/OrganizationsMapper.cs` (`ForgeOf` sans repli sur GitHub) ; `Web/Components/Pages/OrganizationRepositories.razor` (icône de la forge).
+- **Tests :**
+  - `Web.Tests/Components/Pages/AdminOrganizationsTests` — `Render_TwoForges_ShouldOfferBoth` ;
+  - `Web.Tests/Resources/CommonTests` (clés présentes en français et en anglais).
+- **Acceptation :** les seules occurrences de « GitHub » restantes dans les resx désignent une notion propre à GitHub (App, Check Runs, installation).
+- **Dépend de :** M7.24, M7.34
+
+#### M7.36 — Opérations : forge des livraisons et quotas par forge
+- **Issue :** à créer
+- **Objectif :** afficher la forge de chaque livraison et un quota par forge et par connexion dans `/admin/operations`.
+- **Couches :** Application, Api, Web.
+- **Fichiers :**
+  - UC `Features/Operations/Queries/ListWebhookDeliveries` (filtre facultatif par forge, validateur) ;
+  - `Api/Contracts/Operations/WebhookDeliveryResponse.cs` (forge) ; `Api/Contracts/Operations/ForgeQuotaModel.cs` remplace `GitHubQuotaModel.cs` ; `Api/Contracts/Operations/SystemStatusResponse.cs` ; `Api/Mapping/OperationsMapper.cs` ;
+  - `Web/Components/Operations/WebhookDeliveries.razor(.cs)` (colonne forge) ; `Web/ViewModels/Operations/QuotaViewModel.cs` ; `Web/Components/Operations/SystemStatusCards.razor(.cs)` (une jauge par forge et par connexion) ; `Web/Mapping/OperationsMapper.cs` ; resx.
+- **Tests :**
+  - `Application.Tests/Features/Operations/Queries/ListWebhookDeliveries/ListWebhookDeliveriesQueryHandlerTests` — `Handle_ForgeFilter_ShouldKeepOnlyThatForge` ;
+  - `Api.Tests` (réponse des opérations : forge présente) ;
+  - `Web.Tests/Components/Pages/AdminOperationsTests` — `Render_TwoForgeQuotas_ShouldShowTwoGauges`.
+- **Acceptation :** les livraisons et le quota GitHub existants restent affichés ; la sonde à deux organisations des routes d'exploitation reste verte.
+- **Dépend de :** M7.18, M7.28, M7.31
+
+#### M7.37 — Administrateurs de l'instance sur toute forge
+- **Issue :** à créer
+- **Objectif :** qu'un utilisateur Azure DevOps, Bitbucket ou GitLab puisse être administrateur de l'instance. Aujourd'hui, `AdministratorList.Contains` renvoie `false` hors de GitHub.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - **`Domain/Users/AdministratorList.cs`** : une entrée vaut `{segment}:{id}` (`azure-devops:…`), et un identifiant numérique nu reste un compte GitHub, pour la compatibilité. Cela vaut pour `Access:AdminUserIds` comme pour `CodeCoverage:Bootstrap:AdminUserIds` (`Application/Configuration/BootstrapOptions.cs`, documentation).
+  - **`Features/Settings/Commands/CompleteSetup/CompleteSetupCommandValidator.cs`** : liste qualifiée acceptée. La conversion login → identifiant de M4.02f reste propre à GitHub.
+  - **Libellés** : `Setting.InvalidAdministrators` et `Setup_AdminsHelp` (resx), selon la maquette de M7.32.
+- **Tests :**
+  - `Domain.Tests/Users/AdministratorListTests` — `Contains_QualifiedAzureDevOpsEntry_ShouldBeTrue`, `Contains_BareNumber_ShouldMeanGitHub`, `Contains_QualifiedEntryOtherForge_ShouldBeFalse` ;
+  - `Application.Tests/Features/Settings/Commands/CompleteSetup/CompleteSetupCommandValidatorTests` (nouveau) — `Validate_QualifiedList_ShouldAccept`.
+- **Acceptation :** les listes existantes gardent leurs administrateurs GitHub ; un administrateur Azure DevOps qualifié voit `/admin`.
+- **Dépend de :** M4.02f, M7.32
+
+#### M7.38 — Page de connexion d'une organisation
+- **Issue :** à créer
+- **Objectif :** donner à l'administrateur d'une organisation une page générique : état de la connexion, échéance, rotation des secrets, état des hooks et synchronisation manuelle.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - `Domain/Connections/ForgeConnectionSummary.cs` (read model sans secret) ;
+  - UC `Features/Connections/Queries/GetOrganizationConnection` (`IOrganizationScoped`, administrateur de l'organisation) : connexion et `ForgeHooks` ;
+  - `Web/Components/Pages/OrganizationConnection.razor(.cs)` (`/orgs/{forge}/{org}/connection`, absente pour une organisation GitHub) ; `Web/ViewModels/Organizations/OrganizationConnectionViewModel.cs` ; `Web/Mapping/OrganizationsMapper.cs` (`GetOrganizationConnectionViewModelAsync`, `RotateConnectionSecretAsync`) ; lien depuis la navigation de l'organisation ; resx.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Queries/GetOrganizationConnection/GetOrganizationConnectionQueryHandlerTests` — `Handle_Connection_ShouldNeverExposeSecrets` ;
+  - `Web.Tests/Components/Pages/OrganizationConnectionTests` — `Render_ForbiddenHook_ShouldShowIt`, `Render_Expiring_ShouldWarn` ;
+  - sonde à deux organisations de la nouvelle route (M3.43a).
+- **Acceptation :** un hook interdit et une connexion en échec sont visibles sans lire les journaux ; aucun secret n'est rendu.
+- **Dépend de :** M7.11, M7.13, M7.14, M7.23, M7.33
+
+**Connexion d'une organisation Azure DevOps**
+
+#### M7.39 — Réglages `AzureDevOps:*` et jetons Entra ID
+- **Issue :** à créer
+- **Objectif :** obtenir un jeton d'application pour une organisation Azure DevOps, avec client HTTP typé, limitation de débit et cache, sans jamais persister le jeton.
+- **Couches :** Domain, Infrastructure, Web.
+- **Fichiers :**
+  - **`Domain/Settings/SettingDefinitions.cs`** : groupe `AzureDevOps`, avec `AzureDevOps:ClientId`, `AzureDevOps:ClientSecret` (secret), `AzureDevOps:CertificatePem` (secret), `AzureDevOps:Authority`, et `AzureDevOps:ApiBaseUrl` (par défaut `https://dev.azure.com`).
+  - **Lecture neutre des identifiants d'une connexion** : `Infrastructure/Forges/ForgeConnectionCredentialReader.cs`, que M8 et M9 réutilisent sans relire la connexion eux-mêmes :
+    - il lit la connexion par `IForgeConnectionRepository.FindAsync`, compare son `OrganizationId` à `ICurrentOrganization` et refuse une connexion d'une autre organisation ou `Suspended` par `Forge.Unavailable`, y compris sur une entrée de cache ;
+    - il déchiffre l'identifiant et le met en cache mémoire sous une clé qui commence par l'organisation.
+  - **Infrastructure** :
+    - `Infrastructure/AzureDevOps/AzureDevOpsOptions.cs` ;
+    - `AzureDevOpsTokenProvider.cs` : connexion et `TenantId` lus par `ForgeConnectionCredentialReader`, client credentials sur le tenant de la connexion, portée `499b84ac-1321-427f-aa17-267ca6975798/.default`, cache mémoire sous une clé `{tenant}:{connection}` ;
+    - `AzureDevOpsRateLimitHandler.cs` : `Retry-After` et `X-RateLimit-*` ; un 429 `TF400733` lève `ForgeRateLimitedException` ;
+    - `AzureDevOpsHttpClientConfiguration.cs` (client typé `azure-devops`) ; `AzureDevOpsJsonContext.cs` ;
+    - `AzureDevOpsErrors.cs` (`AzureDevOps.AccessDenied` pour `TF400813`) ;
+    - `AzureDevOpsAvailabilityContributor.cs`, à clé `Forge.AzureDevOps` : admission possible quand `ClientId` et un secret sont remplis ;
+    - `Infrastructure/DependencyInjection.AzureDevOps.cs`, appelé par `Infrastructure/DependencyInjection.cs` comme `AddGitHub()`.
+  - **Isolation** : `OrganizationIsolationTests`, `ForgeConnectionCredentialReader` et le fournisseur de jetons dans `MemoryCacheAllowList`, chacun avec sa propre entrée.
+  - **Libellés** : resx `SettingGroup_AzureDevOps` et libellés des réglages.
+- **Tests :**
+  - `Infrastructure.Tests/Forges/ForgeConnectionCredentialReaderTests` — `ReadAsync_OtherOrganizationConnection_ShouldThrowUnavailable`, `ReadAsync_SuspendedConnection_ShouldThrowUnavailable` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsTokenProviderTests` (WireMock) — `GetTokenAsync_SameTenant_ShouldReuseTheCachedToken`, `GetTokenAsync_SecretChanged_ShouldResetTheCache` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsRateLimitHandlerTests` — `SendAsync_TooManyRequests_ShouldThrowForgeRateLimited` ;
+  - `Domain.Tests/Settings/SettingDefinitionsTests` (groupe présent, secrets marqués).
+- **Acceptation :** aucun réglage fonctionnel dans `appsettings.json` ; un changement de secret prend effet sans redémarrage (`IOptionsMonitor<T>`).
+- **Dépend de :** M7.03, M7.05, M7.06
+
+#### M7.40 — Vérification d'une connexion Azure DevOps
+- **Issue :** à créer
+- **Objectif :** vérifier qu'une organisation Azure DevOps est accessible avec l'application Entra de l'instance, et lire son identifiant et son nom.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsConnectionVerifier.cs` (`IForgeConnectionVerifier`, à clé `Forge.AzureDevOps`) : lit `_apis/connectionData` (identifiant de l'organisation selon M7.01, et `authenticatedUser.id`, l'identité de l'application Entra, dans `ForgeAccountInfo.ServiceAccountExternalId`, que M7.48 utilise pour filtrer les fils), `TF400813` donne un refus ;
+  - `Infrastructure/AzureDevOps/AzureDevOpsDirectoryGateway.cs` (`GetAccountAsync`, à clé `Forge.AzureDevOps`) ;
+  - fixture `tests/fixtures/azure-devops/connection-data.json`.
+- **Tests :**
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsConnectionVerifierTests` (WireMock) — `VerifyAsync_Reachable_ShouldReturnTheAccount`, `VerifyAsync_Reachable_ShouldReturnTheServiceAccount`, `VerifyAsync_AccessDenied_ShouldRefuse` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsDirectoryGatewayTests` — `GetAccountAsync_ShouldMapTheOrganization`.
+- **Acceptation :** aucun jeton n'est journalisé ; un refus ne lève pas d'exception non traduite.
+- **Dépend de :** M7.12, M7.39
+
+#### M7.41 — Formulaire d'admission Azure DevOps et ligne de commande
+- **Issue :** à créer
+- **Objectif :** admettre une organisation Azure DevOps par son nom et son tenant, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization`.
+- **Couches :** Api, Web.
+- **Fichiers :**
+  - `Web/Components/Organizations/AdmitAccountForm.cs` (champs `Tenant` et `Name` pour `azure-devops`) ; `Web/Components/Pages/AdminOrganizations.razor(.cs)` (dialogue selon la maquette de M7.33) ; `Web/Mapping/OrganizationsMapper.cs` (`ToCommand` vers `ConnectOrganizationCommand`) ; resx ;
+  - `Api/Configuration/Administration/AdminCommandLine.cs` : `admit-organization --forge azure-devops --tenant …`, par `SystemCommandRunner`.
+- **Tests :**
+  - `Web.Tests/Components/Pages/AdminOrganizationsTests` — `Submit_AzureDevOps_ShouldSendTheTenant` ;
+  - `Api.Tests/Administration/AdminCommandLineTests` — `Run_AdmitAzureDevOps_ShouldConnectTheOrganization`.
+- **Acceptation :** un login d'organisation Azure DevOps hors de la règle de forme d'ADR-014 est refusé avec un code traduit ; un même nom sur GitHub et Azure DevOps donne deux organisations.
+- **Dépend de :** M7.35, M7.40, M7.33
+
+#### M7.42 — Assistant `/setup` indépendant de la forge
+- **Issue :** à créer
+- **Objectif :** considérer une instance comme configurée dès qu'au moins une forge l'est, l'App GitHub devenant une étape facultative.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - `Domain/Settings/SetupState.cs` : `IsComplete` exige les URL publiques, des administrateurs et au moins une forge dans `AdmissionForges` ;
+  - UC `Features/Settings/Queries/GetSetupState` (lit `IForgeAvailability`) ;
+  - `Web/Configuration/Setup/SetupRedirectMiddleware.cs` (lit `SetupState`, plus `GitHub:AppId` directement) ;
+  - `Web/Components/Pages/Setup.razor(.cs)` : étape « forges » selon la maquette de M7.32 ; GitHub garde son manifest, Azure DevOps renvoie au groupe de réglages `AzureDevOps` de M7.39.
+- **Tests :**
+  - `Domain.Tests/Settings/SetupStateTests` (nouveau) — `IsComplete_AzureDevOpsOnly_ShouldBeTrue`, `IsComplete_NoForge_ShouldBeFalse` ;
+  - `Application.Tests/Features/Settings/Queries/GetSetupState/GetSetupStateQueryHandlerTests` — `Handle_AzureDevOpsConfigured_ShouldBeComplete` ;
+  - `Web.Tests/Setup/SetupRedirectMiddlewareTests` — `Invoke_AzureDevOpsConfigured_ShouldNotRedirect` ;
+  - `Web.Tests/Components/Pages/SetupTests` (étape forges).
+- **Acceptation :** une instance déjà configurée avec GitHub n'est pas renvoyée vers `/setup`, et les envois réels de M4.02f restent verts.
+- **Dépend de :** M7.05, M7.32, M7.39, M4.02f
+
+#### M7.43 — Synchronisation des projets et des dépôts Azure DevOps
+- **Issue :** à créer
+- **Objectif :** suivre les dépôts de chaque projet d'une organisation Azure DevOps, le projet allant dans `Namespace` et l'owner s'écrivant `org:project`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsDirectoryGateway.cs` (`ListRepositoriesAsync` : `_apis/projects` puis `_apis/git/repositories`, dépôts désactivés ignorés) ; `Infrastructure/AzureDevOps/AzureDevOpsGatewayMapper.cs` ;
+  - fixtures `tests/fixtures/azure-devops/{projects,repositories}.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/AzureDevOpsDirectoryGatewayTests` — `ListRepositoriesAsync_TwoProjects_ShouldSetTheNamespace`, `ListRepositoriesAsync_ProjectWithSpace_ShouldKeepIt`, `ListRepositoriesAsync_DisabledRepository_ShouldSkipIt`.
+- **Acceptation :** un dépôt `Projet A/api` est adressé `/azure-devops/org:Projet A/api` ; le coordinateur de M7.10 le rattrape chaque jour.
+- **Dépend de :** M7.10, M7.40
+
+**Passerelle Azure DevOps**
+
+#### M7.44 — `AzureDevOpsGateway` : dépôts, commits et pull requests
+- **Issue :** à créer
+- **Objectif :** lire dépôt, commits, branches et pull requests d'Azure DevOps par `IForgeGateway`. La tête de PR vient de `lastMergeSourceCommit`, jamais du commit de fusion (règle critique 2).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsGateway.cs` (`GetRepositoryConnectionAsync`, `GetRepositoryAsync`, `ListCommitsAsync`, `GetCommitAsync`, `GetBranchHeadAsync`, `GetPullAsync`) ;
+  - `Infrastructure/AzureDevOps/Models/AzureDevOps{Repository,Commit,PullRequest,Ref}.cs` ; `AzureDevOpsGatewayMapper.cs` ;
+  - `DependencyInjection.AzureDevOps.cs` (`AddKeyedScoped<IForgeGateway, AzureDevOpsGateway>(Forge.AzureDevOps)`) ;
+  - fixtures `tests/fixtures/azure-devops/{repo,commits,commit,pull,refs}.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/AzureDevOpsGatewayReadTests` (WireMock) — `GetPullAsync_Active_ShouldUseTheSourceCommit`, `GetPullAsync_Completed_ShouldMapMerged`, `GetCommitAsync_Missing_ShouldReturnNull`, `ListCommitsAsync_Paged_ShouldStopAtPerPage`.
+- **Acceptation :** chaque appel passe par l'identifiant du dépôt (GUID), pas par son nom.
+- **Dépend de :** M7.04, M7.39
+
+#### M7.45 — `AzureDevOpsGateway` : arbres et contenus
+- **Issue :** à créer
+- **Objectif :** lire `codecov.yml`, l'arbre du dépôt et le contenu borné des sources sur Azure DevOps.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsGateway.cs` (`GetTreeAsync` récursif, `GetContentAsync`, `GetBoundedContentAsync` par `items?versionDescriptor.versionType=commit`) ;
+  - `Models/AzureDevOpsItem.cs` ;
+  - fixtures `tests/fixtures/azure-devops/{tree,contents}.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/AzureDevOpsGatewayContentTests` (WireMock) — `GetContentAsync_Missing_ShouldReturnNull`, `GetBoundedContentAsync_TooLarge_ShouldReportTruncated`, `GetTreeAsync_Recursive_ShouldListBlobsOnly`.
+- **Acceptation :** `ConfigFileLocations` trouve `codecov.yml` dans `.github/` et `dev/`, comme sur GitHub, sans changement.
+- **Dépend de :** M7.44
+
+#### M7.46 — `AzureDevOpsGateway` : comparaison et fichiers de PR
+- **Issue :** à créer
+- **Objectif :** produire, selon la voie retenue par M7.01, les fichiers modifiés et un patch unifié par fichier entre la base de fusion et la tête de la PR, pour que `UnifiedDiffParser` et la couverture du patch restent inchangés.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsGateway.cs` (`CompareAsync`, `ListPullFilesAsync` : itérations, `changes` paginés, `diffs/commits` avec `diffCommonCommit=true`) ;
+  - `Infrastructure/AzureDevOps/AzureDevOpsPatchBuilder.cs` : patch unifié depuis les deux blobs ou les `lineDiffBlocks` ; un binaire ou un fichier au-delà du plafond donne un patch `null` (`ForgeChangedFile.Patch`), jamais vide, et `Truncated` est posé sur `ForgePullFiles` ou `ForgeCompareResult` ;
+  - `Domain/Diffs/DiffSet.cs` et `DiffSource.cs` (documentation : « la forge », plus « GitHub ») ;
+  - fixtures de M7.01.
+- **Tests :**
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsPatchBuilderTests` — `Build_FixturePairs_ShouldMatchGitDiff`, `Build_Binary_ShouldReturnNull`, `Build_Renamed_ShouldKeepPreviousPath` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsGatewayCompareTests` (WireMock) — `ListPullFilesAsync_ManyPages_ShouldReadAll`, `CompareAsync_NotAllChangesIncluded_ShouldMarkTruncated`.
+- **Acceptation :** sur les fixtures de M7.01, le patch produit donne les mêmes lignes que `git diff -U0`. Un fichier non calculé rend le patch inconnu (règle existante de `DiffSet`), jamais une couverture de patch de 100 %.
+- **Dépend de :** M7.01, M7.44
+
+#### M7.47 — `AzureDevOpsGateway` : statuts
+- **Issue :** à créer
+- **Objectif :** publier comme statuts Azure DevOps (`genre=codecov`) **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), sur le commit et sur l'itération de la PR active dont il est la tête.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsGateway.cs` (`CreateStatusAsync`) :
+    - le contexte est découpé au premier `/` en `genre` et `name` ;
+    - états `pending`, `succeeded`, `failed` et `error`, avec `targetUrl` ;
+    - quand une PR active a ce commit pour tête (recherche selon M7.01), le statut est aussi publié sur `pullRequests/{id}/iterations/{it}/statuses`.
+  - `Models/AzureDevOpsStatus.cs`.
+  - Fixtures `tests/fixtures/azure-devops/{status,pullrequestquery}.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/AzureDevOpsGatewayStatusTests` (WireMock) — `CreateStatusAsync_CodecovPatch_ShouldSendGenreAndName`, `CreateStatusAsync_FlagContext_ShouldKeepTheWholeName`, `CreateStatusAsync_ActivePullHead_ShouldAlsoPostOnTheIteration`, `CreateStatusAsync_Forbidden_ShouldThrowStatusRefused`.
+- **Acceptation :** les contextes publiés ne sont jamais listés à la main dans l'adaptateur ; une stratégie de branche Azure DevOps peut exiger `codecov/patch` (propriétaire).
+- **Dépend de :** M7.44
+
+#### M7.48 — `AzureDevOpsGateway` : commentaire de pull request
+- **Issue :** à créer
+- **Objectif :** publier le commentaire Codecov dans un fil de PR qui ne contient qu'un commentaire. Le fil est retrouvé par le marqueur `<!-- code-coverage:comment -->` et par le compte de service de la connexion, puis mis à jour en place.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/AzureDevOps/AzureDevOpsGateway.cs`** :
+    - `ListIssueCommentsAsync` sur les `threads`, filtré par `ServiceAccountExternalId` ;
+    - `CreateIssueCommentAsync` crée un fil sans `threadContext` ;
+    - `UpdateIssueCommentAsync` et `DeleteIssueCommentAsync` (suppression du commentaire, puis fil fermé).
+
+    L'identifiant `long` de `ForgeIssueComment` et de `PullRequests.CommentId` est l'**identifiant du fil**, et le commentaire unique a l'identifiant 1 (M7.01, ADR-014). Il n'y a pas d'identifiant composé, et aucun port ni colonne ne change.
+  - **`Infrastructure/AzureDevOps/AzureDevOpsCapabilities.cs`** : `CommentMaxLength` = 150 000.
+  - **`Infrastructure/AzureDevOps/AzureDevOpsLinks.cs`** (`IForgeLinks`).
+  - **Fixtures** `tests/fixtures/azure-devops/threads.json`.
+- **Tests :**
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsGatewayCommentTests` (WireMock) — `ListIssueCommentsAsync_OtherAuthors_ShouldKeepOnlyOurs`, `UpdateIssueCommentAsync_ThreadId_ShouldPatchItsFirstComment`, `DeleteIssueCommentAsync_ShouldCloseTheThread` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsLinksTests` — `Comment_ThreadId_ShouldPointToTheDiscussion`.
+- **Acceptation :** deux notifications successives laissent un seul fil.
+- **Dépend de :** M7.24, M7.25, M7.40, M7.44
+
+**Service hooks**
+
+#### M7.49 — Réception des service hooks Azure DevOps
+- **Issue :** à créer
+- **Objectif :** recevoir un service hook Azure DevOps par la réception neutre de M7.21. Le contrôleur et le validateur d'en-tête restent propres à Azure DevOps.
+- **Couches :** Infrastructure, Api.
+- **Fichiers :**
+  - `Api/Controllers/AzureDevOpsWebhooksController.cs` (`POST /api/v1/azure-devops/webhooks/{connectionId}`, 202) ; `Api/Mapping/AzureDevOpsWebhookMapper.cs` : en-tête du secret, identifiant de livraison (`id` de l'événement), `eventType`, vers `ReceiveForgeWebhookCommand` ;
+  - `Infrastructure/AzureDevOps/AzureDevOpsWebhookValidator.cs` (`IForgeWebhookValidator`, à clé `Forge.AzureDevOps`, comparaison en temps constant) ;
+  - `Infrastructure/DependencyInjection.AzureDevOps.cs`.
+- **Tests :**
+  - `Api.Tests/AzureDevOps/AzureDevOpsWebhooksControllerTests` — `Post_ValidSecret_ShouldReturnAccepted`, `Post_WrongSecret_ShouldReturnUnauthorized`, `Post_SameDeliveryTwice_ShouldStoreOnce` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsWebhookValidatorTests` — `IsValid_PreviousSecret_ShouldAccept`, `IsValid_MissingHeader_ShouldRefuse`.
+- **Acceptation :** la requête n'appelle jamais Azure DevOps ; la route déclare sa sonde à deux organisations ; l'absence de signature HMAC est un écart nommé d'ADR-014.
+- **Dépend de :** M7.21, M7.39
+
+#### M7.50 — Traduction des service hooks Azure DevOps
+- **Issue :** à créer
+- **Objectif :** traduire les événements suivants en événements neutres, avec relecture de l'état par l'API (charge utile `Minimal`) :
+  - `git.push` ;
+  - `git.pullrequest.created` et `git.pullrequest.updated` (`PushNotification`) ;
+  - `git.pullrequest.merged` (`Succeeded`) ;
+  - `git.repo.created`, `git.repo.deleted` et `git.repo.renamed`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/Events/AzureDevOpsEventTranslator.cs` (`IForgeEventTranslator`, à clé `Forge.AzureDevOps`) ; `Infrastructure/AzureDevOps/Events/AzureDevOpsServiceHookPayload.cs` ;
+  - fixtures `tests/fixtures/azure-devops/hooks/{git.push,git.pullrequest.created,git.pullrequest.updated,git.pullrequest.merged,git.repo.renamed}.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/Events/AzureDevOpsEventTranslatorTests` — `Translate_Push_ShouldReturnAPushEvent`, `Translate_PullUpdatedReviewers_ShouldIgnore`, `Translate_MergeRejected_ShouldIgnore`, `Translate_RepoRenamed_ShouldReturnARepositoryEvent`.
+- **Acceptation :** un événement inconnu est stocké et marqué ignoré par M7.20, jamais en échec.
+- **Dépend de :** M7.20, M7.44
+
+#### M7.51 — Abonnements des service hooks Azure DevOps
+- **Issue :** à créer
+- **Objectif :** créer et vérifier les abonnements de chaque projet suivi, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsHookManager.cs` (`IForgeHookManager`, à clé `Forge.AzureDevOps`) : `_apis/hooks/subscriptions`, `consumerId=webHooks`, `resourceVersion` explicite, `resourceDetailsToSend=Minimal`, portée `Project` ;
+  - fixtures `tests/fixtures/azure-devops/subscriptions.json`.
+- **Tests :** `Infrastructure.Tests/AzureDevOps/AzureDevOpsHookManagerTests` (WireMock) — `EnsureAsync_Missing_ShouldCreateTheSubscriptions`, `EnsureAsync_Existing_ShouldNotDuplicate`, `EnsureAsync_Forbidden_ShouldReportForbidden`.
+- **Acceptation :** un projet sans droit d'administration apparaît « interdit » sur la page de connexion (M7.38) au lieu de faire échouer la synchronisation.
+- **Dépend de :** M7.23, M7.43, M7.49
+
+**Accès des utilisateurs Azure DevOps**
+
+#### M7.52 — Passerelle utilisateur et jeton délégué Azure DevOps
+- **Issue :** à créer
+- **Objectif :** lire le profil et les organisations d'un utilisateur Azure DevOps avec son jeton délégué, et renouveler ce jeton par Entra ID.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/AzureDevOps/AzureDevOpsUserGateway.cs` (`IForgeUserGateway`, à clé `Forge.AzureDevOps` : `GetUserAsync` par `profiles/me`, `ListAccountsAsync` par `accounts?memberId`) ;
+  - `Infrastructure/AzureDevOps/AzureDevOpsUserTokenProvider.cs` (`IForgeUserTokenProvider`, à clé `Forge.AzureDevOps`, renouvellement Entra) ;
+  - fixtures `tests/fixtures/azure-devops/{profile,accounts}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsUserGatewayTests` (WireMock) — `GetUserAsync_Profile_ShouldMapTheId`, `ListAccountsAsync_TwoOrganizations_ShouldListBoth` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsUserTokenProviderTests` — `GetTokenAsync_Expired_ShouldRefresh`.
+- **Acceptation :** aucun jeton d'utilisateur en clair en base ni dans les journaux.
+- **Dépend de :** M7.15, M7.16, M7.39
+
+#### M7.53 — Connexion Web par Microsoft Entra ID
+- **Issue :** à créer
+- **Objectif :** permettre à un membre d'une organisation Azure DevOps de se connecter avec son compte Entra ID, son identité étant `(AzureDevOps, id de profil)`.
+- **Couches :** Infrastructure, Web.
+- **Fichiers :**
+  - `Web/Configuration/Authentication/AuthenticationConfiguration.cs` : schéma OpenID Connect `AzureDevOps`, portées déléguées `vso.code`, `vso.code_status`, `vso.project` et `vso.profile` ;
+  - `Web/Configuration/Authentication/ConfigureAzureDevOpsOpenIdConnectOptions.cs` ; `AzureDevOpsSignInEvents.cs` (`SignInUserCommand` avec `Forge.AzureDevOps`) ;
+  - `src/CodeCoverage.Web/CodeCoverage.Web.csproj` (`Microsoft.AspNetCore.Authentication.OpenIdConnect`, paquet Microsoft) ;
+  - `Infrastructure/AzureDevOps/AzureDevOpsAvailabilityContributor.cs` : connexion possible quand `AzureDevOps:ClientId` est rempli ;
+  - resx (refus d'un compte personnel).
+- **Tests :**
+  - `Web.Tests/Authentication/ConfigureAzureDevOpsOpenIdConnectOptionsTests` — `Configure_Settings_ShouldUseTheClientId` ;
+  - `Web.Tests/Authentication/AzureDevOpsSignInEventsTests` — `OnTokenValidated_ShouldSendTheAzureDevOpsForge`, `OnTokenValidated_PersonalAccount_ShouldRefuse` ;
+  - `Web.Tests/Components/Pages/SignInTests` — `Render_AzureDevOpsConfigured_ShouldShowItsButton`.
+- **Acceptation :** un compte Microsoft personnel est refusé avec un message traduit (écart nommé) ; un même humain sur GitHub et Azure DevOps a deux comptes (ADR-014) ; la connexion GitHub ne change pas.
+- **Dépend de :** M7.34, M7.52
+
+#### M7.54 — Adhésions et droits sur les dépôts Azure DevOps
+- **Issue :** à créer
+- **Objectif :** donner à l'utilisateur Azure DevOps le rôle et les droits de dépôt que la forge lui accorde. Les droits sont évalués avec son propre jeton délégué, et l'adhésion avec l'identifiant de la connexion (M7.17).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/AzureDevOps/AzureDevOpsUserGateway.cs`** (`ListRepositoryPermissionsAsync`) :
+    - les dépôts lisibles sont ceux que le jeton de l'utilisateur liste ;
+    - `Admin` par `Permissions - Has Permissions Batch` sur l'espace `Git Repositories`, bit `ManagePermissions` ;
+    - `Write` par `GenericContribute`.
+  - **`Infrastructure/AzureDevOps/AzureDevOpsDirectoryGateway.cs`** (`GetMembershipAsync`) : administrateur = membre de « Project Collection Administrators » (selon M7.01).
+  - **Fixtures** `tests/fixtures/azure-devops/{permissions,memberships}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsUserGatewayPermissionTests` (WireMock) — `ListRepositoryPermissionsAsync_ReadOnly_ShouldMapRead`, `ListRepositoryPermissionsAsync_ManagePermissions_ShouldMapAdmin` ;
+  - `Infrastructure.Tests/AzureDevOps/AzureDevOpsDirectoryGatewayMembershipTests` — `GetMembershipAsync_CollectionAdministrator_ShouldBeAdmin`.
+- **Acceptation :** un membre sans accès à un projet ne voit aucun de ses dépôts dans le Web (propriétaire).
+- **Dépend de :** M7.17, M7.52
+
+**Upload et uploader**
+
+#### M7.55 — Upload par jeton pour Azure DevOps
+- **Issue :** à créer
+- **Objectif :** accepter un upload `forge=azure-devops` par jeton d'organisation ou de dépôt, et refuser l'OIDC avec un code explicite. Les extraits de badge suivent la table de M7.30, sans ligne pour Azure DevOps.
+- **Couches :** Application, Web.
+- **Fichiers :**
+  - `Application/Services/UploadAuthenticator.cs` : le slug `org/project/repo` est comparé avec `Namespace` ; `ReadConnectionAsync` est neutre ;
+  - `Features/Uploads/UploadErrors.cs` (`Upload.OidcUnsupportedForge`) et `UploadGuards.cs` ;
+  - resx.
+- **Tests :**
+  - `Application.Tests/Services/UploadAuthenticatorTests` — `AuthenticateTokenAsync_AzureDevOpsSlug_ShouldMatchTheNamespace`, `AuthenticateOidcAsync_AzureDevOps_ShouldThrowOidcUnsupportedForge` ;
+  - `Api.Tests/Badges/BadgesControllerTests` — `Get_AzureDevOpsOwnerWithProject_ShouldRender` ;
+  - `Web.Tests/Components/Repositories/BadgeSnippetsTests` — `Render_AzureDevOps_ShouldUseTheNeutralRoute`.
+- **Acceptation :** l'absence de route de badge Codecov et d'OIDC sur Azure DevOps est un écart nommé et non configurable.
+- **Dépend de :** M7.08, M7.27, M7.30, M7.43
+
+#### M7.56 — Uploader sur Azure Pipelines avec Azure Repos
+- **Issue :** à créer
+- **Objectif :** détecter un dépôt Azure Repos dans Azure Pipelines et envoyer sa forge, son slug et la tête de la PR, jamais le commit de fusion synthétique (règle critique 2).
+- **Couches :** Uploader, CI.
+- **Fichiers :**
+  - **`Uploader/Ci/AzurePipelinesContext.cs`**, quand `BUILD_REPOSITORY_PROVIDER=TfsGit` :
+    - forge `azure-devops` dans `DetectedContext.Forge` ;
+    - slug `org/project/repo` depuis `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI`, `SYSTEM_TEAMPROJECT` et `BUILD_REPOSITORY_NAME` ;
+    - sur une PR : commit `SYSTEM_PULLREQUEST_SOURCECOMMITID` et PR `SYSTEM_PULLREQUEST_PULLREQUESTID`.
+  - **Fixtures** `tests/fixtures/ci-env/azure-repos-{push,pr,pr-fork}.json`.
+  - **Pipelines** : `pipelines/templates/coverage-upload.yml` et `pipelines/demo/azure-pipelines.yml`, avec une variante Azure Repos dont le jeton est dans un groupe de variables secret.
+- **Tests :**
+  - `Uploader.Tests/Ci/CiContextDetectorTests` — `Detect_AzureReposPullRequest_ShouldUseTheSourceCommit`, `Detect_AzureReposPush_ShouldUseBuildSourceVersion`, `Detect_AzureReposProjectWithSpace_ShouldKeepIt` ;
+  - `Uploader.Tests/Commands/DryRunPrinterTests` — `Print_AzureRepos_ShouldShowTheForge`.
+- **Acceptation :** l'uploader sort en 0 sans `--fail-on-error` quand une variable manque ; les dépôts GitHub construits sur Azure Pipelines gardent leur comportement.
+- **Dépend de :** M7.27
+
+**Exploitation et pilote**
+
+#### M7.57 — Documentation d'onboarding Azure DevOps
+- **Issue :** à créer
+- **Objectif :** décrire pas à pas la création de l'application Entra ID de l'instance, son ajout à une organisation Azure DevOps et les droits requis.
+- **Couches :** docs, exploitation.
+- **Fichiers :**
+  - **`docs/operations/organization-onboarding-azure-devops.md`** : application multi-tenant, consentement du tenant client, ajout comme utilisateur avec un accès Basic payant, droits Project Administrator pour les service hooks, rotation des secrets, jeton d'upload, pipeline type.
+  - **Renvois** : `docs/operations/organization-onboarding.md` (renvoi par forge) ; `docs/operations.md` (administrateurs qualifiés par forge, métriques `forge_ratelimit_*`).
+  - **Déploiement** : `deploy/vm/Caddyfile` et `deploy/azure/main.bicep`, en commentaires (route `/api/v1/azure-devops/webhooks/{connectionId}`, rappel Entra).
+  - **`docs/migration-from-codecov.md`** : Azure DevOps sans import Codecov.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** un tiers suit le document sans autre source jusqu'au premier statut (propriétaire).
+- **Dépend de :** M7.41, M7.51, M7.53, M7.56
+
+#### M7.58 — Pilote sur une organisation Azure DevOps réelle
+- **Issue :** à créer
+- **Objectif :** vérifier de bout en bout, sur une organisation Azure DevOps du propriétaire, que M7 tient son critère de sortie.
+- **Couches :** exploitation, docs.
+- **Fichiers :**
+  - **`docs/operations/azure-devops-verification-checklist.md`**, sur le modèle de `github-verification-checklist.md` :
+    - admission, synchronisation, santé de la connexion, rotation du secret de webhook ;
+    - connexion d'un membre et d'un non-membre, administrateur qualifié ;
+    - upload par jeton, statuts sur l'itération (`project`, `patch`, `changes`, flags), commentaire unique ;
+    - PR avec renommage et binaire, service hook rejoué, hook interdit, limitation de débit observée.
+  - **ADR-014** : écarts constatés reportés.
+- **Tests :** liste de vérification exécutée (propriétaire).
+- **Acceptation :** chaque ligne de la liste est cochée ou ouverte en écart nommé ; aucune régression GitHub observée en production (propriétaire).
+- **Dépend de :** M7.26, M7.29, M7.36, M7.37, M7.38, M7.42, M7.45, M7.46, M7.47, M7.48, M7.50, M7.54, M7.55, M7.57
+
+### 9.2 Jalon M8 – Bitbucket Cloud
+
+**Critère de sortie :** un workspace Bitbucket Cloud du propriétaire est admis et connecté par un jeton chiffré (M8.06, M8.08). Ses dépôts sont suivis par UUID et rattrapés chaque jour (M8.09). Son webhook de workspace, créé par l'API (M8.20), est reçu et signé par HMAC (M8.18), puis traité par le worker (M8.19). Une pull request d'un dépôt pilote reçoit **tous** les statuts de build émis par `NotificationService` (M8.15) et un commentaire unique mis à jour en place (M8.16, M8.17). Ces statuts et ce commentaire suivent un upload depuis Bitbucket Pipelines, d'abord par jeton (M8.26), puis par OIDC (M8.25, M8.28). Un membre du workspace se connecte au Web avec Bitbucket et ne voit que les dépôts qu'il peut lire (M8.21, M8.23). Les badges `/bb/…` et `/bitbucket/…` répondent (M8.29). Le pilote est validé par le propriétaire (M8.32). GitHub et Azure DevOps ne régressent pas : `Architecture.Tests`, les tests GitHub et les tests Azure DevOps restent verts.
+
+**Socle repris de M7.** M8 n'ajoute que des adaptateurs Bitbucket, posés sur les pièces neutres de M7 :
+- le registre des passerelles par forge (M7.04) et la disponibilité des forges (M7.05) ;
+- la table `ForgeConnections`, globale (M7.06, ADR-015), l'admission par connexion (M7.12), la rotation des secrets (M7.13) et la santé des connexions (M7.14) ;
+- l'annuaire neutre et la synchronisation (M7.09, M7.10, M7.11) ;
+- la réception (M7.21) et le traitement neutres des webhooks (M7.18 à M7.20), ainsi que la table `ForgeHooks` et sa gestion (M7.22, M7.23) ;
+- les ports utilisateur neutres (M7.15 à M7.17) ;
+- les liens (M7.24) et les capacités de commentaire (M7.25) ;
+- les codes `Forge.StatusRefused` et `Forge.Unavailable` (M7.03), les quotas, métriques et alertes par forge (M7.28, M7.29) ;
+- la table des segments Codecov (M7.30) ;
+- les icônes, les libellés `Forge_*` et les listes de forges (M7.34, M7.35), les administrateurs qualifiés par forge (M7.37) ;
+- la page de connexion générique (M7.38) ;
+- `--forge` / `--git-service` et le slug à plusieurs niveaux dans l'uploader (M7.27).
+
+M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de traitement des livraisons. Les seules pièces neutres qu'il ajoute sont :
+- l'OIDC d'upload par forge côté serveur (M8.24), car Bitbucket est la première forge OIDC après GitHub ;
+- la source de jeton OIDC neutre de l'uploader, `IOidcTokenSource` (M8.27), que M9 réutilise ;
+- les refus détaillés d'une vérification de connexion (M8.05) ;
+- la capacité de commentaire sans `<details>` (M8.17).
+
+**Cadrage**
+
+#### M8.01 — Vérification des endpoints Bitbucket Cloud (spike)
+- **Issue :** à créer
+- **Objectif :** établir avec preuves ce qu'ADR-014 laisse « probable » pour Bitbucket, avant toute ligne de code : diff unifié, identifiants, identité de service, webhooks, statuts, commentaires, OIDC. Chaque affirmation datée du brouillon y est prouvée ou déclassée.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/research/bitbucket-cloud.md`** (nouveau, sur le modèle de `docs/research/dotnet-github.md`) : chaque point est classé prouvé ou probable, avec la requête et la réponse observées. Points à trancher :
+    1. **diff** : forme de `GET /2.0/repositories/{ws}/{repo}/pullrequests/{id}/diff` et de `/diff/{spec}` (`topic=true`, jamais `merge`). À établir aussi : la redirection 302 et la conservation de l'en-tête `Authorization`, le comportement sur un très gros diff (délai, troncature) et la pagination de `/diffstat` ;
+    2. **identifiants** : UUID de workspace et de dépôt (accolades, casse, longueur ≤ 64), et leur stabilité après le renommage d'un slug de dépôt ou de workspace ;
+    3. **identité de service** :
+       - jeton d'accès de workspace (Premium) ou jeton d'API d'un compte robot (e-mail et jeton) ;
+       - portées minimales ;
+       - UUID de l'auteur des commentaires (`GET /2.0/user` avec chaque jeton).
+
+       Le genre d'identifiant retenu est écrit.
+    4. **statuts de build** :
+       - énumération exacte de `state` ;
+       - longueur maximale de `key` ;
+       - `url` obligatoire ou non ;
+       - dérivation de `key` par Codecov, établie dans les sources de `codecov/shared` (torngit, Bitbucket), pour que M8.15 la reproduise. Sinon, un dépôt migré aurait deux statuts sur un même commit, ce qui est un écart à nommer.
+    5. **commentaires** :
+       - rendu du marqueur `<!-- code-coverage:comment -->` dans `content.raw` : masqué ou visible ;
+       - sous-ensemble Markdown : tableaux, HTML, `<details>` ;
+       - taille maximale d'un commentaire ;
+       - identifiant entier d'un commentaire (`long`).
+    6. **webhooks de workspace** :
+       - droits requis pour les créer ;
+       - en-têtes `X-Hook-UUID`, `X-Request-UUID`, `X-Event-Key`, `X-Hub-Signature` et `X-Attempt-Number` ;
+       - événements `repo:push`, `pullrequest:*`, `repo:updated`, `repo:transfer`, `repo:deleted`, et `repo:created` s'il existe au niveau du workspace ;
+       - mise à jour du secret d'un hook existant, le secret n'étant pas relisible ;
+       - hash complet ou court dans les charges utiles de push et de PR.
+    7. **contenus** : arbre récursif (`/src/{commit}/` avec `max_depth`) et contenus bruts ; les emplacements de `codecov.yml` que Codecov lit sur Bitbucket.
+    8. **accès des utilisateurs** :
+       - endpoints par workspace (`/2.0/user/workspaces`, `/2.0/user/workspaces/{ws}/permission`, `…/permissions/repositories`) ;
+       - disparition affirmée des endpoints inter-workspaces au 2026-04-14 ;
+       - lecture de l'adhésion avec le jeton de la connexion.
+    9. **OAuth** : rotation du refresh token, affirmée imposée depuis le 2026-05-04 ; durée de vie d'un refresh token inutilisé.
+    10. **OIDC de Pipelines** :
+        - issuer propre à chaque workspace ;
+        - chemin du JWKS donné par la découverte ;
+        - audience par défaut et audience personnalisée ;
+        - claims `workspaceUuid` et `repositoryUuid`.
+    11. **commit d'une build** : `BITBUCKET_COMMIT` court ou complet sur une build de pull request ; build lancée sur le commit source, jamais sur un commit de fusion.
+    12. **limitation de débit** : en-têtes renvoyés (`X-RateLimit-*`, `Retry-After`) et limite horaire par jeton.
+  - **Fixtures** capturées sur un workspace d'essai et anonymisées :
+    - `tests/fixtures/bitbucket/{workspace,user,repository,repositories,commit,commits,src-root,pullrequest,diffstat,comments,statuses,hooks}.json` ;
+    - `tests/fixtures/bitbucket/diff-pullrequest.diff` et `tests/fixtures/bitbucket/patches/{rename,binary,deleted,added,multi}.diff`, avec le `git diff -U0` attendu ;
+    - `tests/fixtures/bitbucket/events/{repo-push,pullrequest-created,pullrequest-updated,pullrequest-fulfilled,pullrequest-rejected,repo-updated,repo-transfer,repo-deleted}.json`.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** chaque point est classé prouvé ou probable ; aucune affirmation datée n'est reprise sans preuve ; les fixtures sont versionnées sans donnée personnelle.
+- **Dépend de :** M7.58
+
+#### M8.02 — ADR-014 : section Bitbucket Cloud et écarts nommés
+- **Issue :** à créer
+- **Objectif :** reporter les résultats du spike dans l'ADR et le plan, et nommer chaque écart avec Codecov propre à Bitbucket.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/adr/0014-multi-forge.md`**, section Bitbucket Cloud :
+    - genre d'identifiant de connexion retenu ;
+    - webhook de workspace unique par connexion, sur la route `/api/v1/bitbucket/webhooks/{connectionId}` (ADR-015) ;
+    - clé de statut ;
+    - marqueur de commentaire ;
+    - OIDC de Pipelines.
+  - **`docs/PLAN.md`** :
+    - nouvelles lignes du §10, à la suite de celles de M7.02 :
+      - statut sans état neutre (`SUCCESSFUL`, comme Codecov) ;
+      - commentaire sans `<details>`, si M8.01 le prouve ;
+      - OIDC de Pipelines, un complément absent de Codecov ;
+      - clé de statut différente de Codecov, si M8.01 le prouve ;
+      - port `IOidcTokenValidatorProvider` (ajout, M8.24) ;
+    - partie Bitbucket de l'item 12 du §11, tranchée.
+  - **`docs/ARCHITECTURE.md`** §8 : renvoi vers l'adaptateur Bitbucket.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** aucun point de Bitbucket ne reste « à vérifier » ; chaque écart est numéroté au §10, avec sa raison et la mention « non configurable » quand il l'est (règle critique 1).
+- **Dépend de :** M8.01
+
+**Connexion d'un workspace Bitbucket**
+
+#### M8.03 — Réglages `Bitbucket:*` et client typé `bitbucket`
+- **Issue :** à créer
+- **Objectif :** appeler `api.bitbucket.org` avec un client typé. Ce client suit les redirections sans perdre l'authentification, transforme un 429 en exception neutre et rapporte le quota par forge et par connexion.
+- **Couches :** Domain, Infrastructure, Web.
+- **Fichiers :**
+  - **`Domain/Settings/SettingDefinitions.cs`**, groupe `Bitbucket` :
+    - `Bitbucket:Enabled` (booléen, faux par défaut : c'est l'interrupteur de l'admission) ;
+    - `Bitbucket:ClientId` et `Bitbucket:ClientSecret` (secret) ;
+    - `Bitbucket:ApiBaseUrl`, par défaut `https://api.bitbucket.org/2.0` ;
+    - `Bitbucket:WebBaseUrl`, par défaut `https://bitbucket.org`.
+  - **Infrastructure** :
+    - `Infrastructure/Bitbucket/BitbucketOptions.cs`, `BitbucketHttpClientConfiguration.cs` et `BitbucketJsonContext.cs` ;
+    - `Infrastructure/Bitbucket/BitbucketRedirectHandler.cs` : redirection automatique désactivée ; un 302 est suivi à la main, avec l'en-tête `Authorization` seulement vers le même hôte ;
+    - `Infrastructure/Bitbucket/BitbucketRateLimitHandler.cs` : un 429 lève `ForgeRateLimitedException` (M7.03), avec `Retry-After` ou un délai par défaut. Les en-têtes de quota établis par M8.01 sont rapportés au suivi de quota neutre `Infrastructure/Forges/ForgeQuotaTracker.cs` de M7.28, avec la forge `Bitbucket` et la connexion ;
+    - `Infrastructure/DependencyInjection.Bitbucket.cs`, appelé par `Infrastructure/DependencyInjection.cs`.
+  - **Libellés** : `Web/Resources/Common.resx` et `Common.fr.resx` (`SettingGroup_Bitbucket` et les libellés des cinq réglages).
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketRedirectHandlerTests` — `SendAsync_RedirectToSameHost_ShouldKeepAuthorization`, `SendAsync_RedirectToOtherHost_ShouldDropAuthorization` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketRateLimitHandlerTests` (WireMock) — `SendAsync_TooManyRequests_ShouldThrowForgeRateLimited`, `SendAsync_QuotaHeaders_ShouldReportTheBitbucketQuota` ;
+  - `Domain.Tests/Settings/SettingDefinitionsTests` — `Bitbucket_ClientSecret_ShouldBeSecret`.
+- **Acceptation :** aucun paramètre fonctionnel dans `appsettings.json` ; un changement de `Bitbucket:ApiBaseUrl` est pris sans redémarrage (`IOptionsMonitor<BitbucketOptions>`) ; aucune `GitHubRateLimitedException` dans `Infrastructure/Bitbucket`.
+- **Dépend de :** M8.02, M7.03, M7.28
+
+#### M8.04 — Identifiants de connexion Bitbucket
+- **Issue :** à créer
+- **Objectif :** poser l'en-tête d'authentification d'un appel Bitbucket à partir du secret chiffré de la connexion, sans jamais le persister en clair. Les types qui portent un jeton restent dans l'adaptateur (PLAN §1.4).
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - **Énumération** : `Domain/Connections/ForgeConnectionKind.cs`, valeurs `BitbucketWorkspaceAccessToken` et `BitbucketApiToken`. L'énumération est stockée en texte : aucune migration.
+  - **`Infrastructure/Bitbucket/BitbucketCredential.cs`** : genre, e-mail facultatif et jeton, sérialisés dans `CredentialProtected`.
+  - **`Infrastructure/Bitbucket/BitbucketCredentialProvider.cs`** :
+    - obtient le secret déchiffré par le lecteur neutre `Infrastructure/Forges/ForgeConnectionCredentialReader.cs` (M7.39), qui refuse la connexion d'une autre organisation ou suspendue et tient le cache ; le fournisseur ne lit ni le dépôt ni le cache lui-même ;
+    - désérialise `BitbucketCredential` et rend `Bearer {jeton}` ou `Basic e-mail:jeton`.
+  - **`Infrastructure/Bitbucket/BitbucketAuthenticationHandler.cs`** : `DelegatingHandler` qui pose l'en-tête selon la connexion de la requête.
+
+  Le fournisseur n'entre pas dans `MemoryCacheAllowList` : seule l'entrée du lecteur neutre de M7.39 y figure.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketCredentialProviderTests` — `GetAsync_WorkspaceAccessToken_ShouldUseBearer`, `GetAsync_ApiToken_ShouldUseBasicWithEmail`, `GetAsync_ReaderRefuses_ShouldThrowUnavailable`.
+- **Acceptation :**
+  - le jeton n'apparaît ni dans les journaux ni dans les exceptions ;
+  - une rotation (M7.13) prend effet à l'expiration du cache du lecteur neutre ;
+  - aucun `IgnoreQueryFilters`, aucun `IMemoryCache` dans `Infrastructure/Bitbucket`.
+- **Dépend de :** M8.03, M7.06, M7.39
+
+#### M8.05 — Refus détaillés d'une vérification de connexion
+- **Issue :** à créer
+- **Objectif :** distinguer, pour toute forge à connexion, trois cas : le jeton qui ne donne pas accès au compte annoncé, celui qui manque de portées, et l'accès refusé. M9 réutilise ces codes sans en créer d'autres.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - `Domain/Contracts/Forges/ForgeConnectionRefusal.cs` (`AccessDenied`, `AccountMismatch`, `InsufficientScopes`, `NotTopLevel`, `CredentialExpired`), porté par `ForgeConnectionCheck` (M7.12). Les deux dernières valeurs sont neutres : un compte qui n'est pas de premier niveau et un identifiant expiré ou révoqué ;
+  - `Application/Features/Connections/ConnectionErrors.cs` et `ConnectionGuards.cs` (`Connection.AccountMismatch`, `Connection.InsufficientScopes`, `Connection.NotTopLevel`, `Connection.CredentialExpired`) ;
+  - UC `Features/Connections/Commands/ConnectOrganization` et `Features/Connections/Commands/RotateConnectionSecret` : le refus est traduit en code ;
+  - `Web/Resources/Common.resx` et `Common.fr.resx`.
+- **Tests :**
+  - `Application.Tests/Features/Connections/Commands/ConnectOrganization/ConnectOrganizationCommandHandlerTests` — `Handle_AccountMismatch_ShouldThrowAccountMismatch`, `Handle_InsufficientScopes_ShouldThrowInsufficientScopes` ;
+  - `Application.Tests/Features/Connections/Commands/RotateConnectionSecret/RotateConnectionSecretCommandHandlerTests` — `Handle_InsufficientScopes_ShouldKeepTheOldCredential` ;
+  - `Web.Tests/Resources/CommonTests` vert.
+- **Acceptation :** les refus existants d'Azure DevOps restent `Connection.ForgeAccessDenied` ; chaque nouveau code est traduit en français et en anglais.
+- **Dépend de :** M7.13, M8.02
+
+#### M8.06 — Vérification d'une connexion Bitbucket
+- **Issue :** à créer
+- **Objectif :** refuser, à l'enregistrement comme à la rotation, un jeton qui ne donne pas accès au workspace annoncé ou qui manque de portées. Lire en même temps l'UUID du workspace et celui du compte de service.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketConnectionVerifier.cs`** (`IForgeConnectionVerifier`, à clé `Forge.Bitbucket`) :
+    - `GET /2.0/workspaces/{slug}` pour l'UUID du workspace ;
+    - lecture d'une page de dépôts ;
+    - `GET /2.0/user` pour l'UUID du compte de service, que `ConnectOrganization` enregistre dans `ServiceAccountExternalId` (M7.12) ;
+    - refus `AccountMismatch` ou `InsufficientScopes` (M8.05).
+  - **`Infrastructure/Bitbucket/BitbucketDirectoryGateway.cs`** (`IForgeDirectoryGateway.GetAccountAsync`, à clé `Forge.Bitbucket`) : UUID, slug et nom du workspace.
+  - **`Infrastructure/DependencyInjection.Bitbucket.cs`**.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketConnectionVerifierTests` (WireMock, `tests/fixtures/bitbucket/{workspace,user}.json`) — `VerifyAsync_ValidToken_ShouldReturnWorkspaceUuid`, `VerifyAsync_OtherWorkspace_ShouldRefuseAccountMismatch`, `VerifyAsync_MissingScope_ShouldRefuseInsufficientScopes`, `VerifyAsync_ValidToken_ShouldReturnTheServiceAccount` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketDirectoryGatewayTests` — `GetAccountAsync_RenamedWorkspace_ShouldKeepTheUuid`.
+- **Acceptation :** `ExternalAccountId` est l'UUID du workspace en minuscules, jamais son slug. L'appel est une vérification légère (règle critique 3), et la synchronisation reste un job.
+- **Dépend de :** M8.04, M8.05, M7.04, M7.09, M7.12
+
+#### M8.07 — Maquette : champs Bitbucket de l'admission et de la connexion
+- **Issue :** à créer
+- **Objectif :** valider, avant tout code d'interface, ce que Bitbucket ajoute aux écrans génériques de M7.33 :
+  - dans le dialogue d'admission : slug du workspace, genre d'identifiant, e-mail pour un jeton d'API, jeton jamais réaffiché ;
+  - sur la page de connexion : rotation avec e-mail, et webhook de workspace affiché comme hook unique de portée `Connection` ;
+  - l'étape Bitbucket de `/setup`.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (sections de M7.32 et M7.33 complétées) ; `docs/ui-design.md`.
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant M8.08 et M8.30, avec ses libellés en français et en anglais (propriétaire).
+- **Dépend de :** M8.02, M7.32, M7.33
+
+#### M8.08 — Formulaire d'admission Bitbucket, rotation et ligne de commande
+- **Issue :** à créer
+- **Objectif :** admettre un workspace par son slug et son jeton, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization` (M7.12), puis rendre Bitbucket admissible.
+- **Couches :** Infrastructure, Api, Web.
+- **Fichiers :**
+  - **Admission dans le Web** :
+    - `Web/Components/Organizations/AdmitAccountForm.cs` : champs `CredentialKind`, `Email` et `Credential` pour `bitbucket` ;
+    - `Web/Components/Pages/AdminOrganizations.razor(.cs)` : dialogue selon la maquette de M8.07 ;
+    - `Web/Mapping/OrganizationsMapper.cs` : `ToCommand` vers `ConnectOrganizationCommand`.
+  - **Rotation** : `Web/Components/Pages/OrganizationConnection.razor(.cs)`, champ e-mail pour un jeton d'API.
+  - **Libellés** : resx.
+  - **Ligne de commande** : `Api/Configuration/Administration/AdminCommandLine.cs` et `AdminArguments.cs` : `admit-organization --forge bitbucket --login {slug} --credential-kind … [--email …] --credential-stdin`, par `SystemCommandRunner`. Le jeton est lu sur l'entrée standard, jamais en argument.
+  - **Disponibilité** : `Infrastructure/Bitbucket/BitbucketAvailabilityContributor.cs`, à clé `Forge.Bitbucket`. L'admission est possible quand `Bitbucket:Enabled` est vrai.
+- **Tests :**
+  - `Web.Tests/Components/Pages/AdminOrganizationsTests` — `Submit_Bitbucket_ShouldSendTheCredential`, `Render_AfterSubmit_ShouldNeverShowTheToken` ;
+  - `Web.Tests/Components/Pages/OrganizationConnectionTests` — `Submit_BitbucketApiTokenRotation_ShouldSendTheEmail` ;
+  - `Api.Tests/Administration/AdminCommandLineTests` — `Run_AdmitBitbucket_ShouldConnectTheOrganization`, `Run_AdmitBitbucketWithoutCredential_ShouldRefuseTheUsage` ;
+  - `Infrastructure.Tests/Forges/ForgeAvailabilityTests` — `AdmissionForges_BitbucketEnabled_ShouldListBitbucket`.
+- **Acceptation :**
+  - un même slug sur GitHub et sur Bitbucket donne deux organisations ;
+  - l'admission met en file la synchronisation des dépôts (M7.12) ;
+  - aucun jeton n'est rendu ni journalisé.
+- **Dépend de :** M8.06, M8.07, M7.41
+
+#### M8.09 — Synchronisation des dépôts d'un workspace
+- **Issue :** à créer
+- **Objectif :** lister les dépôts d'un workspace connecté, pour que la synchronisation neutre (M7.09, M7.10, M7.11) les réconcilie par UUID, chaque jour et à la demande.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/Bitbucket/BitbucketDirectoryGateway.cs` (`ListRepositoriesAsync` : `GET /2.0/repositories/{ws}` paginé par `next`, `pagelen=100`, `Namespace` vide) ;
+  - `Infrastructure/Bitbucket/Models/BitbucketRepository.cs` et `BitbucketPage.cs` ;
+  - `Infrastructure/Bitbucket/BitbucketGatewayMapper.cs` (UUID en minuscules, avec accolades).
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketDirectoryGatewayTests` (WireMock, `tests/fixtures/bitbucket/repositories.json`) — `ListRepositoriesAsync_TwoPages_ShouldReturnAll`, `ListRepositoriesAsync_RenamedSlug_ShouldKeepUuid`.
+- **Acceptation :**
+  - le coordinateur de M7.10 met en file un enfant par organisation Bitbucket ;
+  - un dépôt renommé garde son historique ;
+  - un workspace renommé renomme son organisation par l'étape neutre de M7.09 ;
+  - le bouton « synchroniser » (M7.11) marche pour Bitbucket.
+- **Dépend de :** M8.06, M7.10
+
+**Passerelle Bitbucket**
+
+#### M8.10 — `BitbucketGateway` : dépôts et commits
+- **Issue :** à créer
+- **Objectif :** premier adaptateur Bitbucket d'`IForgeGateway` : lire les dépôts et les commits par UUID, et résoudre un hash court en `GitSha` complet.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketGateway.cs`** :
+    - `GetRepositoryConnectionAsync` et `GetRepositoryAsync` (`/repositories/{ws}/{uuid}`) ;
+    - `ListCommitsAsync` et `GetCommitAsync` ;
+    - les autres méthodes lèvent `NotSupportedException` jusqu'aux micro-features suivantes.
+  - **`Infrastructure/Bitbucket/BitbucketCommitResolver.cs`** : un hash court n'est jamais converti en `GitSha` sans être résolu par `/commit/{hash}`. M8.14 et M8.19 s'en servent.
+  - **Modèles et correspondance** : `Infrastructure/Bitbucket/Models/BitbucketCommit.cs` ; `BitbucketGatewayMapper.cs` (`mainbranch.name`, `is_private`).
+  - **Enregistrement** : `Infrastructure/DependencyInjection.Bitbucket.cs`, `AddKeyedScoped<IForgeGateway, BitbucketGateway>(Forge.Bitbucket)`.
+  - **Support de test** : `tests/CodeCoverage.Infrastructure.Tests/Support/BitbucketApiHarness.cs` et `BitbucketTestOptions.cs`, sur le modèle de `GitHubApiHarness` et de `GitHubTestOptions`.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketGatewayReadTests` (WireMock, `tests/fixtures/bitbucket/{repository,commit,commits}.json`) — `GetRepositoryAsync_Fixture_ShouldMapUuidAndDefaultBranch`, `ListCommitsAsync_TwoPages_ShouldFollowNext`, `GetCommitAsync_Missing_ShouldReturnNull` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketCommitResolverTests` — `ResolveAsync_ShortHash_ShouldReturnFullSha` ;
+  - `Infrastructure.Tests/Forges/ForgeGatewayProviderTests` — `GetGateway_Bitbucket_ShouldReturnBitbucketGateway`.
+- **Acceptation :** `IForgeGatewayProvider.GetGateway(Forge.Bitbucket)` ne lève plus ; aucun appel n'adresse un dépôt par son slug.
+- **Dépend de :** M8.04, M7.04
+
+#### M8.11 — `BitbucketGateway` : arbres et contenus
+- **Issue :** à créer
+- **Objectif :** lire `codecov.yml`, l'arbre du dépôt et le contenu borné des sources sur Bitbucket.
+- **Couches :** Infrastructure.
+- **Fichiers :** `Infrastructure/Bitbucket/BitbucketGateway.cs` (`GetTreeAsync` par `/src/{commit}/` paginé, `GetContentAsync`, `GetBoundedContentAsync` avec arrêt au plafond) ; `Infrastructure/Bitbucket/Models/BitbucketSourceEntry.cs` ; `BitbucketGatewayMapper.cs`.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketGatewayContentTests` (WireMock, `tests/fixtures/bitbucket/src-root.json`) — `GetTreeAsync_Recursive_ShouldListBlobsOnly`, `GetContentAsync_Missing_ShouldReturnNull`, `GetBoundedContentAsync_OverLimit_ShouldReportTruncated`.
+- **Acceptation :** `ConfigFileLocations` trouve `codecov.yml` aux mêmes emplacements que sur GitHub, sans changement, ou l'écart établi par M8.01 est nommé (M8.02). Une limitation de débit sur un contenu borné laisse `BoundedSourceContentCache` répondre « indisponible » (M7.03).
+- **Dépend de :** M8.10
+
+#### M8.12 — Découpage du diff unifié Bitbucket
+- **Issue :** à créer
+- **Objectif :** découper le diff unifié multi-fichiers de Bitbucket en `ForgeChangedFile`, chacun avec son patch, pour que `UnifiedDiffParser` reste inchangé.
+- **Couches :** Infrastructure.
+- **Fichiers :** `Infrastructure/Bitbucket/BitbucketDiffSplitter.cs` (en-têtes `diff --git`, renommages `rename from/to`, fichiers binaires, suppressions et ajouts) ; fixtures de M8.01 `tests/fixtures/bitbucket/patches/*.diff`.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketDiffSplitterTests` — `Split_MultiFileDiff_ShouldReturnOnePatchPerFile`, `Split_Rename_ShouldCarryPreviousPath`, `Split_Binary_ShouldReturnNullPatch` ;
+  - `Domain.Tests/Diffs/BitbucketPatchFixtureTests` (sur le modèle de `GitHubPatchFixtureTests`) — `Parse_EveryFixture_ShouldMatchGitDiff`.
+- **Acceptation :** un fichier binaire ou un diff tronqué donne un patch `null` (`ForgeChangedFile.Patch`), jamais vide. Sur les fixtures, les lignes ajoutées sont celles de `git diff -U0`.
+- **Dépend de :** M8.01
+
+#### M8.13 — `BitbucketGateway` : comparaisons et pull requests
+- **Issue :** à créer
+- **Objectif :** fournir depuis l'API Bitbucket le diff d'une pull request et celui d'une comparaison (règle critique 2), avec les têtes de PR en SHA complets.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketGateway.cs`** :
+    - `CompareAsync` : `/diff/{spec}` avec `topic=true`, jamais `merge` ;
+    - `GetPullAsync` : `source.commit.hash` et `destination.commit.hash` résolus par `BitbucketCommitResolver` ;
+    - `ListPullFilesAsync` : `/pullrequests/{id}/diffstat`, puis `/diff` découpé par `BitbucketDiffSplitter` ;
+    - `GetBranchHeadAsync` : `/refs/branches/{name}`.
+  - **Modèles** : `Infrastructure/Bitbucket/Models/BitbucketPullRequest.cs` et `BitbucketDiffStat.cs`.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketGatewayCompareTests` (WireMock, `tests/fixtures/bitbucket/{pullrequest,diffstat}.json`, `diff-pullrequest.diff`) — `GetPullAsync_ShortHashes_ShouldResolveFullShas`, `ListPullFilesAsync_Redirect_ShouldFollowAndSplit`, `CompareAsync_Timeout_ShouldMarkTruncated`, `CompareAsync_Request_ShouldNeverSendMerge`.
+- **Acceptation :** la tête utilisée est toujours le commit source de la PR. Un diff trop gros pose `Truncated` sur `ForgePullFiles` ou `ForgeCompareResult`, et le patch devient inconnu selon la règle existante de `DiffSet`, jamais une couverture de patch de 100 %.
+- **Dépend de :** M8.10, M8.12
+
+#### M8.14 — Liens Bitbucket
+- **Issue :** à créer
+- **Objectif :** pointer vers les bonnes pages de bitbucket.org depuis le lien « Voir le commentaire sur {0} » et depuis ceux d'une PR ou d'un commit.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/Bitbucket/BitbucketLinks.cs` (`IForgeLinks`, à clé `Forge.Bitbucket`, dérivé de `Bitbucket:WebBaseUrl`) : commit `/commits/{sha}`, PR `/pull-requests/{n}`, commentaire `#comment-{id}` ;
+  - `Infrastructure/DependencyInjection.Bitbucket.cs`.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketLinksTests` — `Comment_PullRequest_ShouldPointToBitbucketOrg`, `Commit_WebBaseUrlChanged_ShouldFollowTheSetting`.
+- **Acceptation :** aucun lien `github.com` sur une page d'une organisation Bitbucket ; le libellé reste `Pull_ViewComment` avec `{0}` (M7.35), sans clé propre à Bitbucket.
+- **Dépend de :** M8.03, M7.24
+
+#### M8.15 — `BitbucketGateway` : statuts de build
+- **Issue :** à créer
+- **Objectif :** publier comme statuts de build Bitbucket **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), sous les mêmes noms que Codecov.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketGateway.cs`** (`CreateStatusAsync`) : `POST /commit/{sha}/statuses/build`, et mise à jour par `PUT …/build/{key}`. L'`url` est le `targetUrl` reçu, sinon la page du commit (`BitbucketLinks`). Un refus lève `Forge.StatusRefused` et une panne `Forge.Unavailable` (M7.03), sans code propre à Bitbucket.
+  - **`Infrastructure/Bitbucket/BitbucketStatusKey.cs`** : `key` dérivée comme Codecov selon M8.01, sinon préfixe et empreinte stable sous la longueur prouvée ; le nom complet va dans `name`.
+  - **`Infrastructure/Bitbucket/BitbucketStatusState.cs`** : `success` → `SUCCESSFUL`, `failure` et `error` → `FAILED`, `pending` → `INPROGRESS`, selon M8.01.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketGatewayStatusTests` (WireMock) — `CreateStatusAsync_Success_ShouldPostSuccessful`, `CreateStatusAsync_FlagContext_ShouldKeepTheWholeName`, `CreateStatusAsync_NoTargetUrl_ShouldUseTheCommitPage`, `CreateStatusAsync_Forbidden_ShouldThrowStatusRefused` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketStatusKeyTests` — `For_SameContext_ShouldBeStable`, `For_CodecovFixture_ShouldMatchCodecovKey`.
+- **Acceptation :**
+  - l'adaptateur ne liste jamais les contextes à la main ;
+  - deux uploads successifs mettent à jour le même statut, sans doublon ;
+  - une clé différente de celle de Codecov est un écart nommé (M8.02).
+- **Dépend de :** M8.10, M8.14
+
+#### M8.16 — `BitbucketGateway` : commentaire de pull request
+- **Issue :** à créer
+- **Objectif :** lister, créer, modifier et supprimer le commentaire de couverture d'une PR Bitbucket, et ne reconnaître que le sien.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketGateway.cs`** :
+    - `ListIssueCommentsAsync` ;
+    - `CreateIssueCommentAsync`, `UpdateIssueCommentAsync` et `DeleteIssueCommentAsync`, sur `/pullrequests/{id}/comments`, avec le corps `{"content":{"raw":…}}`.
+
+    Le commentaire est reconnu par l'UUID d'auteur `ServiceAccountExternalId` de la connexion (M8.06) **et** par le marqueur retenu par M8.01. L'identifiant entier du commentaire est le `long` de `ForgeIssueComment` : aucun port ni colonne ne change.
+  - **`Infrastructure/Bitbucket/Models/BitbucketComment.cs`**.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketGatewayCommentTests` (WireMock, `tests/fixtures/bitbucket/comments.json`) — `ListIssueCommentsAsync_OtherAuthor_ShouldNotBeOwn`, `CreateIssueCommentAsync_Body_ShouldSendRawOnly`, `DeleteIssueCommentAsync_Missing_ShouldReturnAlreadyGone`.
+- **Acceptation :** le commentaire d'un humain qui contient le marqueur n'est jamais modifié ; deux notifications successives laissent un seul commentaire.
+- **Dépend de :** M8.10, M8.06
+
+#### M8.17 — Commentaire sans `<details>` : capacité de forge
+- **Issue :** à créer
+- **Objectif :** rendre le commentaire sans bloc repliable quand la forge ne l'affiche pas, en s'appuyant sur une capacité de forge et non sur un test de la forge dans `CommentComposer`. Le commentaire respecte aussi la taille maximale de Bitbucket.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - **Capacités** : `Domain/Contracts/Forges/ForgeCapabilities.cs`, avec `SupportsDetails` en plus de `CommentMaxLength` (M7.25).
+  - **Composition** : `Application/Services/CommentPublisher.cs` : `WrapDetails` vaut `SupportsDetails`, au lieu de `true`. `CommentComposer` sait déjà se passer du bloc, et il ne change pas.
+  - **Valeurs par forge** :
+    - `Infrastructure/GitHub/GitHubCapabilities.cs` et `Infrastructure/AzureDevOps/AzureDevOpsCapabilities.cs` : `SupportsDetails` vrai ;
+    - `Infrastructure/Bitbucket/BitbucketCapabilities.cs` : taille et prise en charge de `<details>` établies par M8.01 ;
+    - `Infrastructure/DependencyInjection.Bitbucket.cs`.
+- **Tests :**
+  - `Application.Tests/Services/Comments/CommentComposerSectionsTests` — `Compose_WithoutDetails_ShouldMatchSnapshot` (Verify) ;
+  - `Application.Tests/Services/Comments/CommentTruncatorTests` — `Truncate_BitbucketLimit_ShouldKeepFooter` ;
+  - `Application.Tests/Services/NotificationServiceCommentTests` — `Notify_ForgeWithoutDetails_ShouldNotFoldTheTables`.
+- **Acceptation :** les snapshots GitHub restent inchangés ; le snapshot sans `<details>` ne contient aucune balise HTML hormis le marqueur s'il est retenu ; l'écart est nommé au §10 (M8.02).
+- **Dépend de :** M8.01, M8.16, M7.25, M7.48
+
+**Webhooks**
+
+#### M8.18 — Réception des webhooks Bitbucket
+- **Issue :** à créer
+- **Objectif :** recevoir un webhook Bitbucket par la réception neutre de M7.21. Seuls le contrôleur, l'extraction des en-têtes et le validateur HMAC sont propres à Bitbucket.
+- **Couches :** Infrastructure, Api.
+- **Fichiers :**
+  - **Contrôleur** : `Api/Controllers/BitbucketWebhooksController.cs`, `POST /api/v1/bitbucket/webhooks/{connectionId}`, qui répond 202.
+  - **Mapper** : `Api/Mapping/BitbucketWebhookMapper.cs`, vers `ReceiveForgeWebhookCommand` :
+    - `X-Request-UUID` comme identifiant de livraison ;
+    - `X-Event-Key` comme événement ;
+    - `X-Hub-Signature`, `X-Hook-UUID` et `X-Attempt-Number` comme en-têtes utiles.
+  - **Validateur** : `Infrastructure/Bitbucket/BitbucketWebhookValidator.cs` (`IForgeWebhookValidator`, à clé `Forge.Bitbucket`). Il lit le préfixe `sha256=` et compare en temps constant sur les octets bruts, avec le secret courant ou le précédent de la connexion.
+  - **Enregistrement** : `Infrastructure/DependencyInjection.Bitbucket.cs`.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketWebhookValidatorTests` — `IsValid_AtlassianTestVector_ShouldBeTrue`, `IsValid_PreviousSecret_ShouldAccept`, `IsValid_MissingHeader_ShouldRefuse`, `IsValid_TamperedBody_ShouldRefuse` ;
+  - `Api.Tests/Bitbucket/BitbucketWebhooksControllerTests` — `Post_ValidSignature_ShouldReturnAccepted`, `Post_WrongSignature_ShouldReturnUnauthorized`, `Post_UnknownConnection_ShouldReturnUnauthorized`, `Post_SameRequestUuid_ShouldStoreOnce`.
+- **Acceptation :**
+  - la requête n'appelle jamais Bitbucket (règle critique 3) ;
+  - la livraison est stockée dans `WebhookDeliveries` avec `Forge = Bitbucket` ;
+  - une connexion inconnue et une signature fausse donnent la même réponse, sans oracle ;
+  - la route déclare sa sonde à deux organisations ;
+  - la porte d'isolation reste celle de M7.21 dans `OrganizationIsolationTests`, et aucun `IgnoreQueryFilters` n'est ajouté.
+- **Dépend de :** M8.03, M7.21
+
+#### M8.19 — Traduction des événements Bitbucket
+- **Issue :** à créer
+- **Objectif :** traduire les charges utiles Bitbucket en événements neutres, pour que le traitement neutre de M7.20 les aiguille :
+  - `repo:push` ;
+  - `pullrequest:created`, `pullrequest:updated`, `pullrequest:fulfilled` et `pullrequest:rejected` ;
+  - `repo:updated` (renommage), `repo:transfer` et `repo:deleted`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/Events/BitbucketEventTranslator.cs`** (`IForgeEventTranslator`, à clé `Forge.Bitbucket`) :
+    - le traducteur s'exécute dans le worker ;
+    - un hash court est résolu par `BitbucketCommitResolver` et n'est jamais converti en `GitSha` sans l'être ;
+    - un événement inconnu est rendu « ignoré ».
+  - **`Infrastructure/Bitbucket/Events/BitbucketWebhookPayload.cs`**.
+  - **`Infrastructure/DependencyInjection.Bitbucket.cs`**.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/Events/BitbucketEventTranslatorTests` (`tests/fixtures/bitbucket/events/*.json`) — `Translate_Push_ShouldReturnAPushEvent`, `Translate_PullRequestFulfilled_ShouldBeMerged`, `Translate_ShortHash_ShouldResolveTheFullSha`, `Translate_RepoUpdatedName_ShouldReturnARenamedEvent`, `Translate_RepoTransfer_ShouldReturnATransferredEvent`, `Translate_UnknownKey_ShouldIgnore` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketWebhookIntegrationTests` (sur le modèle de `WebhookHandlingIntegrationTests`, sur les deux fournisseurs, ignorés avec une raison explicite sans Docker) — `Deliver_PullRequestCreated_ShouldQueueAndProcess`.
+- **Acceptation :**
+  - la livraison est traitée dans l'organisation de sa ligne `Jobs` ;
+  - une livraison rejouée ne change rien de plus ;
+  - un événement inconnu est marqué ignoré par M7.20, jamais en échec ;
+  - aucun cas d'usage ni cas de dispatcher n'est ajouté.
+- **Dépend de :** M8.01, M8.10, M8.18, M7.20
+
+#### M8.20 — Webhook de workspace
+- **Issue :** à créer
+- **Objectif :** créer et vérifier par l'API le webhook du workspace de chaque connexion, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketHookManager.cs`** (`IForgeHookManager`, à clé `Forge.Bitbucket`) :
+    - `POST /2.0/workspaces/{ws}/hooks`, en portée `Connection`, sur l'URL `{Api}/api/v1/bitbucket/webhooks/{connectionId}` ;
+    - événements de M8.19 ;
+    - le secret courant de la connexion est reposé sur un hook existant, car Bitbucket ne le relit pas ;
+    - un refus donne `Forbidden`, et un hook inactif `Disabled`.
+  - **Fixture** `tests/fixtures/bitbucket/hooks.json`.
+  - **`Infrastructure/DependencyInjection.Bitbucket.cs`**.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketHookManagerTests` (WireMock) — `EnsureAsync_Missing_ShouldCreateTheWorkspaceHook`, `EnsureAsync_Existing_ShouldUpdateItsSecretWithoutDuplicate`, `EnsureAsync_Forbidden_ShouldReportForbidden`, `CheckAsync_Inactive_ShouldReportDisabled`.
+- **Acceptation :**
+  - la première synchronisation met en file `EnsureForgeHooks` (M7.23) ;
+  - une rotation de l'identifiant ne recrée pas le hook ;
+  - après une rotation du secret de webhook, le passage quotidien de `CheckForgeHooks` repose le nouveau secret, l'ancien restant accepté d'ici là (M7.13) ;
+  - un refus est visible sur la page de connexion (M7.38) au lieu de faire échouer un job.
+- **Dépend de :** M8.04, M8.18, M7.23
+
+**Accès des utilisateurs Bitbucket**
+
+#### M8.21 — Passerelle utilisateur et adhésions Bitbucket
+- **Issue :** à créer
+- **Objectif :** lire l'utilisateur connecté, ses workspaces et ses droits sur les dépôts avec son jeton délégué, par les endpoints par workspace. L'adhésion au workspace est lue avec l'identifiant de la connexion (M7.17).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Bitbucket/BitbucketUserGateway.cs`** (`IForgeUserGateway`, à clé `Forge.Bitbucket`) :
+    - `GetUserAsync` par `GET /2.0/user` ;
+    - `ListAccountsAsync` par `/2.0/user/workspaces` ;
+    - `ListRepositoryPermissionsAsync` par `/2.0/user/workspaces/{ws}/permissions/repositories`, où `read`, `write` et `admin` donnent `RepositoryPermission`.
+  - **`Infrastructure/Bitbucket/BitbucketDirectoryGateway.cs`** (`GetMembershipAsync`) : l'endpoint est retenu par M8.01. `owner` donne administrateur ; `collaborator` et `member` donnent participant.
+  - **Modèles** : `Infrastructure/Bitbucket/Models/BitbucketUser.cs` et `BitbucketWorkspacePermission.cs`.
+  - **Fixtures** `tests/fixtures/bitbucket/{user,user-workspaces,repository-permissions}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/Bitbucket/BitbucketUserGatewayTests` (WireMock) — `GetUserAsync_Fixture_ShouldUseAccountUuid`, `ListAccountsAsync_TwoWorkspaces_ShouldListBoth`, `ListRepositoryPermissionsAsync_Write_ShouldMapWrite` ;
+  - `Infrastructure.Tests/Bitbucket/BitbucketDirectoryGatewayMembershipTests` — `GetMembershipAsync_Owner_ShouldBeAdmin`, `GetMembershipAsync_Member_ShouldNotBeAdmin`.
+- **Acceptation :** l'utilisateur est identifié par `(Forge.Bitbucket, UUID de compte)`, jamais par son nom ; un workspace non admis n'ouvre aucun accès.
+- **Dépend de :** M8.06, M7.15, M7.17
+
+#### M8.22 — Jeton délégué d'un utilisateur Bitbucket
+- **Issue :** à créer
+- **Objectif :** renouveler le jeton OAuth d'un utilisateur Bitbucket, en persistant chaque fois le nouveau refresh token si la rotation est prouvée par M8.01.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/Bitbucket/BitbucketUserTokenProvider.cs` (`IForgeUserTokenProvider`, à clé `Forge.Bitbucket`) : `POST {Bitbucket:WebBaseUrl}/site/oauth2/access_token`, authentification Basic du consumer, `grant_type=refresh_token`. Les jetons sont remplacés par `AppUser.ReplaceTokens` et chiffrés par `ISecretProtector`, comme dans `GitHubUserTokenProvider` ;
+  - `Infrastructure/Bitbucket/Models/BitbucketTokenResponse.cs`.
+- **Tests :** `Infrastructure.Tests/Bitbucket/BitbucketUserTokenProviderTests` (WireMock) — `GetTokenAsync_Expired_ShouldPersistTheRotatedRefreshToken`, `GetTokenAsync_RefreshTokenRevoked_ShouldRequireSignIn`, `GetTokenAsync_Concurrent_ShouldRefreshOnce`.
+- **Acceptation :** deux renouvellements concurrents n'invalident pas la session ; un refresh token expiré déconnecte proprement ; aucun jeton d'utilisateur en clair en base ni dans les journaux.
+- **Dépend de :** M8.03, M7.16
+
+#### M8.23 — Connexion au Web avec Bitbucket
+- **Issue :** à créer
+- **Objectif :** permettre à un membre d'un workspace admis de se connecter au Web par OAuth Bitbucket, à côté de GitHub et d'Azure DevOps.
+- **Couches :** Infrastructure, Web.
+- **Fichiers :**
+  - **Paquet** : `src/CodeCoverage.Web/CodeCoverage.Web.csproj`, `AspNet.Security.OAuth.Bitbucket` (même famille qu'`AspNet.Security.OAuth.GitHub`, déjà référencé).
+  - **Authentification** :
+    - `Web/Configuration/Authentication/AuthenticationConfiguration.cs` : `.AddBitbucket(…)`, chemin de retour `/signin-bitbucket` ;
+    - `Web/Configuration/Authentication/ConfigureBitbucketOAuthOptions.cs` : `Bitbucket:ClientId`, `Bitbucket:ClientSecret`, portées `account` et `email` ;
+    - `Web/Configuration/Authentication/BitbucketSignInEvents.cs` : `SignInUserCommand` avec `Forge.Bitbucket`.
+  - **Disponibilité** : `Infrastructure/Bitbucket/BitbucketAvailabilityContributor.cs`. La connexion est possible quand `Bitbucket:ClientId` est rempli.
+
+  Le bouton, l'icône, `Forge_Bitbucket`, `SignIn_With` et la route `/signin/{forge}` viennent de M7.34 : ni `SignIn.razor`, ni CSS, ni libellé de bouton ne sont ajoutés.
+- **Tests :**
+  - `Web.Tests/Authentication/ConfigureBitbucketOAuthOptionsTests` — `Configure_SettingsChanged_ShouldReload` ;
+  - `Web.Tests/Authentication/BitbucketSignInEventsTests` — `CreatingTicket_Tokens_ShouldSendTheBitbucketForge` ;
+  - `Web.Tests/Components/Pages/SignInTests` — `Render_BitbucketConfigured_ShouldShowItsButton` ;
+  - `Web.Tests/Authentication/AuthenticationEndpointsTests` — `Challenge_Bitbucket_ShouldUseItsScheme`.
+- **Acceptation :**
+  - un membre d'un workspace admis se connecte et ne voit que ses dépôts ;
+  - une personne sans dépôt lisible est refusée avec `Access.NoRepository` ;
+  - un même humain sur GitHub et sur Bitbucket a deux comptes (ADR-014) ;
+  - la connexion GitHub ne change pas.
+- **Dépend de :** M8.21, M8.22, M7.34
+
+**Upload et uploader**
+
+#### M8.24 — OIDC d'upload par forge : identité et port neutres
+- **Issue :** à créer
+- **Objectif :** sortir l'OIDC d'upload de GitHub seul. L'identité devient neutre, le validateur est choisi par forge, et la comparaison se fait par identifiants externes plutôt que par slug (ADR-014). M9 n'ajoute que son validateur.
+- **Couches :** Domain, Application, Infrastructure.
+- **Fichiers :**
+  - **Domain** :
+    - `Domain/Contracts/Identity/ForgeOidcIdentity.cs` (forge, compte externe, dépôt externe, chemin facultatif, ref) remplace `GitHubOidcIdentity.cs` ;
+    - `Domain/Ports/IOidcTokenValidator.cs` : `ValidateAsync(token, organizationLogin, cancellationToken)`, le login servant aux forges dont l'issuer dépend du compte ;
+    - `Domain/Ports/IOidcTokenValidatorProvider.cs` (ajout, §10) ;
+    - `Domain/Commits/PrincipalKind.cs` : `BitbucketOidc`. L'énumération est stockée en texte : aucune migration.
+  - **Infrastructure** :
+    - `Infrastructure/Identity/OidcTokenValidatorProvider.cs` : services à clé `Forge`, `null` pour une forge sans validateur ;
+    - `Infrastructure/Identity/GitHubOidcTokenValidator.cs`, adapté et enregistré à clé `Forge.GitHub` ;
+    - `Infrastructure/DependencyInjection.Uploads.cs`.
+  - **Application** : `Application/Services/UploadAuthenticator.cs` :
+    - une forge sans validateur reçoit `Upload.OidcUnsupportedForge` (M7.55) ;
+    - le compte et le dépôt sont comparés par `AccountExternalId` et `RepositoryExternalId` ;
+    - un dépôt non suivi est comparé à `ForgeConnectionInfo.RepositoryExternalId` ;
+    - le genre du principal suit la forge.
+- **Tests :**
+  - `Application.Tests/Services/UploadAuthenticatorTests` — `AuthenticateOidcAsync_ForgeWithoutValidator_ShouldThrowOidcUnsupportedForge`, `AuthenticateOidcAsync_OtherRepositoryId_ShouldThrowOidcMismatch`, `AuthenticateOidcAsync_UntrackedGitHubRepository_ShouldCompareTheForgeId` ;
+  - `Infrastructure.Tests/Identity/OidcTokenValidatorProviderTests` (nouveau) — `Get_GitHub_ShouldReturnTheGitHubValidator`, `Get_AzureDevOps_ShouldReturnNull` ;
+  - `Infrastructure.Tests/Identity/GitHubOidcTokenValidatorTests` (existants, identité neutre).
+- **Acceptation :** le comportement GitHub est inchangé, suivi automatique d'un dépôt non suivi compris (les tests existants restent verts) ; Azure DevOps reste refusé (écart nommé de M7.02).
+- **Dépend de :** M8.02, M7.55
+
+#### M8.25 — Validateur OIDC de Bitbucket Pipelines
+- **Issue :** à créer
+- **Objectif :** accepter un jeton OIDC de Bitbucket Pipelines, lié au workspace et au dépôt par leurs UUID, avec un issuer propre à chaque workspace.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Identity/BitbucketOidcTokenValidator.cs`** (à clé `Forge.Bitbucket`) :
+    - issuer attendu construit depuis le login de l'organisation, selon le chemin prouvé par M8.01 (`…/workspaces/{slug}/pipelines-config/identity/oidc`) ;
+    - découverte et JWKS par issuer, dans un `ConfigurationManager` par issuer, en nombre borné (aucun `IMemoryCache`) ;
+    - audience `Uploads:OidcAudience`, ou celle retenue par M8.01 ;
+    - `workspaceUuid` doit valoir `ExternalAccountId`, et `repositoryUuid` le `ExternalId` du dépôt ;
+    - `sub` n'est jamais lu.
+  - **`Infrastructure/DependencyInjection.Uploads.cs`**.
+- **Tests :** `Infrastructure.Tests/Identity/BitbucketOidcTokenValidatorTests` (WireMock pour la découverte, clés générées dans le test) — `ValidateAsync_ValidToken_ShouldReturnRepositoryUuid`, `ValidateAsync_OtherWorkspaceIssuer_ShouldReject`, `ValidateAsync_WrongAudience_ShouldReject`, `ValidateAsync_Expired_ShouldReject`, `ValidateAsync_KeysUnreachable_ShouldThrow`.
+- **Acceptation :** un jeton d'un autre workspace est refusé avant toute lecture de dépôt. Une panne de l'issuer n'est pas rapportée comme un mauvais identifiant (contrat d'`IOidcTokenValidator`). L'OIDC sur Bitbucket est nommé au §10 comme complément absent de Codecov (M8.02).
+- **Dépend de :** M8.01, M8.24
+
+#### M8.26 — Uploader : contexte Bitbucket Pipelines
+- **Issue :** à créer
+- **Objectif :** détecter Bitbucket Pipelines et envoyer, sans option : commit, branche, PR, slug, build et forge `bitbucket`. Le commit envoyé n'est jamais un commit de fusion (règle critique 2).
+- **Couches :** Uploader, Web.
+- **Fichiers :**
+  - **`Uploader/Ci/BitbucketPipelinesContext.cs`** :
+    - `BITBUCKET_COMMIT`, avec repli sur `git rev-parse HEAD` quand il est court (comme la CLI Codecov, selon M8.01) ;
+    - `BITBUCKET_BRANCH`, `BITBUCKET_PR_ID`, `BITBUCKET_REPO_FULL_NAME` et `BITBUCKET_BUILD_NUMBER` ;
+    - URL de la build construite ;
+    - service `bitbucket-pipelines` ;
+    - forge `bitbucket` dans `DetectedContext.Forge`.
+  - **`Uploader/Ci/CiContextDetector.cs`** : détection par `BITBUCKET_BUILD_NUMBER`.
+  - **`Web/Mapping/CommitMapper.cs`** : libellé « Bitbucket Pipelines ».
+  - **Fixtures** `tests/fixtures/ci-env/bitbucket-{branch,pr,tag}.json`.
+- **Tests :**
+  - `Uploader.Tests/Ci/CiContextDetectorTests` — `Detect_BitbucketPullRequest_ShouldReadPrAndSourceCommit`, `Detect_BitbucketShortCommit_ShouldFallBackToGit`, `Detect_BitbucketVariables_ShouldSendTheBitbucketForge` ;
+  - `Uploader.Tests/Http/FinalizeClientTests` — `CompleteAsync_Bitbucket_ShouldUseItsSegment`.
+- **Acceptation :** la finalisation part vers `/api/v1/repos/bitbucket/{ws}/{repo}/…` ; une variable manquante ne fait jamais échouer la build (code 0 sans `--fail-on-error`, règle critique 6).
+- **Dépend de :** M7.27
+
+#### M8.27 — Uploader : source de jeton OIDC neutre (`IOidcTokenSource`)
+- **Issue :** à créer
+- **Objectif :** que l'uploader obtienne un jeton OIDC d'une source choisie selon la CI, au lieu de supposer GitHub Actions, sans changer le comportement actuel. M8.28 et M9 n'y ajoutent qu'une source.
+- **Couches :** Uploader.
+- **Fichiers :**
+  - **`Uploader/Http/IOidcTokenSource.cs`** : `Name`, `IsAvailable` et `FetchAsync(audience, cancellationToken)`.
+  - **`Uploader/Http/GitHubActionsOidcTokenSource.cs`** : renomme `Uploader/Http/OidcTokenFetcher.cs`, au comportement inchangé.
+  - **`Uploader/Http/OidcTokenSources.cs`** : la première source disponible, ou aucune.
+  - **Appelants** :
+    - `Uploader/Http/UploadClient.cs` et `Uploader/Http/UploadRunner.cs` lisent les sources ;
+    - `Uploader/Commands/DryRunPrinter.cs` nomme la source ;
+    - `Uploader/Program.cs` assemble les sources.
+- **Tests :**
+  - `Uploader.Tests/Http/GitHubActionsOidcTokenSourceTests` (nouveau) — `FetchAsync_GrantedJob_ShouldReturnTheToken`, `FetchAsync_Refused_ShouldReturnNull`, `IsAvailable_NoRequestVariables_ShouldBeFalse` ;
+  - `Uploader.Tests/Http/UploadClientTests` et `UploadRunnerTests` (existants, verts) ;
+  - `Uploader.Tests/Commands/DryRunPrinterTests` — `Print_GitHubOidc_ShouldNameTheSource`.
+- **Acceptation :**
+  - un upload depuis GitHub Actions sans jeton obtient son OIDC comme avant ;
+  - plus aucun `OidcTokenFetcher` dans `src` ;
+  - l'uploader sort en 0 sans `--fail-on-error` quand aucune source n'est disponible (règle critique 6).
+- **Dépend de :** M7.27
+
+#### M8.28 — Uploader : jeton OIDC de Bitbucket Pipelines
+- **Issue :** à créer
+- **Objectif :** utiliser `BITBUCKET_STEP_OIDC_TOKEN` quand aucun jeton d'upload n'est fourni.
+- **Couches :** Uploader.
+- **Fichiers :**
+  - `Uploader/Http/BitbucketPipelinesOidcTokenSource.cs` (`IOidcTokenSource` : variable d'environnement, sans appel HTTP) ;
+  - `Uploader/Http/OidcTokenSources.cs` et `Uploader/Program.cs` : la source est ajoutée ;
+  - `Uploader/Commands/DryRunPrinter.cs` : quand `oidc: true` manque sur l'étape, le message l'explique.
+- **Tests :**
+  - `Uploader.Tests/Http/BitbucketPipelinesOidcTokenSourceTests` (nouveau) — `FetchAsync_Variable_ShouldReturnTheToken`, `IsAvailable_WithoutOidcStep_ShouldBeFalse` ;
+  - `Uploader.Tests/Commands/DryRunPrinterTests` — `Print_BitbucketOidc_ShouldNameTheSource`, `Print_BitbucketWithoutOidc_ShouldExplain`.
+- **Acceptation :** le jeton n'est jamais affiché, même en `--dry-run`.
+- **Dépend de :** M8.26, M8.27
+
+**Badges et assistant**
+
+#### M8.29 — Badges Codecov `/bb/…` et `/bitbucket/…`
+- **Issue :** à créer
+- **Objectif :** servir les badges aux adresses Codecov de Bitbucket, inchangées (ADR-014, règle critique 1). Il suffit d'ajouter une ligne à la table de M7.30.
+- **Couches :** Domain.
+- **Fichiers :** `Domain/Organizations/CodecovServiceSegments.cs` (`Bitbucket` → `bb`, `bitbucket`).
+- **Tests :**
+  - `Domain.Tests/Organizations/CodecovServiceSegmentsTests` — `TryParse_Bb_ShouldReturnBitbucket` ;
+  - `Api.Tests/Badges/BadgesControllerTests` — `Get_BbAlias_ShouldRender`, `Get_BitbucketBranch_ShouldRender`, `Get_BitbucketPrivateWithoutToken_ShouldRefuse` ;
+  - `Web.Tests/Components/Repositories/BadgeSnippetsTests` — `Render_Bitbucket_ShouldUseTheCodecovRoute`.
+- **Acceptation :** un README Bitbucket qui pointait vers `codecov.io/bb/{ws}/{repo}/graph/badge.svg?token=…` marche en changeant seulement l'hôte ; ni `BadgesController` ni `RepositoryMapper` ne changent.
+- **Dépend de :** M7.30
+
+#### M8.30 — Étape Bitbucket de l'assistant `/setup`
+- **Issue :** à créer
+- **Objectif :** proposer Bitbucket dans l'étape « forges » de `/setup` : activer `Bitbucket:Enabled` et renvoyer au groupe de réglages `Bitbucket`.
+- **Couches :** Web.
+- **Fichiers :** `Web/Components/Pages/Setup.razor(.cs)` (carte Bitbucket selon la maquette de M8.07) ; resx.
+- **Tests :** `Web.Tests/Components/Pages/SetupTests` — `Render_ForgesStep_ShouldOfferBitbucket`, `Submit_BitbucketEnabled_ShouldCompleteTheForgesStep`.
+- **Acceptation :** une instance configurée avec Bitbucket seul n'est pas renvoyée vers `/setup` (M7.42) ; une instance déjà configurée avec GitHub ne change pas.
+- **Dépend de :** M8.08, M7.42
+
+**Exploitation et pilote**
+
+#### M8.31 — Documentation d'onboarding Bitbucket
+- **Issue :** à créer
+- **Objectif :** permettre à un administrateur d'instance et au propriétaire d'un workspace de brancher Bitbucket sans aide, jusqu'au premier statut.
+- **Couches :** docs, exploitation.
+- **Fichiers :**
+  - **`docs/operations/organization-onboarding-bitbucket.md`** :
+    - consumer OAuth et ses réglages ;
+    - genre de jeton retenu et ses portées ;
+    - admission par la console ou la ligne de commande ;
+    - webhook de workspace ;
+    - rotation des secrets ;
+    - Pipelines par jeton et par OIDC (`oidc: true`).
+  - **`docs/operations/bitbucket-verification-checklist.md`**, sur le modèle de `github-verification-checklist.md`.
+  - **Renvois** :
+    - `docs/operations/organization-onboarding.md` (renvoi par forge) ;
+    - `docs/operations.md` : administrateurs qualifiés `bitbucket:{uuid}` (M7.37), alerte neutre `CodeCoverageForgeQuotaLow` étiquetée `forge="bitbucket"` (M7.29), sans alerte propre à Bitbucket ;
+    - `docs/migration-from-codecov.md`, section Bitbucket : badges, `codecov.yml`, et import de l'historique Codecov que `CodecovApiClient` sait déjà lire pour `bitbucket`.
+  - **Pipeline d'exemple** : `pipelines/demo/bitbucket-pipelines.yml`.
+  - **Déploiement** : `deploy/vm/Caddyfile`, en commentaire (route `/api/v1/bitbucket/webhooks/{connectionId}`).
+  - **`README.md`** (forges prises en charge).
+- **Tests :** `Infrastructure.Tests/Codecov/CodecovApiClientTests` — `ListCommits_Bitbucket_ShouldUseTheBitbucketService` ; `Architecture.Tests` restent verts.
+- **Acceptation :** un tiers déroule la liste de vérification sur un workspace d'essai sans étape manquante (propriétaire).
+- **Dépend de :** M8.08, M8.20, M8.23, M8.28, M8.29
+
+#### M8.32 — Pilote sur un workspace Bitbucket réel
+- **Issue :** à créer
+- **Objectif :** vérifier de bout en bout, sur un workspace Bitbucket Cloud du propriétaire, que M8 tient son critère de sortie.
+- **Couches :** exploitation, docs.
+- **Fichiers :**
+  - **`docs/operations/bitbucket-verification-checklist.md`**, cochée avec sa date et ses constats :
+    - admission, synchronisation, renommage d'un dépôt puis du workspace, santé de la connexion, rotation du jeton et du secret de webhook ;
+    - connexion d'un membre et d'un non-membre, administrateur qualifié ;
+    - upload par jeton, puis par OIDC ; upload d'un autre workspace refusé ;
+    - statuts (`project`, `patch`, `changes`, flags) et commentaire unique mis à jour au second push ;
+    - PR avec renommage et binaire, webhook rejoué, hook interdit, limitation de débit observée ;
+    - badges `/bb/…` et `/bitbucket/…` ;
+    - import Codecov d'un dépôt Bitbucket ;
+    - consommation de quota d'une journée sous la limite horaire.
+  - **ADR-014** : écarts constatés reportés.
+- **Tests :** liste de vérification exécutée (propriétaire).
+- **Acceptation :** chaque ligne de la liste est cochée ou ouverte en écart nommé ; aucune régression GitHub ni Azure DevOps n'est observée en production (propriétaire).
+- **Dépend de :** M8.09, M8.11, M8.13, M8.15, M8.17, M8.19, M8.25, M8.30, M8.31
+
+### 9.3 Jalon M9 – GitLab.com
+
+**Critère de sortie :** un groupe GitLab.com du propriétaire, sur le plan Free et avec un projet dans un sous-groupe, est admis et connecté par le jeton d'un compte de service (M7.12, M9.05). Ses projets sont suivis sous l'owner `group:sub` (M9.12) et leurs webhooks sont créés par l'API (M9.13). Une merge request d'un projet pilote reçoit, après un upload sans jeton par l'OIDC de GitLab CI lié à `project_id` (M9.19, M9.21), tous les statuts émis par `NotificationService` et une note unique mise à jour à chaque push (M9.10, M9.11), déclenchés par les webhooks du projet (M9.14, M9.15). Le badge `/gl/group:sub/repo` répond comme chez Codecov (M9.22). Un membre du groupe se connecte au Web avec GitLab et ne voit que les projets qu'il peut lire (M9.17, M9.18). Le pilote le constate (M9.28, propriétaire). GitHub, Azure DevOps et Bitbucket ne régressent pas.
+
+**GitLab.com branché sur les pièces neutres.** M9 ne construit aucune abstraction. Il branche GitLab sur les ports et cas d'usage neutres livrés par M7 (passerelles par forge, disponibilité, connexions globales, admission, rotation et santé des connexions, annuaire et synchronisation, réception et traitement des webhooks, table `ForgeHooks`, liens, capacités de commentaire, uploader à plusieurs niveaux, quotas, table des segments Codecov, page de connexion et administrateurs) et par M8 (OIDC d'upload par forge, source de jeton OIDC de l'uploader). Chaque fiche ne contient que l'adaptateur GitLab. La route de webhook est `/api/v1/gitlab/webhooks/{connectionId}` (ADR-015), et le secret de webhook est celui de la connexion, comme pour Azure DevOps et Bitbucket : il n'existe aucun secret de webhook d'instance pour GitLab. Seul GitLab.com est pris en charge ; une instance auto-hébergée reste hors périmètre (`Forge.GitLab`).
+
+**Cadrage**
+
+#### M9.01 — Ce que GitLab.com permet sur le plan Free (spike)
+- **Issue :** à créer
+- **Objectif :** établir, preuves à l'appui, ce que GitLab.com permet sur le plan Free avant d'écrire l'adaptateur (ADR-014 : « Le spike de M9 le vérifie »), et enregistrer les fixtures des fiches suivantes.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/research/gitlab.md`** (nouveau) : chaque point est classé prouvé, probable ou non prouvé, avec l'appel `curl` qui le montre, sur un groupe de test de gitlab.com (propriétaire) :
+    1. **connexion** : compte de service de groupe sur le plan Free, jeton personnel de portée `api`, durée maximale et rotation ; jetons de groupe et de projet réservés à Premium ; rôle minimal pour lire, publier un statut, écrire une note et créer un webhook de projet ;
+    2. **diff** : `GET /projects/:id/repository/compare?unidiff=true` et `GET /projects/:id/merge_requests/:iid/diffs?unidiff=true` ; `collapsed`, `too_large`, `compare_timeout`, renommages, binaires, forme du champ `diff` (sans en-tête `diff --git`), pagination ;
+    3. **statuts** : `POST /projects/:id/statuses/:sha` sur un commit de MR, y compris depuis un fork ; pipeline externe créé, effet de « Pipelines must succeed », 409 sur une mise à jour concurrente, longueur de `description` ;
+    4. **notes de MR** : modification réservée à l'auteur, actions rapides en début de ligne, normalisation du corps, longueur maximale (valeur reprise par M9.11) ;
+    5. **webhooks** : webhook de projet créé par l'API avec un secret ; signature Standard Webhooks (`signing_token`, en-têtes `webhook-id`, `webhook-timestamp`, `webhook-signature`) disponible ou non sur gitlab.com, sinon `X-Gitlab-Token` ; désactivation automatique (`disabled_until`, `alert_status`) ; limite de création de hooks par minute (« au plus 5 par minute » du brouillon, non prouvé) ; absence de webhook de groupe et d'événement de renommage de projet sur le plan Free ;
+    6. **OIDC** : `id_tokens` de GitLab CI, claims `project_id` et `namespace_id` d'une MR depuis un fork, découverte et JWKS de `https://gitlab.com` ;
+    7. **pipelines « merged results » et merge trains** : `CI_COMMIT_SHA` est le commit de merge synthétique, `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA` la tête ;
+    8. **niveaux d'accès** : 5 (Minimal Access), 10, 15 (Planner), 20, 25 (Security Manager si présent), 30, 40, 50 ; seuil administrateur de l'organisation (Maintainer ou Owner) ;
+    9. **limitation de débit** : portée réelle des limites de gitlab.com (par utilisateur, par jeton ou par IP, et non par groupe : à prouver) et en-têtes `RateLimit-*` ;
+    10. **Codecov** : forme réelle des badges et du slug de sous-groupe (`/gl/group:sub/repo`, `group:sub:sub2`) et chemins de recherche de `codecov.yml` pour GitLab, vérifiés dans les sources de Codecov (`codecov/shared`, torngit gitlab).
+  - **Fixtures enregistrées** : `tests/fixtures/gitlab/` (réponses de l'API citées par M9.05 à M9.18) et `tests/fixtures/gitlab/patches/*.diff` (`git diff -U0` attendu sur les mêmes SHA).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** chaque point a un verdict (prouvé, probable ou non prouvé) et une conséquence nommée sur une fiche de M9.02 à M9.28 ; aucune hypothèse non prouvée n'est reprise ensuite sans être nommée comme telle.
+- **Dépend de :** M8.32
+
+#### M9.02 — ADR-014 et plan amendés pour GitLab.com
+- **Issue :** à créer
+- **Objectif :** consigner les choix de GitLab.com établis par le spike, et nommer ses écarts avec Codecov.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/adr/0014-multi-forge.md`**, section GitLab.com :
+    - connexion : jeton `api` d'un compte de service collé par l'owner du groupe de premier niveau ou de l'espace personnel (`ForgeConnectionKind.GitLabServiceAccountToken`), jamais un sous-groupe ;
+    - webhooks : un webhook par projet suivi, créé par l'API (aucun webhook de groupe sur le plan Free), authentifié par le secret de webhook de la connexion selon le verdict de M9.01 (Standard Webhooks, ou `X-Gitlab-Token` en écart nommé) ;
+    - seuil administrateur et correspondance des niveaux d'accès (M9.01, point 8) ;
+    - délai d'alerte avant l'expiration d'un jeton (30 jours proposés).
+  - **`docs/PLAN.md`** :
+    - §10, écarts nommés et non configurables : « statuts et notes publiés sous le compte de service, clé `codecov.bot` sans effet » ; « fichier omis par GitLab (`too_large`, `collapsed`) : patch du fichier indisponible ; `compare_timeout` : patch inconnu » ; « sous-groupe dont le namespace dépasse 512 caractères non suivi » ; « renommage et transfert d'un projet rattrapés par la synchronisation quotidienne, faute de webhook de groupe » ;
+    - §11 item 12 mis à jour ;
+    - si un verdict de M9.01 change le périmètre d'une fiche de M9, la fiche est réécrite ici.
+  - **`docs/ARCHITECTURE.md`** §8 (GitLab.com à côté de GitHub, Azure DevOps et Bitbucket, renvoi à ADR-014 et ADR-015).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** les questions ouvertes du spike sont tranchées par le propriétaire ou listées au §11 ; chaque écart de GitLab.com avec Codecov est nommé et déclaré non configurable (règle critique 1) (propriétaire).
+- **Dépend de :** M9.01
+
+**Connexion et passerelle GitLab**
+
+#### M9.03 — Réglages `GitLab:*` et client HTTP typé
+- **Issue :** à créer
+- **Objectif :** donner à l'Infrastructure un client `gitlab` vers l'API de GitLab.com, avec sa limitation de débit, sans URL en dur.
+- **Couches :** Domain, Infrastructure, Web.
+- **Fichiers :**
+  - **`Domain/Settings/SettingDefinitions.cs`** : groupe `GitLab`, avec `GitLab:ApiBaseUrl` (par défaut `https://gitlab.com/api/v4`), `GitLab:WebBaseUrl` (par défaut `https://gitlab.com`), `GitLab:OAuthClientId`, `GitLab:OAuthClientSecret` (secret) et `GitLab:Enabled` (booléen, faux par défaut : GitLab n'est proposé à l'admission que lorsqu'il est activé, M9.05). Aucun secret de webhook d'instance : il appartient à la connexion (M7.06).
+  - **Infrastructure** :
+    - `Infrastructure/GitLab/GitLabOptions.cs` ;
+    - `GitLabHttpClientConfiguration.cs` (client typé `gitlab`, adresse lue par `IOptionsMonitor<T>`) ; `GitLabJsonContext.cs` ;
+    - `GitLabRateLimitHandler.cs` : un 429 lève `ForgeRateLimitedException` (M7.03) avec `Retry-After` ;
+    - `GitLabErrors.cs` (`GitLab.AccessDenied`) ;
+    - `Infrastructure/DependencyInjection.GitLab.cs` (nouveau), appelé par `Infrastructure/DependencyInjection.cs`.
+  - **Libellés** : `Web/Resources/Common.resx` et `Common.fr.resx` (`SettingGroup_GitLab`, libellés des réglages, `GitLab.AccessDenied`).
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabRateLimitHandlerTests` (WireMock) — `SendAsync_TooManyRequests_ShouldThrowForgeRateLimitedWithRetryAfter` ;
+  - `Infrastructure.Tests/GitLab/GitLabHttpClientConfigurationTests` — `Configure_ApiBaseUrlChanged_ShouldUseTheNewAddress` ;
+  - `Domain.Tests/Settings/SettingDefinitionsTests` (groupe présent, `GitLab:OAuthClientSecret` marqué secret, `GitLab:Enabled` faux par défaut).
+- **Acceptation :** aucune URL GitLab en dur hors des valeurs par défaut des réglages ; aucun réglage fonctionnel dans `appsettings.json` ; un changement d'adresse prend effet sans redémarrage.
+- **Dépend de :** M9.02, M7.03
+
+#### M9.04 — Jeton de connexion GitLab pour la passerelle
+- **Issue :** à créer
+- **Objectif :** authentifier chaque appel GitLab de la passerelle avec le jeton du compte de service de la connexion, sans jamais le journaliser.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/GitLab/GitLabConnectionTokenProvider.cs`** : obtient l'identifiant déchiffré de la connexion (`ForgeRepositoryRef.ConnectionId`) par le lecteur neutre `Infrastructure/Forges/ForgeConnectionCredentialReader.cs` (M7.39), qui porte seul la lecture de `ForgeConnections`, le refus `Forge.Unavailable` d'une connexion d'une autre organisation ou suspendue et le cache préfixé par l'organisation ; aucune lecture de dépôt ni cache propre à GitLab.
+  - **`Infrastructure/GitLab/GitLabAuthenticationHandler.cs`** : en-tête `Authorization: Bearer`.
+  - **`Infrastructure/DependencyInjection.GitLab.cs`**.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabConnectionTokenProviderTests` — `GetTokenAsync_ActiveConnection_ShouldReturnTheCredential` ;
+  - `Infrastructure.Tests/GitLab/GitLabAuthenticationHandlerTests` — `SendAsync_Token_ShouldSetTheBearerHeader`.
+- **Acceptation :** le jeton n'apparaît dans aucun journal ni aucun message d'exception ; aucun `IgnoreQueryFilters` ; `GitLabConnectionTokenProvider` n'entre pas dans `MemoryCacheAllowList` (le cache est celui du lecteur neutre).
+- **Dépend de :** M9.03, M7.06, M7.39
+
+#### M9.05 — Vérification d'une connexion GitLab
+- **Issue :** à créer
+- **Objectif :** vérifier, au moment de l'admission (M7.12), le jeton collé par l'owner du groupe : portée `api`, date d'expiration, groupe de premier niveau ou espace personnel, rôle du compte de service. C'est une vérification légère et synchrone, comme celle de M4.02f ; la synchronisation reste un job.
+- **Couches :** Domain, Infrastructure, Web.
+- **Fichiers :**
+  - **`Domain/Connections/ForgeConnectionKind.cs`** : valeur `GitLabServiceAccountToken`, stockée en texte (aucune migration).
+  - **`Infrastructure/GitLab/GitLabConnectionVerifier.cs`** (`IForgeConnectionVerifier`, à clé `Forge.GitLab`) :
+    - `GET /personal_access_tokens/self` (portée et `expires_at`), `GET /user`, `GET /namespaces/:id`, `GET /groups/:id/members/all/:user_id` ;
+    - renvoie `ForgeAccountInfo` : `ExternalAccountId` = identifiant numérique du namespace en texte, chemin courant du groupe, identifiant utilisateur du compte de service (`ServiceAccountExternalId`) et échéance (`ExpiresAt`) ;
+    - refus par les valeurs neutres de `ForgeConnectionRefusal` (M8.05), sans code propre à GitLab : portée `api` absente et rôle sous le seuil de M9.02 → `InsufficientScopes` ; namespace qui ne correspond pas au chemin saisi → `AccountMismatch` ; sous-groupe (jamais un tenant, ADR-014) → `NotTopLevel` (`Connection.NotTopLevel`) ; jeton expiré → `CredentialExpired` (`Connection.CredentialExpired`).
+  - **`Infrastructure/GitLab/Models/GitLabPersonalAccessToken.cs`**, `GitLabNamespace.cs`, `GitLabUser.cs`, `GitLabMember.cs`.
+  - **`Infrastructure/GitLab/GitLabAvailabilityContributor.cs`** (`IForgeAvailabilityContributor`, à clé `Forge.GitLab`) : `CanAdmit` vrai seulement quand `GitLab:Enabled` (M9.03) est vrai, ce qui laisse `SetupState.IsComplete` (M7.42) faux sur une instance où aucune forge n'est activée ; `CanSignIn` faux jusqu'à M9.17.
+  - **Libellés** : aucun nouveau code (`GitLabErrors.cs` garde seulement `GitLab.AccessDenied` de M9.03 ; les libellés des refus sont ceux de M8.05).
+  - **Fixtures** `tests/fixtures/gitlab/{token-self,user,namespace-group,namespace-subgroup,namespace-user,member-maintainer,member-reporter}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabConnectionVerifierTests` (WireMock) — `VerifyAsync_ApiScope_ShouldReturnTheAccountAndExpiry`, `VerifyAsync_Subgroup_ShouldRefuseNotTopLevel`, `VerifyAsync_Reporter_ShouldRefuseInsufficientScopes`, `VerifyAsync_ReadApiScopeOnly_ShouldRefuseInsufficientScopes`, `VerifyAsync_OtherNamespace_ShouldRefuseAccountMismatch`, `VerifyAsync_PersonalNamespace_ShouldReturnTheUserAccount` ; `Infrastructure.Tests/Forges/ForgeAvailabilityTests` — `AdmissionForges_GitLabEnabled_ShouldListGitLab`, `AdmissionForges_GitLabDisabled_ShouldBeEmpty`.
+- **Acceptation :** un même chemin sur GitHub et GitLab donne deux organisations (M7.12) ; aucun jeton n'est journalisé ; un refus ne lève pas d'exception non traduite ; M9 ne crée aucun code de refus de connexion (M8.05).
+- **Dépend de :** M9.04, M7.05, M7.12, M8.05
+
+#### M9.06 — Expiration et révocation des jetons GitLab
+- **Issue :** à créer
+- **Objectif :** que la santé quotidienne des connexions (M7.14) voie l'échéance réelle d'un jeton GitLab (365 jours au plus) et sa révocation. M9 n'ajoute que la règle de GitLab : le coordinateur, l'enfant par organisation et les statuts `Expiring` et `Failing` sont ceux de M7.14.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabConnectionVerifier.cs` : relit `expires_at` à chaque vérification, ce qui reprend la nouvelle échéance après une rotation (M7.13) ; un 401 `invalid_token` (jeton révoqué ou expiré) donne `ForgeConnectionRefusal.CredentialExpired` (M8.05), et non une exception ;
+  - fixtures `tests/fixtures/gitlab/{token-self-expiring,token-revoked}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabConnectionVerifierTests` — `VerifyAsync_RotatedToken_ShouldReturnTheNewExpiry`, `VerifyAsync_RevokedToken_ShouldRefuseCredentialExpired` ;
+  - `Application.Tests/Features/Connections/Commands/CheckConnection/CheckConnectionCommandHandlerTests` — `Handle_GitLabTokenExpiresInTwentyDays_ShouldMarkExpiring`.
+- **Acceptation :** un jeton révoqué apparaît en échec le lendemain sur la page de connexion (M7.38), sans faire échouer d'autre job ; aucun nouveau coordinateur ni job.
+- **Dépend de :** M9.05, M7.14
+
+#### M9.07 — `GitLabGateway` : projet, commits et merge request
+- **Issue :** à créer
+- **Objectif :** lire projet, commits, branches et merge requests de GitLab par `IForgeGateway`. La tête de MR est `sha`, jamais un commit de merge (règle critique 2).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabGateway.cs` (`GetRepositoryConnectionAsync` par `GET /projects/:path` encodé, `GetRepositoryAsync`, `ListCommitsAsync`, `GetCommitAsync`, `GetBranchHeadAsync`, `GetPullAsync` : `sha`, `diff_refs`, `source_project_id`) ;
+  - `Infrastructure/GitLab/GitLabGatewayMapper.cs` : `path_with_namespace` `group/sub/sub2/repo` donne l'owner `group`, le `Namespace` `sub/sub2` et le nom `repo` (`RepositorySlug`) ;
+  - `Infrastructure/GitLab/Models/GitLabProject.cs`, `GitLabCommit.cs`, `GitLabMergeRequest.cs`, `GitLabDiffRefs.cs` ;
+  - `Infrastructure/DependencyInjection.GitLab.cs` (`AddKeyedScoped<IForgeGateway, GitLabGateway>(Forge.GitLab)`) ;
+  - fixtures `tests/fixtures/gitlab/{project,project-subgroup,commits,commit,branch,merge-request,merge-request-fork,merge-request-no-diff-refs}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabGatewayReadTests` (WireMock) — `GetRepositoryAsync_SubgroupProject_ShouldMapTheNamespace`, `GetPullAsync_EmptyDiffRefs_ShouldReturnAnUnknownBase`, `GetPullAsync_FromFork_ShouldKeepTheSourceProject`, `GetPullAsync_Open_ShouldUseTheHeadSha`, `ListCommitsAsync_Paged_ShouldFollowThePagination` ;
+  - `Infrastructure.Tests/Forges/ForgeGatewayProviderTests` — `GetGateway_GitLab_ShouldReturnItsAdapter`.
+- **Acceptation :** une fois le projet connu, chaque appel passe par son identifiant numérique, jamais par son chemin.
+- **Dépend de :** M9.04, M7.04
+
+#### M9.08 — `GitLabGateway` : comparaison et fichiers de MR
+- **Issue :** à créer
+- **Objectif :** fournir le diff unifié par l'API, et déclarer un patch indisponible ou inconnu quand GitLab omet un fichier, jamais un patch vide (ADR-014). Les contrats existants suffisent : `ForgeChangedFile.Patch` est nullable, et `ForgePullFiles` et `ForgeCompareResult` portent `Truncated`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabGateway.cs` : `CompareAsync` (`/repository/compare?from&to&straight=false&unidiff=true`) et `ListPullFilesAsync` (`/merge_requests/:iid/diffs?unidiff=true`, paginé) ;
+  - `Infrastructure/GitLab/Models/GitLabCompare.cs`, `GitLabDiff.cs` ;
+  - `Infrastructure/GitLab/GitLabGatewayMapper.cs` : `too_large` ou `collapsed` donne un patch `null` pour ce fichier, que la règle existante de `ComparisonCalculator.Patch` rend `DiffUnavailable` (ni couvert ni manqué) ; `compare_timeout` pose `Truncated`, ce qui rend le patch inconnu (`DiffSet.Complete`) ;
+  - fixtures de M9.01 : `tests/fixtures/gitlab/{compare,compare-timeout,mr-diffs-page1,mr-diffs-page2,mr-diffs-too-large}.json` et `tests/fixtures/gitlab/patches/*.diff`.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabGatewayCompareTests` (WireMock) — `CompareAsync_CompareTimeout_ShouldMarkTruncated`, `ListPullFilesAsync_TooLarge_ShouldReturnANullPatch`, `ListPullFilesAsync_TwoPages_ShouldReadAll`, `CompareAsync_Renamed_ShouldKeepThePreviousPath` ;
+  - `Domain.Tests/Diffs/GitLabPatchFixtureTests` (sur le modèle de `GitHubPatchFixtureTests`) — `Parse_GitLabPatch_ShouldMatchGitDiff`.
+- **Acceptation :** `UnifiedDiffParser` lit les diffs GitLab sans changement de code ni de comportement pour GitHub ; aucune nouvelle règle par fichier n'est créée.
+- **Dépend de :** M9.07
+
+#### M9.09 — `GitLabGateway` : arbre et contenus
+- **Issue :** à créer
+- **Objectif :** lire `codecov.yml`, l'arbre du projet et le contenu borné des sources sur GitLab.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabGateway.cs` (`GetTreeAsync` par `/repository/tree?recursive=true` avec pagination par clé, `GetContentAsync`, `GetBoundedContentAsync` par `/repository/files/:path/raw?ref=`) ;
+  - `Infrastructure/GitLab/Models/GitLabTreeEntry.cs` ;
+  - fixtures `tests/fixtures/gitlab/{tree-page1,tree-page2}.json` et `tests/fixtures/gitlab/contents/codecov.yml`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabGatewayContentTests` (WireMock) — `GetTreeAsync_KeysetPages_ShouldReadAll`, `GetContentAsync_Missing_ShouldReturnNull`, `GetBoundedContentAsync_OverTheLimit_ShouldReportTruncated`.
+- **Acceptation :** `ConfigFileLocations` reste inchangé ; si M9.01 montre d'autres chemins de recherche chez Codecov pour GitLab, c'est un écart nommé au §10 (M9.02), pas un changement silencieux.
+- **Dépend de :** M9.07
+
+#### M9.10 — `GitLabGateway` : statuts de commit
+- **Issue :** à créer
+- **Objectif :** publier comme statuts GitLab **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), par `POST /projects/:id/statuses/:sha`.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabGateway.cs` (`CreateStatusAsync`) : `name` = contexte entier ; états `pending`, `success`, `failed`, et `error` publié en `failed` ; `target_url` ; `description` tronquée à la longueur de M9.01 ; un 409 réessayé avec une attente bornée ; un 403 lève `Forge.StatusRefused` (M7.03) ;
+  - `Infrastructure/GitLab/GitLabStatusStates.cs` ;
+  - fixtures `tests/fixtures/gitlab/{status,status-conflict}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabGatewayStatusTests` (WireMock) — `CreateStatusAsync_Error_ShouldPostFailed`, `CreateStatusAsync_FlagContext_ShouldKeepTheWholeName`, `CreateStatusAsync_Conflict_ShouldRetry`, `CreateStatusAsync_LongDescription_ShouldTruncate`, `CreateStatusAsync_Forbidden_ShouldThrowStatusRefused`.
+- **Acceptation :** les contextes publiés ne sont jamais listés à la main dans l'adaptateur ; un refus est journalisé sans casser le traitement du commit.
+- **Dépend de :** M9.07
+
+#### M9.11 — `GitLabGateway` : note de merge request, liens et capacités
+- **Issue :** à créer
+- **Objectif :** créer, retrouver, modifier et supprimer la note de couverture d'une MR, et donner son lien au Web par le service de liens neutre.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/GitLab/GitLabGateway.cs`** : `ListIssueCommentsAsync`, `CreateIssueCommentAsync`, `UpdateIssueCommentAsync` et `DeleteIssueCommentAsync` sur `/merge_requests/:iid/notes`. La note est retrouvée par le marqueur `<!-- code-coverage:comment -->` et par son auteur, `ServiceAccountExternalId` de la connexion (M7.06). L'identifiant `long` de la note sert tel quel (aucun port ni colonne ne change).
+  - **`Infrastructure/GitLab/GitLabNoteBody.cs`** : une barre oblique en début de ligne est échappée contre les actions rapides, et les fins de ligne sont normalisées.
+  - **`Infrastructure/GitLab/GitLabLinks.cs`** (`IForgeLinks`, à clé `Forge.GitLab`), dérivé de `GitLab:WebBaseUrl` : `{web}/{path}/-/merge_requests/{iid}#note_{id}`, commit et MR.
+  - **`Infrastructure/GitLab/GitLabCapabilities.cs`** : `CommentMaxLength` selon M9.01 et `SupportsDetails` vrai (bloc `<details>` rendu dans une note de MR), sauf verdict contraire de M9.01.
+  - **Fixtures** `tests/fixtures/gitlab/{notes-page1,notes-page2,note}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabGatewayNoteTests` (WireMock) — `ListIssueCommentsAsync_OtherAuthors_ShouldKeepOnlyOurs`, `CreateIssueCommentAsync_LineStartingWithSlash_ShouldEscapeIt`, `DeleteIssueCommentAsync_Missing_ShouldReportAlreadyDeleted` ;
+  - `Infrastructure.Tests/GitLab/GitLabLinksTests` — `Comment_SubgroupProject_ShouldUseTheFullPath`, `Comment_WebBaseUrlChanged_ShouldUseIt`.
+- **Acceptation :** deux notifications successives laissent une seule note ; aucune note d'un autre auteur n'est modifiée ; le lien « Voir le commentaire sur GitLab » de la page PR vient de `GitLabLinks` sans changement du Web (M7.24, M7.35).
+- **Dépend de :** M9.07, M7.24, M7.25, M8.17
+
+**Synchronisation et webhooks GitLab**
+
+#### M9.12 — Synchronisation des projets d'un groupe GitLab
+- **Issue :** à créer
+- **Objectif :** lister les projets du groupe et de ses sous-groupes, ou de l'espace personnel, par le port d'annuaire neutre. La réconciliation, le renommage du groupe et le rattrapage quotidien sont ceux de M7.09 et M7.10.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/GitLab/GitLabDirectoryGateway.cs`** (`IForgeDirectoryGateway`, à clé `Forge.GitLab`) :
+    - `GetAccountAsync` par `GET /groups/:id` ou `GET /users/:id` : chemin courant, que l'étape neutre de renommage de M7.09 applique au login de l'organisation (pierre tombale d'ADR-014) ;
+    - `ListRepositoriesAsync` par `GET /groups/:id/projects?include_subgroups=true&archived=false` ou `GET /users/:id/projects`, paginé ; un projet dont le namespace dépasse `TrackedRepository.NamespaceMaxLength` (512) est ignoré et journalisé (écart nommé, M9.02).
+  - **`Infrastructure/GitLab/GitLabGatewayMapper.cs`** (projet vers `ForgeRepositoryInfo`).
+  - **`Infrastructure/DependencyInjection.GitLab.cs`**.
+  - **Fixtures** `tests/fixtures/gitlab/{group,group-projects-page1,group-projects-page2,user-projects}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabDirectoryGatewayTests` (WireMock) — `ListRepositoriesAsync_Subgroups_ShouldSetTheNamespace`, `ListRepositoriesAsync_NamespaceOver512_ShouldSkipTheProject`, `ListRepositoriesAsync_PersonalNamespace_ShouldListTheUserProjects`, `ListRepositoriesAsync_Archived_ShouldSkipIt`, `GetAccountAsync_RenamedGroup_ShouldReturnTheNewPath`.
+- **Acceptation :** un projet `group/sub/api` est adressé `/gitlab/group:sub/api` ; un sous-groupe déplacé hors du groupe quitte l'organisation par la règle de transfert d'ADR-013 (M7.11), sans déplacement de données ; `AdmitOrganization` n'est pas modifié (M7.12 l'a fait une fois).
+- **Dépend de :** M9.05, M7.09, M7.10
+
+#### M9.13 — Webhooks de projet GitLab
+- **Issue :** à créer
+- **Objectif :** créer et vérifier par l'API le webhook de chaque projet suivi, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23. La table est `ForgeHooks` (M7.22), en portée `Repository` : le plan Free n'a pas de webhook de groupe.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/GitLab/GitLabHookManager.cs`** (`IForgeHookManager`, à clé `Forge.GitLab`) :
+    - `EnsureAsync` : `POST /projects/:id/hooks` avec l'adresse `{Api publique}/api/v1/gitlab/webhooks/{connectionId}`, le secret de webhook de la connexion selon le verdict de M9.01, `push_events` et `merge_requests_events` ; un hook existant est retrouvé par son adresse et n'est pas dupliqué ; après une rotation (M7.13), son secret est remis à jour ;
+    - `CheckAsync` : `GET /projects/:id/hooks/:hook_id` ; `disabled_until` ou `alert_status` donne `Disabled`, un 404 `Missing`, un 403 `Forbidden` (compte de service sous le rôle requis) ;
+    - le rythme de création respecte la limite établie par M9.01.
+  - **Fixtures** `tests/fixtures/gitlab/{hooks,hook,hook-disabled}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabHookManagerTests` (WireMock) — `EnsureAsync_Missing_ShouldCreateTheHookWithTheConnectionRoute`, `EnsureAsync_Existing_ShouldNotDuplicate`, `EnsureAsync_SecretRotated_ShouldUpdateTheHook`, `EnsureAsync_Forbidden_ShouldReportForbidden`, `CheckAsync_DisabledUntilSet_ShouldReportDisabled`.
+- **Acceptation :** un compte de service sans droit de créer un webhook laisse l'état `Forbidden`, affiché sur la page de connexion (M7.38) au lieu de faire échouer la synchronisation ; aucun appel à GitLab dans une requête HTTP ; aucun nouveau job ni coordinateur.
+- **Dépend de :** M9.12, M9.14, M7.23
+
+#### M9.14 — Réception des webhooks GitLab
+- **Issue :** à créer
+- **Objectif :** recevoir un webhook GitLab par la réception neutre de M7.21, en quelques millisecondes et sans appel à GitLab (règle critique 3). Le contrôleur et le validateur restent propres à GitLab ; la connexion vient de la route, jamais d'un identifiant de projet lu dans le corps.
+- **Couches :** Infrastructure, Api.
+- **Fichiers :**
+  - **`Api/Controllers/GitLabWebhooksController.cs`** : `POST /api/v1/gitlab/webhooks/{connectionId}`, 202.
+  - **`Api/Mapping/GitLabWebhookMapper.cs`** : en-têtes `webhook-id` (identifiant de livraison), `webhook-timestamp`, `webhook-signature` (ou `X-Gitlab-Token` selon M9.01) et `X-Gitlab-Event`, vers `ReceiveForgeWebhookCommand`.
+  - **`Infrastructure/GitLab/GitLabWebhookValidator.cs`** (`IForgeWebhookValidator`, à clé `Forge.GitLab`) : HMAC-SHA256 sur `{webhook-id}.{webhook-timestamp}.{corps}`, plusieurs valeurs `v1,<base64>` acceptées, secret courant puis précédent de la connexion, horodatage à ± 5 minutes, comparaison en temps constant.
+  - **`Infrastructure/DependencyInjection.GitLab.cs`**.
+- **Tests :**
+  - `Api.Tests/GitLab/GitLabWebhooksControllerTests` — `Post_ValidSignature_ShouldReturnAccepted`, `Post_WrongSignature_ShouldReturnUnauthorized`, `Post_UnknownConnection_ShouldReturnUnauthorized`, `Post_SameWebhookIdTwice_ShouldStoreOnce` ;
+  - `Infrastructure.Tests/GitLab/GitLabWebhookValidatorTests` — `IsValid_CurrentSecret_ShouldAccept`, `IsValid_PreviousSecret_ShouldAccept`, `IsValid_TimestampTooOld_ShouldRefuse`, `IsValid_OneOfSeveralSignatures_ShouldAccept`.
+- **Acceptation :** la livraison est stockée avec la forge `GitLab` (M7.18) et mise en file par la porte `ForgeWebhookReception` déjà nommée dans `OrganizationIsolationTests` (M7.21), sans nouvelle porte ; la route déclare sa sonde à deux organisations.
+- **Dépend de :** M9.03, M7.21
+
+#### M9.15 — Traduction des événements GitLab
+- **Issue :** à créer
+- **Objectif :** traduire « Push Hook » et « Merge Request Hook » en événements neutres, que `HandleForgeDelivery` (M7.20) traite sans cas propre à GitLab.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/Events/GitLabEventTranslator.cs` (`IForgeEventTranslator`, à clé `Forge.GitLab`) :
+    - push vers `ForgePushEvent` (branche et tête ; `after` nul = branche supprimée) ;
+    - MR `open`, `reopen`, `update` avec `oldrev`, `merge` et `close` vers `ForgePullRequestEvent` ; un `update` sans `oldrev` (titre, relecteurs) est ignoré ;
+    - tout autre événement est renvoyé « ignoré ».
+  - `Infrastructure/GitLab/Events/GitLabPushPayload.cs`, `GitLabMergeRequestPayload.cs` ;
+  - fixtures `tests/fixtures/gitlab/webhooks/{push,push-delete-branch,merge-request-open,merge-request-update,merge-request-update-title,merge-request-merge,merge-request-close}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/Events/GitLabEventTranslatorTests` — `Translate_MergeRequestUpdateWithNewCommits_ShouldReturnAPullRequestEvent`, `Translate_MergeRequestUpdateWithoutOldrev_ShouldIgnore`, `Translate_PushDeletingABranch_ShouldReturnABranchDeletion`, `Translate_UnknownEvent_ShouldIgnore`.
+- **Acceptation :** un événement inconnu est stocké et marqué ignoré par M7.20, jamais en échec ; le renommage et le transfert d'un projet sont rattrapés par la synchronisation quotidienne (M7.10), écart nommé (M9.02).
+- **Dépend de :** M9.07, M7.20
+
+**Accès des utilisateurs GitLab**
+
+#### M9.16 — Passerelle utilisateur et jeton délégué GitLab
+- **Issue :** à créer
+- **Objectif :** lire l'utilisateur GitLab, ses groupes et les projets qu'il peut lire avec leur permission, et renouveler son jeton OAuth (2 heures).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/GitLab/GitLabUserGateway.cs`** (`IForgeUserGateway`, à clé `Forge.GitLab`) : `GetUserAsync` par `GET /user` ; `ListAccountsAsync` par `GET /groups?top_level_only=true&min_access_level=10` plus l'espace personnel ; `ListRepositoryPermissionsAsync` par `GET /projects?membership=true&min_access_level=10`, avec le plus haut de `project_access` et `group_access`.
+  - **`Infrastructure/GitLab/GitLabUserTokenProvider.cs`** (`IForgeUserTokenProvider`, à clé `Forge.GitLab`) : `POST {GitLab:WebBaseUrl}/oauth/token` avec `refresh_token`.
+  - **`Infrastructure/GitLab/GitLabAccessLevels.cs`** : 40 et plus = `Admin`, 30 = `Write`, de 10 à 29 = `Read`. Un niveau inférieur à 10 (5, Minimal Access) ne donne aucun accès. Un niveau inconnu d'au moins 10 vaut `Read`.
+  - **Fixtures** `tests/fixtures/gitlab/{user-groups,user-projects-membership,oauth-token}.json`.
+- **Tests :**
+  - `Infrastructure.Tests/GitLab/GitLabUserGatewayTests` (WireMock) — `ListRepositoryPermissionsAsync_ProjectAndGroupAccess_ShouldTakeTheHighest`, `ListAccountsAsync_PersonalNamespace_ShouldIncludeIt`, `GetUserAsync_User_ShouldMapTheNumericId` ;
+  - `Infrastructure.Tests/GitLab/GitLabUserTokenProviderTests` — `GetTokenAsync_Expired_ShouldRefresh` ;
+  - `Infrastructure.Tests/GitLab/GitLabAccessLevelsTests` — `ToPermission_MinimalAccess_ShouldReturnNone`, `ToPermission_Planner_ShouldReturnRead`, `ToPermission_UnknownLevelAboveTen_ShouldReturnRead`.
+- **Acceptation :** un niveau d'accès nouveau ne casse pas le mappage ; aucun jeton d'utilisateur en clair en base ni dans les journaux.
+- **Dépend de :** M9.03, M7.15, M7.16
+
+#### M9.17 — Connexion Web avec GitLab
+- **Issue :** à créer
+- **Objectif :** permettre à un membre d'un groupe GitLab de se connecter au Web par une application OAuth GitLab (portées `read_user` et `read_api`), son identité étant `(GitLab, id numérique)`.
+- **Couches :** Infrastructure, Web.
+- **Fichiers :**
+  - `Web/Configuration/Authentication/AuthenticationConfiguration.cs` : schéma `GitLab` ;
+  - `Web/Configuration/Authentication/ConfigureGitLabOAuthOptions.cs` (`GitLab:OAuthClientId`, `GitLab:OAuthClientSecret`, points d'accès dérivés de `GitLab:WebBaseUrl`, rechargés sans redémarrage) ; `Web/Configuration/Authentication/GitLabSignInEvents.cs` (`SignInUserCommand` avec `Forge.GitLab`, M7.15) ;
+  - `src/CodeCoverage.Web/CodeCoverage.Web.csproj` (`AspNet.Security.OAuth.GitLab`, même famille que le paquet GitHub déjà référencé) ;
+  - `Infrastructure/GitLab/GitLabAvailabilityContributor.cs` : `CanSignIn` vrai quand `GitLab:OAuthClientId` est rempli. Le bouton et le chemin `/signin/gitlab` viennent de M7.34, sans autre changement.
+- **Tests :**
+  - `Web.Tests/Authentication/ConfigureGitLabOAuthOptionsTests` — `Configure_Settings_ShouldUseTheClientId`, `Configure_SettingsChanged_ShouldReload` ;
+  - `Web.Tests/Authentication/GitLabSignInEventsTests` — `CreatingTicket_GitLabUser_ShouldSendTheGitLabForge` ;
+  - `Web.Tests/Components/Pages/SignInTests` — `Render_GitLabConfigured_ShouldShowItsButton`.
+- **Acceptation :** l'identifiant retenu est l'id numérique, jamais le nom d'utilisateur renommable ; sans `GitLab:OAuthClientId`, aucun bouton GitLab ; un même humain sur GitHub et GitLab a deux comptes (ADR-014) ; la connexion GitHub ne change pas.
+- **Dépend de :** M9.16, M7.34
+
+#### M9.18 — Adhésions à un groupe GitLab
+- **Issue :** à créer
+- **Objectif :** donner le rôle d'organisation d'un utilisateur à partir de son niveau d'accès au groupe de premier niveau, lu avec le jeton de la connexion (M7.17).
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabDirectoryGateway.cs` (`GetMembershipAsync`) : `GET /groups/:id/members/all/:user_id` (membres hérités et invités compris) ; administrateur au seuil tranché par M9.02 ; dans un espace personnel, son propriétaire est administrateur ;
+  - fixtures `tests/fixtures/gitlab/{member-owner,member-developer,member-not-found}.json`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabDirectoryGatewayMembershipTests` (WireMock) — `GetMembershipAsync_Maintainer_ShouldBeAdmin`, `GetMembershipAsync_Developer_ShouldBeMember`, `GetMembershipAsync_NotMember_ShouldBeInactive`, `GetMembershipAsync_PersonalNamespaceOwner_ShouldBeAdmin`.
+- **Acceptation :** un membre sans accès à un projet ne voit pas ce projet dans le Web (propriétaire, au pilote) ; aucun nouveau port.
+- **Dépend de :** M9.12, M7.17
+
+**Upload et uploader**
+
+#### M9.19 — OIDC de GitLab CI
+- **Issue :** à créer
+- **Objectif :** accepter un upload sans jeton avec l'`id_token` de GitLab CI, lié à `project_id` (ADR-014), par le validateur OIDC par forge de M8.
+- **Couches :** Domain, Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/Identity/GitLabOidcTokenValidator.cs` (`IOidcTokenValidator` de forge `GitLab`) : issuer `GitLab:WebBaseUrl`, JWKS de la découverte, audience `Uploads:OidcAudience`, `project_id` et `namespace_id` vers `ForgeOidcIdentity` ; `sub` jamais interprété ;
+  - `Domain/Commits/PrincipalKind.cs` (`GitLabOidc`, stocké en texte : aucune migration) ;
+  - `Infrastructure/DependencyInjection.Uploads.cs`.
+- **Tests :**
+  - `Infrastructure.Tests/Identity/GitLabOidcTokenValidatorTests` (clés générées par le test, sur le modèle de `GitHubOidcTokenValidatorTests`) — `ValidateAsync_ValidToken_ShouldReturnTheProjectId`, `ValidateAsync_WrongAudience_ShouldFail`, `ValidateAsync_WrongIssuer_ShouldFail`, `ValidateAsync_Expired_ShouldFail` ;
+  - `Application.Tests/Services/UploadAuthenticatorTests` — `AuthenticateOidcAsync_GitLabProjectIdMatches_ShouldAccept`, `AuthenticateOidcAsync_GitLabForkProject_ShouldThrowOidcMismatch`.
+- **Acceptation :** une MR depuis un fork échoue fermée (le claim désigne le projet source) ; le jeton d'organisation reste accepté partout.
+- **Dépend de :** M9.12, M8.24
+
+#### M9.20 — Contexte GitLab CI dans l'uploader
+- **Issue :** à créer
+- **Objectif :** détecter GitLab CI et envoyer la forge, le slug à plusieurs niveaux et la tête de la MR, jamais le commit de merge synthétique d'un pipeline « merged results » ou d'un merge train (règle critique 2).
+- **Couches :** Uploader, Web.
+- **Fichiers :**
+  - **`Uploader/Ci/GitLabCiContext.cs`**, quand `GITLAB_CI` vaut `true` :
+    - forge `gitlab` dans `DetectedContext.Forge` (M7.27), service `gitlab-ci` ;
+    - slug `group/sub/repo` depuis `CI_PROJECT_PATH`, découpé au dernier `/` par `FinalizeClient` (M7.27) ;
+    - commit `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA` quand `CI_MERGE_REQUEST_EVENT_TYPE` vaut `merged_result` ou `merge_train`, sinon `CI_COMMIT_SHA` ; PR `CI_MERGE_REQUEST_IID` ; build `CI_PIPELINE_ID` et `CI_JOB_URL`.
+  - **`Uploader/Ci/CiContextDetector.cs`**.
+  - **`Web/Mapping/CommitMapper.cs`** : `gitlab-ci` affiché « GitLab CI ».
+  - **Fixtures** `tests/fixtures/ci-env/gitlab-{push,mr-detached,mr-merged-result,merge-train,tag,subgroup}.json`.
+- **Tests :** `Uploader.Tests/Ci/CiContextDetectorTests` — `Detect_GitLabMergedResult_ShouldUseTheSourceBranchSha`, `Detect_GitLabDetachedMergeRequest_ShouldUseTheCommitSha`, `Detect_GitLabSubgroup_ShouldKeepTheFullPath`, `Detect_GitLabTag_ShouldHaveNoBranch`.
+- **Acceptation :** l'uploader sort en 0 sans `--fail-on-error` quand une variable manque (règle critique 6) ; la détection de GitHub Actions et d'Azure Pipelines ne change pas.
+- **Dépend de :** M9.02, M7.27
+
+#### M9.21 — Jeton OIDC de GitLab CI dans l'uploader et modèle de pipeline
+- **Issue :** à créer
+- **Objectif :** lire l'`id_token` déclaré dans `.gitlab-ci.yml` quand aucun jeton d'upload n'est fourni, et fournir un modèle de pipeline prêt à inclure.
+- **Couches :** Uploader, CI.
+- **Fichiers :**
+  - `Uploader/Http/GitLabOidcTokenSource.cs` (`IOidcTokenSource` de M8.27 : `IsAvailable`, `FetchAsync`) : variable `CODE_COVERAGE_ID_TOKEN` par défaut, option `--oidc-variable` ;
+  - `Uploader/Http/OidcTokenSources.cs` (source GitLab ajoutée à la liste, comme en M8.28) ; `Uploader/Program.cs` (source enregistrée) ;
+  - `Uploader/Commands/UploadCommandFactory.cs` (`--oidc-variable`) ; `Uploader/Commands/DryRunPrinter.cs` (nom de la variable, jamais sa valeur) ;
+  - `pipelines/gitlab/coverage-upload.gitlab-ci.yml` (nouveau : `id_tokens` avec `aud`, variante par jeton dans une variable CI masquée).
+- **Tests :**
+  - `Uploader.Tests/Http/GitLabOidcTokenSourceTests` (nouveau) — `FetchAsync_VariableSet_ShouldReturnTheToken`, `IsAvailable_VariableMissing_ShouldBeFalse` ;
+  - `Uploader.Tests/Commands/DryRunPrinterTests` — `Print_GitLabOidc_ShouldNameTheVariableWithoutItsValue`.
+- **Acceptation :** le jeton n'est jamais affiché, même en `--dry-run` ; sans variable, l'uploader utilise le jeton d'upload.
+- **Dépend de :** M9.20, M8.27
+
+**Badges, interface et exploitation**
+
+#### M9.22 — Badges Codecov `/gl/…` et `/gitlab/…`
+- **Issue :** à créer
+- **Objectif :** servir les adresses de badge de Codecov pour GitLab, l'owner d'un sous-groupe s'écrivant `group:sub` (ou `group:sub:sub2`), en ajoutant une ligne à la table de M7.30.
+- **Couches :** Domain.
+- **Fichiers :**
+  - `Domain/Organizations/CodecovServiceSegments.cs` : `GitLab` → `gl`, `gitlab` ;
+  - aucun autre changement de code attendu : la contrainte de route (M7.30) et `RepositoryMapper.ToSnippets` lisent la table ; la forme de l'owner suit `RepositorySlug` et M9.01.
+- **Tests :**
+  - `Domain.Tests/Organizations/CodecovServiceSegmentsTests` — `TryParse_Gl_ShouldReturnGitLab` ;
+  - `Api.Tests/Badges/BadgesControllerTests` — `Get_GlSubgroupOwner_ShouldRender`, `Get_GitlabBranchRoute_ShouldRender`, `Get_UnknownSubgroup_ShouldReturnNotFound` ;
+  - `Web.Tests/Components/Repositories/BadgeSnippetsTests` — `Render_GitLabSubgroup_ShouldUseTheGlRouteWithColonOwner`.
+- **Acceptation :** un README GitLab qui pointait vers `codecov.io/gl/group:sub/repo/graph/badge.svg` marche en changeant seulement l'hôte ; une forme non prouvée par M9.01 reste un écart nommé au §10.
+- **Dépend de :** M9.12, M7.30
+
+#### M9.23 — Maquette : admission et connexion GitLab
+- **Issue :** à créer
+- **Objectif :** valider avant tout code les seuls ajouts de GitLab aux écrans génériques de M7.33 : champs du dialogue d'admission (chemin du groupe, jeton du compte de service, jamais réaffiché), sur la page de connexion, l'échéance du jeton et la marche à suivre pour un webhook `Forbidden` (rôle requis), et l'étape GitLab de l'assistant `/setup` (activation `GitLab:Enabled`, application OAuth), comme M7.42 et M8.30 pour leurs forges.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (variante GitLab des sections de M7.33 et étape GitLab de `/setup`).
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant M9.24 et M9.24b (propriétaire).
+- **Dépend de :** M9.02, M7.33
+
+#### M9.24 — Admission GitLab dans la console et en ligne de commande
+- **Issue :** à créer
+- **Objectif :** admettre un groupe GitLab par son chemin et le jeton de son compte de service, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization` (M7.12), et expliquer un webhook interdit sur la page de connexion.
+- **Couches :** Api, Web.
+- **Fichiers :**
+  - `Web/Components/Organizations/AdmitAccountForm.cs` (champ `Token` pour `gitlab`, jamais rendu en retour) ; `Web/Components/Pages/AdminOrganizations.razor(.cs)` (dialogue selon M9.23) ; `Web/Mapping/OrganizationsMapper.cs` (`ToCommand` vers `ConnectOrganizationCommand`) ;
+  - `Web/Components/Pages/OrganizationConnection.razor(.cs)` (M7.38) : marche à suivre GitLab pour un hook `Forbidden` ;
+  - resx (libellés du formulaire et de la marche à suivre) ;
+  - `Api/Configuration/Administration/AdminCommandLine.cs` : `admit-organization --forge gitlab`, jeton lu sur l'entrée standard, jamais en argument, par `SystemCommandRunner`.
+- **Tests :**
+  - `Web.Tests/Components/Pages/AdminOrganizationsTests` — `Submit_GitLab_ShouldSendTheToken` ;
+  - `Web.Tests/Components/Pages/OrganizationConnectionTests` — `Render_GitLabForbiddenHook_ShouldExplainTheRequiredRole` ;
+  - `Api.Tests/Administration/AdminCommandLineTests` — `Run_AdmitGitLab_ShouldReadTheTokenFromStandardInput`.
+- **Acceptation :** aucune chaîne en dur ; l'écran suit la maquette de M9.23 ; un refus de M9.05 est affiché avec son code traduit ; le jeton n'apparaît ni dans l'audit ni dans les journaux.
+- **Dépend de :** M9.05, M9.23, M7.38, M7.41
+
+#### M9.24b — Étape GitLab de l'assistant /setup
+- **Issue :** à créer
+- **Objectif :** proposer GitLab à l'étape des forges de l'assistant `/setup` (M7.42), pour activer `GitLab:Enabled` et renseigner l'application OAuth, afin qu'une instance qui n'a que GitLab ne reste pas indéfiniment non configurée.
+- **Couches :** Web.
+- **Fichiers :**
+  - `Web/Components/Pages/Setup.razor(.cs)` : étape GitLab selon la maquette de M9.23 (`GitLab:Enabled`, `GitLab:OAuthClientId`, `GitLab:OAuthClientSecret` jamais réaffiché) ;
+  - resx (libellés de l'étape).
+- **Tests :** `Web.Tests/Components/Pages/SetupTests` — `Render_ForgesStep_ShouldOfferGitLab`.
+- **Acceptation :** aucune chaîne en dur ; l'écran suit la maquette de M9.23 ; une fois GitLab activé, `SetupState.IsComplete` (M7.42) le compte parmi les `AdmissionForges` ; le secret n'apparaît ni dans l'audit ni dans les journaux.
+- **Dépend de :** M9.23, M7.42
+
+#### M9.25 — Quotas de débit de GitLab
+- **Issue :** à créer
+- **Objectif :** suivre le débit restant de GitLab par connexion dans la table et les métriques neutres de M7.28 et M7.29, sans métrique ni alerte propre à GitLab.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - `Infrastructure/GitLab/GitLabRateLimitHandler.cs` : lit `RateLimit-Limit`, `RateLimit-Remaining` et `RateLimit-Reset` et les transmet au suivi neutre `Infrastructure/Forges/ForgeQuotaTracker.cs` (M7.28 : forge `GitLab`, connexion, restant, limite, remise à zéro) ; aucun suivi de quota propre à GitLab ;
+  - `Infrastructure/DependencyInjection.GitLab.cs`.
+- **Tests :** `Infrastructure.Tests/GitLab/GitLabRateLimitHandlerTests` — `SendAsync_RemainingHeader_ShouldRecordTheQuota`, `SendAsync_RateLimitHeaders_ShouldWriteTheGitLabQuota`, `SendAsync_NoHeaders_ShouldWriteNothing`.
+- **Acceptation :** un 429 replanifie le job à `Retry-After` sans le compter en échec (M7.03) ; l'alerte `CodeCoverageForgeQuotaLow` nomme `forge="gitlab"` (segment `ForgeSegments`, M7.29) et la connexion ; la portée réelle des limites (utilisateur, jeton ou IP) est celle prouvée par M9.01.
+- **Dépend de :** M9.03, M7.28, M7.29
+
+#### M9.26 — Alertes d'échéance des connexions et de webhooks désactivés
+- **Issue :** à créer
+- **Objectif :** alerter avant l'expiration d'un jeton de connexion et quand une forge désactive un webhook, par deux alertes neutres étiquetées par forge. GitLab en a besoin le premier ; elles valent pour toute forge à connexion.
+- **Couches :** Infrastructure, exploitation.
+- **Fichiers :**
+  - `Infrastructure/Diagnostics/CodeCoverageMeter.cs` : jauge `forge_connection_expiry_days` (étiquettes `forge`, `connection`) et compteur `forge_hooks_disabled_total` (étiquette `forge`) ;
+  - `Infrastructure/Jobs/OperationalStatusPublisher.cs` : échéance lue dans `ForgeConnections`, table globale (aucune lecture d'une table d'organisation sur la voie de l'instance) ;
+  - `Infrastructure/Persistence/Repositories/ForgeHookRepository.cs` (M7.22) : le passage d'un hook à l'état `Disabled` incrémente le compteur par le meter, dans le job de l'organisation, quelle que soit la forge (Azure DevOps, Bitbucket de M8.20, GitLab) ;
+  - `deploy/observability/alerts.yml` (`CodeCoverageForgeConnectionExpiring`, `CodeCoverageForgeHookDisabled`) et `deploy/observability/alerts.test.yml`.
+- **Tests :**
+  - `Infrastructure.Tests/Diagnostics/CodeCoverageMeterTests` — `Report_ExpiringConnection_ShouldPublishItsDays` ;
+  - `Infrastructure.Tests/Jobs/OperationalStatusPublisherTests` — `PublishAsync_ConnectionWithExpiry_ShouldReportTheDaysLeft` ;
+  - `Infrastructure.Tests/Persistence/Repositories/ForgeHookRepositoryTests` — `UpsertAsync_BecomesDisabled_ShouldCountIt` ;
+  - tests d'alertes de `alerts.test.yml` (CI).
+- **Acceptation :** une alerte nomme la forge et la connexion, jamais un secret ; aucun `IgnoreQueryFilters` ; aucune alerte de quota propre à GitLab.
+- **Dépend de :** M9.06, M9.13, M7.22, M7.29
+
+#### M9.27 — Documentation d'onboarding GitLab
+- **Issue :** à créer
+- **Objectif :** décrire pas à pas l'intégration d'un groupe GitLab.com et la migration depuis Codecov.
+- **Couches :** docs, exploitation.
+- **Fichiers :**
+  - **`docs/operations/organization-onboarding-gitlab.md`** : application OAuth de l'instance et ses réglages `GitLab:*`, compte de service de groupe, rôle requis pour les webhooks, jeton `api`, son échéance et sa rotation (M7.13), admission, `.gitlab-ci.yml` avec `id_tokens`, pipelines « merged results ».
+  - **Renvois** : `docs/operations/organization-onboarding.md` (renvoi par forge) ; `docs/operations.md` (alertes de M9.26, métriques `forge_ratelimit_*`) ; `README.md`.
+  - **`docs/migration-from-codecov.md`** : section GitLab (badges `/gl/…`, écart `codecov.bot`, statuts sous le compte de service).
+  - **`deploy/vm/Caddyfile`**, en commentaire : route `/api/v1/gitlab/webhooks/{connectionId}`.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** un owner de groupe suit le document sans autre source jusqu'au premier statut (vérifié au pilote, M9.28) (propriétaire).
+- **Dépend de :** M9.13, M9.17, M9.21, M9.24, M9.26
+
+#### M9.28 — Pilote sur un groupe GitLab.com réel
+- **Issue :** à créer
+- **Objectif :** vérifier de bout en bout, sur un groupe GitLab.com du propriétaire au plan Free et avec un projet de sous-groupe, que M9 tient son critère de sortie.
+- **Couches :** exploitation, docs.
+- **Fichiers :**
+  - **`docs/operations/gitlab-verification-checklist.md`** (nouveau), sur le modèle de `github-verification-checklist.md` :
+    - admission par jeton, synchronisation, webhooks créés, santé et échéance de la connexion, rotation du secret de webhook ;
+    - connexion d'un membre et d'un non-membre, membre en Minimal Access, administrateur qualifié (M7.37) ;
+    - upload par jeton puis par OIDC, MR depuis un fork refusée en OIDC, pipeline « merged results » ;
+    - statuts (`project`, `patch`, `changes`, flags) et note unique mise à jour au push, MR avec fichier `too_large` ;
+    - badge `/gl/group:sub/repo`, webhook désactivé observé, limitation de débit observée.
+  - **ADR-014** : écarts constatés reportés.
+- **Tests :** liste de vérification exécutée (propriétaire).
+- **Acceptation :** chaque ligne est cochée ou ouverte en écart nommé ; aucune régression GitHub, Azure DevOps ni Bitbucket observée en production (propriétaire).
+- **Dépend de :** M9.08, M9.09, M9.10, M9.11, M9.15, M9.18, M9.19, M9.22, M9.24b, M9.25, M9.27
 
 ---
 
