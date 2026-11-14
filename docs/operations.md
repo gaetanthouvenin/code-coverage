@@ -78,7 +78,7 @@ Images only: the Api and the Web come from the registry of the CI at the version
 other images are public and pinned by digest.
 
 **PostgreSQL only.** A VM on SQL Server has no backup recipe here; production on SQL Server goes
-through Azure SQL and its automatic backups (the Azure deployment, M4.03).
+through Azure SQL and its automatic backups ([deployment-azure.md](deployment-azure.md)).
 
 ### First deployment
 
