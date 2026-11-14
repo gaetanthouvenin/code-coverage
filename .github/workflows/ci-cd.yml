@@ -4,6 +4,8 @@
 #            -> Docker images Api and Web, pushed to GHCR (main and v* tags only)
 #            -> GitHub release of a v* tag: the uploader binaries and their .sha256, extracted from the
 #               Api image of the tag (M4.01)
+#            -> dotnet tool CodeCoverage.Uploader: packed and installed on every run, published to
+#               nuget.org on a v* tag when NUGET_PUBLISH is true, by trusted publishing (M5.03)
 # GitFlow (CONVENTIONS.md §15): work lands on develop through feature/* pull requests; main only
 # receives releases and hotfixes, so only a release publishes images. Elsewhere the compose smoke
 # test already builds both images from the Dockerfiles, so the image job does not run; it checks the
@@ -256,3 +258,77 @@ jobs:
           flags=(--verify-tag --title "$TAG" --generate-notes)
           if [ -n "$PRE_RELEASE" ]; then flags+=(--prerelease); fi
           gh release create "$TAG" release/* "${flags[@]}"
+
+  # The dotnet tool coverage-upload (M5.03), on every run: packed with the version of GitVersion,
+  # installed from a local folder into an empty tool path, and run. The version of the package must
+  # be the NuGet version of GitVersion (not --version, which carries +sha).
+  nuget-tool:
+    name: NuGet tool
+    runs-on: ubuntu-latest
+    needs: [gitversion, build-and-test]
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Pack, install from a local folder, and run the tool
+        shell: pwsh
+        env:
+          NUGET_VERSION: ${{ needs.gitversion.outputs.nuget_version }}
+          ASSEMBLY_SEMVER: ${{ needs.gitversion.outputs.assembly_semver }}
+          MAJOR_MINOR_PATCH: ${{ needs.gitversion.outputs.major_minor_patch }}
+          INFORMATIONAL_VERSION: ${{ needs.gitversion.outputs.informational_version }}
+        run: ./scripts/Test-UploaderTool.ps1 -Version $env:NUGET_VERSION -AssemblySemVer $env:ASSEMBLY_SEMVER -MajorMinorPatch $env:MAJOR_MINOR_PATCH -InformationalVersion $env:INFORMATIONAL_VERSION -Output nupkg
+
+  # The publication to nuget.org (M5.03): on a v* tag only, once the GitHub release exists, and only
+  # when the repository variable NUGET_PUBLISH is true (skipped otherwise). Trusted publishing: the OIDC
+  # token of this job is exchanged for a short-lived nuget.org key (no long-lived key in the secrets);
+  # NUGET_USER is the nuget.org account of the trusted publishing policy. No third-party action holds
+  # the token: curl and dotnet only.
+  nuget-publish:
+    name: NuGet publication
+    runs-on: ubuntu-latest
+    needs: [gitversion, nuget-tool, release]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.NUGET_PUBLISH == 'true'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Packed again from the same commit and version, as the nuget-tool job checked it: the build is
+      # deterministic.
+      - name: Pack the tool
+        shell: pwsh
+        env:
+          NUGET_VERSION: ${{ needs.gitversion.outputs.nuget_version }}
+          ASSEMBLY_SEMVER: ${{ needs.gitversion.outputs.assembly_semver }}
+          MAJOR_MINOR_PATCH: ${{ needs.gitversion.outputs.major_minor_patch }}
+          INFORMATIONAL_VERSION: ${{ needs.gitversion.outputs.informational_version }}
+        run: ./scripts/Test-UploaderTool.ps1 -Version $env:NUGET_VERSION -AssemblySemVer $env:ASSEMBLY_SEMVER -MajorMinorPatch $env:MAJOR_MINOR_PATCH -InformationalVersion $env:INFORMATIONAL_VERSION -Output nupkg
+
+      - name: Publish to nuget.org by trusted publishing
+        shell: bash
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NUGET_USER:-}" ]; then echo "::error::Set the repository variable NUGET_USER."; exit 1; fi
+          oidc=$(curl --fail --silent --show-error -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://www.nuget.org" | jq -r '.value')
+          echo "::add-mask::$oidc"
+          key=$(curl --fail --silent --show-error -X POST https://www.nuget.org/api/v2/token \
+            -H "Authorization: Bearer $oidc" -H "Content-Type: application/json" \
+            -d "{\"username\":\"$NUGET_USER\",\"tokenType\":\"ApiKey\"}" | jq -r '.apiKey')
+          echo "::add-mask::$key"
+          dotnet nuget push "nupkg/*.nupkg" --api-key "$key" --source https://api.nuget.org/v3/index.json --skip-duplicate

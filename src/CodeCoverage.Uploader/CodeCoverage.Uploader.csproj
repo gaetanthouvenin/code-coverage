@@ -12,6 +12,23 @@
     <ToolCommandName>coverage-upload</ToolCommandName>
   </PropertyGroup>
 
+  <!-- The package of nuget.org (M5.03, PLAN §11-11): Apache-2.0, published by trusted publishing. -->
+  <PropertyGroup>
+    <PackageId>CodeCoverage.Uploader</PackageId>
+    <Title>coverage-upload</Title>
+    <Description>coverage-upload uploads coverage reports (Cobertura, OpenCover, LCOV, JaCoCo, Clover) to a CodeCoverage instance, a self-hosted coverage service compatible with Codecov.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/gaetanthouvenin/code-coverage</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/gaetanthouvenin/code-coverage</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>coverage;codecov;cobertura;lcov;jacoco;opencover;ci</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.*" />
   </ItemGroup>

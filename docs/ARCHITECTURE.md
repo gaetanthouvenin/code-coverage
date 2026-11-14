@@ -666,7 +666,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 
 **Empaquetage :**
 - `PackAsTool`, `ToolCommandName=coverage-upload`, `TargetFramework=net10.0`, `RollForward=Major`. L'outil est réservé aux agents disposant de .NET 10 ou ultérieur ; les autres utilisent les binaires autonomes (ADR-012).
-- Package `CodeCoverage.Uploader`, publié sur un flux NuGet choisi en M5 (nuget.org public ou flux privé ; PLAN §11-11).
+- Package `CodeCoverage.Uploader` (licence Apache-2.0, README `src/CodeCoverage.Uploader/README.md`), publié sur **nuget.org** par publication de confiance (OIDC, aucune clé d'API durable ; PLAN §11-11, M5.03). Le job `nuget-tool` l'empaquette à chaque exécution avec la version GitVersion, l'installe depuis un dossier local et le lance (`scripts/Test-UploaderTool.ps1`) ; le job `nuget-publish` le publie sur un tag `v*` seulement, quand la variable de dépôt `NUGET_PUBLISH` vaut `true`.
 - Également publié en `-r {rid} --self-contained -p:PublishSingleFile=true -p:PublishTrimmed=true`. Ces binaires sont embarqués dans l'image Api sous `/app/uploader/` et joints aux releases GitHub.
 
 **Options** (chacune lisible aussi depuis l'environnement) :
@@ -1866,8 +1866,8 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 1. `gitversion` ;
 2. `build-and-test` (Testcontainers PostgreSQL et MsSql) ;
 3. deux images poussées vers GHCR, job lancé seulement sur `main` et les tags `v*` (GitFlow : sur `develop` et les PR, le test de fumée compose construit déjà les images) ;
-4. publication NuGet de l'outil ;
-5. release GitHub avec les binaires de l'uploader et leurs `.sha256`.
+4. release GitHub avec les binaires de l'uploader et leurs `.sha256`, extraits de l'image Api du tag (M4.01) ;
+5. `nuget-tool` (empaquetage, installation locale et lancement de l'outil, à chaque exécution) et `nuget-publish` (nuget.org par publication de confiance, tags `v*` et `NUGET_PUBLISH=true`, M5.03).
 
 Le dépôt utilise son propre service pour l'upload de sa couverture.
 
