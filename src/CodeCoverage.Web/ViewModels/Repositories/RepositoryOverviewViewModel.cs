@@ -13,13 +13,18 @@ namespace CodeCoverage.Web.ViewModels.Repositories;
 /// <param name="Flags">The flags of the repository in ordinal order, without the project.</param>
 /// <param name="Format">How the repository writes a coverage, for the values of the chart.</param>
 /// <param name="IsPrivate">Whether the repository is private, which its badge snippet says.</param>
+/// <param name="IsDisabled">
+///   Whether the coverage of the repository is no longer processed, disabled by an administrator or no longer served by
+///   its installation: its uploads are refused.
+/// </param>
 public sealed record RepositoryOverviewViewModel(
   string DefaultBranch,
   IReadOnlyList<FlagCardViewModel> Cards,
   IReadOnlyList<string> Branches,
   IReadOnlyList<string> Flags,
   CoverageFormatViewModel Format,
-  bool IsPrivate)
+  bool IsPrivate,
+  bool IsDisabled)
 {
   #region Properties
 

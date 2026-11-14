@@ -30,14 +30,32 @@
         </CcEmptyState>
       </div>
     }
+    else if (Overview is { IsDisabled: true, HasCoverage: false })
+    {
+      <div class="cc-panel cc-status-page" data-state="nodata">
+        <CcEmptyState Title="@L["Overview_NoDataTitle"]" Icon="CcIconName.Upload">@L["Overview_DisabledText"]</CcEmptyState>
+      </div>
+    }
     else if (Overview is { HasCoverage: false })
     {
       <div class="cc-panel cc-status-page" data-state="nodata">
-        <CcEmptyState Title="@L["Overview_NoDataTitle"]" Icon="CcIconName.Upload">@L["Overview_NoDataText"]</CcEmptyState>
+        <CcEmptyState Title="@L["Overview_NoDataTitle"]" Icon="CcIconName.Upload">
+          <ChildContent>@L["Overview_NoDataText"]</ChildContent>
+          <Actions>
+            <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Upload" Href="@SetupHref">@L["Overview_SetupAction"]</CcButton>
+          </Actions>
+        </CcEmptyState>
       </div>
+      <UploadSetup Forge="@Forge" Owner="@Owner" Name="@Name" ApiPublicUrl="@Urls.CurrentValue.ApiPublicUrl" />
     }
     else if (Overview is not null)
     {
+      @if (Overview.IsDisabled)
+      {
+        <div data-state="disabled">
+          <CcBanner Tone="CcTone.Warning">@L["Overview_DisabledText"]</CcBanner>
+        </div>
+      }
       <CoverageCards Cards="Overview.Cards" />
       <CoverageHistoryChart Forge="@Forge" Owner="@Owner" Name="@Name" DefaultBranch="@Overview.DefaultBranch"
                             Branches="Overview.Branches" Flags="Overview.Flags" Format="Overview.Format" />

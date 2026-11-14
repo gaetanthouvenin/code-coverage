@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
 
+using CodeCoverage.Web.Components.Repositories;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -68,6 +69,8 @@ public partial class RepositoryOverview
   private RepositoryActivityViewModel? Activity { get; set; }
 
   private string? Subtitle => Overview is { } loaded ? L["Repository_DefaultBranch", loaded.DefaultBranch].Value : null;
+
+  private string SetupHref => $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}#{UploadSetup.AnchorId}";
 
   #endregion
 

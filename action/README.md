@@ -14,14 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       # ... build and test, producing coverage.cobertura.xml ...
-      - uses: <owner>/code-coverage/action@v1
+      - uses: gaetanthouvenin/code-coverage/action@v0.1.0-beta.2
         with:
-          version: 1.2.3
-          sha256: <SHA-256 of coverage-upload-linux-x64 of v1.2.3>   # optional, recommended
+          version: 0.1.0-beta.2
+          sha256: <SHA-256 of coverage-upload-linux-x64 of v0.1.0-beta.2>   # optional, recommended
           url: https://coverage-api.example.com
           files: coverage.cobertura.xml
           flags: unit
 ```
+
+Pin the action on a release tag, `@vX.Y.Z`, and give the same number to `version`: the example uses
+`v0.1.0-beta.2`. There is no major tag such as `@v1` yet: the owner sets it at the first stable
+release. The overview of a repository without coverage, in the console, shows this job with the
+version and the Api address of the instance, ready to copy.
 
 ## Inputs
 

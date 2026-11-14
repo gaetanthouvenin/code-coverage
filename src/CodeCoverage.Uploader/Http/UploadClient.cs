@@ -105,11 +105,40 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
     }
 
     var code = Read(body, "errorCode");
+    var detail = Read(body, "detail");
 
     reporter.Error($"The server refused the upload: {(int)response.StatusCode}{(code is null ? string.Empty : $" ({code})")}.");
 
+    if (!string.IsNullOrWhiteSpace(detail))
+    {
+      reporter.Error(detail);
+    }
+
+    if (AdviceOf(code) is { } advice)
+    {
+      reporter.Info(advice);
+    }
+
     return null;
   }
+
+  /// <summary>Gives what to do about a refusal, from its error code alone.</summary>
+  /// <param name="code">The error code of the refusal, or <see langword="null" />.</param>
+  /// <returns>The advice, or <see langword="null" /> when the code has none.</returns>
+  /// <remarks>
+  ///   The advice names every cause the code covers, as the server does not tell them apart: it never tells more than
+  ///   the server said.
+  /// </remarks>
+  private static string? AdviceOf(string? code) => code switch
+  {
+    "Repository.NotFound" =>
+      "What to do: check that the GitHub App of the instance is installed on this repository, and that an administrator of the instance admitted its account.",
+    "Repository.Inactive" =>
+      "What to do: an administrator of the repository activates its coverage on its settings page in the console.",
+    "Upload.TokenInvalid" =>
+      "What to do: create a new upload token on the settings page of the repository in the console, or pass no token and grant id-token: write to authenticate with GitHub Actions; the account of the repository must also be admitted on the instance.",
+    var _ => null,
+  };
 
   /// <summary>Reads the address the server gives to follow the processing.</summary>
   /// <param name="server">The address of the server.</param>

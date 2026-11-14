@@ -212,6 +212,15 @@
   <data name="Repository_DefaultBranch" xml:space="preserve"><value>Default branch: {0}</value></data>
   <data name="Overview_NoDataTitle" xml:space="preserve"><value>No coverage report yet</value></data>
   <data name="Overview_NoDataText" xml:space="preserve"><value>This repository is followed, and no upload has been received for its default branch.</value></data>
+  <data name="Overview_DisabledText" xml:space="preserve"><value>This repository is disabled: its coverage is no longer processed and its uploads are refused. An administrator enables it again on its settings page.</value></data>
+  <data name="Overview_SetupAction" xml:space="preserve"><value>Set up the upload</value></data>
+  <data name="UploadSetup_Title" xml:space="preserve"><value>Set up the upload</value></data>
+  <data name="UploadSetup_GitHubActions" xml:space="preserve"><value>Add this job, or its last step, to a GitHub Actions workflow of the repository. The action is pinned on the version of this instance.</value></data>
+  <data name="UploadSetup_SnippetLabel" xml:space="preserve"><value>GitHub Actions workflow that uploads the coverage</value></data>
+  <data name="UploadSetup_Oidc" xml:space="preserve"><value>The id-token: write permission lets the upload authenticate with the OIDC token of GitHub Actions: no secret is needed.</value></data>
+  <data name="UploadSetup_NoApiUrl" xml:space="preserve"><value>The public address of the API is not set: an administrator sets it in the settings of the instance before the workflow can be written.</value></data>
+  <data name="UploadSetup_AzurePipelines" xml:space="preserve"><value>Azure Pipelines template</value></data>
+  <data name="UploadSetup_UploadTokens" xml:space="preserve"><value>Upload tokens of the repository, for a CI without OIDC</value></data>
   <data name="Flag_Project" xml:space="preserve"><value>Project</value></data>
   <data name="Card_Change30Days" xml:space="preserve"><value>Change over 30 days</value></data>
   <data name="Card_CarriedForwardFrom" xml:space="preserve"><value>Carried forward from</value></data>

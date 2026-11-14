@@ -1,0 +1,29 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="UploadSetup.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<section class="cc-panel" id="@AnchorId" data-panel="upload-setup">
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["UploadSetup_Title"]</h2>
+  </div>
+  <div class="cc-panel__body cc-stack">
+    @if (Snippet is { } snippet)
+    {
+      <p class="cc-muted">@L["UploadSetup_GitHubActions"]</p>
+      <CopyBlock Text="@snippet" Label="@L["UploadSetup_SnippetLabel"]" />
+      <p class="cc-muted">@L["UploadSetup_Oidc"]</p>
+    }
+    else
+    {
+      <div data-state="nourls">
+        <CcBanner Tone="CcTone.Info">@L["UploadSetup_NoApiUrl"]</CcBanner>
+      </div>
+    }
+    <ul class="cc-stack">
+      <li><a href="@AzurePipelinesUrl" target="_blank" rel="noopener noreferrer" data-link="azure-pipelines">@L["UploadSetup_AzurePipelines"]</a></li>
+      <li><a href="@UploadTokensHref" data-link="upload-tokens">@L["UploadSetup_UploadTokens"]</a></li>
+    </ul>
+  </div>
+</section>

@@ -212,6 +212,15 @@
   <data name="Repository_DefaultBranch" xml:space="preserve"><value>Branche par défaut : {0}</value></data>
   <data name="Overview_NoDataTitle" xml:space="preserve"><value>Aucun rapport de couverture</value></data>
   <data name="Overview_NoDataText" xml:space="preserve"><value>Ce dépôt est suivi, et aucun upload n’a été reçu pour sa branche par défaut.</value></data>
+  <data name="Overview_DisabledText" xml:space="preserve"><value>Ce dépôt est désactivé : sa couverture n’est plus traitée et ses uploads sont refusés. Un administrateur le réactive depuis ses paramètres.</value></data>
+  <data name="Overview_SetupAction" xml:space="preserve"><value>Configurer l’envoi</value></data>
+  <data name="UploadSetup_Title" xml:space="preserve"><value>Configurer l’envoi</value></data>
+  <data name="UploadSetup_GitHubActions" xml:space="preserve"><value>Ajoutez ce job, ou sa dernière étape, à un workflow GitHub Actions du dépôt. L’action est épinglée sur la version de cette instance.</value></data>
+  <data name="UploadSetup_SnippetLabel" xml:space="preserve"><value>Workflow GitHub Actions qui envoie la couverture</value></data>
+  <data name="UploadSetup_Oidc" xml:space="preserve"><value>La permission id-token: write permet à l’upload de s’authentifier par le jeton OIDC de GitHub Actions : aucun secret n’est nécessaire.</value></data>
+  <data name="UploadSetup_NoApiUrl" xml:space="preserve"><value>L’adresse publique de l’API n’est pas définie : un administrateur la renseigne dans les paramètres de l’instance avant que le workflow puisse être écrit.</value></data>
+  <data name="UploadSetup_AzurePipelines" xml:space="preserve"><value>Template Azure Pipelines</value></data>
+  <data name="UploadSetup_UploadTokens" xml:space="preserve"><value>Jetons d’upload du dépôt, pour une CI sans OIDC</value></data>
   <data name="Flag_Project" xml:space="preserve"><value>Projet</value></data>
   <data name="Card_Change30Days" xml:space="preserve"><value>Évolution sur 30 jours</value></data>
   <data name="Card_CarriedForwardFrom" xml:space="preserve"><value>Reporté de</value></data>

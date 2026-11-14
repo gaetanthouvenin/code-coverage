@@ -184,6 +184,34 @@ public sealed class UploadClientTests : IDisposable
     _handler.Received.Count.ShouldBe(1);
   }
 
+  [Theory]
+  [InlineData(HttpStatusCode.Unauthorized, "Upload.TokenInvalid", "The upload token is not valid.", "create a new upload token")]
+  [InlineData(HttpStatusCode.NotFound, "Repository.NotFound", "The repository does not exist or cannot be read.", "GitHub App of the instance is installed")]
+  [InlineData(HttpStatusCode.UnprocessableEntity, "Repository.Inactive", "The coverage of this repository is not tracked.", "activates its coverage")]
+  public async Task Send_Refused_ShouldPrintTheDetailAndTheAdvice(HttpStatusCode status, string code, string detail, string advice)
+  {
+    _handler.Then(status, $$"""{"title":"Refused","status":{{(int)status}},"detail":"{{detail}}","errorCode":"{{code}}"}""");
+
+    (await SendAsync(Request())).ShouldBeFalse();
+
+    var output = _output.ToString();
+
+    output.ShouldContain($"({code})");
+    output.ShouldContain($"error: {detail}");
+    output.ShouldContain("What to do: ");
+    output.ShouldContain(advice);
+  }
+
+  [Fact]
+  public async Task Send_RefusedWithoutDetailNorKnownCode_ShouldPrintNoAdvice()
+  {
+    _handler.Then(HttpStatusCode.BadRequest, """{"errorCode":"Upload.InvalidSlug"}""");
+
+    (await SendAsync(Request())).ShouldBeFalse();
+
+    _output.ToString().ShouldNotContain("What to do");
+  }
+
   [Fact]
   public async Task Send_NoToken_WithActionsOidc_ShouldFetchJwt()
   {
