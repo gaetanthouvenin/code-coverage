@@ -19,10 +19,12 @@ dotnet publish src/CodeCoverage.Uploader/CodeCoverage.Uploader.csproj -c Release
 
 cp "$RUNNER_TEMP/publish/CodeCoverage.Uploader$ext" "$release/coverage-upload-$rid$ext"
 
+# Read on stdin, as install.sh does: RUNNER_TEMP holds backslashes on Windows, and GNU sha256sum would
+# prefix the line of an escaped file name with a backslash (M4.02g).
 if command -v sha256sum > /dev/null 2>&1; then
-  sum=$(sha256sum "$release/coverage-upload-$rid$ext" | cut -d ' ' -f 1)
+  sum=$(sha256sum < "$release/coverage-upload-$rid$ext" | cut -d ' ' -f 1)
 else
-  sum=$(shasum -a 256 "$release/coverage-upload-$rid$ext" | cut -d ' ' -f 1)
+  sum=$(shasum -a 256 < "$release/coverage-upload-$rid$ext" | cut -d ' ' -f 1)
 fi
 
 printf '%s' "$sum" > "$release/coverage-upload-$rid$ext.sha256"
