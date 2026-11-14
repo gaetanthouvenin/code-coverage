@@ -2,11 +2,12 @@
 # CodeCoverage - CI/CD Pipeline (CONVENTIONS.md §14,ARCHITECTURE.md §12.8)
 # GitVersion -> Build/Test (Testcontainers PostgreSQL and SQL Server) -> Compose smoke test
 #            -> Docker images Api and Web, pushed to GHCR (main and v* tags only)
+#            -> GitHub release of a v* tag: the uploader binaries and their .sha256, extracted from the
+#               Api image of the tag (M4.01)
 # GitFlow (CONVENTIONS.md §15): work lands on develop through feature/* pull requests; main only
 # receives releases and hotfixes, so only a release publishes images. Elsewhere the compose smoke
-# test already builds both images from the Dockerfiles, so the image job does not run.
-# The GitHub release (uploader binaries and their .sha256) and the NuGet publication of the uploader
-# tool come with the uploader milestone.
+# test already builds both images from the Dockerfiles, so the image job does not run; it checks the
+# uploader binaries the release would extract from the Api image it built.
 # ------------------------------------------------------------------------------------------------
 name: CI/CD
 
@@ -143,6 +144,13 @@ jobs:
         shell: pwsh
         run: ./scripts/smoke-compose.ps1 -Provider All
 
+      # The dry run of the release (M4.01): the uploader binaries are copied out of the Api image the
+      # smoke test built, as the release job copies them out of the pushed image, and each one is
+      # checked against its .sha256.
+      - name: Uploader binaries of the Api image (release dry run)
+        shell: pwsh
+        run: ./scripts/Export-Uploader.ps1 -Image code-coverage-api:smoke -Destination artifacts/uploader
+
   docker:
     name: Docker image (${{ matrix.image }})
     runs-on: ubuntu-latest
@@ -193,3 +201,52 @@ jobs:
             ASSEMBLY_SEMVER=${{ needs.gitversion.outputs.assembly_semver }}
             MAJOR_MINOR_PATCH=${{ needs.gitversion.outputs.major_minor_patch }}
             INFORMATIONAL_VERSION=${{ needs.gitversion.outputs.informational_version }}
+
+  # The GitHub release of a v* tag (M4.01). Its files are copied out of the Api image the docker job
+  # pushed for the same tag, never built a second time: they are those the instance serves on
+  # /api/v1/uploader/{rid}. Only docker and gh, which the runner provides: no third-party action
+  # holds the write token. Every value reaches the scripts through env:.
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    needs: [gitversion, docker]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check that the tag is the version
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+          SEMVER: ${{ needs.gitversion.outputs.semver }}
+        run: |
+          if ($env:TAG -cne "v$env:SEMVER") {
+            Write-Output "::error::The tag $env:TAG is not v$env:SEMVER, the version GitVersion computes."
+            exit 1
+          }
+
+      - name: Copy the uploader out of the Api image of the tag
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          IMAGE: ${{ env.IMAGE_PREFIX }}-api:${{ needs.gitversion.outputs.semver }}
+        run: |
+          $env:GH_TOKEN | docker login ghcr.io --username $env:ACTOR --password-stdin
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./scripts/Export-Uploader.ps1 -Image $env:IMAGE -Destination release
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          PRE_RELEASE: ${{ needs.gitversion.outputs.pre_release }}
+        run: |
+          flags=(--verify-tag --title "$TAG" --generate-notes)
+          if [ -n "$PRE_RELEASE" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" release/* "${flags[@]}"
