@@ -24,6 +24,29 @@ public sealed class CcLineChartTests : UiTestContext
 
   #region Methods
 
+  // The coordinates go through the invariant culture: a French comma would break every SVG attribute.
+  [Fact]
+  public void Render_FrenchCulture_ShouldWriteTheCoordinatesWithADot()
+  {
+    var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+
+    try
+    {
+      var cut = Render<CcLineChart>(p => p.Add(c => c.Series, [Series("Project", 80.37, 81.11, 82.93), Series("backend", 70.25, 71.5, 72.75)])
+                                          .Add(c => c.AriaLabel, "Historique"));
+
+      var names = new[] { "x", "y", "x1", "x2", "y1", "y2", "cx", "cy", "d", "transform" };
+      var values = cut.FindAll("svg *").SelectMany(e => names.Select(e.GetAttribute)).OfType<string>().ToList();
+      values.ShouldNotBeEmpty();
+      values.ShouldAllBe(static v => !v.Contains(','));
+    }
+    finally
+    {
+      (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = previous;
+    }
+  }
+
   [Fact]
   public void Render_ShouldDrawOneLineAndOneLabelPerSeries()
   {

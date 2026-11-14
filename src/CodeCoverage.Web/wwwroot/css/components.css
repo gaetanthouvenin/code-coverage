@@ -1772,6 +1772,11 @@ code {
   padding: 0 18px 18px;
 }
 
+/* A table with no panel head above it gets the same margin at the top as at the bottom (M4.02h). */
+.cc-panel > .cc-table-wrap:first-child {
+  padding-top: 18px;
+}
+
 .cc-table {
   width: 100%;
   border-collapse: separate;
@@ -1854,6 +1859,10 @@ code {
 @media (max-width: 640px) {
   .cc-panel > .cc-table-wrap {
     padding: 0 6px 8px;
+  }
+
+  .cc-panel > .cc-table-wrap:first-child {
+    padding-top: 8px;
   }
 }
 
