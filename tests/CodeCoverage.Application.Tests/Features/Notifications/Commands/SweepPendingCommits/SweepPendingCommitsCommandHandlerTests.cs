@@ -74,6 +74,7 @@ public sealed class SweepPendingCommitsCommandHandlerTests
      .ReturnsLazily((long repositoryId, GitSha sha, CancellationToken _) =>
                       Task.FromResult<CommitConfig?>(CommitConfig.Create(repositoryId, sha, ConfigSource.Builtin, null, null, [], [], Now)));
     A.CallTo(() => _commits.ListStuckAsync(A<DateTimeOffset>._, A<DateTimeOffset>._, A<Commit?>._, A<int>._, A<CancellationToken>._)).Returns([]);
+    A.CallTo(() => _commits.ListUnwatchedAncestorPendingAsync(A<int>._, A<CancellationToken>._)).Returns([]);
     A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._))
      .Invokes((JobRequest job, CancellationToken _) => _queued.Add(job))
      .Returns(1L);
@@ -120,6 +121,17 @@ public sealed class SweepPendingCommitsCommandHandlerTests
     _queued[0].DedupKey.ShouldBe("notify:9:sweep");
     _queued[0].LockKey.ShouldBe("commit:9");
     A.CallTo(_gateway).MustNotHaveHappened();
+  }
+
+  // #165: a commit left AncestorPending without any wait (finalized before the waits were recorded) is finalized again.
+  [Fact]
+  public async Task Handle_AncestorPendingWithoutWait_ShouldFinalizeItAgain()
+  {
+    A.CallTo(() => _commits.ListUnwatchedAncestorPendingAsync(SweepPendingCommitsCommandHandler.MaxCommits, A<CancellationToken>._)).Returns([21L, 22L]);
+
+    await HandleAsync();
+
+    _queued.Select(static j => (j.Type, j.PayloadJson)).ShouldBe([(JobTypes.FinalizeCommit, FinalizeCommitJobs.Create(21).PayloadJson), (JobTypes.FinalizeCommit, FinalizeCommitJobs.Create(22).PayloadJson)]);
   }
 
   [Theory]

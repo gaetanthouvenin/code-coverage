@@ -1209,6 +1209,28 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.CarryforwardWaitRecord", b =>
+                {
+                    b.Property<long>("CommitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("AncestorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("CommitId", "AncestorId")
+                        .HasName("PK_CarryforwardWaits");
+
+                    b.HasIndex("AncestorId");
+
+                    b.ToTable("CarryforwardWaits", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
+                });
+
             modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.CommitReportRecord", b =>
                 {
                     b.Property<long>("CommitId")
@@ -1953,6 +1975,21 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasOne("CodeCoverage.Domain.Users.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Infrastructure.Commits.CarryforwardWaitRecord", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("AncestorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CodeCoverage.Domain.Commits.Commit", null)
+                        .WithMany()
+                        .HasForeignKey("CommitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

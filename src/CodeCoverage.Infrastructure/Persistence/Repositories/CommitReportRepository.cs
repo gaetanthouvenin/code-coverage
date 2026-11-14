@@ -63,8 +63,11 @@ internal sealed class CommitReportRepository(
   /// <summary>The message of the refusal of a commit that is not a new imported one.</summary>
   private const string NotImportedMessage = "Only a new commit built by Commit.Import can be saved as imported.";
 
-  /// <summary>How many waiting commits a commit that completes wakes.</summary>
-  private const int MaxWokenCommits = 10;
+  /// <summary>
+  ///   How many waiting commits a commit that completes wakes at most: its descendants that passed it while it was
+  ///   pending (#165), a bound against a runaway, far above a real branch.
+  /// </summary>
+  private const int MaxWokenCommits = 1000;
 
   /// <summary>How long the victim of a deadlock waits before it runs again.</summary>
   private static readonly TimeSpan DeadlockRetryDelay = TimeSpan.FromSeconds(2);
@@ -407,8 +410,10 @@ internal sealed class CommitReportRepository(
   private async Task<IReadOnlyList<long>> QueueWakeUpsAsync(Commit commit, FinalizationWakeUps wakeUps, CancellationToken cancellationToken)
   {
     var commitId = commit.Id;
-    var repositoryId = commit.RepositoryId;
     var jobs = new List<JobRequest>();
+
+    // The waits of the commit are those of this finalization only (#165): a commit that no longer waits wakes on nothing.
+    await context.CarryforwardWaits.Where(w => w.CommitId == commitId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
     if (wakeUps.PendingAncestorIds.Count > 0)
     {
@@ -421,6 +426,23 @@ internal sealed class CommitReportRepository(
                      .Where(c => c.Id == ancestorId)
                      .ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UpdatedAt, static c => c.UpdatedAt), cancellationToken)
                      .ConfigureAwait(false);
+      }
+
+      // Each ancestor it passed wakes it when it completes, and nothing else does.
+      var waits = ancestors.Select(ancestorId => new CarryforwardWaitRecord { CommitId = commitId, AncestorId = ancestorId }).ToList();
+
+      context.CarryforwardWaits.AddRange(waits);
+
+      try
+      {
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+      }
+      finally
+      {
+        foreach (var wait in waits)
+        {
+          context.Entry(wait).State = EntityState.Detached;
+        }
       }
 
       var stillPending = await context.Commits
@@ -436,12 +458,16 @@ internal sealed class CommitReportRepository(
 
     if (wakeUps.Completed)
     {
-      var waiting = await context.Commits
+      // Only its real descendants: the commits that passed it while it was pending and still wait (#165).
+      var waiting = await context.CarryforwardWaits
                                  .AsNoTracking()
-                                 .Where(c => c.RepositoryId == repositoryId && c.Id != commitId && c.CarryforwardStatus == CarryforwardStatus.AncestorPending)
-                                 .OrderByDescending(static c => c.Id)
-                                 .Take(MaxWokenCommits)
+                                 .Where(w => w.AncestorId == commitId)
+                                 .Join(context.Commits, static w => w.CommitId, static c => c.Id, static (_, c) => c)
+                                 .Where(static c => c.CarryforwardStatus == CarryforwardStatus.AncestorPending)
                                  .Select(static c => c.Id)
+                                 .Distinct()
+                                 .OrderByDescending(static id => id)
+                                 .Take(MaxWokenCommits)
                                  .ToListAsync(cancellationToken)
                                  .ConfigureAwait(false);
 

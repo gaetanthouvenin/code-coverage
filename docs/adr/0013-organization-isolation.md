@@ -47,7 +47,7 @@ Le classement est vérifié par un test : une table nouvelle non classée fait �
 
 | Classe | Tables |
 |---|---|
-| **D'organisation, filtrées (22)** | `Repositories`, `RepositoryFlags`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06) |
+| **D'organisation, filtrées (23)** | `Repositories`, `RepositoryFlags`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06), `CarryforwardWaits` (#165) |
 | **Opérationnelles, `OrganizationId` nullable, sans filtre (3)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` |
 | **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
 

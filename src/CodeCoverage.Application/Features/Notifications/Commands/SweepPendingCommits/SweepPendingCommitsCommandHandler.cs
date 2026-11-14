@@ -35,6 +35,11 @@ namespace CodeCoverage.Application.Features.Notifications.Commands.SweepPendingC
 ///     published in the meantime.
 ///   </para>
 ///   <para>
+///     The sweep also finalizes again the commits that wait for a pending ancestor without any wait recorded (finalized
+///     before #165 recorded the waits): no ancestor would ever wake them. Finalized again, each one either finds its
+///     ancestors ended or records what it waits for.
+///   </para>
+///   <para>
 ///     Left out: a commit of a repository that notifies on demand (<c>codecov.notify.manual_trigger</c>), a commit
 ///     with an upload still received or being processed, a commit that is not finalized, a repository that is no
 ///     longer tracked, and a commit whose last upload is older than <see cref="Horizon" />.
@@ -101,6 +106,11 @@ internal sealed class SweepPendingCommitsCommandHandler(
   /// <returns>A task that completes when the notifications are queued.</returns>
   private async Task SweepAsync(CancellationToken cancellationToken)
   {
+    foreach (var commitId in await commits.ListUnwatchedAncestorPendingAsync(MaxCommits, cancellationToken).ConfigureAwait(false))
+    {
+      await jobQueue.TryEnqueueAsync(FinalizeCommitJobs.Create(commitId), cancellationToken).ConfigureAwait(false);
+    }
+
     var now = clock.UtcNow;
     var timeout = TimeSpan.FromMinutes(Math.Max(1, processing.CurrentValue.PendingTimeoutMinutes));
     var tracked = new Dictionary<long, TrackedRepository?>();

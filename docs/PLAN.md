@@ -2708,4 +2708,4 @@ Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.Organiz
 
 Écarts entre le code fusionné et l'architecture qu'aucune micro-fonctionnalité ne couvre encore.
 
-- **Réveil des seuls descendants ([#165](https://github.com/gaetanthouvenin/code-coverage/issues/165))** : un commit terminé réveille les 10 commits `AncestorPending` les plus récents du dépôt sans vérifier qu'ils en descendent (ARCHITECTURE §6.5 dit « ses descendants »). Corrigé hors plan dans le lot M4/M5, avec deux migrations.
+Aucun à ce jour.

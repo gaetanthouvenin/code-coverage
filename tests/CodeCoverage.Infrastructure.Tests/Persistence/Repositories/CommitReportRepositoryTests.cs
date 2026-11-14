@@ -22,6 +22,7 @@ using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Infrastructure.Commits;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
@@ -1192,7 +1193,8 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     return upload.Id;
   }
 
-  // A commit that completes queues, in its transaction, the waiting commits of its repository, its own organization only.
+  // #165: a commit that completes queues, in its transaction, the commits that passed it while it was pending and still
+  // wait: its real descendants, never another waiting commit of the repository, its own organization only.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task SaveFinalized_Completed_ShouldQueueTheWaitingCommitsInTheTransaction(DatabaseProvider provider)
@@ -1200,7 +1202,13 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     var seed = await SeededAsync(provider);
     var first = seed.Organizations.FirstId;
     var waiting = await AddCommitAsync(seed, first, 'e', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now));
-    await AddCommitAsync(seed, first, 'f', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.None, "source", Now));
+    var other = await AddCommitAsync(seed, first, 'f', static c => c.MarkPending(null, null, Now));
+    var unrelated = await AddCommitAsync(seed, first, 'a', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now));
+    var stale = await AddCommitAsync(seed, first, 'b', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.Applied, "source", Now));
+    await AddWaitAsync(seed, first, waiting, seed.FirstCommit);
+    await AddWaitAsync(seed, first, unrelated, other);
+    // It waited once, then was finalized again with what it waited for: it no longer waits.
+    await AddWaitAsync(seed, first, stale, seed.FirstCommit);
 
     await using (var second = seed.Organizations.ContextOf(seed.Organizations.SecondId))
     {
@@ -1213,6 +1221,61 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
 
     (await QueuedLockKeysAsync(seed)).ShouldBe([$"o{first}:commit:{waiting}"]);
     (await _wakeUpSignal.WaitAsync(TimeSpan.Zero, Ct)).ShouldBeTrue();
+  }
+
+  // #165: the commits left AncestorPending without any wait (finalized before the waits were recorded), for the sweep;
+  // its own organization only.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task ListUnwatchedAncestorPending_ShouldListTheWaitingCommitsNoAncestorWillWake(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var unwatched = await AddCommitAsync(seed, first, 'e', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now));
+    var watched = await AddCommitAsync(seed, first, 'f', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now));
+    await AddCommitAsync(seed, first, 'a', static c => c.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.Applied, "source", Now));
+    await AddWaitAsync(seed, first, watched, seed.FirstCommit);
+
+    await using (var second = seed.Organizations.ContextOf(seed.Organizations.SecondId))
+    {
+      var foreign = await second.Commits.SingleAsync(c => c.Id == seed.SecondCommit, Ct);
+      foreign.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now);
+      await second.SaveChangesAsync(Ct);
+    }
+
+    await using var context = seed.Organizations.ContextOf(first);
+    (await new CommitRepository(context).ListUnwatchedAncestorPendingAsync(50, Ct)).ShouldBe([unwatched]);
+
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await new CommitRepository(other).ListUnwatchedAncestorPendingAsync(50, Ct)).ShouldBe([seed.SecondCommit]);
+  }
+
+  // #165: the waits of a commit are those of its last finalization: recorded when it passes pending ancestors,
+  // replaced at the next finalization, gone when it no longer waits.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveFinalized_PendingAncestors_ShouldRecordAndReplaceTheWaits(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var farther = await AddCommitAsync(seed, first, '1', static c => c.MarkPending(null, null, Now));
+    var closer = await AddCommitAsync(seed, first, '2', static c => c.MarkPending(null, null, Now));
+
+    await SaveCommitAsync(seed, provider, seed.FirstCommit, new FinalizationWakeUps(false, [closer, farther]), null);
+
+    (await WaitsAsync(seed, first)).ShouldBe([(seed.FirstCommit, closer), (seed.FirstCommit, farther)], ignoreOrder: true);
+
+    await SaveCommitAsync(seed, provider, seed.FirstCommit, new FinalizationWakeUps(false, [farther]), null);
+
+    (await WaitsAsync(seed, first)).ShouldBe([(seed.FirstCommit, farther)]);
+
+    await SaveCommitAsync(seed, provider, seed.FirstCommit, FinalizationWakeUps.None, null);
+
+    (await WaitsAsync(seed, first)).ShouldBeEmpty();
+
+    // Never through another organization.
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await other.CarryforwardWaits.CountAsync(Ct)).ShouldBe(0);
   }
 
   [Theory]
@@ -1292,6 +1355,8 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     held.RecordFinalization(CommitState.Complete, 0, default, 0, 0, CarryforwardStatus.AncestorPending, "source", Now);
     await holder.SaveChangesAsync(Ct);
     await holder.Commits.Where(c => c.Id == seed.FirstCommit).ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UpdatedAt, static c => c.UpdatedAt), Ct);
+    holder.CarryforwardWaits.Add(new CarryforwardWaitRecord { CommitId = waiting, AncestorId = seed.FirstCommit });
+    await holder.SaveChangesAsync(Ct);
 
     var save = SaveWithWakeUpsAsync(seed, new FinalizationWakeUps(true, []));
     (await Task.WhenAny(save, Task.Delay(TimeSpan.FromSeconds(1), Ct))).ShouldNotBe(save, "the ancestor must wait for the waiting commit");
@@ -1403,6 +1468,21 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     );
 
     return new CommitReportRepository(context, queue, _wakeUpSignal);
+  }
+
+  private static async Task AddWaitAsync(CommitSeed seed, long organizationId, long commitId, long ancestorId)
+  {
+    await using var context = seed.Organizations.ContextOf(organizationId);
+
+    context.CarryforwardWaits.Add(new CarryforwardWaitRecord { CommitId = commitId, AncestorId = ancestorId });
+    await context.SaveChangesAsync(Ct);
+  }
+
+  private static async Task<List<(long CommitId, long AncestorId)>> WaitsAsync(CommitSeed seed, long organizationId)
+  {
+    await using var context = seed.Organizations.ContextOf(organizationId);
+
+    return (await context.CarryforwardWaits.AsNoTracking().ToListAsync(Ct)).Select(static w => (w.CommitId, w.AncestorId)).ToList();
   }
 
   private async Task<CommitSeed> SeededAsync(DatabaseProvider provider)

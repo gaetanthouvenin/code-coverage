@@ -35,6 +35,16 @@ public interface ICommitRepository
   /// <exception cref="ArgumentNullException"><paramref name="sha" /> is <see langword="null" />.</exception>
   Task<Commit?> FindByShaAsync(long repositoryId, GitSha sha, CancellationToken cancellationToken);
 
+  /// <summary>
+  ///   Lists the commits of the organization that wait for a pending ancestor (<c>AncestorPending</c>) without any wait
+  ///   recorded: finalized before the waits were recorded (#165), so that no ancestor will ever wake them.
+  /// </summary>
+  /// <param name="limit">The number of commits to list, at most.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The identifiers of the commits, the oldest first.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit" /> is zero or negative.</exception>
+  Task<IReadOnlyList<long>> ListUnwatchedAncestorPendingAsync(int limit, CancellationToken cancellationToken);
+
   /// <summary>Lists the commits of the organization that are finalized, were never notified and no longer receive anything.</summary>
   /// <param name="uploadedFrom">The oldest last upload that is looked at, included.</param>
   /// <param name="uploadedBefore">The time before which the last upload must have been received.</param>
