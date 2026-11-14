@@ -39,6 +39,10 @@ namespace CodeCoverage.Application.Services;
 ///     comment the next run finds.
 ///   </para>
 ///   <para>
+///     <c>comment.behavior: new</c> deletes the comments of this application and writes a new one at each
+///     notification; <c>spammy</c> writes a new one and leaves the earlier ones. The pull request records the last.
+///   </para>
+///   <para>
 ///     What the head was compared to is recorded on the pull request in the same save, whether a comment is
 ///     written or not: a base that receives its report later finds the pull requests to notify again by it.
 ///   </para>
@@ -201,6 +205,11 @@ internal sealed partial class CommentPublisher(
     var gateway = gateways.GetGateway(address.Forge);
     var hash = SHA256.HashData(Encoding.UTF8.GetBytes(body));
 
+    if (config.Comment.Behavior is CommentBehavior.New or CommentBehavior.Spammy)
+    {
+      return await RecreateAsync(gateway, address, pull, commit, config, context, body, hash, cancellationToken).ConfigureAwait(false);
+    }
+
     // Whether a comment of this application existed and was deleted on the forge.
     var deleted = false;
 
@@ -269,6 +278,71 @@ internal sealed partial class CommentPublisher(
     return await CreateAsync(gateway, address, pull, commit, body, hash, cancellationToken).ConfigureAwait(false);
   }
 
+  /// <summary>Writes a new comment for <c>new</c> and <c>spammy</c>, after deleting the earlier ones for <c>new</c>.</summary>
+  /// <param name="gateway">The gateway of the forge.</param>
+  /// <param name="address">The address of the repository on its forge.</param>
+  /// <param name="pull">The pull request, which records the comment written last.</param>
+  /// <param name="commit">The head that is commented.</param>
+  /// <param name="config">The configuration of the commit.</param>
+  /// <param name="context">The comparison of the head with its base.</param>
+  /// <param name="body">The body of the comment.</param>
+  /// <param name="hash">The hash of the body.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>What became of the comment.</returns>
+  /// <remarks>
+  ///   <para>
+  ///     As Codecov does, each accepted notification writes, even when its body equals the last one on the same head.
+  ///     <c>require_changes</c> is asked on the first publication only, when the pull request records no comment and
+  ///     the forge holds none of this application.
+  ///   </para>
+  ///   <para>
+  ///     <c>new</c> deletes the comment the pull request records and every comment of this application found by its
+  ///     marker, so that one comment remains after a run that wrote and failed to save, or after <c>spammy</c>. A
+  ///     refused deletion keeps its comment, is logged, and the new comment is written all the same. The identifier
+  ///     of a deleted comment stays recorded until a new one is: a pull request whose new comment could not be
+  ///     written is never taken for one never commented.
+  ///   </para>
+  /// </remarks>
+  private async Task<CommentOutcome> RecreateAsync(
+    IForgeGateway gateway,
+    ForgeRepositoryRef address,
+    PullRequest pull,
+    Commit commit,
+    CoverageConfig config,
+    ComparisonContext context,
+    string body,
+    byte[] hash,
+    CancellationToken cancellationToken)
+  {
+    var comments = await gateway.ListIssueCommentsAsync(address, pull.Number, cancellationToken).ConfigureAwait(false);
+    var written = comments.Where(static comment => comment.WrittenByThisApplication && HasMarker(comment.Body))
+                          .Select(static comment => comment.Id)
+                          .ToList();
+
+    if (pull.CommentId is null && written.Count == 0 && !config.Comment.RequireChanges.Evaluate(ToFacts(config, context)))
+    {
+      return CommentOutcome.Skipped;
+    }
+
+    if (config.Comment.Behavior is CommentBehavior.New)
+    {
+      if (pull.CommentId is { } known && !written.Contains(known))
+      {
+        written.Add(known);
+      }
+
+      foreach (var id in written)
+      {
+        if (await gateway.DeleteIssueCommentAsync(address, id, cancellationToken).ConfigureAwait(false) is ForgeCommentDeletion.Refused)
+        {
+          LogDeletionRefused(logger, id, pull.Number);
+        }
+      }
+    }
+
+    return await CreateAsync(gateway, address, pull, commit, body, hash, cancellationToken).ConfigureAwait(false);
+  }
+
   /// <summary>Writes a new comment and records it on the pull request.</summary>
   /// <param name="gateway">The gateway of the forge.</param>
   /// <param name="address">The address of the repository on its forge.</param>
@@ -302,6 +376,9 @@ internal sealed partial class CommentPublisher(
 
   [LoggerMessage(EventId = 1401, Level = LogLevel.Information, Message = "The comment of pull request {Number} for commit {CommitId}: {Outcome}")]
   private static partial void LogOutcome(ILogger logger, int number, long commitId, CommentOutcome outcome);
+
+  [LoggerMessage(EventId = 1402, Level = LogLevel.Warning, Message = "The forge refused to delete comment {CommentId} of pull request {Number}: it stays, and a new comment is written")]
+  private static partial void LogDeletionRefused(ILogger logger, long commentId, int number);
 
   #endregion
 }

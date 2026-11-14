@@ -243,6 +243,61 @@ public sealed class GitHubAppGatewayCommentTests : IDisposable
   }
 
   [Fact]
+  public async Task DeleteIssueComment_ShouldSendADelete()
+  {
+    _github.Server.Given(Request.Create().WithPath(Comment).UsingDelete()).RespondWith(Response.Create().WithStatusCode(204));
+
+    (await _github.Gateway.DeleteIssueCommentAsync(Repository, 77, Cancellation)).ShouldBe(ForgeCommentDeletion.Deleted);
+
+    _github.Server.LogEntries.Single(static e => e.RequestMessage!.Path == Comment).RequestMessage!.Method.ShouldBe("DELETE");
+  }
+
+  // Deleted already: the caller goes on as if it had deleted it.
+  [Fact]
+  public async Task DeleteIssueComment_NotFound_ShouldSayAbsent()
+  {
+    _github.Server.Given(Request.Create().WithPath(Comment).UsingDelete()).RespondWith(Response.Create().WithStatusCode(404));
+
+    (await _github.Gateway.DeleteIssueCommentAsync(Repository, 77, Cancellation)).ShouldBe(ForgeCommentDeletion.Absent);
+  }
+
+  [Theory]
+  [InlineData(403)]
+  [InlineData(422)]
+  public async Task DeleteIssueComment_Refused_ShouldSayRefused(int status)
+  {
+    _github.Server.Given(Request.Create().WithPath(Comment).UsingDelete()).RespondWith(Response.Create().WithStatusCode(status));
+
+    (await _github.Gateway.DeleteIssueCommentAsync(Repository, 77, Cancellation)).ShouldBe(ForgeCommentDeletion.Refused);
+  }
+
+  [Fact]
+  public async Task DeleteIssueComment_TransientFailure_ShouldBeRetried()
+  {
+    const string Scenario = "transient-delete";
+    _github.Server.Given(Request.Create().WithPath(Comment).UsingDelete())
+           .InScenario(Scenario)
+           .WillSetStateTo("recovered")
+           .RespondWith(Response.Create().WithStatusCode(502));
+    _github.Server.Given(Request.Create().WithPath(Comment).UsingDelete())
+           .InScenario(Scenario)
+           .WhenStateIs("recovered")
+           .RespondWith(Response.Create().WithStatusCode(204));
+
+    (await _github.Gateway.DeleteIssueCommentAsync(Repository, 77, Cancellation)).ShouldBe(ForgeCommentDeletion.Deleted);
+
+    _github.Server.LogEntries.Count(static e => e.RequestMessage!.Path == Comment).ShouldBe(2);
+  }
+
+  [Fact]
+  public async Task DeleteIssueComment_InvalidArguments_ShouldThrow()
+  {
+    await Should.ThrowAsync<ArgumentNullException>(() => _github.Gateway.DeleteIssueCommentAsync(null!, 77, Cancellation));
+    await Should.ThrowAsync<ArgumentOutOfRangeException>(() => _github.Gateway.DeleteIssueCommentAsync(Repository, 0, Cancellation));
+    await Should.ThrowAsync<ArgumentException>(() => _github.Gateway.DeleteIssueCommentAsync(new ForgeRepositoryRef(Forge.GitLab, "42", "1296269"), 77, Cancellation));
+  }
+
+  [Fact]
   public async Task Comments_InvalidArguments_ShouldThrow()
   {
     var other = new ForgeRepositoryRef(Forge.GitLab, "42", "1296269");

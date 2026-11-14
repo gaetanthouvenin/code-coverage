@@ -23,14 +23,25 @@ public sealed class CommentRuleTests
   #region Methods
 
   [Theory]
-  [InlineData("new")]
-  [InlineData("spammy")]
-  public void Parse_NewBehavior_ShouldFallBackToDefaultWithWarning(string behavior)
+  [InlineData("default", CommentBehavior.Default)]
+  [InlineData("once", CommentBehavior.Once)]
+  [InlineData("new", CommentBehavior.New)]
+  [InlineData("spammy", CommentBehavior.Spammy)]
+  public void Parse_Behavior_ShouldReadEveryCodecovValueWithoutWarning(string behavior, CommentBehavior expected)
   {
     var rule = Parse(("behavior", Text(behavior)));
 
+    rule.Behavior.ShouldBe(expected);
+    _warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Parse_UnknownBehavior_ShouldWarnAndUseDefault()
+  {
+    var rule = Parse(("behavior", Text("loud")));
+
     rule.Behavior.ShouldBe(CommentBehavior.Default);
-    _warnings.ShouldBe([new ConfigWarning(ConfigWarning.ClampedValue, "comment.behavior", behavior)]);
+    _warnings.ShouldNotBeEmpty();
   }
 
   [Fact]
