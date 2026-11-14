@@ -121,6 +121,12 @@ jobs:
         shell: pwsh
         run: ./tools/rollout/Test-Rollout.ps1
 
+      # The Azure template (pipelines/templates, M5.02): its script runs against a local fake release of
+      # the uploader published from the sources; no network beyond localhost, no real token.
+      - name: Azure template on its offline self-test
+        shell: pwsh
+        run: ./pipelines/tests/Test-CoverageUploadTemplate.ps1
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v7

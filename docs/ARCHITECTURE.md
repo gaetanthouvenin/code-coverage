@@ -107,6 +107,7 @@ Dockerfile.api  Dockerfile.web  docker-compose.yml  Caddyfile.example
 .github/workflows/ci-cd.yml
 action/action.yml                              (composite GitHub Action, M5; <owner>/code-coverage/action@v1)
 pipelines/templates/coverage-upload.yml        (template Azure Pipelines, M5)
+pipelines/demo/azure-pipelines.yml             (pipeline de démonstration du template, M5.02)
 src/
   Directory.Build.props  default.ruleset
   CodeCoverage.Domain/
@@ -761,31 +762,30 @@ jobs:
 
 ### 5.6 Azure Pipelines (dépôt hébergé sur GitHub)
 
+**M5 : template** `pipelines/templates/coverage-upload.yml` (M5.02), référencé par une ressource de dépôt épinglée sur un tag ; démonstration complète dans `pipelines/demo/azure-pipelines.yml`.
+
 ```yaml
+resources:
+  repositories:
+    - repository: coverage
+      type: github
+      name: <owner>/code-coverage
+      endpoint: <connexion de service GitHub>
+      ref: refs/tags/v1.2.3
 variables:
-  - group: code-coverage       # COVERAGE_TOKEN (secret : jeton d'organisation ou CODECOV_TOKEN importé), COVERAGE_URL, UPLOADER_SHA256_*
+  - group: code-coverage       # COVERAGE_URL, COVERAGE_TOKEN (secret : jeton d'organisation ou CODECOV_TOKEN importé), UPLOADER_SHA256_* (facultatif)
 steps:
   - checkout: self
     fetchDepth: 1              # suffisant : SHA = SYSTEM_PULLREQUEST_SOURCECOMMITID, diff calculé côté serveur
-  - task: DotNetCoreCLI@2
-    inputs: { command: test, arguments: '-c Release --collect:"XPlat Code Coverage"' }
-  - pwsh: |
-      $rid = if ($IsWindows) { 'win-x64' } elseif ($IsMacOS) { 'osx-arm64' } else { 'linux-x64' }
-      $exe = Join-Path $env:AGENT_TEMPDIRECTORY ('coverage-upload' + $(if ($IsWindows) { '.exe' } else { '' }))
-      Invoke-WebRequest "$env:COVERAGE_URL/api/v1/uploader/$rid" -OutFile $exe
-      $expected = (Invoke-RestMethod "$env:COVERAGE_URL/api/v1/uploader/$rid.sha256").Trim()
-      if ((Get-FileHash $exe -Algorithm SHA256).Hash -ne $expected) { Write-Host '##vso[task.logissue type=warning]uploader checksum mismatch'; exit 0 }
-      if (-not $IsWindows) { chmod +x $exe }
-      & $exe --flags backend -f "$env:AGENT_TEMPDIRECTORY/**/coverage.cobertura.xml" --wait
-    displayName: Upload coverage
-    condition: succeededOrFailed()
-    env:
-      COVERAGE_TOKEN: $(COVERAGE_TOKEN)   # les secrets doivent être mappés explicitement
-      COVERAGE_URL: $(COVERAGE_URL)
+  - script: dotnet test -c Release --collect:"XPlat Code Coverage" --results-directory "$(Agent.TempDirectory)/coverage"
+  - template: pipelines/templates/coverage-upload.yml@coverage
+    parameters: { version: 1.2.3, url: $(COVERAGE_URL), files: $(Agent.TempDirectory)/coverage/**/coverage.cobertura.xml, flags: unit }
 ```
 
-- La somme attendue est figée dans le groupe de variables (`UPLOADER_SHA256_*`). La comparaison avec le fichier `.sha256` servi par l'Api ne protège que contre la corruption ; la référence de confiance reste la valeur de la release.
-- En M5, cette étape devient `pipelines/templates/coverage-upload.yml` (paramètres `flags`, `files`, `name`), fourni par ce dépôt.
+- Le template télécharge depuis la **release GitHub** `v{version}` le binaire de l'agent (`linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`) et vérifie sa somme : le `.sha256` de la release, puis la somme épinglée dans le groupe de variables (`UPLOADER_SHA256_{RID}`, par exemple `UPLOADER_SHA256_LINUX_X64`) quand elle existe. Version et somme épinglée changent ensemble (ADR-012 amendé). La route `/api/v1/uploader/{rid}` de l'instance reste un secours manuel.
+- Le script `pwsh` ne lit que `$env:` : aucune expression de template ni macro dans son corps. Les secrets sont mappés explicitement (`COVERAGE_TOKEN`, `CODECOV_TOKEN`) ; une macro non définie reste son propre texte, que le script traite comme absente.
+- En cas d'échec d'installation : `##vso[task.logissue type=warning]` et code 0, sauf `failOnError: true`. Paramètres : `version`, `url`, `files`, `flags`, `name`, `dryRun`, `failOnError`, `downloadUrl`.
+- `pipelines/tests/Test-CoverageUploadTemplate.ps1` exécute le script extrait du template contre une release locale (somme bonne, somme fausse, binaire altéré, serveur injoignable, macro non résolue) ; `ci-cd.yml` le lance.
 - Statuts et commentaires partent du serveur via la GitHub App : **Azure n'a besoin d'aucun identifiant GitHub.**
 
 ---
