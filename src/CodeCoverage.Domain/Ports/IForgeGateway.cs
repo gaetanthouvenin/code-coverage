@@ -171,6 +171,18 @@ public interface IForgeGateway
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="commentId" /> is zero or negative.</exception>
   Task<bool> UpdateIssueCommentAsync(ForgeRepositoryRef repository, long commentId, string body, CancellationToken cancellationToken);
 
+  /// <summary>Deletes a comment.</summary>
+  /// <param name="repository">The repository.</param>
+  /// <param name="commentId">The identifier of the comment.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>
+  ///   What became of the comment: deleted, already gone, or kept because the forge refused the deletion (the
+  ///   permission withdrawn, the pull request locked).
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="repository" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="commentId" /> is zero or negative.</exception>
+  Task<ForgeCommentDeletion> DeleteIssueCommentAsync(ForgeRepositoryRef repository, long commentId, CancellationToken cancellationToken);
+
   /// <summary>Reads the text of a file at a commit.</summary>
   /// <param name="repository">The repository.</param>
   /// <param name="path">The path of the file.</param>

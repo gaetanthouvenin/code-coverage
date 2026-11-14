@@ -547,6 +547,33 @@ internal sealed partial class GitHubAppGateway(
   }
 
   /// <inheritdoc />
+  /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the deletion for another reason or does not answer.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<ForgeCommentDeletion> DeleteIssueCommentAsync(ForgeRepositoryRef repository, long commentId, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(repository);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commentId);
+
+    var (installationId, root) = Locate(repository);
+    var address = string.Create(CultureInfo.InvariantCulture, $"{root}/issues/comments/{commentId}");
+
+    using var request = await CreateRequestAsync(installationId, address, cancellationToken).ConfigureAwait(false);
+
+    request.Method = HttpMethod.Delete;
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    // A refusal that is not a rate limit (the RateLimitHandler raised those already): the comment stays.
+    if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.UnprocessableEntity)
+    {
+      return ForgeCommentDeletion.Refused;
+    }
+
+    return IsAbsent(response, address, NotFound) ? ForgeCommentDeletion.Absent : ForgeCommentDeletion.Deleted;
+  }
+
+  /// <inheritdoc />
   /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
   public async Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken)

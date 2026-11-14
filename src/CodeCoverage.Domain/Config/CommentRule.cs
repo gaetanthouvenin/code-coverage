@@ -227,10 +227,11 @@ public sealed class CommentRule
       case "once":
         return CommentBehavior.Once;
 
-      case "new" or "spammy":
-        warnings.Add(new ConfigWarning(ConfigWarning.ClampedValue, Key("behavior"), node.AsText()));
+      case "new":
+        return CommentBehavior.New;
 
-        return CommentBehavior.Default;
+      case "spammy":
+        return CommentBehavior.Spammy;
 
       default:
         WarnIfPresent(node, "behavior", warnings);

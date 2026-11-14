@@ -49,6 +49,8 @@ public sealed class NotificationServiceCommentTests
 
   private readonly List<(long Id, string Body)> _updated = [];
 
+  private readonly List<long> _deleted = [];
+
   private readonly List<ForgeIssueComment> _onTheForge = [];
 
   private readonly CommentPublisher _publisher;
@@ -84,6 +86,13 @@ public sealed class NotificationServiceCommentTests
          _updated.Add((id, body));
 
          return Task.FromResult(true);
+       });
+    A.CallTo(() => _gateway.DeleteIssueCommentAsync(Address, A<long>._, A<CancellationToken>._))
+     .ReturnsLazily((ForgeRepositoryRef _, long id, CancellationToken _) =>
+       {
+         _deleted.Add(id);
+
+         return Task.FromResult(ForgeCommentDeletion.Deleted);
        });
     A.CallTo(() => _pullRequests.UpdateAsync(A<PullRequest>._, A<CancellationToken>._)).Invokes(() => _saves++);
 
@@ -496,6 +505,112 @@ public sealed class NotificationServiceCommentTests
     await Should.ThrowAsync<ArgumentNullException>(() => _publisher.PublishAsync(_repository, Forge.GitHub, null!, content.Config, content.Context, 0, false, true, Ct));
     await Should.ThrowAsync<ArgumentNullException>(() => _publisher.PublishAsync(_repository, Forge.GitHub, content.Head, null!, content.Context, 0, false, true, Ct));
     await Should.ThrowAsync<ArgumentNullException>(() => _publisher.PublishAsync(_repository, Forge.GitHub, content.Head, content.Config, null!, 0, false, true, Ct));
+  }
+
+  // new: the comment the pull request records and every comment of the application found by its marker are deleted,
+  // then one comment is written at the bottom of the pull request.
+  [Fact]
+  public async Task Comment_New_ShouldDeleteAndCreate()
+  {
+    _onTheForge.AddRange(
+      [
+        new ForgeIssueComment(11, CommentComposer.Marker + "\nquoted by a human", WrittenByThisApplication: false),
+        new ForgeIssueComment(13, CommentComposer.Marker + "\nleft by spammy", WrittenByThisApplication: true),
+        new ForgeIssueComment(12, "Another message of the application", WrittenByThisApplication: true),
+      ]
+    );
+    var content = Content(Config(("behavior", ConfigNode.FromText("new"))));
+    content.Pull.RecordComment(77, new byte[PullRequest.CommentBodyHashLength], HeadSha, Now);
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Created);
+
+    _deleted.ShouldBe([13, 77], ignoreOrder: true);
+    _created.ShouldHaveSingleItem().ShouldBe(Expected(content));
+    _updated.ShouldBeEmpty();
+    content.Pull.CommentId.ShouldBe(9001);
+    _saves.ShouldBe(1);
+  }
+
+  // As Codecov does: each accepted notification writes again, even with the same body on the same head.
+  [Fact]
+  public async Task Comment_New_SameBodyOnTheSameHead_ShouldWriteAgain()
+  {
+    var content = Content(Config(("behavior", ConfigNode.FromText("new"))));
+    await PublishAsync(content);
+    _onTheForge.Add(new ForgeIssueComment(9001, _created[0], WrittenByThisApplication: true));
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Created);
+
+    _deleted.ShouldBe([9001]);
+    _created.Count.ShouldBe(2);
+    content.Pull.CommentId.ShouldBe(9002);
+  }
+
+  [Fact]
+  public async Task Comment_New_DeletionRefused_ShouldStillCreate()
+  {
+    A.CallTo(() => _gateway.DeleteIssueCommentAsync(Address, 77, A<CancellationToken>._)).Returns(ForgeCommentDeletion.Refused);
+    var content = Content(Config(("behavior", ConfigNode.FromText("new"))));
+    content.Pull.RecordComment(77, new byte[PullRequest.CommentBodyHashLength], HeadSha, Now);
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Created);
+
+    _created.ShouldHaveSingleItem();
+    content.Pull.CommentId.ShouldBe(9001);
+  }
+
+  // The deleted comment's identifier stays: the next notification does not take the pull request for one never
+  // commented, and require_changes is not asked again.
+  [Fact]
+  public async Task Comment_New_CreateRefused_ShouldKeepTheDeletedIdentifier()
+  {
+    A.CallTo(() => _gateway.CreateIssueCommentAsync(Address, 123, A<string>._, A<CancellationToken>._)).Returns((long?)null);
+    var content = Content(Config(("behavior", ConfigNode.FromText("new"))));
+    content.Pull.RecordComment(77, new byte[PullRequest.CommentBodyHashLength], HeadSha, Now);
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Skipped);
+
+    _deleted.ShouldBe([77]);
+    content.Pull.CommentId.ShouldBe(77);
+  }
+
+  [Fact]
+  public async Task Comment_Spammy_ShouldAlwaysCreate()
+  {
+    var content = Content(Config(("behavior", ConfigNode.FromText("spammy"))));
+
+    for (var i = 0; i < 3; i++)
+    {
+      (await PublishAsync(content)).ShouldBe(CommentOutcome.Created);
+      _onTheForge.Add(new ForgeIssueComment(9001 + i, _created[i], WrittenByThisApplication: true));
+    }
+
+    _created.Count.ShouldBe(3);
+    _created.ShouldAllBe(body => body == Expected(content));
+    _deleted.ShouldBeEmpty();
+    _updated.ShouldBeEmpty();
+    content.Pull.CommentId.ShouldBe(9003);
+  }
+
+  [Theory]
+  [InlineData("new")]
+  [InlineData("spammy")]
+  public async Task Comment_NewOrSpammy_FirstPublication_ShouldAskRequireChanges(string behavior)
+  {
+    var content = Content(
+      Config(("behavior", ConfigNode.FromText(behavior)), ("require_changes", ConfigNode.FromText("uncovered_patch"))),
+      Comparison(patch: new CoverageTotals(40, 0, 0, 0, 0))
+    );
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Skipped);
+
+    _created.ShouldBeEmpty();
+    _deleted.ShouldBeEmpty();
+
+    // Once a comment exists, require_changes is not asked again.
+    _onTheForge.Add(new ForgeIssueComment(13, CommentComposer.Marker + "\nearlier", WrittenByThisApplication: true));
+
+    (await PublishAsync(content)).ShouldBe(CommentOutcome.Created);
   }
 
   // The file counts come from the commits themselves, not from the sample.
