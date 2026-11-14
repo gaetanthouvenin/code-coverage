@@ -18,11 +18,22 @@ fail() {
   exit 0
 }
 
+# The file is read on stdin: given a name with a backslash (RUNNER_TEMP on Windows, D:\a\_temp),
+# GNU sha256sum escapes it and prefixes its line with a backslash (M4.02g). Prints the 64 lowercase
+# hexadecimal characters of the sum, or nothing.
 sha256_of() {
+  local line
+
   if command -v sha256sum > /dev/null 2>&1; then
-    sha256sum "$1" | cut -d ' ' -f 1
+    line=$(sha256sum < "$1")
   else
-    shasum -a 256 "$1" | cut -d ' ' -f 1
+    line=$(shasum -a 256 < "$1")
+  fi
+
+  line=$(printf '%s' "$line" | tr 'A-F' 'a-f')
+
+  if [[ "$line" =~ ^([0-9a-f]{64}) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
   fi
 }
 
@@ -87,6 +98,11 @@ curl --fail --silent --show-error --location --retry 3 --output "$binary.sha256"
   || fail "the download of $base/v$version/$file.sha256 failed."
 
 actual=$(sha256_of "$binary")
+
+if [ -z "$actual" ]; then
+  rm -f "$binary"
+  fail "the SHA-256 of $file could not be computed."
+fi
 published=$(tr -d ' \r\n' < "$binary.sha256")
 
 if [ "$actual" != "$published" ]; then

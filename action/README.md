@@ -51,6 +51,11 @@ A failed download, a sum that does not match, or an unsupported runner writes a 
 the cause and ends the step with exit code 0; the upload step is skipped. The uploader itself exits
 with 0 on an upload failure too. Set `fail-on-error: true` to fail instead.
 
+`v0.1.0-beta.1` warned of a different sum on every Windows runner and uploaded nothing: the sum was
+computed from a file name under `RUNNER_TEMP` (`D:\a\_temp\…`), which `sha256sum` escapes with a
+leading `\`. From `v0.1.0-beta.2` the binary is read on stdin, so the warning only means the bytes
+differ (M4.02g).
+
 ## Where the binary comes from
 
 The binaries and their `.sha256` are those of the GitHub release of the pinned version, extracted
