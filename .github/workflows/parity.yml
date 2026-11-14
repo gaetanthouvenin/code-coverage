@@ -1,0 +1,75 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - daily parity with Codecov (M4.06): tools/parity/Compare-WithCodecov.ps1 against the
+# APIs of an instance and of Codecov, for the repositories of one organization.
+#
+# Skipped cleanly unless the repository is configured:
+#   variables PARITY_API_URL (the Api of the instance) and PARITY_REPOSITORIES (owner/name,
+#   space-separated, one organization), secrets PARITY_COVERAGE_TOKEN (a cvp_ token of a reader in that
+#   organization) and PARITY_CODECOV_TOKEN (an API token of Codecov).
+# The artifact is anonymized (no repository name, no file path): the artifacts of a public repository
+# are readable by anyone signed in. For private pilot repositories, run this workflow from a private
+# copy of the repository, where the full report may be kept.
+# ------------------------------------------------------------------------------------------------
+name: Parity with Codecov
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  parity:
+    name: Parity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PARITY_API_URL: ${{ vars.PARITY_API_URL }}
+      PARITY_REPOSITORIES: ${{ vars.PARITY_REPOSITORIES }}
+      COVERAGE_API_TOKEN: ${{ secrets.PARITY_COVERAGE_TOKEN }}
+      CODECOV_API_TOKEN: ${{ secrets.PARITY_CODECOV_TOKEN }}
+
+    steps:
+      - id: configured
+        name: Check the configuration
+        shell: bash
+        run: |
+          if [ -z "$PARITY_API_URL" ] || [ -z "$PARITY_REPOSITORIES" ] || [ -z "$COVERAGE_API_TOKEN" ] || [ -z "$CODECOV_API_TOKEN" ]; then
+            echo "Parity is not configured (PARITY_API_URL, PARITY_REPOSITORIES, PARITY_COVERAGE_TOKEN, PARITY_CODECOV_TOKEN): skipped."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.configured.outputs.run == 'true'
+        uses: actions/checkout@v6
+
+      - if: steps.configured.outputs.run == 'true'
+        name: Compare with Codecov
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path parity | Out-Null
+          $index = 0
+          $failed = 0
+          foreach ($slug in ($env:PARITY_REPOSITORIES -split '\s+' | Where-Object { $_ })) {
+            $index++
+            try {
+              ./tools/parity/Compare-WithCodecov.ps1 -ApiUrl $env:PARITY_API_URL -Slug $slug -Execute -Anonymize `
+                -OutputText "parity/repository-$index.txt" -OutputJson "parity/repository-$index.json"
+            }
+            catch {
+              # The index only: the log of a public repository must not name a private one.
+              $failed++
+              Write-Host "::warning::Parity of repository $index failed."
+            }
+          }
+          if ($failed -gt 0) { throw "$failed repository(ies) failed." }
+
+      - if: always() && steps.configured.outputs.run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: parity-report
+          path: parity
+          retention-days: 30
