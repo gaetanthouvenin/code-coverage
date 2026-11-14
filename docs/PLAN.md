@@ -446,6 +446,7 @@ graph TD
   M4_02b --> M4_02c["M4.02c COMPOSE_FILE relatif"]
   M4_02b --> M4_02d["M4.02d Exclusion des mises à jour d'images"]
   M4_02d --> M4_02e["M4.02e PostgreSQL 18"]
+  M4_02f["M4.02f Formulaires de /setup et administrateurs par login"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2536,6 +2537,29 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** toute la suite de base de données sur PostgreSQL 18 (Testcontainers) ; `compose-smoke` sur l'image 18 ; `test-backup-restore.ps1` d'un dump 17 vers une base 18 ; garde de version dans `Test-DeployProduction.ps1` ; puis la migration de la base de l'hôte (propriétaire).
 - **Acceptation :** la CI est verte sur PostgreSQL 18 ; un déploiement sur une base 17 est refusé avec la procédure nommée ; la base de l'hôte est migrée sans perte, comptes de lignes identiques, et l'ancien dossier est gardé jusqu'à sa suppression par le propriétaire.
 - **Dépend de :** M4.02b, M4.02d
+
+#### M4.02f — Formulaires de `/setup` réparés et administrateurs saisis par login
+- **Issue :** [#263](https://github.com/gaetanthouvenin/code-coverage/issues/263)
+- **Objectif :** rendre l'assistant de premier démarrage utilisable sans contournement. Constaté sur l'instance de production le 2026-11-14, il a fallu poster les trois étapes à la main. Deux défauts empêchaient tout envoi :
+  1. chaque `EditForm` de `Setup.razor` contient un `<AntiforgeryToken />` en plus du jeton que `EditForm` rend déjà : le jeton arrive deux fois, la validation échoue, et la réponse est 400 sans corps ni journal ;
+  2. `CcTextField` ne rend pas d'attribut `name` : la page est en rendu statique, donc le navigateur n'envoie aucune valeur.
+
+  Deux défauts d'usage s'y ajoutent :
+  1. le nom d'App par défaut, « CodeCoverage », est réservé sur GitHub au compte `@codecoverage` ;
+  2. les administrateurs se saisissent par identifiant numérique, que personne ne connaît.
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :**
+  - **`Setup.razor`** : les `<AntiforgeryToken />` en double sont retirés des `EditForm`, le jeton de `EditForm` suffit. Le même contrôle porte sur `SignIn.razor` et `NavMenu.razor`.
+  - **`CcTextField`** : paramètre `Name`. Sans `Name`, le composant le déduit de `ValueExpression` quand il est dans un `EditForm` à rendu statique, comme `InputBase` (`Urls.WebPublicUrl`, `appName`…), et `Setup.razor` le passe.
+  - **Nom d'App par défaut** : `CodeCoverage-{login}` quand le login est connu, sinon un champ vide obligatoire. Le refus de GitHub est expliqué sur la page.
+  - **Administrateurs** : le champ accepte des logins ou des identifiants numériques, séparés par des virgules. Les logins sont convertis en identifiants par un port de lecture `GET /users/{login}` (`IGitHubAppGateway`, ou une passerelle publique si l'App n'a pas encore de jeton) avant `CompleteSetup`. Seuls les identifiants sont stockés (`Access:AdminUserIds` ne change pas, l'épinglage par identifiant de M3.42 reste). La page affiche « login → identifiant » pour confirmation, et un login inconnu est refusé avec un code d'erreur `Setting.UnknownGitHubLogin` (`SettingErrors.cs`, `Common.resx` et `Common.fr.resx`).
+- **Tests :**
+  - **`Web.Tests`** : un vrai envoi de chaque formulaire de `/setup` par `WebApplicationFactory`. Le test lit la page, poste le formulaire tel qu'un navigateur le ferait, avec tous ses champs nommés, puis vérifie l'étape enregistrée. Il échoue sur un jeton antiforgery en double comme sur un champ sans `name`.
+  - **bUnit** : `CcTextField` rend `name`.
+  - **Application** : la conversion login → identifiant, avec les cas login inconnu, valeurs mêlées et doublons.
+  - **Propriétaire** : un premier démarrage complet sur une instance neuve.
+- **Acceptation :** l'assistant se termine depuis le navigateur, sans outil ni console. Un administrateur se saisit par son login. Un login inconnu est refusé avant tout enregistrement.
+- **Dépend de :** M3.43
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
