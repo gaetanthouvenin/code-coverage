@@ -37,6 +37,13 @@ if ($Arguments -contains '-X') {
 $path = $Arguments[1]
 $file = Join-Path $env:ROLLOUT_SHIM_DIR (($path -replace '/', '__') + '.json')
 
+# A recorded refusal: "<path>.error" holds the message gh prints (e.g. "Branch not protected (HTTP 404)").
+$refusal = [System.IO.Path]::ChangeExtension($file, '.error')
+if (Test-Path -LiteralPath $refusal) {
+  [Console]::Error.WriteLine((Get-Content -LiteralPath $refusal -Raw).Trim())
+  exit 1
+}
+
 if (-not (Test-Path -LiteralPath $file)) {
   [Console]::Error.WriteLine('gh: Not Found (HTTP 404)')
   exit 1

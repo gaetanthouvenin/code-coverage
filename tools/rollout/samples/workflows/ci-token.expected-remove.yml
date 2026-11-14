@@ -1,0 +1,20 @@
+name: Front
+
+on: [pull_request]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm ci && npm test -- --coverage
+
+      - name: Upload coverage to CodeCoverage
+        if: ${{ !cancelled() }}
+        uses: octo-org/code-coverage/action@v1
+        with:
+          version: 1.2.3
+          sha256: abababababababababababababababababababababababababababababababab
+          url: https://coverage-api.example.com
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}
