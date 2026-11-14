@@ -222,7 +222,9 @@ code {
 
 .cc-topnav__bar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* The side columns never get narrower than their content: the tabs stay centred when there is room and slide
+     aside rather than under the switcher (M4.02h). */
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   gap: 16px;
   min-height: 70px;
@@ -1567,6 +1569,28 @@ code {
   }
 }
 
+/* Below 1320px the start (brand and switcher) is wider than a third of the bar: its column fits its content and the
+   tabs are centred in the space left, so they never slide under the switcher (M4.02h). */
+@media (max-width: 1320px) {
+  .cc-topnav__bar {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .cc-topnav__tabs {
+    justify-self: center;
+  }
+
+  .cc-user-menu__who {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .cc-topnav__org {
+    width: 210px;
+  }
+}
+
 @media (max-width: 1040px) {
   .cc-topnav__bar .cc-topnav__org {
     display: none;
@@ -1772,6 +1796,11 @@ code {
   padding: 0 18px 18px;
 }
 
+/* A table with no panel head above it gets the same margin at the top as at the bottom (M4.02h). */
+.cc-panel > .cc-table-wrap:first-child {
+  padding-top: 18px;
+}
+
 .cc-table {
   width: 100%;
   border-collapse: separate;
@@ -1854,6 +1883,10 @@ code {
 @media (max-width: 640px) {
   .cc-panel > .cc-table-wrap {
     padding: 0 6px 8px;
+  }
+
+  .cc-panel > .cc-table-wrap:first-child {
+    padding-top: 8px;
   }
 }
 

@@ -448,7 +448,7 @@ code {
 
 .cc-topnav__bar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   gap: 16px;
   min-height: 70px;
@@ -1796,6 +1796,7 @@ code {
 .cc-table:has(tbody[id^="home-"]) th:first-child{width:30%}
 .cc-table-wrap{overflow-x:auto}
 .cc-panel>.cc-table-wrap{padding:0 18px 18px}
+.cc-panel>.cc-table-wrap:first-child{padding-top:18px}
 .cc-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
 .cc-table th{padding:13px 16px;background:var(--cc-card-2);color:var(--cc-fg-2);font-size:13px;font-weight:500;text-align:left;white-space:nowrap}
 .cc-table th:first-child{border-radius:12px 0 0 12px}
@@ -1921,10 +1922,10 @@ textarea.cc-input{height:auto;padding:12px 16px;border-radius:var(--cc-r-md);fon
 .cc-orgmark{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:13px;background:var(--cc-accent-soft);color:var(--cc-accent-fg);font-size:13px;font-weight:700;flex-shrink:0}
 @media (min-width:1041px){.cc-topnav__end .cc-topnav__menu-button{display:none}}
 @media (max-width:1320px){.cc-topnav__bar{grid-template-columns:auto 1fr auto}.cc-topnav__tabs{justify-self:center}.cc-user-menu__who{display:none}}
-@media (max-width:1180px){.cc-grid--main{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1180px){.cc-grid--main{grid-template-columns:minmax(0,1fr)}.cc-topnav__org{width:210px}}
 @media (max-width:1040px){.cc-topnav__bar .cc-topnav__org{display:none}}
 @media (max-width:760px){.cc-setting{grid-template-columns:minmax(0,1fr)}.cc-panel__stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.cc-chart__box{min-width:0}.cc-panel>.cc-table-wrap{padding:0 6px 8px}.cc-panel__foot{padding:4px 16px 16px}.cc-chart{padding:0 6px 10px}.cc-source{margin:0 6px 8px}}
+@media (max-width:640px){.cc-chart__box{min-width:0}.cc-panel>.cc-table-wrap{padding:0 6px 8px}.cc-panel>.cc-table-wrap:first-child{padding-top:8px}.cc-panel__foot{padding:4px 16px 16px}.cc-chart{padding:0 6px 10px}.cc-source{margin:0 6px 8px}}
 @media (max-width:440px){.cc-mini-grid{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.cc-switch::after{transition:none}}
 
