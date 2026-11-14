@@ -309,11 +309,13 @@ internal sealed class SqlJobQueue(
     }
   }
 
-  /// <summary>Measures the queue, for the gauges of the jobs.</summary>
+  /// <summary>Measures the queue and the operational tables, for the gauges of the jobs.</summary>
   /// <param name="cancellationToken">A token to cancel the queries.</param>
   /// <returns>
-  ///   The number of queued jobs by type, and how long the oldest job that may run (<c>RunAfter</c> passed) has
-  ///   waited since its <c>RunAfter</c>: a debounced or delayed job does not wait before its time.
+  ///   The number of queued jobs by type, how long the oldest job that may run (<c>RunAfter</c> passed) has waited
+  ///   since its <c>RunAfter</c> (a debounced or delayed job does not wait before its time), the number of dead jobs,
+  ///   the age of the last beat of a worker (<c>WorkerHeartbeats</c>) and the size and the remaining requests of the
+  ///   GitHub quota of each installation (<c>GitHubQuotas</c>, a quota past its reset counted as full). Operational tables only, without query filter (ADR-013).
   /// </returns>
   internal async Task<JobQueueSnapshot> MeasureAsync(CancellationToken cancellationToken)
   {
@@ -330,8 +332,29 @@ internal sealed class SqlJobQueue(
                              .FirstOrDefaultAsync(cancellationToken)
                              .ConfigureAwait(false);
     var age = oldest is { } runAfter ? Math.Max(0, (now - runAfter).TotalSeconds) : 0;
+    var dead = await context.Jobs.AsNoTracking().LongCountAsync(static j => j.State == JobState.Dead, cancellationToken).ConfigureAwait(false);
+    var lastBeat = await context.WorkerHeartbeats
+                                .AsNoTracking()
+                                .Select(static h => (DateTimeOffset?)h.LastBeatAt)
+                                .MaxAsync(cancellationToken)
+                                .ConfigureAwait(false);
+    var quotas = await context.GitHubQuotas
+                              .AsNoTracking()
+                              .Where(static q => q.Limit != null)
+                              .Select(static q => new { q.Installation, q.Remaining, q.Limit, q.ResetAt })
+                              .ToListAsync(cancellationToken)
+                              .ConfigureAwait(false);
+    var limits = quotas.ToDictionary(static q => q.Installation, static q => q.Limit!.Value, StringComparer.Ordinal);
 
-    return new JobQueueSnapshot(byType, age);
+    // The remaining requests of the same rows: once the reset time has passed, GitHub gave the whole quota back.
+    var remaining = quotas.ToDictionary(
+      static q => q.Installation,
+      q => q.ResetAt is { } reset && reset <= now ? q.Limit!.Value : q.Remaining,
+      StringComparer.Ordinal
+    );
+    double? heartbeat = lastBeat is { } beat ? Math.Max(0, (now - beat).TotalSeconds) : null;
+
+    return new JobQueueSnapshot(byType, age, dead, heartbeat, limits, remaining);
   }
 
   /// <summary>

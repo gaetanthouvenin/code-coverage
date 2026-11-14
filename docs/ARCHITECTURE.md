@@ -1835,15 +1835,17 @@ volumes: { db: {}, api-data: {}, web-data: {} }
   - `parse_duration_seconds{format}` ;
   - `unresolved_paths_total` ;
   - `jobs_queued{type}`, `job_oldest_queued_age_seconds`, `jobs_dead_total` ;
+  - `jobs_dead` (jobs morts en base), `worker_heartbeat_age_seconds` (âge du dernier battement de `WorkerHeartbeats`), `github_ratelimit_limit{installation}` (taille du quota, de `GitHubQuotas`) et `github_ratelimit_recorded_remaining{installation}` (requêtes restantes des mêmes lignes, quota plein une fois l'heure de remise passée), lues avec `jobs_queued` par l'échantillonneur (`JobQueueMetricsSampler`, toutes les 30 s, seulement quand un écouteur collecte ces jauges) sur les tables opérationnelles, jamais dans un rappel de collecte (M4.04) ;
   - `notify_latency_seconds` (du dernier upload au statut publié) ;
   - `github_ratelimit_remaining{installation}`, `github_requests_total{endpoint,status}` ;
   - `webhook_signature_failures_total`.
-- **Alertes suggérées :**
-  - jobs morts > 0 ;
-  - plus ancien job en file > 10 minutes ;
-  - pas de heartbeat du worker depuis 2 minutes ;
-  - échecs de signature de webhook ;
-  - quota GitHub < 10 %.
+- **Alertes** (M4.04, règles Prometheus de `deploy/observability/alerts.yml`, testées par `promtool test rules` en CI ; un collecteur OpenTelemetry les expose à Prometheus, `deploy/observability/docker-compose.observability.yml`) :
+  - jobs morts > 0 (`jobs_dead`) ;
+  - plus ancien job en file > 10 minutes (`job_oldest_queued_age_seconds`) ;
+  - pas de heartbeat du worker depuis 2 minutes (`worker_heartbeat_age_seconds`), aucun battement enregistré alors que les jauges des jobs sont exportées (aucun worker n'a jamais battu, ou son dernier battement a été purgé après 24 h), et aucune métrique exportée depuis 5 minutes ;
+  - échecs de signature de webhook (`increase(webhook_signature_failures_total[10m])`) ;
+  - quota GitHub < 10 % (`github_ratelimit_recorded_remaining / github_ratelimit_limit`, les deux lus des mêmes lignes de `GitHubQuotas`).
+  Le récepteur des alertes reste un choix d'exploitation hors dépôt (`docs/operations.md`).
 - Les mêmes indicateurs sont visibles dans `/admin/operations`.
 - **Exposition opérateur (ADR-013).** Les journaux, les traces et les métriques ne sont pas cloisonnés par organisation : qui y accède voit toutes les organisations. La console d'instance n'expose que des métadonnées.
 

@@ -1,0 +1,213 @@
+# Unit tests of alerts.yml: `promtool test rules alerts.test.yml` (run by ci-cd.yml in the pinned
+# Prometheus image). Each alert fires on a synthetic series and stays silent on a healthy one.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: dead jobs
+    interval: 1m
+    input_series:
+      - series: 'jobs_dead{job="codecoverage-api"}'
+        values: "0 0 1 1 1"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CodeCoverageDeadJobs
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: CodeCoverageDeadJobs
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "1 dead job(s) in the queue"
+              description: "Jobs used all their attempts. Read their last error on /admin/operations, fix the cause, then retry them (POST /api/v1/ops/jobs/{id}/retry)."
+
+  - name: stalled queue
+    interval: 1m
+    input_series:
+      - series: 'job_oldest_queued_age_seconds{job="codecoverage-api"}'
+        values: "0 30 700 760 820 880"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CodeCoverageJobQueueStalled
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CodeCoverageJobQueueStalled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "The oldest runnable job has waited 14m 40s"
+              description: "No worker takes the queue. Check that an Api with Worker:Enabled runs, its logs, and the database."
+
+  - name: stale heartbeat
+    interval: 1m
+    input_series:
+      # Two Apis read the same row, a few seconds apart: the alert follows the oldest reading.
+      - series: 'worker_heartbeat_age_seconds{job="codecoverage-api",instance="a"}'
+        values: "5 10 150 210 270"
+      - series: 'worker_heartbeat_age_seconds{job="codecoverage-api",instance="b"}'
+        values: "5 10 151 211 271"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CodeCoverageWorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: CodeCoverageWorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No worker heartbeat for 4m 31s"
+              description: "No Api runs the job worker. Start one (Worker:Enabled true), or read why it stopped."
+
+  - name: heartbeat of an Api that stopped
+    interval: 1m
+    input_series:
+      # The stopped Api keeps its last, fresh value a while; the live one sees the beats age.
+      - series: 'worker_heartbeat_age_seconds{job="codecoverage-api",instance="stopped"}'
+        values: "2 2 2 2 2"
+      - series: 'worker_heartbeat_age_seconds{job="codecoverage-api",instance="live"}'
+        values: "60 130 190 250 310"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CodeCoverageWorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No worker heartbeat for 4m 10s"
+              description: "No Api runs the job worker. Start one (Worker:Enabled true), or read why it stopped."
+
+  - name: metrics present
+    interval: 1m
+    input_series:
+      - series: 'job_oldest_queued_age_seconds{job="codecoverage-api"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: CodeCoverageMetricsAbsent
+        exp_alerts: []
+
+  - name: metrics absent
+    interval: 1m
+    input_series:
+      - series: 'jobs_queued{job="codecoverage-api",type="Ping"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: CodeCoverageMetricsAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No Api has exported the job gauges for 5 minutes"
+              description: "Every Api is down, or OTEL_EXPORTER_OTLP_ENDPOINT, the collector or Prometheus is broken."
+
+  - name: no heartbeat ever
+    interval: 1m
+    input_series:
+      # The Apis sample the queue, but no worker ever beat.
+      - series: 'job_oldest_queued_age_seconds{job="codecoverage-api"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CodeCoverageWorkerHeartbeatMissing
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CodeCoverageWorkerHeartbeatMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No worker heartbeat is recorded"
+              description: "No Api has run the job worker for a day, or ever. Start one (Worker:Enabled true), or read why it stopped."
+
+  - name: heartbeat purged
+    interval: 1m
+    input_series:
+      # The last beat grows old, then its row is purged: the stale rule resolves, the missing one fires.
+      - series: 'job_oldest_queued_age_seconds{job="codecoverage-api"}'
+        values: "0x20"
+      - series: 'worker_heartbeat_age_seconds{job="codecoverage-api"}'
+        values: "86000 86060 86120 86180 86240 86300 86360"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CodeCoverageWorkerHeartbeatMissing
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: CodeCoverageWorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: CodeCoverageWorkerHeartbeatMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No worker heartbeat is recorded"
+              description: "No Api has run the job worker for a day, or ever. Start one (Worker:Enabled true), or read why it stopped."
+
+  - name: webhook signatures
+    interval: 1m
+    input_series:
+      # A restart resets the counter: only the increase counts.
+      - series: 'webhook_signature_failures_total{job="codecoverage-api"}'
+        values: "3 3 3 3 3 3 3 3 3 3 3 3 0 0 2"
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: CodeCoverageWebhookSignatureFailures
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: CodeCoverageWebhookSignatureFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "2.2222222222222223 webhook delivery(ies) with an invalid signature in 10 minutes"
+              description: "Compare GitHub:WebhookSecret with the secret of the App, or look for forged requests."
+
+  - name: first webhook failure after a start
+    interval: 1m
+    input_series:
+      # The series of a host appears at its first failure, already at 1.
+      - series: 'webhook_signature_failures_total{job="codecoverage-api"}'
+        values: "_ _ _ 1 1 1"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CodeCoverageWebhookSignatureFailures
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: CodeCoverageWebhookSignatureFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "1 webhook delivery(ies) with an invalid signature in 10 minutes"
+              description: "Compare GitHub:WebhookSecret with the secret of the App, or look for forged requests."
+
+  - name: github quota
+    interval: 1m
+    input_series:
+      - series: 'github_ratelimit_recorded_remaining{job="codecoverage-api",installation="101"}'
+        values: "4000 900 450 400 400 400 400 400"
+      - series: 'github_ratelimit_limit{job="codecoverage-api",installation="101"}'
+        values: "5000x7"
+      - series: 'github_ratelimit_recorded_remaining{job="codecoverage-api",installation="202"}'
+        values: "4999x7"
+      - series: 'github_ratelimit_limit{job="codecoverage-api",installation="202"}'
+        values: "5000x7"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CodeCoverageGitHubQuotaLow
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CodeCoverageGitHubQuotaLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              installation: "101"
+            exp_annotations:
+              summary: "Installation 101 has 8% of its GitHub quota left"
+              description: "Jobs that call GitHub will wait for the reset (they are rescheduled without losing an attempt)."

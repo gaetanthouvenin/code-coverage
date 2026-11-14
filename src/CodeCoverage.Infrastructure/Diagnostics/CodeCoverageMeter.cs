@@ -53,6 +53,21 @@ public sealed class CodeCoverageMeter
   /// <summary>The counter of the jobs that used all their attempts.</summary>
   public const string JobsDeadTotal = "jobs_dead_total";
 
+  /// <summary>The gauge of the dead jobs in the queue, which wait for an operator (M4.04).</summary>
+  public const string JobsDead = "jobs_dead";
+
+  /// <summary>The gauge of the age of the last beat of a worker, in seconds (M4.04).</summary>
+  public const string WorkerHeartbeatAgeSeconds = "worker_heartbeat_age_seconds";
+
+  /// <summary>The gauge of the size of the GitHub quota, tagged <c>installation</c> (M4.04).</summary>
+  public const string GitHubRateLimitLimit = "github_ratelimit_limit";
+
+  /// <summary>
+  ///   The gauge of the GitHub requests left, as recorded in the database with the size of the quota, tagged
+  ///   <c>installation</c> (M4.04): the numerator of the quota alert.
+  /// </summary>
+  public const string GitHubRateLimitRecordedRemaining = "github_ratelimit_recorded_remaining";
+
   /// <summary>The histogram of the delays from the last upload of a commit to its published status, in seconds.</summary>
   public const string NotifyLatencySeconds = "notify_latency_seconds";
 
@@ -74,6 +89,14 @@ public sealed class CodeCoverageMeter
   private readonly ObservableGauge<double> _jobOldestQueuedAge;
 
   private readonly ObservableGauge<long> _jobsQueued;
+
+  private readonly ObservableGauge<long> _jobsDeadGauge;
+
+  private readonly ObservableGauge<double> _workerHeartbeatAge;
+
+  private readonly ObservableGauge<long> _githubRateLimitLimit;
+
+  private readonly ObservableGauge<long> _githubRateLimitRecordedRemaining;
 
   private readonly ConcurrentDictionary<string, byte> _knownJobTypes = new(StringComparer.Ordinal);
 
@@ -120,6 +143,25 @@ public sealed class CodeCoverageMeter
       "How long the oldest job that may run has waited for a worker."
     );
     _jobsDead = meter.CreateCounter<long>(JobsDeadTotal, "{job}", "The jobs that used all their attempts.");
+    _jobsDeadGauge = meter.CreateObservableGauge(JobsDead, ObserveJobsDead, "{job}", "The dead jobs in the queue, which wait for an operator.");
+    _workerHeartbeatAge = meter.CreateObservableGauge(
+      WorkerHeartbeatAgeSeconds,
+      ObserveWorkerHeartbeatAge,
+      "s",
+      "How long ago a worker last beat."
+    );
+    _githubRateLimitLimit = meter.CreateObservableGauge(
+      GitHubRateLimitLimit,
+      ObserveGitHubRateLimitLimit,
+      "{request}",
+      "The size of the GitHub quota, by installation, as last recorded."
+    );
+    _githubRateLimitRecordedRemaining = meter.CreateObservableGauge(
+      GitHubRateLimitRecordedRemaining,
+      ObserveGitHubRateLimitRecordedRemaining,
+      "{request}",
+      "The GitHub requests left, by installation, as last recorded with the size of the quota."
+    );
     _notifyLatency = meter.CreateHistogram<double>(
       NotifyLatencySeconds,
       "s",
@@ -145,14 +187,23 @@ public sealed class CodeCoverageMeter
 
   /// <summary>Gets a value indicating whether a listener collects the gauges of the jobs.</summary>
   /// <value>
-  ///   <see langword="true" /> when a listener (the OpenTelemetry exporter, <c>dotnet-counters</c>, a test) enabled
-  ///   <see cref="JobsQueued" /> or <see cref="JobOldestQueuedAgeSeconds" />; otherwise <see langword="false" />.
+  ///   <see langword="true" /> when a listener (the OpenTelemetry exporter, <c>dotnet-counters</c>, a test) enabled one
+  ///   of the gauges the sampler feeds: <see cref="JobsQueued" />, <see cref="JobOldestQueuedAgeSeconds" />,
+  ///   <see cref="JobsDead" />, <see cref="WorkerHeartbeatAgeSeconds" />, <see cref="GitHubRateLimitLimit" /> or
+  ///   <see cref="GitHubRateLimitRecordedRemaining" />;
+  ///   otherwise <see langword="false" />.
   /// </value>
   /// <remarks>
   ///   Read by <see cref="Jobs.JobQueueMetricsSampler" />, which does not query the database for gauges that
   ///   nobody collects.
   /// </remarks>
-  internal bool IsJobQueueObserved => _jobsQueued.Enabled || _jobOldestQueuedAge.Enabled;
+  internal bool IsJobQueueObserved =>
+    _jobsQueued.Enabled
+    || _jobOldestQueuedAge.Enabled
+    || _jobsDeadGauge.Enabled
+    || _workerHeartbeatAge.Enabled
+    || _githubRateLimitLimit.Enabled
+    || _githubRateLimitRecordedRemaining.Enabled;
 
   #endregion
 
@@ -246,6 +297,30 @@ public sealed class CodeCoverageMeter
 
     Volatile.Write(ref _jobQueue, snapshot);
   }
+
+  /// <summary>Publishes the dead jobs, once the queue was reported.</summary>
+  /// <returns>The number of dead jobs, or no measurement before the first report.</returns>
+  private IEnumerable<Measurement<long>> ObserveJobsDead() =>
+    Volatile.Read(ref _jobQueue) is { } queue ? [new Measurement<long>(queue.Dead)] : [];
+
+  /// <summary>Publishes the size of the GitHub quota of each installation, as the sampler last read it.</summary>
+  /// <returns>One measurement per installation whose quota size is known.</returns>
+  private IEnumerable<Measurement<long>> ObserveGitHubRateLimitLimit() =>
+    Volatile.Read(ref _jobQueue) is { GitHubLimits: { } limits }
+      ? limits.Select(static p => new Measurement<long>(p.Value, new KeyValuePair<string, object?>("installation", p.Key))).ToList()
+      : [];
+
+  /// <summary>Publishes the requests left on the GitHub quota of each installation, as the sampler last read them.</summary>
+  /// <returns>One measurement per installation whose quota size is known.</returns>
+  private IEnumerable<Measurement<long>> ObserveGitHubRateLimitRecordedRemaining() =>
+    Volatile.Read(ref _jobQueue) is { GitHubRemaining: { } remaining }
+      ? remaining.Select(static p => new Measurement<long>(p.Value, new KeyValuePair<string, object?>("installation", p.Key))).ToList()
+      : [];
+
+  /// <summary>Publishes the age of the last beat of a worker, once one was read.</summary>
+  /// <returns>The age in seconds, or no measurement when no worker ever beat.</returns>
+  private IEnumerable<Measurement<double>> ObserveWorkerHeartbeatAge() =>
+    Volatile.Read(ref _jobQueue) is { HeartbeatAgeSeconds: { } age } ? [new Measurement<double>(age)] : [];
 
   /// <summary>Publishes the GitHub quota left of each installation reported so far.</summary>
   /// <returns>One measurement per installation.</returns>
