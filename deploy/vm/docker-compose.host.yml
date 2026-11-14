@@ -1,0 +1,63 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - override of docker-compose.prod.yml for a host whose reverse proxy already runs in a
+# container, e.g. Nginx Proxy Manager (M4.02b, docs/operations.md "Continuous deployment").
+# Enabled by the .env of the production directory, which compose reads by itself:
+#
+#   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.host.yml
+#
+# - The Api and the Web join the external Docker network of the proxy (PROXY_NETWORK), which reaches
+#   them at http://<container>:8080. No port is published.
+# - Caddy is disabled (profile caddy, never started): the proxy of the host terminates TLS.
+# - The Api and the Web trust X-Forwarded-* from the subnet of that network (PROXY_NETWORK_CIDR,
+#   ForwardedHeaders:KnownNetworks) instead of the fixed address of Caddy: the address of a container
+#   changes when it is recreated.
+# - The volumes are bind mounts under DATA_DIR, created with their owners before the first up:
+#   db and backups 70:70 (postgres alpine), api and web 1001:1001.
+# ------------------------------------------------------------------------------------------------
+
+services:
+  caddy:
+    profiles: [caddy]
+
+  api:
+    environment:
+      ForwardedHeaders__KnownProxies: ""
+      ForwardedHeaders__KnownNetworks: "${PROXY_NETWORK_CIDR:?Set PROXY_NETWORK_CIDR}"
+    networks: [edge, proxy]
+
+  web:
+    environment:
+      ForwardedHeaders__KnownProxies: ""
+      ForwardedHeaders__KnownNetworks: "${PROXY_NETWORK_CIDR:?Set PROXY_NETWORK_CIDR}"
+    networks: [edge, proxy]
+
+networks:
+  proxy:
+    name: "${PROXY_NETWORK:?Set PROXY_NETWORK}"
+    external: true
+
+volumes:
+  db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${DATA_DIR:?Set DATA_DIR}/db"
+  backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${DATA_DIR:?Set DATA_DIR}/backups"
+  api-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${DATA_DIR:?Set DATA_DIR}/api"
+  web-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${DATA_DIR:?Set DATA_DIR}/web"

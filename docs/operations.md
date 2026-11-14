@@ -80,6 +80,12 @@ other images are public and pinned by digest.
 **PostgreSQL only.** A VM on SQL Server has no backup recipe here; production on SQL Server goes
 through Azure SQL and its automatic backups ([deployment-azure.md](deployment-azure.md)).
 
+**A host with `COMPOSE_FILE` in its `.env`** (the host of "Continuous deployment", whose proxy runs in a
+container): every command of this section runs as `docker compose --project-directory <directory> …`
+**without `-f`**. A `-f docker-compose.prod.yml` would override `COMPOSE_FILE` and drop
+`docker-compose.host.yml`: Caddy would come back, and the volumes and the network of the host would
+be lost. "Restore" gives the commands of that host in full.
+
 ### First deployment
 
 1. A VM with Docker (Compose 2.24 or later), ports 80 and 443 open to the Internet, and two DNS names
@@ -150,6 +156,22 @@ docker compose -f docker-compose.prod.yml exec db pg_restore -U cc -d codecovera
 docker compose -f docker-compose.prod.yml up -d --no-deps api web   # never the backup service
 ```
 
+On the host of "Continuous deployment" (`COMPOSE_FILE` in `.env`), restoring a dump **in place** of
+the production database, e.g. to return to an older version: the database is dropped and created
+again, since `pg_restore` would leave the tables a newer migration added.
+
+```bash
+cd /data03/docker/code-coverage
+docker compose --project-directory . stop web api
+docker compose --project-directory . exec db psql -U cc -d postgres -c 'DROP DATABASE codecoverage WITH (FORCE)'
+docker compose --project-directory . exec db createdb -U cc codecoverage
+docker compose --project-directory . cp ./data/backups/codecoverage-<stamp>.dump db:/tmp/restore.dump
+docker compose --project-directory . exec db pg_restore -U cc -d codecoverage --no-owner --exit-on-error /tmp/restore.dump
+# set TAG in .env to the version the dump belongs to, then the Api first:
+docker compose --project-directory . up -d api
+docker compose --project-directory . up -d web
+```
+
 The test VM needs the same Data Protection certificate to read the stored secrets. A restored copy runs
 its worker (`WORKER_ENABLED=true`) and its backup service only when it **replaces** production, once
 the old instance is stopped.
@@ -168,3 +190,222 @@ docker compose -f docker-compose.prod.yml exec api dotnet CodeCoverage.Api.dll a
 ```
 
 What it does is audited under the actor `[command-line]`.
+
+## Continuous deployment
+
+Every `v*` tag whose CI succeeds, pre-releases included, is deployed to the production host by the
+`deploy` job of [`ci-cd.yml`](../.github/workflows/ci-cd.yml) (M4.02b). The job runs on a self-hosted
+runner of that host, in the GitHub environment `production`, and waits for its reviewer to approve.
+It never runs on a pull request. It runs
+[`scripts/Deploy-Production.ps1`](../scripts/Deploy-Production.ps1) from the checkout of the tag on
+the compose of [`deploy/vm`](../deploy/vm), here behind the Nginx Proxy Manager (NPX) already running
+on the host instead of Caddy.
+
+What a deployment does, in this order:
+
+1. Checks the tools of the host, then that the commit of the tag is on `origin/main` (a stable
+   version) or on `origin/develop` or a `release/*` branch (a pre-release).
+2. Logs in to GHCR with the token of the job, in a Docker configuration of the job, never in
+   `~/.docker`.
+3. Checks `.env`, `secrets/dp.pfx` and the data directories, and compares the version with the
+   current `TAG` by SemVer 2.0 precedence (`1.2.0-beta.9 < 1.2.0-beta.10 < 1.2.0-rc.1 < 1.2.0`). The
+   same version is a redeployment, and an older one is refused. It also checks that the Docker
+   network of `PROXY_NETWORK` exists.
+4. Copies an explicit list of `deploy/vm` files into `DEPLOY_DIR`, keeping the files it replaces
+   until the Api starts. It never touches `.env` nor `secrets/`.
+5. Pulls the Api and Web images of the version, and refuses them unless their
+   `org.opencontainers.image.revision` label is the commit of the tag.
+6. Takes a backup (`BACKUP_ONCE`). Only then does it write the new `TAG` to `.env`, the previous one
+   going to `.env.previous-tag` (a redeployment leaves that file as it was).
+7. Starts the Api and waits for it to be healthy (300 s; a long migration stays `starting` or
+   `unhealthy` meanwhile), then does the same for the Web.
+8. Checks `/health/ready` of both hosts through NPX on the port 443 of the host (`curl --resolve`,
+   which avoids the NAT loop of a home server). Then it compares the served
+   `/api/v1/uploader/linux-x64.sha256` with the asset of the release.
+9. Removes the `-api` and `-web` images other than the current version, the previous `TAG` and the
+   version of `.env.previous-tag`. It never runs a global prune: the host is not dedicated.
+
+The script defaults to a dry run, and the job passes `-Execute`. A dry run by hand on the host prints
+what it would do and changes nothing:
+
+```bash
+pwsh scripts/Deploy-Production.ps1 -Version 1.2.3 -Revision <commit of v1.2.3> -Directory /data03/docker/code-coverage
+```
+
+### Preparing the host
+
+**Tools:** PowerShell (`pwsh`) 7.4 or later, `curl`, Docker with the compose plugin 2.24 or later.
+The compose plugin must be installed **system-wide** (the apt package `docker-compose-plugin`, in
+`/usr/libexec/docker/cli-plugins` or `/usr/lib/docker/cli-plugins`), not in `~/.docker/cli-plugins`:
+the job points `DOCKER_CONFIG` to a directory of its own, where a per-user plugin is not found.
+
+**Runner user.** The user of the runner service is in the `docker` group, which is **equivalent to
+root** on the host: whoever runs a job on this runner controls the host. Hence the dedicated label,
+the pre-job hook and, above all, the tag ruleset below.
+
+**What may run on the runner is decided by who may push a `v*` tag.** The hook accepts any job of the
+`ci-cd.yml` of a `v*` tag, and that file comes from the tag itself: a tag can carry a `ci-cd.yml` with
+a job that targets `cc-production` and declares no environment. The required reviewer of
+`production` only holds the `deploy` job; it does not protect the runner. The tag ruleset on
+`refs/tags/v*` ("GitHub settings" below) is therefore **mandatory**, in place before the runner gets
+its label, and checked again whenever the collaborators of the repository change.
+
+**Production directory** (`DEPLOY_DIR=/data03/docker/code-coverage`, `DATA_DIR=$DEPLOY_DIR/data`):
+
+```bash
+sudo mkdir -p /data03/docker/code-coverage/secrets /data03/docker/code-coverage/data/{db,backups,api,web}
+sudo chown -R runner:runner /data03/docker/code-coverage          # the user of the runner service
+sudo chown 70:70 /data03/docker/code-coverage/data/db /data03/docker/code-coverage/data/backups   # postgres alpine
+sudo chown 1001:1001 /data03/docker/code-coverage/data/api /data03/docker/code-coverage/data/web  # Api and Web
+sudo chmod 700 /data03/docker/code-coverage/secrets
+# after copying the certificate:
+sudo chown 1001:1001 /data03/docker/code-coverage/secrets/dp.pfx && sudo chmod 400 /data03/docker/code-coverage/secrets/dp.pfx
+# after writing .env:
+chmod 600 /data03/docker/code-coverage/.env
+```
+
+**`.env`.** It is filled as in "First deployment" above, plus the lines of the NPX variant of
+[`.env.example`](../deploy/vm/.env.example):
+
+- `COMPOSE_FILE=docker-compose.prod.yml:docker-compose.host.yml`: compose reads it from `.env`, so
+  every command is a plain `docker compose --project-directory /data03/docker/code-coverage …`.
+- `PROXY_NETWORK`: the existing Docker network of NPX.
+- `PROXY_NETWORK_CIDR`: its subnet, from
+  `docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'`.
+- `DATA_DIR=/data03/docker/code-coverage/data`.
+
+`ACME_EMAIL` is unused there but must keep a value, because compose checks every variable of its
+files.
+
+[`docker-compose.host.yml`](../deploy/vm/docker-compose.host.yml) does four things:
+
+- disables Caddy;
+- joins the Api and the Web to the NPX network without publishing a port;
+- replaces `ForwardedHeaders__KnownProxies` with `ForwardedHeaders__KnownNetworks=${PROXY_NETWORK_CIDR}`:
+  the address of the NPX container changes when it is recreated, so the Api and the Web trust the
+  `X-Forwarded-*` headers of the whole subnet. Attach only trusted containers to that network;
+- bind-mounts the volumes under `DATA_DIR`.
+
+`.env` and `dp.pfx` stay on the host, never in GitHub.
+
+**First deployment, by hand.** The images of a private repository are private:
+
+1. Log in once with a classic personal access token limited to `read:packages`
+   (`docker login ghcr.io`).
+2. Copy `deploy/vm` to `DEPLOY_DIR`.
+3. Run `docker compose --project-directory /data03/docker/code-coverage pull`, then `up -d`.
+4. Remove the token afterwards (`docker logout ghcr.io`).
+
+The deployments that follow log in with the token of the job. The bind-mounted volumes must exist
+before the first `up`. A host that already ran the plain `docker-compose.prod.yml` has named volumes
+of the same names with other options, and compose refuses them. Back up, remove the old volumes, and
+restore into the new database (see "Restore").
+
+### The NPX proxy hosts
+
+Add two proxy hosts in NPX, both on the network named in `PROXY_NETWORK`:
+
+| | Api | Web |
+|---|---|---|
+| Domain name | `CC_API_HOST` | `CC_WEB_HOST` |
+| Scheme, forward host, port | `http`, `code-coverage-api-1`, `8080` | `http`, `code-coverage-web-1`, `8080` |
+| Websockets support | not needed | **on** (Blazor Server keeps a WebSocket open) |
+| SSL | a Let's Encrypt certificate, Force SSL, HTTP/2 | the same |
+
+The forward host is the container name of compose (project `code-coverage`), never the service name
+`api` or `web`: other stacks on the shared network may use the same name. NPX sends
+`X-Forwarded-Proto` and `X-Forwarded-For` by default. The Web needs them to build the `https`
+callback of the GitHub sign-in, and the Api trusts them from `PROXY_NETWORK_CIDR` only. An upload
+refused with 413 by NPX needs a larger `client_max_body_size` in the advanced configuration of the
+Api host.
+
+### The runner
+
+- **Dedicated label.** Add the label `cc-production` to the runner: the job targets
+  `[self-hosted, cc-production]`, never `self-hosted` alone. Run no other runner on this host.
+- **Pre-job hook.** Install
+  [`deploy/vm/runner/job-started.sh`](../deploy/vm/runner/job-started.sh) as root, out of reach of
+  the runner user (e.g. `/opt/actions-runner-hooks/job-started.sh`, owned by root, mode 755). Name it
+  in the `.env` of the runner directory, then restart the runner service:
+
+  ```bash
+  ACTIONS_RUNNER_HOOK_JOB_STARTED=/opt/actions-runner-hooks/job-started.sh
+  CC_DEPLOY_REPOSITORY=<owner>/code-coverage
+  ```
+
+  The hook fails any job that does not meet all of these conditions:
+  - it comes from this repository;
+  - its event is `push`;
+  - its ref is `refs/tags/v*`;
+  - its `GITHUB_WORKFLOW_REF` starts with
+    `<owner>/code-coverage/.github/workflows/ci-cd.yml@refs/tags/v`.
+
+  A pull request that targets the label is therefore refused before its first step. Without
+  `CC_DEPLOY_REPOSITORY`, every job is refused. `sh deploy/vm/runner/test-job-started.sh` tests it
+  offline, and the CI runs that test.
+
+### GitHub settings (owner)
+
+- **Environment `production`:**
+  - under deployment branches and tags, replace the branch rule `v*` with a **tag** rule `v*.*.*`;
+  - add the owner as **required reviewer**. The job waits for the approval before it starts, and the
+    wait does not count in its `timeout-minutes` (20). A pending approval expires after 30 days,
+    and the job then fails;
+  - add the variable `DEPLOY_DIR` = `/data03/docker/code-coverage`;
+  - add the variable `PRODUCTION_URL` = the https address of the Web (`https://<CC_WEB_HOST>`), the
+    link the run shows for the environment. It is optional: unset, the run shows no link.
+- **Tag ruleset** on `refs/tags/v*` (**mandatory**, see "Preparing the host"): only the owner may
+  create, move or delete such a tag. A tag is what deploys, and its `ci-cd.yml` is what runs on the
+  runner.
+- **Packages** `code-coverage-api` and `code-coverage-web` on GHCR: under "Manage Actions access",
+  give this repository the `Read` role, so that the token of the job can pull them.
+
+### Redeploying, returning, bursts
+
+- **Redeploy** the same version with "Re-run job" on the run of the tag, which keeps the context of
+  the tag. There is no `workflow_dispatch`.
+- **Return to an older version.** A migration is forward only, so this is a manual operation on the
+  host:
+  1. stop the Web and the Api;
+  2. restore the dump taken before the deployment ("Restore", the commands of a host with
+     `COMPOSE_FILE`);
+  3. check out the older tag in a directory of your own (`git clone --branch v1.2.2 …`): its
+     `scripts/Deploy-Production.ps1` copies the `deploy/vm` of its own checkout (`-Source` defaults
+     to it), so the files match the version;
+  4. log in to GHCR with a classic token limited to `read:packages` (`docker login ghcr.io`): the
+     script always pulls;
+  5. run that script with the older version, its commit, `-AllowDowngrade` and `-Execute`:
+
+     ```bash
+     pwsh scripts/Deploy-Production.ps1 -Version 1.2.2 -Revision <commit of v1.2.2> -Directory /data03/docker/code-coverage -AllowDowngrade -Execute
+     ```
+
+  6. log out afterwards (`docker logout ghcr.io`).
+- **A failure before the start of the Api** puts back the previous `TAG` and the `deploy/vm` files it
+  had replaced; the running containers were not touched. A dump taken by the failed run stays in the
+  backups.
+- **A failure after the start of the Api** is not rolled back automatically, because the schema may
+  have migrated. The job fails and names the data directory, the dump and the steps:
+  1. stop the Api and the Web;
+  2. run `pg_restore` of the dump;
+  3. set `TAG` to the content of `.env.previous-tag` (a redeployment of the same version leaves that
+     file as it was, so it still names the version to return to);
+  4. run `up -d api`, then `up -d web`.
+
+  The images of the current version, of the previous `TAG` and of the version in
+  `.env.previous-tag` are never removed by the cleanup, so that the return finds them on the host.
+- **A burst of tags.** The deployments queue in the concurrency group `production` and are never
+  cancelled, but GitHub keeps only the running one and the latest pending one. A tag older than the
+  deployed version is then refused ("older than the deployed"), as expected.
+
+### Before making the repository public
+
+This is mandatory: a self-hosted runner of a public repository can be reached by the pull requests
+of forks.
+
+- Under "Fork pull request workflows from outside collaborators", require an approval for **all**
+  outside collaborators.
+- Check that the tag ruleset on `refs/tags/v*` is active and lets only the owner create, move or
+  delete a tag. This is a blocking check, not a review item: a tag decides what runs on the runner.
+- Keep the hook and the dedicated label in place, or unregister the runner.
+- Review the visibility of the GHCR packages.

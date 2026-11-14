@@ -6,6 +6,9 @@
 #               Api image of the tag (M4.01)
 #            -> dotnet tool CodeCoverage.Uploader: packed and installed on every run, published to
 #               nuget.org on a v* tag when NUGET_PUBLISH is true, by trusted publishing (M5.03)
+#            -> deployment of a v* tag to the production host (M4.02b): job deploy, on the self-hosted
+#               runner labelled cc-production, in the environment production (required reviewer), by
+#               scripts/Deploy-Production.ps1; never on a pull request
 # GitFlow (CONVENTIONS.md §15): work lands on develop through feature/* pull requests; main only
 # receives releases and hotfixes, so only a release publishes images. Elsewhere the compose smoke
 # test already builds both images from the Dockerfiles, so the image job does not run; it checks the
@@ -122,6 +125,16 @@ jobs:
       - name: Rollout scripts on their offline self-test
         shell: pwsh
         run: ./tools/rollout/Test-Rollout.ps1
+
+      # The deployment script of the production host (M4.02b) against fake docker and curl commands, and
+      # the pre-job hook of its runner against the environments of accepted and refused jobs: no Docker,
+      # no network.
+      - name: Deployment script on its offline self-test
+        shell: pwsh
+        run: ./scripts/Test-DeployProduction.ps1
+
+      - name: Runner pre-job hook on its offline self-test
+        run: sh deploy/vm/runner/test-job-started.sh
 
       # The Azure template (pipelines/templates, M5.02): its script runs against a local fake release of
       # the uploader published from the sources; no network beyond localhost, no real token.
@@ -258,6 +271,131 @@ jobs:
           flags=(--verify-tag --title "$TAG" --generate-notes)
           if [ -n "$PRE_RELEASE" ]; then flags+=(--prerelease); fi
           gh release create "$TAG" release/* "${flags[@]}"
+
+  # The deployment of a v* tag to the production host (M4.02b, docs/operations.md "Continuous
+  # deployment"), pre-releases included. In this workflow so that the ref is the tag: the workflow, the
+  # script and deploy/vm come from the commit of the tag, and its images and release already exist.
+  # Never on a pull request. It runs on the self-hosted runner of the host, by its dedicated label only,
+  # whose pre-job hook (deploy/vm/runner/job-started.sh) refuses any other job; the environment
+  # production holds it until its reviewer approves (the wait does not count in timeout-minutes). A
+  # redeployment is a "Re-run job" of the run of the tag; a return to an older version is the script
+  # run by hand on the host with -AllowDowngrade and a restore. Every value reaches the steps through
+  # env:, and the only action holds no token (persist-credentials: false).
+  deploy:
+    name: Deploy to production
+    runs-on: [self-hosted, cc-production]
+    needs: [gitversion, release]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # PRODUCTION_URL, the https address of the Web, is a variable of the environment; unset, the run
+    # shows no link and nothing else changes.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    timeout-minutes: 20
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      # actions/checkout v6.1.0
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          clean: true
+          fetch-depth: 0
+
+      # Every docker command of the job uses a configuration of its own (DOCKER_CONFIG, on each step: the
+      # runner context is not available in the env of a job), removed at the end, never the ~/.docker of
+      # the runner user. The compose plugin must therefore be installed system-wide (cli-plugins of
+      # /usr/libexec/docker or /usr/lib/docker, the apt docker-compose-plugin), not per user.
+      - name: Check the tools of the host
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker
+        run: |
+          set -euo pipefail
+          command -v pwsh >/dev/null || { echo "::error::pwsh 7.4+ is missing on the runner host."; exit 1; }
+          pwsh -NoProfile -Command 'if ($PSVersionTable.PSVersion -lt [version]"7.4") { exit 1 }' \
+            || { echo "::error::pwsh 7.4+ is required on the runner host."; exit 1; }
+          compose=$(docker compose version --short 2>/dev/null) \
+            || { echo "::error::The docker compose plugin is missing on the runner host (it must be installed system-wide)."; exit 1; }
+          if [ "$(printf '2.24.0\n%s\n' "${compose#v}" | sort -V | head -1)" != "2.24.0" ]; then
+            echo "::error::docker compose 2.24+ is required, the host has $compose."; exit 1
+          fi
+          command -v curl >/dev/null || { echo "::error::curl is missing on the runner host."; exit 1; }
+
+      # A stable version comes from main; a pre-release from develop or a release/* branch.
+      - name: Check where the tag comes from
+        shell: bash
+        env:
+          SEMVER: ${{ needs.gitversion.outputs.semver }}
+        run: |
+          set -euo pipefail
+          if [[ "$SEMVER" == *-* ]]; then
+            refs=$(git for-each-ref --format='%(refname)' refs/remotes/origin/develop refs/remotes/origin/release/)
+            allowed="origin/develop or a release/* branch"
+          else
+            refs=refs/remotes/origin/main
+            allowed="origin/main"
+          fi
+          for ref in $refs; do
+            if git merge-base --is-ancestor "$GITHUB_SHA" "$ref"; then
+              echo "The commit $GITHUB_SHA of $GITHUB_REF_NAME is on $ref."
+              exit 0
+            fi
+          done
+          echo "::error::The commit $GITHUB_SHA of $GITHUB_REF_NAME ($SEMVER) is not on $allowed: not deployed."
+          exit 1
+
+      - name: Log in to GHCR
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+
+      # The SHA-256 of the linux-x64 uploader of the release is read first; the script compares it with
+      # the one the deployed Api serves.
+      - name: Deploy
+        shell: pwsh
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMVER: ${{ needs.gitversion.outputs.semver }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if (-not $env:DEPLOY_DIR) {
+            Write-Output "::error::Set the variable DEPLOY_DIR of the environment production."
+            exit 1
+          }
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; 'X-GitHub-Api-Version' = '2022-11-28' }
+          $release = Invoke-RestMethod -Uri "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$env:TAG_NAME" -Headers $headers
+          $asset = $release.assets | Where-Object name -eq 'coverage-upload-linux-x64.sha256' | Select-Object -First 1
+          if (-not $asset) {
+            Write-Output "::error::The release $env:TAG_NAME has no coverage-upload-linux-x64.sha256."
+            exit 1
+          }
+          $response = Invoke-WebRequest -Uri $asset.url -Headers ($headers + @{ Accept = 'application/octet-stream' })
+          $sum = if ($response.Content -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($response.Content) } else { "$($response.Content)" }
+          ./scripts/Deploy-Production.ps1 -Version $env:SEMVER -Revision $env:GITHUB_SHA -Directory $env:DEPLOY_DIR -ExpectedUploaderSha256 $sum.Trim() -Execute
+
+      # Never a logout without the configuration of the job: it would act on the ~/.docker of the user.
+      - name: Log out of GHCR and clean up
+        if: always()
+        shell: bash
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker
+        run: |
+          if [ -n "${DOCKER_CONFIG:-}" ]; then
+            docker logout ghcr.io || true
+            rm -rf "$DOCKER_CONFIG"
+          fi
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete || true
 
   # The dotnet tool coverage-upload (M5.03), on every run: packed with the version of GitVersion,
   # installed from a local folder into an empty tool path, and run. The version of the package must
