@@ -448,6 +448,7 @@ graph TD
   M4_02d --> M4_02e["M4.02e PostgreSQL 18"]
   M4_02f["M4.02f Formulaires de /setup et administrateurs par login"]
   M5_01 --> M4_02g["M4.02g SHA-256 de l'action sur Windows"]
+  M4_02h["M4.02h Jauge en français et marge des tableaux"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2574,6 +2575,22 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** `test-install.sh` échoue sur le code actuel et passe après la correction ; le job `action (windows-latest)` de `action-test.yml` installe l'uploader sous `RUNNER_TEMP` ; puis, après le tag `v0.1.0-beta.2`, le job Upload coverage de Capto envoie un rapport (propriétaire).
 - **Acceptation :** sur `windows-latest`, `ubuntu-latest` et `macos-latest`, l'action installe l'uploader d'une release réelle et ne prévient d'une somme différente que si les octets diffèrent.
 - **Dépend de :** M5.01
+
+#### M4.02h — Jauge en culture française et marge haute des tableaux sans en-tête
+- **Issue :** à créer
+- **Objectif :** corriger deux défauts d'affichage constatés le 2026-11-14 sur l'instance de production :
+  1. **Jauge Quota GitHub** (`/admin/operations`) éclatée en fragments. Cause prouvée sur le HTML servi : `CcGauge.razor` écrit `y="@(CenterY - 8.5)"`, que Blazor formate dans la culture courante, d'où `y="147,5"` en français. Le navigateur ignore la valeur, prend `y=0`, et la rotation autour de (160, 156) disperse les segments. `CcLineChart` et `CcSparkline` passent déjà par `Num()` (culture invariante).
+  2. **Header de tableau collé au bord de la carte** (`/orgs/github/{org}/repositories`). `.cc-panel > .cc-table-wrap` a un padding haut de 0, qui suppose qu'un `cc-panel__head` précède le tableau. Une carte dont le tableau est le premier enfant n'a donc aucune marge haute.
+- **Couches :** Web, maquette.
+- **Fichiers :**
+  - **`Ui/CcGauge.razor`** : `x` et `y` des segments passent par `Num()`, et aucune valeur numérique d'attribut SVG n'est formatée dans la culture courante.
+  - **`wwwroot/css/components.css`** et **`docs/design/ui-mockup.html`** : `.cc-panel > .cc-table-wrap:first-child { padding-top: 18px }`, et `8px` sous 640 px comme le bas.
+- **Tests :**
+  - **bUnit** : `CcGauge` rendu en culture `fr-FR` n'a aucun attribut numérique (`x`, `y`, `transform`) contenant une virgule ; le test échoue sur le code actuel.
+  - **Contrôle de source** ou **bUnit** : les autres composants SVG (`CcLineChart`, `CcSparkline`) rendus en `fr-FR` n'ont pas de virgule dans leurs coordonnées.
+  - **Propriétaire** : la jauge en demi-cercle et la marge du tableau sur l'instance, après déploiement.
+- **Acceptation :** en français comme en anglais, la jauge est un demi-cercle régulier ; un tableau premier enfant d'une carte a la même marge en haut qu'en bas.
+- **Dépend de :** M3.43
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
