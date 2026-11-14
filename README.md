@@ -87,6 +87,7 @@ pull request. `.github/workflows/parity.yml` runs it daily during the pilot; eve
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, data model, upload contract, pipeline, GitHub integration, deployment |
 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | Code conventions of the project |
 | [docs/PLAN.md](docs/PLAN.md) | Implementation plan, cut into micro-features |
+| [docs/migration-from-codecov.md](docs/migration-from-codecov.md) | Moving the pipelines of a repository from Codecov, and the differences with Codecov |
 | [AGENT.md](AGENT.md) | Rules for contributors and coding agents |
 | [.github/SECURITY.md](.github/SECURITY.md) | Security policy |
 
