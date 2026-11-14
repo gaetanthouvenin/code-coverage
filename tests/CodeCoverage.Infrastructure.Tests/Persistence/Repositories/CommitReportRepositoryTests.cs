@@ -921,6 +921,68 @@ public sealed class CommitReportRepositoryTests(DatabaseFixture database) : IDis
     (await new CommitRepository(other).ListPageAsync(seed.FirstRepository, null, 1, 10, Ct)).TotalCount.ShouldBe(0);
   }
 
+  // M5.06: an imported commit and the totals of its project, in one transaction, with no job; dated by Codecov, so that
+  // the history shows it; a known SHA is kept; never through another organization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveImported_ShouldInsertTheCommitAndItsProjectTotalsWithoutJob(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var first = seed.Organizations.FirstId;
+    var sha = GitSha.Parse(new string('c', GitSha.Length));
+    var made = Now.AddDays(-3);
+
+    await using (var writer = seed.Organizations.ContextOf(first))
+    {
+      var commit = Commit.Import(seed.FirstRepository, sha, "main", 4, new CoverageTotals(3, 1, 0, 0, 0), made, Now);
+
+      (await Repository(writer, first).SaveImportedAsync(commit, Ct)).ShouldBeTrue();
+      writer.ChangeTracker.Entries().ShouldBeEmpty();
+
+      var again = Commit.Import(seed.FirstRepository, sha, "main", 9, new CoverageTotals(9, 0, 0, 0, 0), made, Now);
+      (await Repository(writer, first).SaveImportedAsync(again, Ct)).ShouldBeFalse();
+    }
+
+    await using (var reader = seed.Organizations.ContextOf(first))
+    {
+      var stored = await reader.Commits.AsNoTracking().SingleAsync(c => c.Sha == sha, Ct);
+      stored.State.ShouldBe(CommitState.Complete);
+      stored.IsImported.ShouldBeTrue();
+      stored.Hits.ShouldBe(3);
+      stored.CompletedAt.ShouldBe(made);
+
+      var history = await Repository(reader, first).ListHistoryAsync(seed.FirstRepository, "main", [CommitFlagTotals.ProjectFlag], made.AddDays(-1), Now, 10, Ct);
+      var point = history.ShouldHaveSingleItem();
+      point.Sha.ShouldBe(sha);
+      point.At.ShouldBe(made);
+      point.Coverage.ShouldBe(75m);
+      (await reader.CommitSessions.CountAsync(Ct)).ShouldBe(0);
+      (await reader.CommitReports.CountAsync(Ct)).ShouldBe(0);
+    }
+
+    await using (var instance = seed.Organizations.ContextWithoutOrganization())
+    {
+      (await instance.Jobs.CountAsync(Ct)).ShouldBe(0);
+    }
+
+    // The other organization neither sees it nor is stopped by it: the same SHA in its own repository is new.
+    await using var other = seed.Organizations.ContextOf(seed.Organizations.SecondId);
+    (await Repository(other, seed.Organizations.SecondId).ListHistoryAsync(seed.FirstRepository, "main", [CommitFlagTotals.ProjectFlag], made.AddDays(-1), Now, 10, Ct))
+      .ShouldBeEmpty();
+    (await Repository(other, seed.Organizations.SecondId).SaveImportedAsync(Commit.Import(seed.SecondRepository, sha, "main", 1, new CoverageTotals(1, 0, 0, 0, 0), made, Now), Ct))
+      .ShouldBeTrue();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task SaveImported_NotAnImportedCommit_ShouldThrow(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    await Should.ThrowAsync<ArgumentException>(() => Repository(context, seed.Organizations.FirstId).SaveImportedAsync(Commit.Create(seed.FirstRepository, Head, Now), Ct));
+  }
+
   // M3.16: the totals of the flags of a branch within a range of finalization dates, with the committer date when the
   // commit was read from the forge, the most recent first under the limit, never through another organization.
   [Theory]

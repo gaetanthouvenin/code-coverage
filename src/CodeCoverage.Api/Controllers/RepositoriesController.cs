@@ -208,6 +208,33 @@ public sealed class RepositoriesController(ISender sender) : ControllerBase
     return NoContent();
   }
 
+  /// <summary>Import the history of a repository from Codecov</summary>
+  /// <remarks>
+  ///   Starts the import of the totals of every commit Codecov keeps for the repository, through the API v2 of Codecov,
+  ///   so that the history chart goes back before the migration. The API token of Codecov is kept protected until the
+  ///   import ends, seven days at most, and is never shown again. Nothing is read from Codecov in the request: the import
+  ///   runs in a job. A commit already known is kept; an imported commit has no file and is never compared. Requires an
+  ///   administrator of the repository.
+  /// </remarks>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="repo">The name of the repository.</param>
+  /// <param name="request">The API token of Codecov.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>Accepted: the import is queued.</returns>
+  [HttpPost("repos/{forge}/{owner}/{repo}/codecov-import", Name = "StartCodecovImport")]
+  [ProducesResponseType(StatusCodes.Status202Accepted)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+  [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+  public async Task<IActionResult> StartCodecovImportAsync(string forge, string owner, string repo, StartCodecovImportRequest request, CancellationToken cancellationToken)
+  {
+    await sender.StartCodecovImportAsync(forge, owner, repo, request, cancellationToken).ConfigureAwait(false);
+
+    return Accepted();
+  }
+
   /// <summary>Read the effective configuration of a repository</summary>
   /// <remarks>
   ///   The configuration of the repository at the covered head of its default branch, merged over the one of its

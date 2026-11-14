@@ -22,6 +22,8 @@ using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
 using CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
+using CodeCoverage.Application.Features.Repositories.Commands.AbandonCodecovImport;
+using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHistory;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 
@@ -95,6 +97,22 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
     }
   }
 
+  /// <summary>Reads the import of the history of Codecov of a job.</summary>
+  /// <param name="job">The job.</param>
+  /// <returns>The identifier of the <c>CodecovImports</c> row.</returns>
+  /// <exception cref="InvalidJobException">The payload is not valid.</exception>
+  private static long ReadImportId(JobRecord job)
+  {
+    try
+    {
+      return CodecovImportJobs.ReadImportId(job.PayloadJson);
+    }
+    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+    {
+      throw new InvalidJobException($"The payload of the {job.Type} job {job.Id} is not valid.");
+    }
+  }
+
   /// <summary>Reads the upload of a job.</summary>
   /// <param name="job">The job.</param>
   /// <returns>The public identifier of the upload.</returns>
@@ -116,6 +134,17 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
   #endregion
 
   #region Implementation of IJobDispatcher
+
+  /// <inheritdoc />
+  public async Task AbandonAsync(JobRecord job, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(job);
+
+    if (job.Type is JobTypes.ImportCodecovHistory)
+    {
+      await sender.Send(new AbandonCodecovImportCommand(ReadImportId(job)), cancellationToken).ConfigureAwait(false);
+    }
+  }
 
   /// <inheritdoc />
   public async Task DispatchAsync(JobRecord job, CancellationToken cancellationToken)
@@ -200,6 +229,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.ReprocessCommit:
         await sender.Send(new RequeueCommitUploadsCommand(ReadCommitId(job)), cancellationToken).ConfigureAwait(false);
+        break;
+
+      case JobTypes.ImportCodecovHistory:
+        await sender.Send(new ImportCodecovHistoryCommand(ReadImportId(job)), cancellationToken).ConfigureAwait(false);
         break;
 
       default:

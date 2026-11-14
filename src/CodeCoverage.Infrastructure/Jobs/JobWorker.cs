@@ -431,11 +431,18 @@ internal sealed partial class JobWorker : BackgroundService
     if (IsPermanent(failure))
     {
       LogFailed(_logger, failure, job.Id, error);
-      await WithQueueAsync(q => q.FailAsync(job.Id, workerId, error, retryAt: null, cancellationToken)).ConfigureAwait(false);
+
+      if (await WithQueueAsync(q => q.FailAsync(job.Id, workerId, error, retryAt: null, cancellationToken)).ConfigureAwait(false))
+      {
+        await AbandonAsync(job, cancellationToken).ConfigureAwait(false);
+      }
+
       return;
     }
 
-    if (job.Attempts >= job.MaxAttempts)
+    var dead = job.Attempts >= job.MaxAttempts;
+
+    if (dead)
     {
       LogDead(_logger, failure, job.Id, job.Attempts, error);
     }
@@ -445,7 +452,43 @@ internal sealed partial class JobWorker : BackgroundService
     }
 
     var retryAt = now + JobRetryPolicy.NextDelay(job.Attempts);
-    await WithQueueAsync(q => q.FailAsync(job.Id, workerId, error, retryAt, cancellationToken)).ConfigureAwait(false);
+
+    if (await WithQueueAsync(q => q.FailAsync(job.Id, workerId, error, retryAt, cancellationToken)).ConfigureAwait(false) && dead)
+    {
+      await AbandonAsync(job, cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <summary>Releases what a job that ended for good holds, in a scope of its own, inside its organization.</summary>
+  /// <param name="job">The job.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when the job is released; a failure is logged, never thrown.</returns>
+  /// <remarks>
+  ///   The scope enters the organization of the <c>Jobs</c> row (ADR-013) without asking whether it is still active:
+  ///   releasing a credential is never refused to a suspended organization.
+  /// </remarks>
+  private async Task AbandonAsync(JobRecord job, CancellationToken cancellationToken)
+  {
+    try
+    {
+      var scope = _scopeFactory.CreateAsyncScope();
+
+      await using (scope.ConfigureAwait(false))
+      {
+        scope.ServiceProvider.GetRequiredService<CurrentUserContext>().SetSystem();
+
+        if (job.OrganizationId is { } organizationId)
+        {
+          scope.ServiceProvider.GetRequiredService<OrganizationContext>().Enter(organizationId);
+        }
+
+        await scope.ServiceProvider.GetRequiredService<IJobDispatcher>().AbandonAsync(job, cancellationToken).ConfigureAwait(false);
+      }
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+      LogAbandonFailed(_logger, exception, job.Id);
+    }
   }
 
   /// <summary>Runs a claimed job to its outcome.</summary>
@@ -572,6 +615,9 @@ internal sealed partial class JobWorker : BackgroundService
 
   [LoggerMessage(EventId = 1209, Level = LogLevel.Warning, Message = "The job loop {WorkerId} failed; trying again shortly")]
   private static partial void LogLoopFailed(ILogger logger, Exception exception, string workerId);
+
+  [LoggerMessage(EventId = 1250, Level = LogLevel.Warning, Message = "What job {JobId} held could not be released after it ended for good")]
+  private static partial void LogAbandonFailed(ILogger logger, Exception exception, long jobId);
 
   #endregion
 }

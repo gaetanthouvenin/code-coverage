@@ -25,5 +25,16 @@ internal interface IJobDispatcher
   /// <exception cref="InvalidJobException">The type of the job is unknown or its payload is invalid.</exception>
   Task DispatchAsync(JobRecord job, CancellationToken cancellationToken);
 
+  /// <summary>Releases what a job holds once it ended for good: it failed for good, or used all its attempts.</summary>
+  /// <param name="job">The job, which will not run again unless an operator retries it.</param>
+  /// <param name="cancellationToken">A token to cancel the work.</param>
+  /// <returns>A task that completes when what the job held is released; most types hold nothing.</returns>
+  /// <remarks>
+  ///   <c>ImportCodecovHistory</c> deletes its credential (<c>AbandonCodecovImport</c>): a token is never kept for a job
+  ///   that will not run again.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="job" /> is <see langword="null" />.</exception>
+  Task AbandonAsync(JobRecord job, CancellationToken cancellationToken);
+
   #endregion
 }

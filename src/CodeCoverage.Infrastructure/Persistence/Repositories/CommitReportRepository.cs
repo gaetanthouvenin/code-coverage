@@ -15,6 +15,7 @@ using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Ports;
@@ -58,6 +59,9 @@ internal sealed class CommitReportRepository(
 
   /// <summary>The message of the refusal of a finalization that lost a race; it is sent to the caller.</summary>
   private const string ConcurrentSaveMessage = "The commit was finalized in the meantime; finalize it again.";
+
+  /// <summary>The message of the refusal of a commit that is not a new imported one.</summary>
+  private const string NotImportedMessage = "Only a new commit built by Commit.Import can be saved as imported.";
 
   /// <summary>How many waiting commits a commit that completes wakes.</summary>
   private const int MaxWokenCommits = 10;
@@ -214,6 +218,59 @@ internal sealed class CommitReportRepository(
     }
 
     wakeUpSignal.Notify(jobId);
+
+    return true;
+  }
+
+  /// <inheritdoc />
+  /// <remarks>The context must not have an open transaction.</remarks>
+  public async Task<bool> SaveImportedAsync(Commit commit, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(commit);
+    ArgumentException.ThrowIf(!commit.IsImported || commit.Id != 0, NotImportedMessage, nameof(commit));
+
+    var repositoryId = commit.RepositoryId;
+    var sha = commit.Sha;
+
+    if (await context.Commits.AnyAsync(c => c.RepositoryId == repositoryId && c.Sha == sha, cancellationToken).ConfigureAwait(false))
+    {
+      return false;
+    }
+
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+    CommitFlagTotals? totals = null;
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      try
+      {
+        context.Commits.Add(commit);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        var counters = new CoverageTotals(commit.Hits, commit.Misses, commit.Partials, commit.Branches, commit.Methods);
+
+        totals = CommitFlagTotals.Create(commit, CommitFlagTotals.ProjectFlag, counters, isCarriedForward: false, carriedForwardFromSha: null);
+        context.CommitFlagTotals.Add(totals);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, CommitConfiguration.ShaIndexName))
+      {
+        // A real upload created the commit in the meantime: it is kept, the import skips it.
+        Detach(commit, totals);
+
+        return false;
+      }
+      catch
+      {
+        Detach(commit, totals);
+
+        throw;
+      }
+    }
+
+    // Written: nothing of the scope saves them again.
+    Detach(commit, totals);
 
     return true;
   }
@@ -574,6 +631,19 @@ internal sealed class CommitReportRepository(
   #endregion
 
   #region Methods
+
+  /// <summary>Stops tracking an imported commit and its totals, whatever became of their save.</summary>
+  /// <param name="commit">The commit.</param>
+  /// <param name="totals">Its totals, if they were built.</param>
+  private void Detach(Commit commit, CommitFlagTotals? totals)
+  {
+    context.Entry(commit).State = EntityState.Detached;
+
+    if (totals is not null)
+    {
+      context.Entry(totals).State = EntityState.Detached;
+    }
+  }
 
   /// <summary>Takes an ended upload back to its received state, if nobody changed it since it was read.</summary>
   /// <param name="requeue">The upload and the log it starts again from.</param>

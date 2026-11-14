@@ -7,6 +7,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Application.Features.Repositories;
@@ -71,6 +72,35 @@ internal static class RepositoryGuards
       if (!repository.IsTracked)
       {
         throw new UnprocessableEntityException(RepositoryErrors.Inactive, "The coverage of this repository is not tracked.");
+      }
+    }
+
+    /// <summary>Throws when the forge of a repository has no counterpart on Codecov, whose history cannot be imported.</summary>
+    /// <param name="forge">The forge of the repository.</param>
+    /// <exception cref="UnprocessableEntityException">
+    ///   <paramref name="forge" /> is not GitHub, GitLab nor Bitbucket (<see cref="RepositoryErrors.CodecovUnsupportedForge" />).
+    /// </exception>
+    public static void ThrowIfCodecovUnsupportedForge(Forge forge)
+    {
+      if (forge is not (Forge.GitHub or Forge.GitLab or Forge.Bitbucket))
+      {
+        throw new UnprocessableEntityException(RepositoryErrors.CodecovUnsupportedForge, "Codecov has no counterpart of this forge: its history cannot be imported.");
+      }
+    }
+
+    /// <summary>Throws when Codecov refused a page of the history for good.</summary>
+    /// <typeparam name="T">The type of the page.</typeparam>
+    /// <param name="page">The page, <see langword="null" /> when Codecov refused.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="page" /> is <see langword="null" /> (<see cref="RepositoryErrors.CodecovRefused" />).</exception>
+    public static void ThrowIfCodecovRefused<T>([NotNull] T? page)
+      where T : class
+    {
+      if (page is null)
+      {
+        throw new UnprocessableEntityException(
+          RepositoryErrors.CodecovRefused,
+          "Codecov refused the import: the token is not valid or not allowed, or Codecov does not have the repository."
+        );
       }
     }
   }

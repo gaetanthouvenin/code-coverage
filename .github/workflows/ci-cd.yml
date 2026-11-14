@@ -106,6 +106,12 @@ jobs:
         shell: pwsh
         run: ./tools/parity/Test-CompareTotals.ps1
 
+      # The rollout scripts (tools/rollout) against a local listener and synthetic values: no network,
+      # no real token.
+      - name: Rollout scripts on their offline self-test
+        shell: pwsh
+        run: ./tools/rollout/Test-Rollout.ps1
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v7

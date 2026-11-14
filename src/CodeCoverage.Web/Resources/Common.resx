@@ -194,6 +194,9 @@
   <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Only a failed or dead job can be retried, and not while the same work already waits.</value></data>
   <data name="Operations.InvalidPage" xml:space="preserve"><value>The page goes from 1 to 21474836, and a page holds 1 to 100 jobs.</value></data>
   <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>A badge token holds 1 to 64 letters, digits, underscores or hyphens.</value></data>
+  <data name="Repository.InvalidCodecovToken" xml:space="preserve"><value>The API token of Codecov is 1 to 256 printable characters, without spaces.</value></data>
+  <data name="Repository.CodecovRefused" xml:space="preserve"><value>Codecov refused the import: the token is not valid or not allowed, or Codecov does not have the repository.</value></data>
+  <data name="Repository.CodecovUnsupportedForge" xml:space="preserve"><value>Codecov has no counterpart of this forge (Azure DevOps): its history cannot be imported.</value></data>
   <data name="Repository.InvalidHistory" xml:space="preserve"><value>A history asks for commit, day or week, a start before its end, and at most 20 flags.</value></data>
   <data name="Inaccessible_Title" xml:space="preserve"><value>Not found or inaccessible</value></data>
   <data name="Inaccessible_Description" xml:space="preserve"><value>This address does not exist, or your GitHub account cannot read it.</value></data>
@@ -267,6 +270,7 @@
   <data name="ConfigSource_RepositoryDefault" xml:space="preserve"><value>File of the default branch</value></data>
   <data name="ConfigSource_Organization" xml:space="preserve"><value>Configuration of the organization</value></data>
   <data name="ConfigSource_Builtin" xml:space="preserve"><value>Built-in defaults</value></data>
+  <data name="ConfigSource_CodecovImport" xml:space="preserve"><value>Imported from Codecov</value></data>
   <data name="Config.InvalidValue" xml:space="preserve"><value>Invalid value, ignored:</value></data>
   <data name="Config.UnsupportedPattern" xml:space="preserve"><value>Unsupported pattern, ignored:</value></data>
   <data name="Config.ClampedValue" xml:space="preserve"><value>Value out of range, clamped:</value></data>

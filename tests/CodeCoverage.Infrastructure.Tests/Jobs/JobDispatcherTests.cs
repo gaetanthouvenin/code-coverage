@@ -20,6 +20,8 @@ using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
 using CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
+using CodeCoverage.Application.Features.Repositories.Commands.AbandonCodecovImport;
+using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHistory;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
@@ -119,6 +121,53 @@ public sealed class JobDispatcherTests
   public async Task Dispatch_ReprocessCommitWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
   {
     var job = Job(JobTypes.ReprocessCommit, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
+    A.CallTo(_sender).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Dispatch_ImportCodecovHistory_ShouldSendTheImport()
+  {
+    var job = Job(JobTypes.ImportCodecovHistory, 42);
+    job.PayloadJson = CodecovImportJobs.Create(7, 5).PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new ImportCodecovHistoryCommand(7), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Abandon_ImportCodecovHistory_ShouldDeleteTheCredential()
+  {
+    var job = Job(JobTypes.ImportCodecovHistory, 42);
+    job.PayloadJson = CodecovImportJobs.Create(7, 5).PayloadJson;
+
+    await new JobDispatcher(_sender).AbandonAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new AbandonCodecovImportCommand(7), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Abandon_OtherType_ShouldSendNothing()
+  {
+    var job = Job(JobTypes.ReprocessCommit, 42);
+    job.PayloadJson = ReprocessCommitJobs.Create(9).PayloadJson;
+
+    await new JobDispatcher(_sender).AbandonAsync(job, Ct);
+
+    A.CallTo(_sender).MustNotHaveHappened();
+    await Should.ThrowAsync<ArgumentNullException>(() => new JobDispatcher(_sender).AbandonAsync(null!, Ct));
+  }
+
+  [Theory]
+  [InlineData("{}")]
+  [InlineData("not json")]
+  [InlineData("""{"ImportId":"abc"}""")]
+  public async Task Dispatch_ImportCodecovHistoryWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
+  {
+    var job = Job(JobTypes.ImportCodecovHistory, 42);
     job.PayloadJson = payload;
 
     await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));

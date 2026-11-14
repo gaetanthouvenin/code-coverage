@@ -21,6 +21,9 @@ public sealed class Commit
   /// <summary>The maximum length of <see cref="ConfigSource" />.</summary>
   public const int ConfigSourceMaxLength = 64;
 
+  /// <summary>The <see cref="ConfigSource" /> of a commit imported from the history of Codecov (M5.06).</summary>
+  public const string ImportedConfigSource = "codecov-import";
+
   #endregion
 
   #region Ctors
@@ -44,6 +47,12 @@ public sealed class Commit
 
   /// <summary>Gets the identifier of the row, assigned when it is saved.</summary>
   public long Id { get; private set; }
+
+  /// <summary>
+  ///   Gets a value indicating whether the commit was imported from the history of Codecov: it has totals, and no
+  ///   upload, file, session nor blob, and is never the base nor the head of a comparison.
+  /// </summary>
+  public bool IsImported => string.Equals(ConfigSource, ImportedConfigSource, StringComparison.Ordinal);
 
   /// <summary>Gets the identifier of the repository.</summary>
   public long RepositoryId { get; private set; }
@@ -139,6 +148,58 @@ public sealed class Commit
     var utc = at.ToUniversalTime();
 
     return new Commit(repositoryId, sha, utc, utc);
+  }
+
+  /// <summary>Records a commit imported from the history of Codecov, complete with its totals only (M5.06).</summary>
+  /// <param name="repositoryId">The identifier of the repository.</param>
+  /// <param name="sha">The SHA of the commit.</param>
+  /// <param name="branch">The branch Codecov recorded.</param>
+  /// <param name="files">The number of files of its report.</param>
+  /// <param name="totals">The counters of its report; the coverage comes from them, by the formula of Codecov.</param>
+  /// <param name="completedAt">When the commit was made, as Codecov recorded it: the history places it there.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <returns>The commit, not saved yet.</returns>
+  /// <remarks>
+  ///   It never had an upload: <see cref="LastUploadAt" /> stays <see langword="null" />, so the sweep of the commits
+  ///   never notified ignores it, and <see cref="NotifiedAt" /> is its completion, as nothing is ever published for it.
+  /// </remarks>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="repositoryId" /> is not positive, or <paramref name="files" /> is negative.</exception>
+  /// <exception cref="ArgumentNullException"><paramref name="sha" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="branch" /> is empty, white space or too long.</exception>
+  public static Commit Import(
+    long repositoryId,
+    GitSha sha,
+    string branch,
+    int files,
+    CoverageTotals totals,
+    DateTimeOffset completedAt,
+    DateTimeOffset at)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(repositoryId);
+    ArgumentNullException.ThrowIfNull(sha);
+    ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+    ArgumentException.ThrowIf(branch.Length > BranchMaxLength, $"The value cannot be longer than {BranchMaxLength} characters.", nameof(branch));
+    ArgumentOutOfRangeException.ThrowIfNegative(files);
+
+    var now = at.ToUniversalTime();
+    var completed = completedAt.ToUniversalTime();
+
+    return new Commit(repositoryId, sha, now, now)
+    {
+      Branch = branch,
+      State = CommitState.Complete,
+      Files = files,
+      Lines = totals.Lines,
+      Hits = totals.Hits,
+      Misses = totals.Misses,
+      Partials = totals.Partials,
+      Branches = totals.Branches,
+      Methods = totals.Methods,
+      Coverage = totals.Coverage,
+      ConfigSource = ImportedConfigSource,
+      CompletedAt = completed,
+      NotifiedAt = completed,
+    };
   }
 
   /// <summary>Records that an upload was received for this commit.</summary>

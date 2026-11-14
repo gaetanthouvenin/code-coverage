@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Domain.Codecov;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Guards;
@@ -98,6 +99,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <summary>Gets the branches of the tracked repositories (<c>Branches</c>).</summary>
   public DbSet<Branch> Branches => Set<Branch>();
+
+  /// <summary>Gets the imports of the history of Codecov and their protected tokens (<c>CodecovImports</c>).</summary>
+  public DbSet<CodecovImport> CodecovImports => Set<CodecovImport>();
 
   /// <summary>Gets the commits of the tracked repositories (<c>Commits</c>).</summary>
   public DbSet<Commit> Commits => Set<Commit>();

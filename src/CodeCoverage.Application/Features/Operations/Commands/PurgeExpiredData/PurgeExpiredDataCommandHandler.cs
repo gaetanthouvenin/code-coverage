@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
+using CodeCoverage.Domain.Codecov;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Ports;
 
@@ -20,6 +21,7 @@ namespace CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData
 /// <param name="directory">The directory of the organizations, read by the coordinator.</param>
 /// <param name="jobQueue">The job queue.</param>
 /// <param name="retention">Deletes what the retention no longer keeps.</param>
+/// <param name="codecovImports">The imports of the history of Codecov, whose credentials expire after seven days.</param>
 /// <param name="options">The retention settings of the instance, read at each run.</param>
 /// <param name="clock">The clock.</param>
 /// <param name="logger">The logger.</param>
@@ -32,7 +34,8 @@ namespace CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData
 ///   <para>
 ///     In an organization, it deletes the raw files of the uploads whose time is over (<c>Retention:RawDays</c>, set when
 ///     they are written), compacts the commits off the default branch after <c>Retention:BranchReportDays</c>, and drops
-///     the diffs and trees read from the forge after <c>Retention:DiffCacheDays</c>. The comparisons are kept.
+///     the diffs and trees read from the forge after <c>Retention:DiffCacheDays</c>, and deletes the imports of the history
+///     of Codecov asked more than seven days ago, with their tokens (M5.06). The comparisons are kept.
 ///   </para>
 /// </remarks>
 internal sealed partial class PurgeExpiredDataCommandHandler(
@@ -40,6 +43,7 @@ internal sealed partial class PurgeExpiredDataCommandHandler(
   IOrganizationDirectory directory,
   IJobQueue jobQueue,
   IRetentionRepository retention,
+  ICodecovImportRepository codecovImports,
   IOptionsMonitor<RetentionOptions> options,
   IClock clock,
   ILogger<PurgeExpiredDataCommandHandler> logger) : ICommandHandler<PurgeExpiredDataCommand>
@@ -79,8 +83,9 @@ internal sealed partial class PurgeExpiredDataCommandHandler(
                                    .ConfigureAwait(false);
     var caches = await retention.PurgeForgeCachesAsync(now - Days(settings.DiffCacheDays), PurgeExpiredDataJobs.BatchSize, cancellationToken)
                                 .ConfigureAwait(false);
+    var imports = await codecovImports.PurgeAsync(now - CodecovImport.CredentialLifetime, cancellationToken).ConfigureAwait(false);
 
-    LogOrganizationPurged(logger, currentOrganization.Id, raw, compacted, caches);
+    LogOrganizationPurged(logger, currentOrganization.Id, raw, compacted, caches, imports);
   }
 
   /// <summary>Turns a number of days into a duration, one day at least whatever the setting.</summary>
@@ -94,9 +99,9 @@ internal sealed partial class PurgeExpiredDataCommandHandler(
   [LoggerMessage(
     EventId = 1701,
     Level = LogLevel.Information,
-    Message = "Purge of organization {OrganizationId}: {RawFiles} raw files deleted, {Commits} commits compacted, {Caches} cached diffs and trees deleted"
+    Message = "Purge of organization {OrganizationId}: {RawFiles} raw files deleted, {Commits} commits compacted, {Caches} cached diffs and trees deleted, {Imports} expired Codecov imports deleted"
   )]
-  private static partial void LogOrganizationPurged(ILogger logger, long organizationId, int rawFiles, int commits, int caches);
+  private static partial void LogOrganizationPurged(ILogger logger, long organizationId, int rawFiles, int commits, int caches, int imports);
 
   #endregion
 

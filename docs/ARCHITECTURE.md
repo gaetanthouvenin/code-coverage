@@ -363,7 +363,7 @@ Les codes d'erreur suivent le format `Feature.Reason` et sont rangés dans `Feat
 | PullRequests | `SyncPullRequest` | `ListPullRequests`, `GetPullRequestComparison` (Api : 404 `Comparison.NotComputed` sans comparaison), `GetPullRequest` (page PR : la PR et sa comparaison nullable, « en attente ») |
 | Comparisons | — | `CompareCommits` (Api : comparaison enregistrée de `head` contre `base`, SHA complets, sinon 404 `Comparison.NotComputed`), `GetCommitRange` (page `/compare` : la même comparaison, nullable, « Non calculée ») |
 | GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `SyncInstallationRepositories`, `ReconcileRepositoryTransfer` | — |
-| Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken` | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
+| Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken`, `StartCodecovImport` (M5.06), `ImportCodecovHistory` et `AbandonCodecovImport` (dans le worker) | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
 | Configuration | — | `ValidateCoverageYaml` |
 | UploadTokens | `CreateUploadToken` (génération ou import d'une valeur `CODECOV_TOKEN`), `RevokeUploadToken` | `ListUploadTokens` |
 | Access | `SignInUser`, `RefreshUserAccess`, `CreateApiToken`, `RevokeApiToken` | `GetCurrentUser`, `ListApiTokens` |
@@ -460,7 +460,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **AuditEntries** | **Id**, OrganizationId?, At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
 | **WorkerHeartbeats** (M3.13a) | **Host** (machine et processus), StartedAt, LastBeatAt | Écrite toutes les 15 s par le worker de l'Api ; lignes de plus de 24 h supprimées. Lue par `GetSystemStatus` depuis n'importe quel processus. |
 | **GitHubQuotas** (M3.13a) | **Installation** (`app` pour l'App), Remaining, Limit?, ResetAt?, ObservedAt | Quotas changés écrits toutes les 15 s, jamais une écriture par requête GitHub. |
-| **CodecovImports** (M5.06) | **Id**, credential Codecov chiffré par Data Protection | Référencée par identifiant depuis le payload de `ImportCodecovHistory`, supprimée en fin d'import. |
+| **CodecovImports** (M5.06) | **Id**, RepositoryId, ProtectedToken (jeton API Codecov chiffré par `ISecretProtector`), CreatedAt, NextPage (page suivante, reprise après un échec), ImportedCommits | IX(CreatedAt). Référencée par identifiant depuis le payload de `ImportCodecovHistory`, jamais par le jeton ; supprimée en fin d'import, sur un refus définitif de Codecov (401, 403, 404), quand le job échoue définitivement ou meurt (`AbandonCodecovImport`), ou par la purge au-delà de 7 jours (`PurgeExpiredData`, dans l'organisation). |
 
 ### 4.3 Format de blob `CCR1` (`CcrCodec : ICoverageReportCodec`, Infrastructure)
 
@@ -850,6 +850,7 @@ OUTPUT inserted.*;
 | `HandleWebhook` | `repo:{githubRepoId}` | — | `HandleWebhookDeliveryCommand(deliveryId)` |
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
+| `ImportCodecovHistory` | `codecov-import:{repoId}` | `codecov-import:{importId}` | `ImportCodecovHistoryCommand(importId)`, dans l'organisation (M5.06). Lit l'API v2 de Codecov page par page (100 commits), écrit les commits inconnus sans blob ni réveil ni notification, enregistre la page suivante, puis supprime la ligne `CodecovImports`. S'il échoue définitivement ou meurt, le worker envoie `AbandonCodecovImportCommand(importId)`, qui supprime le credential. |
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
 | `RefreshUserMemberships` | `memberships:{userId}` | `memberships:{userId}` (fusion) | `RefreshUserMembershipsCommand(userId)`, sur la voie d'instance : les appartenances d'un utilisateur couvrent plusieurs organisations |
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
@@ -857,7 +858,7 @@ OUTPUT inserted.*;
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
 | `RewriteRepositoryOwner` | `owner-rewrite` | `owner-rewrite` (fusion) | `RewriteRepositoryOwnerCommand`, dans l'organisation dont le compte a été renommé, par `installation_target` ou par le listage de `SyncInstallations` : réécrit `Repositories.Owner` par lots, lignes inactives comprises, avec le login lu dans `Organizations` à l'exécution |
 | `SweepPendingCommits` | `sweep` | `sweep` (fusion) | `SweepPendingCommitsCommand`. Sur la voie d'instance, toutes les 5 minutes : coordinateur, qui met en file un job du même type par organisation `Active`. Dans l'organisation : met en file `NotifyCommit` (`notify:{id}:sweep`) pour ses commits bloqués |
-| `PurgeExpiredData` | `purge` | `purge` (fusion) | `PurgeExpiredDataCommand`. Sur la voie d'instance, quotidien : coordinateur, qui supprime les `Jobs` terminés (`Succeeded`, `Failed`, `Dead`) après `Retention:JobDays` et les `WebhookDeliveries` après `Retention:WebhookDays`, puis met en file un job du même type par organisation `Active`. Dans l'organisation : fichiers bruts expirés, compactage des commits hors branche par défaut, `DiffCache` et `RepositoryTrees` après `Retention:DiffCacheDays`, par lots de 5 000 |
+| `PurgeExpiredData` | `purge` | `purge` (fusion) | `PurgeExpiredDataCommand`. Sur la voie d'instance, quotidien : coordinateur, qui supprime les `Jobs` terminés (`Succeeded`, `Failed`, `Dead`) après `Retention:JobDays` et les `WebhookDeliveries` après `Retention:WebhookDays`, puis met en file un job du même type par organisation `Active`. Dans l'organisation : fichiers bruts expirés, compactage des commits hors branche par défaut, `DiffCache` et `RepositoryTrees` après `Retention:DiffCacheDays`, par lots de 5 000, et les `CodecovImports` de plus de 7 jours avec leur credential (M5.06) |
 
 Les jobs récurrents sont insérés par `RecurringJobScheduler` avec leur `DedupKey`. Plusieurs réplicas ne les dupliquent donc jamais.
 
@@ -1591,6 +1592,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/config` | Repositories | ApiToken | — | `EffectiveConfigResponse(Source, Sha, IsResolvedAtSha, Path, Yaml, Config, Warnings, Errors)` : configuration gardée pour la tête couverte de la branche par défaut, sinon YAML de la branche par défaut et de l'organisation (`IsResolvedAtSha=false`) ; `Yaml` est le YAML du dépôt trouvé, tel qu'écrit, `Config` la fusion en JSON ; aucun appel à la forge, aucune écriture | `GetEffectiveConfig` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | — | `BadgeTokenResponse` | `RotateBadgeToken` |
 | `PUT /api/v1/repos/{forge}/{owner}/{repo}/badge-token` | Repositories | ApiToken (admin du dépôt) | `ImportBadgeTokenRequest` | 204 | `ImportBadgeToken` |
+| `POST /api/v1/repos/{forge}/{owner}/{repo}/codecov-import` | Repositories | ApiToken (admin du dépôt) | `StartCodecovImportRequest` (jeton API Codecov) | 202 | `StartCodecovImport` (M5.06) : chiffre le jeton, écrit `CodecovImports` et met en file `ImportCodecovHistory` dans la même transaction ; rien n'est lu chez Codecov dans la requête |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits` | Commits | ApiToken | `?branch=&page=&pageSize=` | `CommitPageResponse` | `ListCommits` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}` | Commits | ApiToken | — | `CommitResponse` (totaux, état, sessions, uploads, flags, statuts publiés) | `GetCommit` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` | Commits | ApiToken | `?flag=&path=` | `IReadOnlyList<FileTotalsResponse>` | `GetCommitFiles` |
@@ -1733,6 +1735,10 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 - Un point par flag et par période ; `flag` répété donne une série par flag. Semaines ISO, du lundi, en UTC ; le point d'un jour ou d'une semaine est daté de son premier instant. La requête borne `CompletedAt`, puis le C# refiltre sur la date du point (committer, à défaut `CompletedAt`) : un commit finalisé après `to` mais daté avant n'apparaît pas. Le Web affiche plusieurs séries dans `CcLineChart`.
 - Les totaux des commits sont conservés indéfiniment, donc l'historique survit aux purges.
 - **M5 :** import facultatif de l'historique Codecov via son API v2, à faire avant la résiliation de l'abonnement (M4.08), tant que cette API reste accessible. Les commits importés passent en `State=Complete`, `ConfigSource=codecov-import`, sans blob. Un SHA déjà connu n'est jamais écrasé ; un commit importé n'est jamais retenu comme base ni comme tête d'une comparaison, et ne sert pas d'oracle de parité (la parité compare les deux API, M4.06).
+  - Déclenchement (M5.06) : `POST /api/v1/repos/{forge}/{owner}/{repo}/codecov-import` (`IRepositoryScoped(Admin)`) ou `tools/rollout/Start-CodecovImport.ps1`. Le job lit `GET /api/v2/{service}/{owner}/repos/{repo}/commits/` de Codecov ; seuls les commits `complete` avec des totaux et une branche sont gardés.
+  - Écriture : `Commit.Import` (état `Complete`, sans upload ni session, `CompletedAt` = horodatage Codecov, couverture recalculée depuis hits, misses et partials par la formule de Codecov) et la ligne de projet de `CommitFlagTotals`, en une transaction, sans `QueueWakeUpsAsync` : aucun commit en attente n'est réveillé, aucun statut ni commentaire n'est publié.
+  - Gardes : `BaseResolver`, `SyncPullRequest`, `BranchHeadTracker` et le réveil des PR dépendantes de `FinalizeCommit` ignorent un commit importé (`Commit.IsImported`) ; le carryforward l'ignore déjà (aucune session).
+  - Écart nommé avec Codecov : un commit importé n'a ni fichiers ni sessions ; ses pages de commit, de fichiers et de source sont vides, seul l'historique le montre.
 
 ---
 

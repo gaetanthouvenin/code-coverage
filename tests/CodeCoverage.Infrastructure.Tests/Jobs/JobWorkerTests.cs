@@ -150,6 +150,67 @@ public sealed class JobWorkerTests(DatabaseFixture database)
     job.CompletedAt.ShouldNotBeNull();
   }
 
+  // M5.06: a job that ends for good releases what it holds (the credential of an import of Codecov); a job that runs
+  // again keeps it.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Run_EndedForGood_ShouldAbandonTheJob(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var dead = Throwing(new InvalidOperationException("boom"));
+    var record = Record();
+    record.Attempts = record.MaxAttempts - 1;
+
+    await using (var services = BuildServices(provider, connectionString, dead))
+    {
+      var id = await SeedAsync(provider, connectionString, record);
+
+      (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+      A.CallTo(() => dead.AbandonAsync(A<JobRecord>.That.Matches(j => j.Id == id), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    var permanent = Throwing(NotFoundException.For("Commit", "42"));
+
+    await using (var services = BuildServices(provider, connectionString, permanent))
+    {
+      var id = await SeedAsync(provider, connectionString, Record());
+
+      (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+      A.CallTo(() => permanent.AbandonAsync(A<JobRecord>.That.Matches(j => j.Id == id), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    var retried = Throwing(new InvalidOperationException("GitHub is down"));
+
+    await using (var services = BuildServices(provider, connectionString, retried))
+    {
+      await SeedAsync(provider, connectionString, Record());
+
+      (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+      A.CallTo(() => retried.AbandonAsync(A<JobRecord>._, A<CancellationToken>._)).MustNotHaveHappened();
+    }
+  }
+
+  // Releasing what a dead job held never fails the worker.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Run_AbandonFails_ShouldStillMarkTheJobDead(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var dispatcher = Throwing(new InvalidOperationException("boom"));
+    A.CallTo(() => dispatcher.AbandonAsync(A<JobRecord>._, A<CancellationToken>._)).ThrowsAsync(new InvalidOperationException("release failed"));
+    await using var services = BuildServices(provider, connectionString, dispatcher);
+    var record = Record();
+    record.Attempts = record.MaxAttempts - 1;
+    var id = await SeedAsync(provider, connectionString, record);
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    (await JobAsync(provider, connectionString, id)).State.ShouldBe(JobState.Dead);
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task Run_WithUnknownType_ShouldFailPermanently(DatabaseProvider provider)

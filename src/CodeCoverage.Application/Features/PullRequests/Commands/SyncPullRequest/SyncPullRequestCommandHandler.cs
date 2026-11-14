@@ -63,7 +63,8 @@ internal sealed class SyncPullRequestCommandHandler(
   {
     var found = await commits.ListByShasAsync(repositoryId, [headSha], cancellationToken).ConfigureAwait(false);
 
-    if (found is not [{ State: CommitState.Complete } head])
+    // An imported commit is never notified: it is no head.
+    if (found is not [{ State: CommitState.Complete, IsImported: false } head])
     {
       return;
     }

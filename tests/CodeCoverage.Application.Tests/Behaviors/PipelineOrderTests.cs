@@ -97,6 +97,8 @@ public sealed class PipelineOrderTests
     services.AddSingleton(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.ProcessingOptions>>());
     services.AddScoped(_ => A.Fake<Microsoft.Extensions.Options.IOptionsMonitor<CodeCoverage.Application.Configuration.UploadOptions>>());
     services.AddScoped(_ => A.Fake<ICommitReportRepository>());
+    services.AddScoped(_ => A.Fake<ICodecovImportRepository>());
+    services.AddScoped(_ => A.Fake<ICodecovApiClient>());
     services.AddScoped(_ => A.Fake<IRawUploadStore>());
     services.AddScoped(_ => A.Fake<IUploadRepository>());
     services.AddScoped(_ => A.Fake<ICurrentOrganization>());
