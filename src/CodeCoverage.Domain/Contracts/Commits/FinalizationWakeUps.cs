@@ -10,8 +10,8 @@ namespace CodeCoverage.Domain.Contracts.Commits;
 
 /// <summary>The jobs a finalization queues in its own transaction (ARCHITECTURE §6.5, step 4.3, and §7.6).</summary>
 /// <param name="Completed">
-///   <see langword="true" /> when the commit becomes complete and was not before: it wakes the commits of its repository
-///   that used a farther ancestor (10 at most).
+///   <see langword="true" /> when the commit becomes complete and was not before: it wakes the commits that passed it
+///   while it was pending and still wait for it (#165), its real descendants only.
 /// </param>
 /// <param name="PendingAncestorIds">
 ///   The pending ancestors the commit passed after the wait, the nearest first, in the order of the chain: it locks them

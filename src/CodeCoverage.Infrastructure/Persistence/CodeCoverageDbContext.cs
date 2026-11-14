@@ -100,6 +100,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the branches of the tracked repositories (<c>Branches</c>).</summary>
   public DbSet<Branch> Branches => Set<Branch>();
 
+  /// <summary>Gets the pending ancestors the waiting commits passed, which wake them (<c>CarryforwardWaits</c>, #165).</summary>
+  internal DbSet<CarryforwardWaitRecord> CarryforwardWaits => Set<CarryforwardWaitRecord>();
+
   /// <summary>Gets the imports of the history of Codecov and their protected tokens (<c>CodecovImports</c>).</summary>
   public DbSet<CodecovImport> CodecovImports => Set<CodecovImport>();
 

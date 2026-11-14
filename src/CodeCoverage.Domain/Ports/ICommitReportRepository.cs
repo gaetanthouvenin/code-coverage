@@ -80,9 +80,10 @@ public interface ICommitReportRepository
   ///     (<c>Commit.ConcurrentSave</c>), and the finalization, run again, reads the head the push left.
   ///   </para>
   ///   <para>
-  ///     A commit that completes queues the finalization of the <see cref="CarryforwardStatus.AncestorPending" />
-  ///     commits of its repository, 10 at most, read after its own row is written. Their ancestry is not known here: a
-  ///     finalization is deterministic, so running one that did not depend on the commit gives the same report again.
+  ///     A commit that finishes <see cref="CarryforwardStatus.AncestorPending" /> records the pending ancestors it passed
+  ///     (<c>CarryforwardWaits</c>), replacing those of its previous finalization. A commit that completes queues the
+  ///     finalization of the commits that recorded it and are still waiting, read after its own row is written: its real
+  ///     descendants only (#165).
   ///   </para>
   ///   <para>
   ///     A commit that passed pending ancestors locks their rows, reads their state, and queues its own finalization

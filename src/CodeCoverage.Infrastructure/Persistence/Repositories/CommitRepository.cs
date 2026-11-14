@@ -93,6 +93,21 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
   }
 
   /// <inheritdoc />
+  public async Task<IReadOnlyList<long>> ListUnwatchedAncestorPendingAsync(int limit, CancellationToken cancellationToken)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+    return await context.Commits
+                        .AsNoTracking()
+                        .Where(c => c.CarryforwardStatus == CarryforwardStatus.AncestorPending && !context.CarryforwardWaits.Any(w => w.CommitId == c.Id))
+                        .OrderBy(static c => c.Id)
+                        .Select(static c => c.Id)
+                        .Take(limit)
+                        .ToListAsync(cancellationToken)
+                        .ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<Commit>> ListCoveredDefaultHeadsAsync(IReadOnlyCollection<long> repositoryIds, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repositoryIds);
