@@ -456,7 +456,7 @@ permissions: { contents: read, id-token: write }
 steps:
   - uses: actions/checkout@v4
   - run: dotnet test --collect:"XPlat Code Coverage"
-  - uses: my-org/code-coverage/action@v1
+  - uses: my-org/code-coverage/action@v0.1.0-beta.2   # a release tag: no @v1 before the first stable release
     with: { url: https://coverage.example.com, flags: backend }
 ```
 

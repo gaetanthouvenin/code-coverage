@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using System.Globalization;
+using System.Reflection;
 
 using Bunit;
 
@@ -173,6 +174,80 @@ public sealed class RepositoryOverviewTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // The empty state tells what to put in a workflow: the action pinned on the deployed version, without its build
+  // metadata, with the public address of the Api and the permission of the OIDC token.
+  [Fact]
+  public void Render_NoReport_ShouldOfferTheWorkflowWithTheApiUrlAndTheVersion() => InEnglish(() =>
+  {
+    Overview(["backend"]);
+    var informational = typeof(OverviewPage).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+    var version = informational.Split('+')[0];
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.Find("[data-state=nodata] a.cc-button").GetAttribute("href").ShouldBe("github/octo-org/app#upload-setup");
+    cut.Find("[data-state=nodata] a.cc-button").TextContent.ShouldContain(L("Overview_SetupAction"));
+    var panel = cut.Find("[data-panel=upload-setup]");
+    panel.Id.ShouldBe("upload-setup");
+    var snippet = panel.QuerySelector("pre")!.TextContent;
+    snippet.ShouldContain("id-token: write");
+    snippet.ShouldContain($"- uses: gaetanthouvenin/code-coverage/action@v{version}\n");
+    snippet.ShouldContain($"version: {version}\n");
+    snippet.ShouldContain("url: https://coverage-api.example.com");
+    snippet.ShouldNotContain("+");
+    panel.QuerySelector("[data-link=azure-pipelines]")!.GetAttribute("href")
+         .ShouldBe($"https://github.com/gaetanthouvenin/code-coverage/blob/v{version}/pipelines/templates/coverage-upload.yml");
+    panel.QuerySelector("[data-link=upload-tokens]")!.GetAttribute("href").ShouldBe("github/octo-org/app/settings");
+  });
+
+  [Fact]
+  public void Render_NoReportWithoutApiUrl_ShouldSayTheAddressIsMissing()
+  {
+    Overview(["backend"]);
+    _urls.CurrentValue.ApiPublicUrl = null;
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.Find("[data-panel=upload-setup] [data-state=nourls]").TextContent.ShouldContain(L("UploadSetup_NoApiUrl"));
+    cut.FindAll("[data-panel=upload-setup] pre").ShouldBeEmpty();
+  }
+
+  // A disabled repository refuses its uploads: the page says so instead of offering a workflow.
+  [Fact]
+  public void Render_DisabledWithoutReport_ShouldShowTheDisabledState()
+  {
+    Overview(["backend"], isPrivate: false, disabled: true);
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.Find("[data-state=nodata]").TextContent.ShouldContain(L("Overview_DisabledText"));
+    cut.Find("[data-state=nodata]").TextContent.ShouldNotContain(L("Overview_NoDataText"));
+    cut.FindAll("[data-panel=upload-setup]").ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Render_DisabledWithCoverage_ShouldShowTheDisabledBanner()
+  {
+    Overview(
+      ["backend"],
+      isPrivate: false,
+      disabled: true,
+      CommitFlagTotals.Create(_head, CommitFlagTotals.ProjectFlag, new CoverageTotals(8247, 1753, 0, 0, 0), false, null));
+
+    var cut = Render<OverviewPage>(Address());
+
+    cut.Find("[data-state=disabled]").TextContent.ShouldContain(L("Overview_DisabledText"));
+    cut.FindAll(".cc-kpi").ShouldNotBeEmpty();
+  }
+
+  [Fact]
+  public void Render_Tracked_ShouldNotShowTheDisabledBanner()
+  {
+    var cut = Render<OverviewPage>(Address());
+
+    cut.FindAll("[data-state=disabled]").ShouldBeEmpty();
+  }
+
   // Every flag gets its card and its change: the history of the cards (no start given) is asked 20 flags at a time.
   [Fact]
   public void Render_MoreThanTwentyFlags_ShouldAskTheChangesInChunks()
@@ -297,9 +372,16 @@ public sealed class RepositoryOverviewTests : UiTestContext
 
   private void Overview(IReadOnlyList<string> flags, params CommitFlagTotals[] totals) => Overview(flags, isPrivate: false, totals);
 
-  private void Overview(IReadOnlyList<string> flags, bool isPrivate, params CommitFlagTotals[] totals)
+  private void Overview(IReadOnlyList<string> flags, bool isPrivate, params CommitFlagTotals[] totals) => Overview(flags, isPrivate, disabled: false, totals);
+
+  private void Overview(IReadOnlyList<string> flags, bool isPrivate, bool disabled, params CommitFlagTotals[] totals)
   {
     var repository = TrackedRepository.Create(1, "2002", RepositorySlug.Parse("octo-org/app"), "main", isPrivate, "protected", Now);
+
+    if (disabled)
+    {
+      repository.Disable(Now);
+    }
 
     A.CallTo(() => _sender.Send(A<GetRepositoryQuery>.That.Matches(q => q.Owner == "octo-org" && q.Name == "app"), A<CancellationToken>._))
      .Returns(new ValueTask<RepositoryOverview>(new RepositoryOverview(repository, [], flags, totals)));

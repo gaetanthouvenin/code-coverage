@@ -31,10 +31,10 @@ jobs:
       - uses: codecov/codecov-action@v5    # kept during the pilot
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-      - uses: <owner>/code-coverage/action@v1
+      - uses: gaetanthouvenin/code-coverage/action@v0.1.0-beta.2   # @vX.Y.Z: no @v1 before the first stable release
         if: ${{ !cancelled() }}
         with:
-          version: 1.2.3                   # a release of CodeCoverage
+          version: 0.1.0-beta.2            # the same release of CodeCoverage
           sha256: <SHA-256 of coverage-upload-linux-x64 of that release>
           url: https://coverage-api.example.com
           files: coverage.cobertura.xml

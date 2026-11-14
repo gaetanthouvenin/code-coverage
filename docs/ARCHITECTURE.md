@@ -107,7 +107,7 @@ Dockerfile.api  Dockerfile.web  docker-compose.yml  Caddyfile.example
 deploy/vm/                                     (compose de production d'une VM, Caddy conteneur, sauvegardes ; M4.02)
 deploy/azure/main.bicep                        (Azure Container Apps, PostgreSQL Flexible ou Azure SQL, Key Vault ; M4.03, docs/deployment-azure.md)
 .github/workflows/ci-cd.yml
-action/action.yml                              (composite GitHub Action, M5; <owner>/code-coverage/action@v1)
+action/action.yml                              (composite GitHub Action, M5; <owner>/code-coverage/action@vX.Y.Z)
 pipelines/templates/coverage-upload.yml        (template Azure Pipelines, M5)
 pipelines/demo/azure-pipelines.yml             (pipeline de démonstration du template, M5.02)
 src/
@@ -757,7 +757,7 @@ jobs:
           ./coverage-upload --flags frontend -f web/coverage/lcov.info --wait
 ```
 
-**M5 : action composite** `<owner>/code-coverage/action@v1` (`action/`, M5.01).
+**M5 : action composite** `<owner>/code-coverage/action@vX.Y.Z` (`action/`, M5.01), par exemple `gaetanthouvenin/code-coverage/action@v0.1.0-beta.2` avec `version: 0.1.0-beta.2`. Le tag majeur `v1` n'existe pas encore : le propriétaire le pose à la première version stable (M4.02k). La vue d'ensemble d'un dépôt sans couverture affiche ce job, épinglé sur la version déployée et avec l'adresse publique de l'Api.
 - Elle télécharge depuis la release GitHub de la version épinglée le binaire correspondant à `RUNNER_OS`/`RUNNER_ARCH` (`linux-musl-x64` sous Alpine) et vérifie sa somme : le `.sha256` de la release, et la somme épinglée par l'appelant si elle est donnée (ADR-012 amendé).
 - **Les entrées passent par `env:`, jamais interpolées dans `run:`** (pas d'injection de script) ; bash seul, aucune action tierce.
 - Elle exécute `coverage-upload` sans argument : chaque option retombe sur sa variable `COVERAGE_*`, que l'action pose depuis ses entrées.

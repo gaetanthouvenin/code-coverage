@@ -80,7 +80,15 @@ internal static class RepositoryMapper
 
     if (overview.Totals.Count == 0)
     {
-      return new RepositoryOverviewViewModel(repository.DefaultBranch, [], branches, named, ToFormat(CoverageConfig.Create(ConfigNode.Null)), repository.IsPrivate);
+      return new RepositoryOverviewViewModel(
+        repository.DefaultBranch,
+        [],
+        branches,
+        named,
+        ToFormat(CoverageConfig.Create(ConfigNode.Null)),
+        repository.IsPrivate,
+        !repository.IsTracked
+      );
     }
 
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
@@ -104,7 +112,8 @@ internal static class RepositoryMapper
       branches,
       named,
       ToFormat(config),
-      repository.IsPrivate
+      repository.IsPrivate,
+      !repository.IsTracked
     );
   }
 
