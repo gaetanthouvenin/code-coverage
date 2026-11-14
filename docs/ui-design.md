@@ -16,6 +16,8 @@ La version 3 aligne la maquette validée sur [ADR-014](adr/0014-multi-forge.md),
 
 La version 4 ajoute la forge à `/admin/organizations` et retire les logins réservés de cet écran, validés par le propriétaire le 2026-11-08.
 
+La documentation dans l'application (**M4.02n**, construite par M4.02o) ajoute l'écran `#docs`, l'entrée « Documentation » de la barre du haut et les boutons d'aide contextuelle ; elle est **en attente de validation** par le propriétaire (section « Documentation dans l'application »).
+
 Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son état, le rôle, la langue, le thème et la largeur ; l'ancre `#{écran}--{état}` désigne un état précis, par exemple `#admin-organizations--dlg-suspend`.
 
 ### Décisions prises à la validation
@@ -115,6 +117,12 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 | Jetons d’upload de l’organisation | `/orgs/{forge}/{org}/upload-tokens` | M3.38 | admin de l’organisation | Nominal, Rotation conseillée, Vide, Dialogue : créer, Dialogue : valeur unique, Dialogue : importer, Dialogue : révoquer, Chargement, Accès refusé, Introuvable ou inaccessible |
 | Paramètres de l’organisation | `/orgs/{forge}/{org}/settings` | M3.37a | admin de l’organisation | Nominal, Valeur invalide, Chargement, Accès refusé, Introuvable ou inaccessible |
 
+### Documentation
+
+| Écran | Route | Micro-feature | Accès | États dans la maquette |
+|---|---|---|---|---|
+| Documentation | `/docs/{page}` | M4.02n, M4.02o | public, y compris pendant le premier démarrage | Nominal, Non connecté, Navigation dépliée (mobile), Page inconnue, Chargement |
+
 ### Instance
 
 | Écran | Route | Micro-feature | Accès | États dans la maquette |
@@ -153,6 +161,7 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 | M3.41 | Journal d’audit | `#admin-audit` |
 | M3.41a | Organisations | `#admin-organizations` |
 | M3.43 | Premier démarrage | `#setup` |
+| M4.02n, M4.02o | Documentation | `#docs` |
 
 M3.28 et M3.42 sont des micro-features sans écran (backend de la source annotée et de `/setup`), et M3.43a ne contient que des tests.
 
@@ -164,11 +173,56 @@ Le CSS de la maquette reprend `tokens.css`, `components.css` et `app.css`, avec 
 |---|---|
 | Existants (`Web/Components/Ui`) | `CcAppShell`, `CcTopNav`, `CcUserMenu`, `CcPageContainer`, `CcHeader`, `CcPillTabs`, `CcFolderTabs`, `CcKpiCard`, `CcBadge`, `CcButton`, `CcBanner`, `CcEmptyState`, `CcErrorBoundary`, `CcLoadingSpinner`, `CcToast`, `CcSearchBar`, `CcSelectField`, `CcTextField`, `CcIcon`, `CcTable`, `CcDialog`, `CcSwitch`, `CcPager` (M3.24), `CcLineChart` (M3.22), `CcSparkline` (M3.20), `CcCoverageBar` (M3.20), `CcGauge` (M3.40) |
 | Nommés par le plan, à construire | aucun ; `CcBarChart` n'est employé par aucun écran validé |
-| Besoins nouveaux, avec leurs classes | étapes de `/setup` (`cc-stepper`, M3.43) ; source annotée (`cc-source`, `cc-panel__stats`, M3.29) ; code et copie (`cc-code`, `cc-copy`, M3.23) |
+| Besoins nouveaux, avec leurs classes | étapes de `/setup` (`cc-stepper`, M3.43) ; source annotée (`cc-source`, `cc-panel__stats`, M3.29) ; code et copie (`cc-code`, `cc-copy`, M3.23) ; documentation (`cc-docs`, `cc-md`, `cc-callout`, `cc-help`, `cc-help-link`, `cc-code__tools`, `cc-skeleton-line`, M4.02o) |
 
 ### À reprendre lors de la construction des pages
 
 - **M3.22 :** `--cc-chart-1` et `--cc-chart-2` sont presque identiques pour un lecteur daltonien (`ΔE` 1,0 en protanopie). Les séries gardent donc un pointillé et une étiquette directe, en plus de la couleur.
+
+## Documentation dans l'application
+
+Maquette **M4.02n**, à valider avant M4.02o : écran `#docs` et ses états, entrée de la barre du haut, boutons « ? » des écrans listés ci-dessous.
+
+### Source et langue
+
+- La documentation est le Markdown de `docs/` embarqué dans le Web et rendu côté serveur : celle de la **version déployée**, affichée dans la navigation (`v0.1.0-beta.2`) et sous le titre de chaque page avec son fichier source.
+- Seule la liste blanche de M4.02o est publiée ; le plan, les ADR, `ARCHITECTURE.md` et `CONVENTIONS.md` jamais.
+- Le contenu est en **anglais**. L'habillage (« Sur cette page », « Précédent », « Suivant », la version, les états) suit la langue de la console. Une traduction `*.fr.md` viendra dans une micro-feature suivante.
+
+### Accès et entrée
+
+| Situation | Entrée « Documentation » |
+|---|---|
+| Connecté, à partir de 1181 px | Bouton rond `book` dans `cc-topnav__icons`, à gauche du thème ; plein (`aria-current="page"`) sur `/docs` |
+| Connecté, de 1041 à 1180 px | Le bouton rond est masqué ; l'entrée reste dans le menu utilisateur, entre « Mon compte » et « Se déconnecter » |
+| Connecté, jusqu'à 1040 px | Dernière ligne du menu mobile, sous un filet, avec l'icône `book` |
+| Connecté, toutes largeurs | Toujours aussi dans le menu utilisateur |
+| Non connecté ou pendant `/setup` | Lien « Lire la documentation » de la carte de connexion ; `/docs` s'ouvre dans une barre publique (marque, Documentation, thème, Se connecter) |
+
+Un sixième onglet texte n'entre pas : avec le sélecteur d'organisation, la barre déborde déjà de 21 px à 1041 px avant M4.02h. Le bouton rond prend 48 px ; il n'apparaît qu'à partir de 1181 px, et le nom de l'utilisateur se masque jusqu'à 1399 px (au lieu de 1320 px) pour garder au moins 18 px entre le sélecteur et les onglets. Les règles existantes de la barre ne changent pas.
+
+### Page `/docs/{page}`
+
+- **Trois colonnes** à partir de 1281 px : navigation (250 px, collante), article (`CcPanel`), sommaire « Sur cette page » (210 px, collant) tiré des titres `h2`. De 901 à 1280 px, le sommaire passe en tête de l'article, replié (`details`). Jusqu'à 900 px, la navigation se replie derrière un bouton qui affiche la rubrique et la page courantes.
+- **Navigation** par rubrique, dans cet ordre : Getting started ; GitHub App and accounts ; Configure a repository (GitHub Actions, Azure Pipelines, Upload tokens, `codecov.yml`) ; Settings ; Operations ; Migration from Codecov. Les intitulés sont les titres des documents, en anglais.
+- **Article** : fil d'Ariane, titre, version et fichier source, chapeau, contenu, puis liens précédent et suivant dans l'ordre de la navigation.
+- **Rendu du Markdown** (`cc-md`) : `h2` et `h3` avec ancre `#` au survol ; tableaux en `CcTable` ; blocs de code en `cc-copy` avec la langue et le bouton Copier (`cc-code__tools`) ; encadrés `cc-callout--note`, `--tip` et `--warning` rendus depuis les alertes GitHub `> [!NOTE]`, `> [!TIP]`, `> [!WARNING]` ; liens entre documents réécrits vers `/docs/…`.
+- **États** : page inconnue (`CcEmptyState` dans l'article, navigation conservée, réponse 404) ; chargement (titre connu, `CcLoadingSpinner` et lignes `cc-skeleton-line`) ; mobile avec la navigation repliée ou dépliée.
+
+### Aide contextuelle
+
+Un bouton `cc-help` « ? » (26 px, bordure fine, à droite du titre de `CcHeader`, paramètre `help`) ouvre la page et l'ancre de la documentation. Son nom accessible est « Aide sur cette page : {titre de la page} ». Dans un état vide, l'aide est un lien texte `cc-help-link` avec l'icône `book`.
+
+| Écran | Cible |
+|---|---|
+| `/setup` | `/docs/getting-started#open-the-setup-page` (barre publique) |
+| `/admin/organizations` | `/docs/onboarding#admit-it` |
+| `/admin/settings` | `/docs/settings#instance-settings` |
+| `/orgs/{forge}/{org}/settings` | `/docs/settings#organization-settings` |
+| `/orgs/{forge}/{org}/upload-tokens` | `/docs/upload-tokens` |
+| Dépôt sans rapport (`#overview--nodata`) | « Comment envoyer le premier rapport » → `/docs/github-actions` |
+
+Chaque cible doit exister : M4.02o le vérifie par un contrôle de source.
 
 ## Libellés clés
 
@@ -184,6 +238,8 @@ Les clés suivent `Common.resx` (anglais) et `Common.fr.resx` (français). Le no
 | `Nav_SignOut` | Sign out | Se déconnecter |
 | `Nav_Breadcrumb` | Breadcrumb | Fil d’Ariane |
 | `Nav_Main` | Main navigation | Navigation principale |
+| `Nav_Docs` | Documentation | Documentation |
+| `Action_Help` | Help on this page | Aide sur cette page |
 | `Org_Switcher` | Organization | Organisation |
 | `Org_All` | All organizations | Toutes les organisations |
 | `Forge_GitHub` | GitHub | GitHub |
