@@ -160,6 +160,183 @@ finally {
   Stop-Instance $instance
 }
 
+Write-Host 'RolloutTools.psm1'
+
+Import-Module (Join-Path $PSScriptRoot 'RolloutTools.psm1') -Force
+$samples = Join-Path $PSScriptRoot 'samples'
+$workflows = Join-Path $samples 'workflows'
+
+function Read-Sample([string] $Name) { return [System.IO.File]::ReadAllText((Join-Path $workflows $Name)) }
+
+foreach ($name in 'ci-oidc', 'ci-token') {
+  $added = Add-CoverageUploadStep -Text (Read-Sample "$name.yml") -ActionRepository octo-org/code-coverage -Version 1.2.3 -Url https://coverage-api.example.com -Sha256 ('ab' * 32)
+  Assert-True "$name gets the upload step after the Codecov one" ($added -ceq (Read-Sample "$name.expected-add.yml"))
+  Assert-True "$name is left alone the second time" ($null -eq (Add-CoverageUploadStep -Text $added -ActionRepository octo-org/code-coverage -Version 1.2.3 -Url https://coverage-api.example.com))
+}
+Assert-True 'a workflow without Codecov is left alone' ($null -eq (Add-CoverageUploadStep -Text (Read-Sample 'lint.yml') -ActionRepository octo-org/code-coverage -Version 1.2.3 -Url https://coverage-api.example.com))
+Assert-True 'OIDC when the workflow grants id-token: write' ((Read-Sample 'ci-oidc.expected-add.yml') -notmatch '(?m)^\s+token:')
+Assert-True 'the token of the Codecov step is reused' ((Read-Sample 'ci-token.expected-add.yml').TrimEnd().EndsWith('token: ${{ secrets.CODECOV_TOKEN }}'))
+
+function New-Workflow([string] $Head, [string] $Codecov = '') {
+  $text = @"
+name: Matrix
+on: [pull_request]
+$Head
+    steps:
+      - uses: actions/checkout@v6
+      - uses: codecov/codecov-action@v5
+        with:
+          flags: unit
+$Codecov
+"@
+  return $text.TrimEnd()
+}
+
+function Get-Added([string] $Text) {
+  return Add-CoverageUploadStep -Text $Text -ActionRepository octo-org/code-coverage -Version 1.2.3 -Url https://coverage-api.example.com -Sha256 ('ab' * 32)
+}
+
+$commentOnly = Get-Added (New-Workflow "# permissions: id-token: write is not granted here`njobs:`n  test:`n    runs-on: ubuntu-latest")
+Assert-True 'a commented id-token: write is no grant' ($commentOnly -match 'token: \$\{\{ secrets\.CODECOV_TOKEN \}\}')
+$jobGrant = Get-Added (New-Workflow "permissions:`n  contents: read`njobs:`n  test:`n    runs-on: ubuntu-22.04`n    permissions:`n      id-token: write # for the upload")
+Assert-True 'a job granting id-token: write uses OIDC' ($jobGrant -notmatch '(?m)^\s+token:')
+$jobDenies = Get-Added (New-Workflow "permissions:`n  id-token: write`njobs:`n  test:`n    runs-on: ubuntu-latest`n    permissions:`n      contents: read")
+Assert-True 'the permissions of the job win over the workflow' ($jobDenies -match 'token: \$\{\{ secrets\.CODECOV_TOKEN \}\}')
+$ownToken = Get-Added (New-Workflow "jobs:`n  test:`n    runs-on: ubuntu-latest" '          token: ${{ secrets.FRONT_CODECOV }}')
+Assert-True 'the token line of the Codecov step is copied' ($ownToken -match '(?m)^\s+token: \$\{\{ secrets\.FRONT_CODECOV \}\}\s*$' -and $ownToken -notmatch 'secrets\.CODECOV_TOKEN')
+
+Assert-True 'the sum is pinned on a plain ubuntu job' ($ownToken -match 'sha256: abab')
+foreach ($case in @(
+    @{ Name = 'a Windows job'; Head = "jobs:`n  test:`n    runs-on: windows-latest" },
+    @{ Name = 'an OS matrix'; Head = "jobs:`n  test:`n    strategy:`n      matrix:`n        os: [ubuntu-latest, macos-latest]`n    runs-on: `${{ matrix.os }}" },
+    @{ Name = 'an Alpine container'; Head = "jobs:`n  test:`n    runs-on: ubuntu-latest`n    container: alpine:3.20" },
+    @{ Name = 'an ARM runner'; Head = "jobs:`n  test:`n    runs-on: ubuntu-24.04-arm" })) {
+  $added = Get-Added (New-Workflow $case.Head)
+  Assert-True "no pinned sum on $($case.Name)" ($added -match 'uses: octo-org/code-coverage/action@v1' -and $added -notmatch 'sha256:')
+}
+
+# A gh that answers from files: the contents of octo-org/app and the refs of its default branch.
+function New-ShimDirectory {
+  $directory = Join-Path ([System.IO.Path]::GetTempPath()) "rollout-shim-$([guid]::NewGuid().ToString('N'))"
+  New-Item -ItemType Directory -Path $directory | Out-Null
+
+  function Save([string] $Path, $Value) {
+    Set-Content -LiteralPath (Join-Path $directory (($Path -replace '/', '__') + '.json')) -Value ($Value | ConvertTo-Json -Depth 8 -Compress)
+  }
+
+  $listing = foreach ($name in 'ci-oidc.yml', 'lint.yml') { @{ type = 'file'; name = $name; path = ".github/workflows/$name" } }
+  Save 'repos/octo-org/app/contents/.github/workflows' @($listing)
+  foreach ($name in 'ci-oidc.yml', 'lint.yml') {
+    Save "repos/octo-org/app/contents/.github/workflows/$name" @{ sha = "sha-$name"; content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((Read-Sample $name))) }
+  }
+  Save 'repos/octo-org/app' @{ default_branch = 'main' }
+  Save 'repos/octo-org/app/git/ref/heads/main' @{ object = @{ sha = '0123456789abcdef0123456789abcdef01234567' } }
+
+  return $directory
+}
+
+function Invoke-WithShim {
+  param([string] $Script, [string[]] $Arguments)
+
+  $directory = New-ShimDirectory
+  $log = Join-Path $directory 'calls.jsonl'
+  $saved = @{ ROLLOUT_GH = $env:ROLLOUT_GH; ROLLOUT_SHIM_DIR = $env:ROLLOUT_SHIM_DIR; ROLLOUT_SHIM_LOG = $env:ROLLOUT_SHIM_LOG }
+  $env:ROLLOUT_GH = Join-Path $samples 'gh-shim.ps1'
+  $env:ROLLOUT_SHIM_DIR = $directory
+  $env:ROLLOUT_SHIM_LOG = $log
+  New-Item -ItemType File -Path $log | Out-Null
+
+  try {
+    $output = & pwsh -NoProfile -NonInteractive -File (Join-Path $PSScriptRoot $Script) @Arguments 2>&1 | Out-String
+    $calls = @(Get-Content -LiteralPath $log | ForEach-Object { , @($_ | ConvertFrom-Json) })
+    return [pscustomobject]@{ Output = $output; ExitCode = $LASTEXITCODE; Calls = $calls }
+  }
+  finally {
+    foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key]) }
+    Remove-Item -LiteralPath $directory -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Test-Write($Calls) { return @($Calls | Where-Object { ($_ -contains '-X') -or (($_[0] -eq 'pr' -and $_[1] -eq 'create')) }).Count }
+
+Write-Host 'Add-CoverageUpload.ps1'
+
+$addArguments = @('-Repository', 'octo-org/app', '-ActionRepository', 'octo-org/code-coverage', '-Version', '1.2.3', '-Url', 'https://coverage-api.example.com', '-Sha256', ('ab' * 32))
+$dry = Invoke-WithShim 'Add-CoverageUpload.ps1' $addArguments
+Assert-True 'dry run exits with 0' ($dry.ExitCode -eq 0) $dry.Output
+Assert-True 'dry run names the changed workflow only' ($dry.Output -match 'would change \.github/workflows/ci-oidc\.yml' -and $dry.Output -notmatch 'lint\.yml') $dry.Output
+Assert-True 'dry run writes nothing' ((Test-Write $dry.Calls) -eq 0)
+
+$run = Invoke-WithShim 'Add-CoverageUpload.ps1' ($addArguments + '-Execute')
+Assert-True 'execute exits with 0' ($run.ExitCode -eq 0) $run.Output
+$branch = @($run.Calls | Where-Object { $_ -contains 'repos/octo-org/app/git/refs' })
+Assert-True 'execute creates the branch from the head of main' ($branch.Count -eq 1 -and ($branch[0] -contains 'sha=0123456789abcdef0123456789abcdef01234567'))
+$put = @($run.Calls | Where-Object { $_ -contains 'repos/octo-org/app/contents/.github/workflows/ci-oidc.yml' -and $_ -contains 'PUT' })
+$content = if ($put.Count -eq 1) { ($put[0] | Where-Object { $_.StartsWith('content=') }) -replace '^content=', '' } else { '' }
+Assert-True 'execute writes the edited workflow' ($content -and [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($content)) -ceq (Read-Sample 'ci-oidc.expected-add.yml'))
+Assert-True 'execute opens one pull request' (@($run.Calls | Where-Object { ($_[0] -eq 'pr' -and $_[1] -eq 'create') }).Count -eq 1 -and $run.Output -match 'opened: octo-org/app https://github.com/octo-org/app/pull/42') $run.Output
+
+# A batch goes on after a failed repository, and a rerun skips what is done.
+$batchFile = Join-Path ([System.IO.Path]::GetTempPath()) "repos-$([guid]::NewGuid().ToString('N')).txt"
+@('octo-org/empty', 'octo-org/leftover', 'octo-org/reopened', 'octo-org/app') | Set-Content -LiteralPath $batchFile
+$batchShim = {
+  param([string] $Directory)
+  foreach ($repo in 'leftover', 'reopened') {
+    $listing = @(@{ type = 'file'; name = 'ci-oidc.yml'; path = '.github/workflows/ci-oidc.yml' })
+    Set-Content -LiteralPath (Join-Path $Directory "repos__octo-org__$($repo)__contents__.github__workflows.json") -Value (ConvertTo-Json -InputObject $listing -Compress)
+    $content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((Read-Sample 'ci-oidc.yml')))
+    Set-Content -LiteralPath (Join-Path $Directory "repos__octo-org__$($repo)__contents__.github__workflows__ci-oidc.yml.json") -Value (@{ sha = 's'; content = $content } | ConvertTo-Json -Compress)
+  }
+  Set-Content -LiteralPath (Join-Path $Directory 'repos__octo-org__leftover__git__ref__heads__coverage__add-codecoverage-upload.json') -Value '{"object":{"sha":"1"}}'
+  Set-Content -LiteralPath (Join-Path $Directory 'pr-list__octo-org__reopened.json') -Value '[{"url":"https://github.com/octo-org/reopened/pull/7"}]'
+}
+try {
+  $batch = Invoke-WithShim 'Add-CoverageUpload.ps1' @('-RepositoriesFile', $batchFile, '-ActionRepository', 'octo-org/code-coverage', '-Version', '1.2.3', '-Url', 'https://coverage-api.example.com', '-Execute') $batchShim
+}
+finally {
+  Remove-Item -LiteralPath $batchFile -Force -ErrorAction SilentlyContinue
+}
+Assert-True 'a repository without workflows is unchanged' ($batch.Output -match 'unchanged: octo-org/empty \(no \.github/workflows\)') $batch.Output
+Assert-True 'a leftover branch fails its repository only' ($batch.Output -match 'failed: octo-org/leftover \(the branch coverage/add-codecoverage-upload exists') $batch.Output
+Assert-True 'an open pull request of an earlier run is kept' ($batch.Output -match 'already open: octo-org/reopened https://github.com/octo-org/reopened/pull/7') $batch.Output
+Assert-True 'the batch goes on after a failure' ($batch.Output -match 'opened: octo-org/app') $batch.Output
+Assert-True 'a failed repository makes the batch exit with 1' ($batch.ExitCode -eq 1) $batch.Output
+Assert-True 'nothing is written for the skipped repositories' (@($batch.Calls | Where-Object { ($_ -contains '-X') -and (($_ -join ' ') -match 'octo-org/(leftover|reopened|empty)') }).Count -eq 0)
+
+Write-Host 'Import-CodecovTokens.ps1'
+
+$csv = Join-Path ([System.IO.Path]::GetTempPath()) "tokens-$([guid]::NewGuid().ToString('N')).csv"
+@(
+  'scope,owner,repo,label,token',
+  'organization,octo-org,,codecov-org,synthetic-organization-value',
+  'repository,octo-org,app,codecov-app,synthetic-repository-value',
+  'repository,octo-org,again,codecov-again,synthetic-again-value'
+) | Set-Content -LiteralPath $csv
+
+$tokens = Start-Instance -Rules @(
+  @{ Path = '/orgs/github/octo-org/upload-tokens$'; Status = 201; Body = '{"id":1}' },
+  @{ Path = '/repos/github/octo-org/app/upload-tokens$'; Status = 201; Body = '{"id":2}' },
+  @{ Path = '/repos/github/octo-org/again/upload-tokens$'; Status = 409; Body = '{"errorCode":"UploadToken.AlreadyImported"}' }
+)
+
+try {
+  $dryTokens = Invoke-Script 'Import-CodecovTokens.ps1' @('-ApiUrl', $tokens.Url, '-CsvPath', $csv) $secrets
+  Assert-True 'dry run lists the three imports' ($dryTokens.ExitCode -eq 0 -and ([regex]::Matches($dryTokens.Output, 'dry run: import')).Count -eq 3) $dryTokens.Output
+  Assert-True 'dry run sends nothing' (@(Read-Requests $tokens).Count -eq 0)
+
+  $runTokens = Invoke-Script 'Import-CodecovTokens.ps1' @('-ApiUrl', $tokens.Url, '-CsvPath', $csv, '-Execute') $secrets
+  $sent = @(Read-Requests $tokens)
+  Assert-True 'execute exits with 0, a 409 being done' ($runTokens.ExitCode -eq 0) $runTokens.Output
+  Assert-True 'execute sends the imported value and the label' ($sent.Count -eq 3 -and ($sent[0].body | ConvertFrom-Json).importedValue -eq 'synthetic-organization-value' -and ($sent[0].body | ConvertFrom-Json).label -eq 'codecov-org')
+  Assert-True 'execute sends the API token as a bearer' (@($sent | Where-Object { $_.authorization -ne 'Bearer cvp_synthetic_api_token' }).Count -eq 0)
+  Assert-True 'a 409 is reported as already imported' ($runTokens.Output -match "already imported: 'codecov-again'") $runTokens.Output
+  Assert-True 'no token value is printed' ($runTokens.Output -notmatch 'synthetic-' -and $dryTokens.Output -notmatch 'synthetic-')
+}
+finally {
+  Stop-Instance $tokens
+  Remove-Item -LiteralPath $csv -Force -ErrorAction SilentlyContinue
+}
+
 if ($failures.Count -gt 0) {
   Write-Host ''
   $failures | ForEach-Object { Write-Host "FAILED: $_" }

@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test
+        run: dotnet test --collect:"XPlat Code Coverage"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: coverage.cobertura.xml
+          flags: unit
+
+      - name: Upload coverage to CodeCoverage
+        if: ${{ !cancelled() }}
+        uses: octo-org/code-coverage/action@v1
+        with:
+          version: 1.2.3
+          sha256: abababababababababababababababababababababababababababababababab
+          url: https://coverage-api.example.com
+          flags: unit
+          files: coverage.cobertura.xml
+
+      - name: Publish results
+        run: echo done
