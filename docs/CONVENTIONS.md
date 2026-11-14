@@ -922,7 +922,7 @@ exclus de la description OpenAPI.
 
 `{Host}/Configuration/Security/SecurityHeadersMiddleware.cs` : `X-Content-Type-Options: nosniff`,
 `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, CSP `frame-ancestors`.
-Les en-têtes `X-Forwarded-*` ne sont acceptés que des proxies connus (`ForwardedHeaders:KnownProxies`).
+Les en-têtes `X-Forwarded-*` ne sont acceptés que des proxies connus (`ForwardedHeaders:KnownProxies`) ou des réseaux connus en notation CIDR (`ForwardedHeaders:KnownNetworks`).
 
 ---
 

@@ -536,6 +536,7 @@ corps compressé Brotli (qualité 5) :
 | `Settings__PollSeconds` | 5 |
 | `DataProtection__CertificatePath` / `DataProtection__CertificatePassword` **ou** `DataProtection__KeyVaultKeyId` | **obligatoire en Production** : l'hôte refuse de démarrer sans protection du trousseau, sauf `DataProtection__AllowUnprotectedKeys=true` explicite |
 | `ForwardedHeaders__KnownProxies` | adresses du reverse proxy, lues par l'Api **et** le Web (le Web en déduit le schéma `https` de l'URL de rappel de la connexion GitHub) ; derrière la publication de ports de Docker, l'adresse vue est la passerelle du réseau bridge (par exemple `172.18.0.1`), pas `127.0.0.1` ; avec Caddy en conteneur, son adresse sur le réseau compose |
+| `ForwardedHeaders__KnownNetworks` | réseaux du reverse proxy en notation CIDR (`172.30.0.0/24`), même format et mêmes lecteurs que `KnownProxies` ; pour un proxy dont l'adresse change à chaque recréation, comme le conteneur Nginx Proxy Manager d'un réseau Docker partagé (M4.02b, `deploy/vm/docker-compose.host.yml`) ; une valeur qui n'est pas un réseau, ou dont l'adresse n'est pas l'adresse de base (`172.30.0.10/24`), empêche le démarrage |
 | `CodeCoverage__Bootstrap__AdminUserIds` | identifiants GitHub numériques des administrateurs d'instance initiaux |
 | `GitHub__*` | surcharge optionnelle de tout réglage GitHub, qui devient alors en lecture seule dans l'UI (déploiement « infra as code ») |
 
@@ -1804,6 +1805,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 
 - Caddy, ou tout autre reverse proxy, termine TLS pour deux hôtes choisis au déploiement, par exemple `coverage-api.example.com` vers `api:8080`, et `coverage.example.com` vers `web:8080`. Un `Caddyfile.example` est fourni.
 - Le Web peut être limité au réseau interne ou au VPN. L'Api doit être joignable par GitHub (webhooks), par les agents CI et par camo (badges).
+- **Hôte dont le reverse proxy tourne déjà en conteneur (M4.02b).** La surcharge `deploy/vm/docker-compose.host.yml` désactive Caddy, branche l'Api et le Web sur le réseau Docker externe du proxy (Nginx Proxy Manager chez le propriétaire) sans publier de port, et leur fait croire les en-têtes `X-Forwarded-*` du sous-réseau de ce réseau par `ForwardedHeaders__KnownNetworks` au lieu d'une adresse fixe dans `KnownProxies`. Tout le sous-réseau est cru : n'y brancher que des conteneurs de confiance. Le déploiement continu de chaque tag `v*` sur cet hôte passe par le job `deploy` de la CI (§12.8).
 
 ### 12.3 Azure
 
@@ -1870,6 +1872,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 3. deux images poussées vers GHCR, job lancé seulement sur `main` et les tags `v*` (GitFlow : sur `develop` et les PR, le test de fumée compose construit déjà les images) ;
 4. release GitHub avec les binaires de l'uploader et leurs `.sha256`, extraits de l'image Api du tag (M4.01) ;
 5. `nuget-tool` (empaquetage, installation locale et lancement de l'outil, à chaque exécution) et `nuget-publish` (nuget.org par publication de confiance, tags `v*` et `NUGET_PUBLISH=true`, M5.03).
+6. `deploy` (M4.02b) : chaque tag `v*`, pré-versions comprises, déployé sur l'hôte de production par le runner auto-hébergé de label `cc-production` et l'environnement `production` (relecteur requis), jamais sur une PR ; `scripts/Deploy-Production.ps1` et le crochet pré-job du runner sont testés hors ligne dans `build-and-test`.
 
 Le dépôt utilise son propre service pour l'upload de sa couverture.
 

@@ -13,7 +13,8 @@
 #
 # Caddy runs in a container at a fixed address of a network with a fixed subnet, named in
 # FORWARDED_KNOWN_PROXIES: the Api and the Web trust its X-Forwarded-* headers and nobody else's.
-# Caddyfile.example at the root is the variant for a Caddy installed on the VM itself.
+# Caddyfile.example at the root is the variant for a Caddy installed on the VM itself, and
+# docker-compose.host.yml the override for a host whose proxy already runs in a container (M4.02b).
 # SQL Server on a VM has no backup recipe here: production on SQL Server goes through Azure SQL (M4.03).
 # ------------------------------------------------------------------------------------------------
 name: code-coverage
