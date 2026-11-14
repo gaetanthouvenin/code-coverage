@@ -18,7 +18,7 @@ using CodeCoverage.Web.ViewModels.Settings;
 namespace CodeCoverage.Web.Components.Pages;
 
 /// <summary>
-///   The settings of one organization (the four keys of <c>SettingScope.Organization</c>, never a secret), in one panel as
+///   The settings of one organization (the five keys of <c>SettingScope.Organization</c>, never a secret), in one panel as
 ///   the validated mockup: reserved to the administrators of the organization. A participant sees the denied state; a
 ///   non-member, an unknown organization or a forge the console does not serve see the inaccessible state.
 /// </summary>

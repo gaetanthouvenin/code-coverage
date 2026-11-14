@@ -13,8 +13,12 @@ namespace CodeCoverage.Domain.Settings;
 /// <param name="OrganizationYaml">
 ///   The YAML configuration shared by every repository of the organization, or <see langword="null" /> when there is none.
 /// </param>
+/// <param name="ChecksEnabled">
+///   Whether GitHub Check Runs replace the commit statuses (<c>Notifications:ChecksEnabled</c>, off by default).
+/// </param>
 public sealed record OrganizationSettingsSnapshot(
   string StatusContextPrefix,
   bool StatusesEnabled,
   bool CommentsEnabled,
-  string? OrganizationYaml);
+  string? OrganizationYaml,
+  bool ChecksEnabled = false);

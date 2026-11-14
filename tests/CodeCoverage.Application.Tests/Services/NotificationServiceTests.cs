@@ -13,6 +13,7 @@ using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
@@ -65,6 +66,10 @@ public sealed class NotificationServiceTests
   private readonly List<PostedStatus> _stored = [];
 
   private readonly List<(GitSha Sha, CommitStatus Status, string? Url)> _published = [];
+
+  private readonly IGitHubAppGateway _gitHub = A.Fake<IGitHubAppGateway>();
+
+  private readonly List<GitHubCheckRun> _checkRuns = [];
 
   private readonly TrackedRepository _repository = TrackedRepository.Create(42, "7", RepositorySlug.Parse("octo/app"), "main", false, "badge", Now);
 
@@ -124,7 +129,27 @@ public sealed class NotificationServiceTests
     A.CallTo(() => notificationOptions.CurrentValue).Returns(new NotificationOptions());
     var comments = new CommentPublisher(gateways, _pullRequests, notificationOptions, urls, clock, NullLogger<CommentPublisher>.Instance);
 
-    _service = new NotificationService(builder, views, _posted, _repositoryFlags, gateways, comments, _settings, urls, clock, NullLogger<NotificationService>.Instance);
+    A.CallTo(() => _gitHub.CreateCheckRunAsync(A<ForgeRepositoryRef>._, A<GitHubCheckRun>._, A<CancellationToken>._))
+     .ReturnsLazily((ForgeRepositoryRef _, GitHubCheckRun run, CancellationToken _) =>
+       {
+         _checkRuns.Add(run);
+
+         return Task.FromResult<long?>(500 + _checkRuns.Count);
+       });
+
+    _service = new NotificationService(
+      builder,
+      views,
+      _posted,
+      _repositoryFlags,
+      gateways,
+      comments,
+      new CheckRunPublisher(_gitHub),
+      _settings,
+      urls,
+      clock,
+      NullLogger<NotificationService>.Instance
+    );
   }
 
   #endregion
@@ -153,6 +178,125 @@ public sealed class NotificationServiceTests
     _published.ShouldAllBe(static p => p.Sha == Head);
     _stored.Count.ShouldBe(2);
     _stored.ShouldAllBe(static s => s.CommitId == HeadId && s.PostedAt == Now);
+  }
+
+  // M5.05: with the switch of the organization, check runs of the same names replace the statuses, and the default
+  // patch check run annotates the added lines that are not covered.
+  [Fact]
+  public async Task Notify_ChecksEnabled_ShouldPublishCheckRunsInPlaceOfStatuses()
+  {
+    Settings("coverage", enabled: true, checks: true);
+
+    var published = await PublishAsync(Complete(HeadId, Head), Config());
+
+    published.ShouldBe(2);
+    _published.ShouldBeEmpty();
+    _checkRuns.Select(static r => (r.Name, r.State, r.Summary, r.HeadSha))
+              .ShouldBe(
+                [
+                  ("coverage/project", StatusState.Failure, "50.00% (-25.00%) compared to bbbbbbb", Head),
+                  ("coverage/patch", StatusState.Failure, "50.00% of diff hit (target 75.00%)", Head),
+                ]
+              );
+    _checkRuns[0].Annotations.ShouldBeEmpty();
+    // The patch adds lines 2 and 3; line 3 is missed.
+    _checkRuns[1].Annotations.ShouldBe([new CheckRunAnnotation("src/a.cs", 3, 3, "Added line #L3 was not covered by tests")]);
+    _stored.Select(static s => s.CheckRunId).ShouldBe([501, 502], ignoreOrder: true);
+    A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // The Checks permission is not granted yet (403): the statuses are published instead, and the job does not fail.
+  [Fact]
+  public async Task Notify_ChecksPermissionMissing_ShouldFallBackToStatuses()
+  {
+    Settings("coverage", enabled: true, checks: true);
+    A.CallTo(() => _gitHub.CreateCheckRunAsync(A<ForgeRepositoryRef>._, A<GitHubCheckRun>._, A<CancellationToken>._)).Returns((long?)null);
+
+    var published = await PublishAsync(Complete(HeadId, Head), Config());
+
+    published.ShouldBe(2);
+    _published.Select(static p => p.Status.Context).ShouldBe(["coverage/project", "coverage/patch"]);
+    _stored.ShouldAllBe(static s => s.CheckRunId == null);
+    // Refused once: the next statuses of the notification do not ask again.
+    A.CallTo(() => _gitHub.CreateCheckRunAsync(A<ForgeRepositoryRef>._, A<GitHubCheckRun>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Notify_GitHubChecksFalseInTheFile_ShouldKeepTheStatuses()
+  {
+    Settings("coverage", enabled: true, checks: true);
+
+    await PublishAsync(Complete(HeadId, Head), Config(("github_checks", ConfigNode.FromBoolean(false))));
+
+    _published.Count.ShouldBe(2);
+    A.CallTo(_gitHub).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Notify_AnnotationsOff_ShouldPublishCheckRunsWithoutNotes()
+  {
+    Settings("coverage", enabled: true, checks: true);
+
+    await PublishAsync(Complete(HeadId, Head), Config(("github_checks", ConfigNode.FromMap(("annotations", ConfigNode.FromBoolean(false))))));
+
+    _checkRuns.Count.ShouldBe(2);
+    _checkRuns.ShouldAllBe(static r => r.Annotations.Count == 0);
+  }
+
+  // Off by default: an organization that did not turn the switch on keeps its statuses.
+  [Fact]
+  public async Task Notify_ChecksSwitchOff_ShouldNeverCallTheChecksApi()
+  {
+    await PublishAsync(Complete(HeadId, Head), Config());
+
+    _published.Count.ShouldBe(2);
+    A.CallTo(_gitHub).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Notify_SameCheckRunAgain_ShouldSkipAndAStatusTurningIntoACheckRunShouldBePublished()
+  {
+    await PublishAsync(Complete(HeadId, Head), Config());
+    Settings("coverage", enabled: true, checks: true);
+
+    // Published as statuses before the switch: published again as check runs.
+    (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(2);
+    _checkRuns.Clear();
+
+    (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(0);
+    _checkRuns.ShouldBeEmpty();
+  }
+
+  // A name that switches from a status to a check run: the earlier status stays on GitHub, so it takes the new state too.
+  [Fact]
+  public async Task Notify_StatusTurningIntoACheckRun_ShouldAlsoUpdateTheEarlierStatus()
+  {
+    await PublishAsync(Complete(HeadId, Head), Config());
+    _published.Clear();
+    Settings("coverage", enabled: true, checks: true);
+
+    (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(2);
+
+    _checkRuns.Count.ShouldBe(2);
+    _published.Select(static p => p.Status.Context).ShouldBe(["coverage/project", "coverage/patch"]);
+  }
+
+  // The other way: the earlier check runs stay on GitHub, so they take the state of the statuses that replace them.
+  [Fact]
+  public async Task Notify_CheckRunTurningIntoAStatus_ShouldUpdateTheEarlierCheckRun()
+  {
+    Settings("coverage", enabled: true, checks: true);
+    await PublishAsync(Complete(HeadId, Head), Config());
+    Settings("coverage", enabled: true);
+
+    (await PublishAsync(Complete(HeadId, Head), Config())).ShouldBe(2);
+
+    _published.Count.ShouldBe(2);
+    _stored.ShouldAllBe(static s => s.CheckRunId == null);
+    A.CallTo(() => _gitHub.UpdateCheckRunAsync(A<ForgeRepositoryRef>._, 501, A<GitHubCheckRun>.That.Matches(static r => r.Name == "coverage/project"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _gitHub.UpdateCheckRunAsync(A<ForgeRepositoryRef>._, 502, A<GitHubCheckRun>.That.Matches(static r => r.Name == "coverage/patch"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -560,9 +704,9 @@ public sealed class NotificationServiceTests
   private Task<int> PublishAsync(Commit commit, CoverageConfig config, string? suffix = null) =>
     _service.NotifyAsync(_repository, Forge.GitHub, commit, config, 0, false, suffix, Ct);
 
-  private void Settings(string prefix, bool enabled, bool comments = true)
+  private void Settings(string prefix, bool enabled, bool comments = true, bool checks = false)
   {
-    A.CallTo(() => _settings.GetAsync(A<CancellationToken>._)).Returns(new OrganizationSettingsSnapshot(prefix, enabled, comments, null));
+    A.CallTo(() => _settings.GetAsync(A<CancellationToken>._)).Returns(new OrganizationSettingsSnapshot(prefix, enabled, comments, null, checks));
   }
 
   private void Sessions(long commitId, byte blob, CoverageReport report)

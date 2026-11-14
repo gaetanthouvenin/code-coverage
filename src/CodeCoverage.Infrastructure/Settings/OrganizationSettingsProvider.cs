@@ -52,7 +52,8 @@ internal sealed class OrganizationSettingsProvider(CodeCoverageDbContext context
       ValueOf(rows, SettingDefinitions.NotificationsStatusContextPrefix)!,
       bool.Parse(ValueOf(rows, SettingDefinitions.NotificationsStatusesEnabled)!),
       bool.Parse(ValueOf(rows, SettingDefinitions.NotificationsCommentsEnabled)!),
-      ValueOf(rows, SettingDefinitions.CoverageOrganizationYaml)
+      ValueOf(rows, SettingDefinitions.CoverageOrganizationYaml),
+      bool.Parse(ValueOf(rows, SettingDefinitions.NotificationsChecksEnabled)!)
     );
   }
 

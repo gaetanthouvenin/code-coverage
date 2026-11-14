@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Comparisons;
+using CodeCoverage.Domain.Coverage;
 
 namespace CodeCoverage.Application.Services;
 
@@ -13,8 +14,13 @@ namespace CodeCoverage.Application.Services;
 /// <param name="Resolution">What the commit was compared with, and the diffs.</param>
 /// <param name="HeadSessions">The sessions of the head commit, with their reports.</param>
 /// <param name="BaseSessions">The sessions of the base commit, or <see langword="null" /> without a base.</param>
+/// <param name="HeadView">
+///   The merged view of the head report, line by line, which the annotations of a check run read (M5.05); <see langword="null" />
+///   when the caller built none.
+/// </param>
 internal sealed record ComparisonContext(
   CommitComparison Comparison,
   BaseResolution Resolution,
   IReadOnlyList<SessionCoverage> HeadSessions,
-  IReadOnlyList<SessionCoverage>? BaseSessions);
+  IReadOnlyList<SessionCoverage>? BaseSessions,
+  ReportView? HeadView = null);

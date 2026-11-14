@@ -68,5 +68,11 @@ public sealed record PostedStatus
   /// <summary>Gets when the status was published, in UTC.</summary>
   public DateTimeOffset PostedAt { get; }
 
+  /// <summary>
+  ///   Gets the identifier of the GitHub check run published in place of the status (M5.05), or
+  ///   <see langword="null" /> when it was published as a status: a later notification updates that check run.
+  /// </summary>
+  public long? CheckRunId { get; init; }
+
   #endregion
 }

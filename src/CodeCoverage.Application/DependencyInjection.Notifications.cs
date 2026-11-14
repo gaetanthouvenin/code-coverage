@@ -20,6 +20,7 @@ public static partial class DependencyInjection
   /// <returns>The same collection, for chaining.</returns>
   private static IServiceCollection AddNotificationServices(this IServiceCollection services)
   {
+    services.AddScoped<CheckRunPublisher>();
     services.AddScoped<NotificationService>();
     services.AddScoped<CommentPublisher>();
 

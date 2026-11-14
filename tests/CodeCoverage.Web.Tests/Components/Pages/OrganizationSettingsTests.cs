@@ -59,7 +59,7 @@ public sealed class OrganizationSettingsTests : UiTestContext
   #region Methods
 
   [Fact]
-  public void Render_ShouldShowTheFourKeysOfTheOrganizationInOnePanel()
+  public void Render_ShouldShowTheKeysOfTheOrganizationInOnePanel()
   {
     var cut = Render<OrganizationSettings>(Address());
 

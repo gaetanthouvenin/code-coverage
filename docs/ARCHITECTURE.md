@@ -17,8 +17,8 @@ Remplacer `codecov.io` par un service auto-hébergé et pouvoir résilier l'abon
 
 | Besoin indispensable | Contenu du MVP | Reporté |
 |---|---|---|
-| **(1) Commentaire de PR** | Un seul commentaire par PR, mis à jour sur place. Il contient : couverture du patch (lignes ajoutées), delta projet par rapport à la base, tableau `diff`, tableau des flags, tableau des fichiers impactés (top N puis « … and N more »), et changements indirects calculés ligne à ligne. Clés supportées : `comment: false`, `layout` (sections `header`/`condensed_header`, `diff`, `flags`, `files`/`tree`, `footer`), `behavior` (`default`, `once`, `new` et `spammy` en M5.04), `require_changes` (y compris les expressions `AND`/`OR`), `after_n_builds`, `hide_project_coverage`, `show_carryforward_flags`, `branches`. | Sections `reach`/`components`/`sunburst`, annotations Checks API. |
-| **(2) Statuts et seuils** | Statuts de commit GitHub `project`, `patch` et `changes` (désactivé par défaut, comme chez Codecov) : entrée `default`, entrées nommées, statuts définis par `flag_management`. Clés : `target`, `threshold`, `flags`, `paths`, `branches`, `only_pulls`/`base: pr`, `informational`, `if_not_found`, `if_ci_failed` (lu, sans effet), `removed_code_behavior` (`adjust_base`, `removals_only`, `fully_covered_patch`, `off`), `flag_coverage_not_uploaded_behavior`. Préfixe de contexte réglable (`coverage` pendant le pilote, `codecov` après la bascule). | Checks API (M5), `wait_for_ci`/`require_ci_to_pass` (M6). |
+| **(1) Commentaire de PR** | Un seul commentaire par PR, mis à jour sur place. Il contient : couverture du patch (lignes ajoutées), delta projet par rapport à la base, tableau `diff`, tableau des flags, tableau des fichiers impactés (top N puis « … and N more »), et changements indirects calculés ligne à ligne. Clés supportées : `comment: false`, `layout` (sections `header`/`condensed_header`, `diff`, `flags`, `files`/`tree`, `footer`), `behavior` (`default`, `once`, `new` et `spammy` en M5.04), `require_changes` (y compris les expressions `AND`/`OR`), `after_n_builds`, `hide_project_coverage`, `show_carryforward_flags`, `branches`. | Sections `reach`/`components`/`sunburst`. |
+| **(2) Statuts et seuils** | Statuts de commit GitHub `project`, `patch` et `changes` (désactivé par défaut, comme chez Codecov) : entrée `default`, entrées nommées, statuts définis par `flag_management`. Clés : `target`, `threshold`, `flags`, `paths`, `branches`, `only_pulls`/`base: pr`, `informational`, `if_not_found`, `if_ci_failed` (lu, sans effet), `removed_code_behavior` (`adjust_base`, `removals_only`, `fully_covered_patch`, `off`), `flag_coverage_not_uploaded_behavior`. Préfixe de contexte réglable (`coverage` pendant le pilote, `codecov` après la bascule). Check Runs à la place des statuts, avec annotations du patch, derrière `Notifications:ChecksEnabled` et `github_checks` (M5.05, ADR-007). | `wait_for_ci`/`require_ci_to_pass` (M6). |
 | **(3) Badges et historique** | Badges SVG/TXT par dépôt, branche et flag, avec des URL compatibles Codecov (`/gh/{owner}/{repo}/branch/{b}/graph/badge.svg?token=`). Jeton de badge pour les dépôts privés, avec import du « graphing token » Codecov. Graphique d'historique par branche et par flag. | Graphes `tree`/`sunburst`/`icicle`, import de l'historique Codecov (M5). |
 | **(4) Monorepo et flags** | Plusieurs uploads par commit, une session par upload, fusion ligne à ligne, flags avec `paths`. Carryforward avec remontée d'au plus 10 ancêtres et décalage des numéros de ligne. `after_n_builds` global et par flag. Notification seulement quand tous les uploads sont traités, avec anti-rebond. | `component_management`, `carryforward_mode: labels`. |
 
@@ -560,6 +560,7 @@ Le catalogue compte 41 clés. `*` = secret, `R` = `RequiresRestart`, `O` = port�
 | | `Processing:PendingTimeoutMinutes` | int | 60 |
 | Notifications | `Notifications:StatusContextPrefix` (O) | string | `coverage` ; chaque organisation passe à `codecov` à sa propre date |
 | | `Notifications:StatusesEnabled` (O), `Notifications:CommentsEnabled` (O) | bool | true / true |
+| | `Notifications:ChecksEnabled` (O) | bool | false ; Check Runs à la place des statuts, une fois la permission Checks acceptée par l'organisation (M5.05) |
 | | `Notifications:DebounceSeconds` | int 0–600 | 20 |
 | | `Notifications:MaxDelaySeconds` | int | 300 |
 | | `Notifications:AfterNBuildsCountsCarryforward` | bool | true (parité Codecov) |
@@ -1289,7 +1290,7 @@ L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayP
 | Repository | Metadata | Read | obligatoire |
 | Repository | Commit statuses | Read & write | statuts |
 | Repository | Pull requests | Read & write | données de PR, commentaires (issue comments) |
-| Repository | Checks | none (Read & write en M5) | annotations |
+| Repository | Checks | Read & write (M5.05) | Check Runs et annotations, derrière `Notifications:ChecksEnabled` |
 | Organization | Members | Read | rôles d'organisation (`OrganizationMemberships`) |
 | Account | — | none | — |
 
@@ -1320,6 +1321,7 @@ L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayP
 - `GET /repositories/{id}/contents/{path}?ref=` (média `raw`) ;
 - `POST /repositories/{id}/statuses/{sha}` ;
 - `GET|POST /repositories/{id}/issues/{n}/comments`, `PATCH|DELETE /repositories/{id}/issues/comments/{comment}` ;
+- `POST /repositories/{id}/check-runs`, `PATCH /repositories/{id}/check-runs/{id}` (M5.05, `IGitHubAppGateway`) ;
 - `GET /app/installations`, `GET /installation/repositories` ;
 - côté utilisateur : `GET /user`, `GET /user/installations`, `GET /user/installations/{id}/repositories`.
 
@@ -1429,9 +1431,11 @@ Le `0.01` est le double `Decimal(0.01)` de Codecov, légèrement supérieur à u
 - Les numéros suivent `coverage.precision` et `coverage.round`. Le titre vient de `Notifications:CommentTitle`.
 - Le contenu est figé par des tests snapshot Verify.
 
-### 8.5 Statuts plutôt que Checks
+### 8.5 Statuts et Checks
 
-Les statuts de commit forment le MVP : ils sont simples, fonctionnent pour tout SHA (y compris les builds Azure) et peuvent être exigés par la protection de branche. Les Check Runs avec annotations des lignes non couvertes du patch arrivent en M5, avec les mêmes noms de contexte.
+Les statuts de commit forment le MVP : ils sont simples, fonctionnent pour tout SHA (y compris les builds Azure) et peuvent être exigés par la protection de branche.
+
+Depuis M5.05 (ADR-007 amendé), un dépôt GitHub publie des **Check Runs à la place des statuts**, avec les mêmes noms, quand l'organisation a allumé `Notifications:ChecksEnabled` (éteint par défaut) et que le `codecov.yml` ne dit pas `github_checks: false`. `CheckRunPublisher` (Application) crée un Check Run `completed` (`success`, ou `failure` pour un statut en échec ou en erreur) par `IGitHubAppGateway.CreateCheckRunAsync`, puis ajoute les lots suivants d'annotations par `UpdateCheckRunAsync` sur le même identifiant, conservé dans `PostedStatuses.CheckRunId`. Seul le statut `patch` par défaut porte des annotations (`CheckRunAnnotationBuilder` : lignes ajoutées manquées ou partielles, regroupées quand elles se suivent, « Added line #L12 was not covered by tests »), 50 par appel au plus ; les statuts `patch` nommés n'en portent pas, leurs filtres de chemins n'étant pas appliqués aux annotations. Un refus de GitHub (403 sans la permission Checks, ou 404, que GitHub répond à une installation qui ne voit pas les checks d'un dépôt privé, journalisé à part) revient au statut pour le reste de la notification, sans échec du job ; un 422 est une requête que GitHub ne peut pas prendre, donc un échec. Quand un nom passe d'un statut à un Check Run ou l'inverse, la publication précédente reçoit aussi le nouvel état (un statut du même contexte, ou une mise à jour du Check Run précédent). Un lot d'annotations qui échoue après la création arrête les lots suivants sans perdre l'identifiant du Check Run, et le PATCH des annotations n'est jamais renvoyé (GitHub les ajoute). Le libellé exact des annotations de Codecov n'a pas été comparé à un vrai Check Run.
 
 ### 8.6 Budget de rate limit
 
@@ -1440,8 +1444,8 @@ Pour une notification de PR typique (cas chaud, caches remplis), environ 5 appel
 - 1 compare ;
 - 1 à 3 pages de PR files ;
 - 1 lot de commits si l'ascendance n'est pas en cache ;
-- N statuts (en général 2 ou 3) ;
-- 1 commentaire.
+- N statuts (en général 2 ou 3), ou N Check Runs derrière `Notifications:ChecksEnabled`, plus ⌈annotations / 50⌉ − 1 `PATCH` sur le Check Run du patch (M5.05) ;
+- 1 commentaire, plus une suppression par commentaire marqué avec `behavior: new` (M5.04).
 
 `DiffCache`, `GitCommits`, `RepositoryTrees` et `CommitConfigs` sont immuables et absorbent les rejeux. Le quota d'installation (au moins 5 000 requêtes par heure) est très largement suffisant.
 
@@ -1512,7 +1516,7 @@ parsers: { cobertura: { partials_as_hits: false }, lcov: { partials_as_hits: fal
 | `comment.require_base`, `require_head` | lus ; seul l'avertissement « upload report for BASE » s'affiche (comme le worker actuel) |
 | `parsers.{cobertura,lcov,jacoco}.partials_as_hits`, `parsers.cobertura.handle_missing_conditions` | complet |
 | `codecov.require_ci_to_pass`, `notify.wait_for_ci` | lus, sans effet (avertissement si `true`) ; M6 |
-| `github_checks` | sans effet en v1 ; M5 |
+| `github_checks` (`false`, `true`, `annotations`) | complet (M5.05), derrière `Notifications:ChecksEnabled` |
 | `component_management` | sans effet avec avertissement ; M6 |
 | `slack_app`, `codecov.token`, `codecov.url`, `bundle_analysis`, `test_analytics`, `ai_pr_review`, `beta_groups` | ignorés silencieusement |
 | Autres clés du schéma de Codecov (`codecov.ci`, `codecov.bot`, `comment.flags`, `comment.paths`, `coverage.status.no_upload_behavior`, `flags.<F>.carryforward_mode`, `parsers.gcov`…) | non appliquées, avertissement `Config.IgnoredKey` |
@@ -1878,7 +1882,7 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | [ADR-004](adr/0004-no-octokit.md) | Ni Octokit ni Octokit.Webhooks : `HttpClient` typé, HMAC maison, contrôleurs MVC. |
 | [ADR-005](adr/0005-database-job-queue.md) | File de jobs en base, portable (SKIP LOCKED / READPAST, index filtrés `Queued`/`Running`), sans Hangfire. |
 | [ADR-006](adr/0006-settings-revision-polling.md) | Paramètres propagés par interrogation de `SettingsRevision` (5 s), sans LISTEN/NOTIFY. |
-| [ADR-007](adr/0007-commit-statuses.md) | Statuts de commit en v1, Checks en M5 ; préfixe `coverage` pendant le pilote, `codecov` à la bascule. |
+| [ADR-007](adr/0007-commit-statuses.md) | Statuts de commit en v1 ; Check Runs à leur place derrière `Notifications:ChecksEnabled` (M5.05) ; préfixe `coverage` pendant le pilote, `codecov` à la bascule. |
 | [ADR-008](adr/0008-flag-views-from-sessions.md) | Vues par flag calculées à partir des sessions ; seuls les totaux sont matérialisés. |
 | [ADR-009](adr/0009-codecov-parity-defaults.md) | Parité Codecov par défaut sur les particularités (`after_n_builds` qui compte le carryforward, lignes méthode Clover, branches qui priment sur les hits en LCOV, pas de correspondance sur le seul nom de fichier), chacune réglable. |
 | [ADR-010](adr/0010-bigint-keys-chunked-raw.md) | Clés `bigint` identity ; brut en base par morceaux. |

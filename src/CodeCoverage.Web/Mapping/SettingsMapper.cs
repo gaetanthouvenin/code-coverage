@@ -85,7 +85,7 @@ internal static class SettingsMapper
     return true;
   }
 
-  /// <summary>Reads the settings of an organization: the four keys of its scope, its own value or the default.</summary>
+  /// <summary>Reads the settings of an organization: the five keys of its scope, its own value or the default.</summary>
   /// <param name="sender">The request sender.</param>
   /// <param name="forge">The forge segment of the organization.</param>
   /// <param name="login">The login of the organization.</param>

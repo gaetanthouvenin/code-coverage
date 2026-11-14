@@ -49,6 +49,7 @@ public sealed class CoverageConfig
       ReadBoolean("codecov", "notify", "manual_trigger"),
       ReadBoolean("codecov", "notify", "notify_error"));
     Comment = CommentRule.Parse(root, _warnings);
+    GitHubChecks = ReadGitHubChecks();
     Cobertura = new ParserRule(
       ReadBoolean("parsers", "cobertura", "partials_as_hits"),
       ReadBoolean("parsers", "cobertura", "handle_missing_conditions"));
@@ -107,6 +108,9 @@ public sealed class CoverageConfig
 
   /// <summary>Gets what the configuration says about the pull request comment (<c>comment</c>).</summary>
   public CommentRule Comment { get; }
+
+  /// <summary>Gets whether the statuses are published as GitHub Check Runs, and with annotations (<c>github_checks</c>).</summary>
+  public GitHubChecksRule GitHubChecks { get; }
 
   /// <summary>Gets the options of the Cobertura format.</summary>
   public ParserRule Cobertura { get; }
@@ -343,6 +347,44 @@ public sealed class CoverageConfig
     WarnIfPresent(node, path);
 
     return null;
+  }
+
+  private GitHubChecksRule ReadGitHubChecks()
+  {
+    var node = Root.Find("github_checks");
+
+    if (node is null || node.Kind is ConfigNodeKind.Null)
+    {
+      return GitHubChecksRule.Default;
+    }
+
+    if (node.AsBoolean() is { } enabled)
+    {
+      return new GitHubChecksRule(enabled, enabled);
+    }
+
+    if (node.Kind is ConfigNodeKind.Map)
+    {
+      var annotations = node.Find("annotations");
+
+      if (annotations is null || annotations.Kind is ConfigNodeKind.Null)
+      {
+        return GitHubChecksRule.Default;
+      }
+
+      if (annotations.AsBoolean() is { } value)
+      {
+        return new GitHubChecksRule(Enabled: true, value);
+      }
+
+      WarnIfPresent(annotations, ["github_checks", "annotations"]);
+
+      return GitHubChecksRule.Default;
+    }
+
+    WarnIfPresent(node, ["github_checks"]);
+
+    return GitHubChecksRule.Default;
   }
 
   private bool ReadBoolean(params string[] path)

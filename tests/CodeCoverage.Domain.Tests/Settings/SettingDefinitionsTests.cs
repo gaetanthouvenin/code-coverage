@@ -41,6 +41,7 @@ public sealed class SettingDefinitionsTests
     { "Notifications:StatusContextPrefix", SettingType.Text, "coverage" },
     { "Notifications:StatusesEnabled", SettingType.Boolean, "true" },
     { "Notifications:CommentsEnabled", SettingType.Boolean, "true" },
+    { "Notifications:ChecksEnabled", SettingType.Boolean, "false" },
     { "Notifications:DebounceSeconds", SettingType.Number, "20" },
     { "Notifications:MaxDelaySeconds", SettingType.Number, "300" },
     { "Notifications:AfterNBuildsCountsCarryforward", SettingType.Boolean, "true" },
@@ -71,6 +72,7 @@ public sealed class SettingDefinitionsTests
     "Notifications:StatusContextPrefix",
     "Notifications:StatusesEnabled",
     "Notifications:CommentsEnabled",
+    "Notifications:ChecksEnabled",
     "Coverage:OrganizationYaml",
   ];
 
@@ -125,7 +127,7 @@ public sealed class SettingDefinitionsTests
   [Fact]
   public void All_ShouldDeclareExpectedScope()
   {
-    SettingDefinitions.All.Count.ShouldBe(41);
+    SettingDefinitions.All.Count.ShouldBe(42);
     SettingDefinitions.All.Where(d => d.Scope == SettingScope.Organization)
                       .Select(d => d.Key)
                       .ShouldBe(OrganizationKeys);

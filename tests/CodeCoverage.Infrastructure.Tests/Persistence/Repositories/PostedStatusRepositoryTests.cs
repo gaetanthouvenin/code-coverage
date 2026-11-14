@@ -124,6 +124,24 @@ public sealed class PostedStatusRepositoryTests(DatabaseFixture database)
     (await ListAsync(seed, first, seed.FirstCommit)).ShouldHaveSingleItem().TargetUrl.ShouldBeNull();
   }
 
+  // M5.05: the check run published in place of the status is kept, and a status published later forgets it.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Upsert_ShouldRoundTripTheCheckRunId(DatabaseProvider provider)
+  {
+    var seed = await SeededAsync(provider);
+    var first = seed.Organizations.FirstId;
+    var status = new CommitStatus("coverage/patch", StatusState.Failure, "50.00% of diff hit");
+
+    await UpsertAsync(seed, first, new PostedStatus(seed.FirstCommit, status, null, Now) { CheckRunId = 9_000_000_001 });
+
+    (await ListAsync(seed, first, seed.FirstCommit)).ShouldHaveSingleItem().CheckRunId.ShouldBe(9_000_000_001);
+
+    await UpsertAsync(seed, first, new PostedStatus(seed.FirstCommit, status, null, Now.AddMinutes(1)));
+
+    (await ListAsync(seed, first, seed.FirstCommit)).ShouldHaveSingleItem().CheckRunId.ShouldBeNull();
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task ListByCommit_OtherOrganization_ShouldReturnNothing(DatabaseProvider provider)
