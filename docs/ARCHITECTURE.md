@@ -658,7 +658,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 |---|---|
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/uploads-complete` (même authentification) | Déclenchement manuel : notifie dès que tous les uploads sont traités et fusionnés dans le rapport, en ignorant `after_n_builds` et l'anti-rebond. Équivalent de `upload-complete` chez Codecov. Sur le SHA d'un commit de merge synthétique, dont les uploads ont été déplacés vers la tête de la PR (§1.4-2), la requête ne peut pas interroger la forge : elle répond avec les compteurs du commit nommé (zéro une fois les uploads déplacés) et met le job en file ; c'est le job qui retrouve la tête et lui remet la notification forcée. |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/uploads/{id}` (credential d'upload, ou jeton API d'un lecteur du dépôt ; un jeton API refusé répond 401 sans essayer le credential) | État et journal de traitement (chemins non résolus ou ambigus, formats inconnus). Interrogé par `coverage-upload --wait`. |
-| `GET /api/v1/uploader/{rid}` et `GET /api/v1/uploader/{rid}.sha256` (anonyme ; `linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`) | Uploader autonome mono-fichier embarqué dans l'image Api, avec sa somme SHA-256. Les mêmes binaires et sommes sont publiés dans la release GitHub du dépôt. Les templates CI épinglent une version et vérifient la somme. |
+| `GET /api/v1/uploader/{rid}` et `GET /api/v1/uploader/{rid}.sha256` (anonyme ; `linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`) | Uploader autonome mono-fichier embarqué dans l'image Api, avec sa somme SHA-256. Les mêmes binaires et sommes sont publiés dans la release GitHub du dépôt, extraits de l'image du même tag (M4.01). Les templates CI (action composite M5.01, template Azure M5.02) téléchargent la release de la version épinglée et vérifient la somme ; cette route reste un secours et sert l'usage manuel (ADR-012 amendé). |
 | **M5, optionnel :** `POST /upload/github/{owner::::repo}/upload-coverage` plus `PUT /upload/raw/{id}?exp=&sig=` | Shim de compatibilité codecov-cli (mode appel unique seulement ; ni v4, ni mode pas à pas). Les étapes `codecov/codecov-action@v5` existantes fonctionnent alors en ajoutant `url:`. |
 
 ### 5.3 Uploader `coverage-upload` (`CodeCoverage.Uploader`)
@@ -753,10 +753,10 @@ jobs:
           ./coverage-upload --flags frontend -f web/coverage/lcov.info --wait
 ```
 
-**M5 : action composite** `<owner>/code-coverage/action@v1`.
-- Elle télécharge le binaire correspondant à `runner.os`/`runner.arch` et vérifie sa somme.
-- **Les entrées passent par `env:`, jamais interpolées dans `run:`** (pas d'injection de script).
-- Elle exécute `coverage-upload` avec un tableau d'arguments construit en bash.
+**M5 : action composite** `<owner>/code-coverage/action@v1` (`action/`, M5.01).
+- Elle télécharge depuis la release GitHub de la version épinglée le binaire correspondant à `RUNNER_OS`/`RUNNER_ARCH` (`linux-musl-x64` sous Alpine) et vérifie sa somme : le `.sha256` de la release, et la somme épinglée par l'appelant si elle est donnée (ADR-012 amendé).
+- **Les entrées passent par `env:`, jamais interpolées dans `run:`** (pas d'injection de script) ; bash seul, aucune action tierce.
+- Elle exécute `coverage-upload` sans argument : chaque option retombe sur sa variable `COVERAGE_*`, que l'action pose depuis ses entrées.
 - En cas d'échec d'installation, elle affiche un `::warning::` explicite et sort en 0.
 
 ### 5.6 Azure Pipelines (dépôt hébergé sur GitHub)

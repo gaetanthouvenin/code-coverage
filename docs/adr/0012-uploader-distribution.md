@@ -2,7 +2,8 @@
 
 - **Statut :** accepté
 - **Date :** 2026-11-07
-- **Références :** `docs/ARCHITECTURE.md` §5.2, §5.3, §5.4, §5.5, §5.6 et §12.1 ; `docs/PLAN.md` M1 (uploader) et M5
+- **Références :** `docs/ARCHITECTURE.md` §5.2, §5.3, §5.4, §5.5, §5.6 et §12.1 ; `docs/PLAN.md` M1 (uploader), M4.01 et M5
+- **Amendé :** 2026-11-13 (la release GitHub, source principale pour la CI)
 
 ## Contexte
 
@@ -29,3 +30,14 @@
   - l'image Api grossit des quatre binaires ;
   - la publication multi-RID et le trimming ajoutent une étape au build de l'image et de la release ;
   - l'Uploader ne référence aucun projet de la solution : son seul couplage avec le serveur est le contrat HTTP, qui doit rester rétrocompatible.
+
+## Amendement du 2026-11-13 (M5.01, M5.02)
+
+Décision du propriétaire, prise avec le lot M4/M5. La décision initiale était incohérente : l'Api ne sert que les binaires de sa propre version, donc une somme épinglée dans un template ne correspondrait plus après la mise à jour du serveur, et l'avertissement suivi d'un code 0 arrêterait les uploads en silence.
+
+- La **release GitHub** de la version épinglée est la **source principale** des binaires pour la CI : l'action composite (`action/`, M5.01) et le template Azure (`pipelines/templates/coverage-upload.yml`, M5.02) téléchargent `coverage-upload-{rid}[.exe]` et son `.sha256` depuis la release `v{version}`, et vérifient la somme (et une somme épinglée par l'appelant, si elle est fournie). Version et somme changent ensemble, quand le workflow est mis à jour.
+- Les binaires de la release sont **extraits de l'image Api** du même tag (M4.01), jamais recompilés : ils sont identiques à ceux que l'instance sert.
+- La route `/api/v1/uploader/{rid}` de l'instance **reste**, documentée comme secours et pour l'usage manuel (recette `curl`, agent sans accès à GitHub).
+- La conséquence « la version de l'uploader suit celle du serveur qui la sert » ne vaut plus pour la CI : la version suit l'épinglage du workflow ; le contrat HTTP reste rétrocompatible.
+- L'outil dotnet est publié sur **nuget.org** par publication de confiance (OIDC), sous licence Apache-2.0 (PLAN §11-11, M5.03).
+- Le tag majeur mobile `v1` de l'action est déplacé à la main par le propriétaire ; GitVersion l'ignore (vérifié le 2026-11-14 : un tag `v1` ne change pas la version calculée sur `main` ni sur `develop`, un tag `v0.1.0` la change).

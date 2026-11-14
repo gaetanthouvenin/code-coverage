@@ -12,3 +12,6 @@ tests/fixtures/github/patches/README.md text
 # (checked by Web.Tests/Resources/ResourceEntryFormatTests): on several lines, entries interleave.
 Common*.resx merge=union
 UiStrings*.resx merge=union
+
+# Shell scripts run by bash on every runner, Windows included (the composite action): LF always.
+*.sh text eol=lf

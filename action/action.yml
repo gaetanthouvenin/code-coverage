@@ -1,0 +1,88 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - composite action (M5.01): downloads the standalone uploader of a pinned release,
+# checks its SHA-256, and runs it. Bash only, no third-party action. Every input reaches the scripts
+# through env: and is never written into a run: block (no ${{ }} in run:). A failed installation
+# warns and exits 0, unless fail-on-error is true: coverage tooling never breaks a build (rule 6).
+# ------------------------------------------------------------------------------------------------
+name: CodeCoverage upload
+description: Download the CodeCoverage uploader of a pinned release, verify its checksum, and upload coverage reports.
+branding:
+  icon: upload-cloud
+  color: green
+
+inputs:
+  version:
+    description: The release of the uploader to download, without the v (e.g. 1.2.3 for the tag v1.2.3).
+    required: true
+  sha256:
+    description: >-
+      The SHA-256 the binary of this runner must have, pinned in the workflow. Optional: the .sha256 of
+      the release is always checked.
+    required: false
+    default: ""
+  url:
+    description: The public address of the CodeCoverage Api, e.g. https://coverage-api.example.com.
+    required: true
+  token:
+    description: >-
+      An upload token. Empty: the uploader uses the OIDC token of GitHub Actions, which needs the job
+      permission id-token: write.
+    required: false
+    default: ""
+  files:
+    description: The report files, separated by ";" or by new lines. Empty searches the workspace.
+    required: false
+    default: ""
+  flags:
+    description: The flags of the upload, separated by commas.
+    required: false
+    default: ""
+  name:
+    description: The name of the upload.
+    required: false
+    default: ""
+  dry-run:
+    description: Prepares the upload and prints it without sending it.
+    required: false
+    default: "false"
+  fail-on-error:
+    description: Fails the step when the installation or the upload fails, instead of warning.
+    required: false
+    default: "false"
+  download-url:
+    description: >-
+      The address the release files are downloaded from. Default
+      https://github.com/<repository of this action>/releases/download.
+    required: false
+    default: ""
+
+outputs:
+  installed:
+    description: true when the uploader was downloaded and its checksum verified.
+    value: ${{ steps.install.outputs.installed }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_SHA256: ${{ inputs.sha256 }}
+        INPUT_DOWNLOAD_URL: ${{ inputs.download-url }}
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        ACTION_REPOSITORY: ${{ github.action_repository }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"
+
+    - if: steps.install.outputs.installed == 'true'
+      shell: bash
+      env:
+        UPLOADER: ${{ steps.install.outputs.path }}
+        COVERAGE_URL: ${{ inputs.url }}
+        COVERAGE_TOKEN: ${{ inputs.token }}
+        COVERAGE_FILE: ${{ inputs.files }}
+        COVERAGE_FLAGS: ${{ inputs.flags }}
+        COVERAGE_NAME: ${{ inputs.name }}
+        COVERAGE_DRY_RUN: ${{ inputs.dry-run }}
+        COVERAGE_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+      run: bash "$GITHUB_ACTION_PATH/upload.sh"
