@@ -104,6 +104,7 @@ CodeCoverage.sln.DotSettings
 .editorconfig  GitVersion.yml  global.json (10.0.403)  .gitignore  .gitattributes  .dockerignore   (propres au dépôt)
 AGENT.md  CLAUDE.md  README.md  docs/ARCHITECTURE.md  docs/CONVENTIONS.md  docs/adr/*.md  docs/migration-from-codecov.md
 Dockerfile.api  Dockerfile.web  docker-compose.yml  Caddyfile.example
+deploy/vm/                                     (compose de production d'une VM, Caddy conteneur, sauvegardes ; M4.02)
 .github/workflows/ci-cd.yml
 action/action.yml                              (composite GitHub Action, M5; <owner>/code-coverage/action@v1)
 pipelines/templates/coverage-upload.yml        (template Azure Pipelines, M5)

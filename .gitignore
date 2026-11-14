@@ -444,6 +444,9 @@ src/CodeCoverage.Web/logs/
 !.env.example
 /secrets/
 
+# The backup container of the production compose of a VM (M4.02), not a Visual Studio backup folder.
+!deploy/vm/backup/
+
 # Coverage report fixtures are test inputs, not results (coverage*.xml, *.coverage... above).
 !tests/fixtures/**
 
