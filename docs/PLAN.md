@@ -2563,7 +2563,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.43
 
 #### M4.02g — Somme SHA-256 de l'action composite sur les runners Windows
-- **Issue :** à créer
+- **Issue :** [#267](https://github.com/gaetanthouvenin/code-coverage/issues/267)
 - **Objectif :** que l'action `gaetanthouvenin/code-coverage/action` installe l'uploader sur un runner Windows. Constaté le 2026-11-14 sur le premier dépôt branché (Capto, `windows-latest`) : l'action a averti « the SHA-256 of coverage-upload-win-x64.exe (\261483af…) is not the one of the release (261483af…) » et n'a rien envoyé. Cause prouvée : `sha256_of` de `action/install.sh` appelle `sha256sum "$1"`. Le chemin du binaire vient de `RUNNER_TEMP` (`D:\a\_temp\…`) ; GNU `sha256sum` échappe un nom de fichier qui contient `\` et préfixe alors la ligne d'un `\`, que `cut` garde. Le job Windows de `action-test.yml` ne l'a pas vu : `action/tests/serve-release.sh` calcule la somme publiée de la même façon, donc avec le même `\` (cause probable).
 - **Couches :** action, CI.
 - **Fichiers :**
