@@ -106,10 +106,85 @@ public sealed partial class UiStylesheetTests
     FocusVisibleRemoval().IsMatch(css).ShouldBeFalse("no rule removes the outline of a focus-visible element");
   }
 
+  // The mockup is the reference of the UI: a responsive rule of its top bar left out of the stylesheet let the
+  // switcher slide under the tabs between 1041 and 1320 px (M4.02h).
+  [Fact]
+  public void Components_ShouldCarryEveryResponsiveRuleOfTheMockupTopBar()
+  {
+    var mockup = File.ReadAllText(Path.Combine(WebRootFiles.ProjectDirectory, "..", "..", "docs", "design", "ui-mockup.html"));
+    var expected = TopBarMediaDeclarations(string.Concat(StyleElement().Matches(mockup).Select(static m => m.Groups["css"].Value)));
+    var actual = TopBarMediaDeclarations(WebRootFiles.Read(Components)).ToHashSet(StringComparer.Ordinal);
+
+    expected.ShouldNotBeEmpty();
+    expected.Where(d => !actual.Contains(d))
+            .ShouldBeEmpty("every @media declaration of the top bar in docs/design/ui-mockup.html is in components.css");
+  }
+
   private static string WithoutComments(string css) => Comment().Replace(css, string.Empty);
 
   [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]
   private static partial Regex Comment();
+
+  // The declarations of the top bar inside a @media block, written "condition selector property: value" with the
+  // spaces of both stylesheets (minified mockup, expanded components.css) brought to one form.
+  private static List<string> TopBarMediaDeclarations(string css)
+  {
+    var text = WithoutComments(css);
+    var declarations = new List<string>();
+    string? media = null;
+    var depth = 0;
+
+    foreach (Match block in Block().Matches(text))
+    {
+      if (block.Value == "}")
+      {
+        depth--;
+        media = depth == 0 ? null : media;
+        continue;
+      }
+
+      depth++;
+      var head = block.Groups["head"].Value.Trim();
+
+      if (head.StartsWith("@media", StringComparison.Ordinal))
+      {
+        media = Normalize(head["@media".Length..]);
+        continue;
+      }
+
+      if (media is null)
+      {
+        continue;
+      }
+
+      var start = block.Index + block.Length;
+      var body = text[start..text.IndexOf('}', start)];
+      var selectors = head.Split(',').Select(Normalize).Where(static s => s.Contains("cc-topnav", StringComparison.Ordinal) || s.Contains("cc-user-menu", StringComparison.Ordinal));
+
+      foreach (var selector in selectors)
+      {
+        declarations.AddRange(body.Split(';')
+                                  .Where(static d => d.Contains(':', StringComparison.Ordinal))
+                                  .Select(d => $"{media} {selector} {d[..d.IndexOf(':', StringComparison.Ordinal)].Trim()}: {Normalize(d[(d.IndexOf(':', StringComparison.Ordinal) + 1)..])}"));
+      }
+    }
+
+    return declarations;
+  }
+
+  private static string Normalize(string css) => Punctuation().Replace(Whitespace().Replace(css, " ").Trim(), "$1");
+
+  [GeneratedRegex(@"<style[^>]*>(?<css>.*?)</style>", RegexOptions.Singleline)]
+  private static partial Regex StyleElement();
+
+  [GeneratedRegex(@"(?<head>[^{}]*)\{|\}")]
+  private static partial Regex Block();
+
+  [GeneratedRegex(@"\s+")]
+  private static partial Regex Whitespace();
+
+  [GeneratedRegex(@"\s*([:,()>])\s*")]
+  private static partial Regex Punctuation();
 
   // A class in a selector: a dot followed by a name, outside declarations ({...}).
   [GeneratedRegex(@"(?<![\w-])\.(?<name>-?[a-zA-Z_][\w-]*)(?=[^{}]*\{)")]
