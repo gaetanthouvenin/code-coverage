@@ -24,6 +24,7 @@ namespace CodeCoverage.Application.Features.Access.Commands.SignInUser;
 /// <param name="users">The repository of the users.</param>
 /// <param name="protector">The protector of the stored secrets.</param>
 /// <param name="updater">What writes the memberships of a user.</param>
+/// <param name="directory">The directory of the organizations.</param>
 /// <param name="jobQueue">The job queue.</param>
 /// <param name="accessOptions">The settings of the access.</param>
 /// <param name="bootstrapOptions">The bootstrap values of the access.</param>
@@ -39,7 +40,8 @@ namespace CodeCoverage.Application.Features.Access.Commands.SignInUser;
 ///     The memberships follow the rule of <see cref="MembershipUpdater" />. An account linked to no active organization
 ///     is refused, unless <c>Access:AdminUserIds</c> or <c>CodeCoverage__Bootstrap__AdminUserIds</c> names it:
 ///     an administrator of the instance may enter without any organization, and gains no access to one by it. The stored
-///     <see cref="AppUser.IsAdmin" /> flag is not written.
+///     <see cref="AppUser.IsAdmin" /> flag is not written. The refusal tells apart an account whose installations only
+///     name organizations that wait for their admission: it has nothing to install, only to wait.
 ///   </para>
 ///   <para>
 ///     A signed-in user gets one <c>RefreshUserMemberships</c> job on the lane of the instance, which keeps its links up
@@ -51,6 +53,7 @@ internal sealed class SignInUserCommandHandler(
   IUserRepository users,
   ISecretProtector protector,
   MembershipUpdater updater,
+  IOrganizationDirectory directory,
   IJobQueue jobQueue,
   IOptionsMonitor<AccessOptions> accessOptions,
   IOptionsMonitor<BootstrapOptions> bootstrapOptions,
@@ -138,6 +141,26 @@ internal sealed class SignInUserCommandHandler(
     );
   }
 
+  /// <summary>Tells whether one of the installations a user reaches names an organization that waits for its admission.</summary>
+  /// <param name="installations">The installations GitHub lists for the user, or <see langword="null" />.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns><see langword="true" /> when a pending organization is found.</returns>
+  private async Task<bool> ReachesPendingOrganizationAsync(IReadOnlyList<GitHubInstallationInfo>? installations, CancellationToken cancellationToken)
+  {
+    // GitHub refuses every call made for a suspended installation: the admission would not let it in either.
+    foreach (var installation in (installations ?? []).Where(static i => !i.Suspended))
+    {
+      var organization = await directory.FindByAccountIdAsync(Forge.GitHub, installation.AccountId, cancellationToken).ConfigureAwait(false);
+
+      if (organization is { State: OrganizationState.Pending })
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// <summary>Tells whether a user administers the instance.</summary>
   /// <param name="user">The user.</param>
   /// <returns><see langword="true" /> when one of the two lists of administrators names its account.</returns>
@@ -150,7 +173,8 @@ internal sealed class SignInUserCommandHandler(
 
   /// <inheritdoc />
   /// <exception cref="ForbiddenException">
-  ///   The account reaches no repository of an active organization and does not administer the instance
+  ///   The account reaches no repository of an active organization and does not administer the instance: it waits for
+  ///   the admission of an organization (<see cref="AccessErrors.PendingAdmission" />), or reaches none
   ///   (<see cref="AccessErrors.NoRepository" />).
   /// </exception>
   public async ValueTask<long> Handle(SignInUserCommand command, CancellationToken cancellationToken)
@@ -165,7 +189,11 @@ internal sealed class SignInUserCommandHandler(
     var roles = await updater.ReplaceAsync(user, installations, cancellationToken).ConfigureAwait(false);
 
     // The row and its tokens stay: a later refresh may let the user in, without asking GitHub to consent again.
-    ForbiddenException.ThrowIfNoRepository(roles.Count == 0 && !IsInstanceAdministrator(user));
+    if (roles.Count == 0 && !IsInstanceAdministrator(user))
+    {
+      ForbiddenException.ThrowIfPendingAdmission(await ReachesPendingOrganizationAsync(installations, cancellationToken).ConfigureAwait(false));
+      ForbiddenException.ThrowIfNoRepository(true);
+    }
 
     await jobQueue.EnqueueAsync(RefreshUserMembershipsJobs.Create(user.Id), cancellationToken).ConfigureAwait(false);
 

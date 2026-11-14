@@ -13,7 +13,14 @@
     <CcEmptyState Title="@L["AccessDenied_Title"]" Icon="CcIconName.Shield">
       <ChildContent>@Description</ChildContent>
       <Actions>
-        <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+        @if (SignInAgain)
+        {
+          <CcButton Variant="CcButtonVariant.Primary" Href="signin" Icon="CcIconName.GitHub">@L["SignIn_Again"]</CcButton>
+        }
+        else
+        {
+          <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+        }
       </Actions>
     </CcEmptyState>
   </div>

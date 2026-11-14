@@ -66,6 +66,17 @@ internal static class AuthenticationEndpoints
       ? returnUrl
       : "/";
 
+  /// <summary>Builds the address of the sign-in page that brings the user back to a page of this site.</summary>
+  /// <param name="returnUrl">The address of the page, path and query from the root of the site; any other goes home.</param>
+  /// <param name="expired">Whether the sign-in page says the session expired.</param>
+  /// <returns>The address, relative to the base of the site.</returns>
+  internal static string SignInUri(string? returnUrl, bool expired = false)
+  {
+    var uri = $"{SignInPath.TrimStart('/')}?{ReturnUrlParameter}={Uri.EscapeDataString(LocalOrHome(returnUrl))}";
+
+    return expired ? $"{uri}&expired=true" : uri;
+  }
+
   /// <summary>Starts the sign-in with GitHub.</summary>
   /// <param name="returnUrl">The address to return to, or <see langword="null" />.</param>
   /// <param name="github">The settings of GitHub.</param>

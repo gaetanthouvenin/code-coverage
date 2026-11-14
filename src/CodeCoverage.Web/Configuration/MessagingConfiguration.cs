@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Configuration.Identity;
 using CodeCoverage.Web.Localization;
 using CodeCoverage.Web.Messaging;
@@ -32,6 +33,7 @@ public static class MessagingConfiguration
     services.AddSingleton<ErrorCodeLocalizer>();
     services.AddScoped<ISendScopeInitializer, CircuitUserScopeInitializer>();
     services.AddScoped<ScopedSender>();
+    services.AddScoped<SessionState>();
     services.AddScoped<UiRequestRunner>();
 
     return services;

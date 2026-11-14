@@ -34,8 +34,9 @@ namespace CodeCoverage.Web.Configuration.Authentication;
 ///     included, which the handler does not type.
 ///   </para>
 ///   <para>
-///     A refusal of the sign-in issues no cookie: an account that reaches no repository is sent to the access-denied
-///     page, any other failure back to the sign-in page. Neither the tokens nor the message of the failure are logged.
+///     A refusal of the sign-in issues no cookie: an account that reaches no repository, or only organizations that wait
+///     for their admission, is sent to the access-denied page, any other failure back to the sign-in page. Neither the
+///     tokens nor the message of the failure are logged.
 ///   </para>
 /// </remarks>
 internal sealed partial class GitHubSignInEvents(ISender sender, IClock clock, ILogger<GitHubSignInEvents> logger) : OAuthEvents
@@ -44,6 +45,9 @@ internal sealed partial class GitHubSignInEvents(ISender sender, IClock clock, I
 
   /// <summary>Where an account that reaches no repository is sent.</summary>
   public const string NoRepositoryPath = "/access-denied?reason=" + AccessDeniedReasons.NoRepository;
+
+  /// <summary>Where an account that only reaches organizations waiting for their admission is sent.</summary>
+  public const string PendingAdmissionPath = "/access-denied?reason=" + AccessDeniedReasons.PendingAdmission;
 
   /// <summary>Where any other failure of the sign-in is sent.</summary>
   public const string FailedPath = AuthenticationEndpoints.SignInPath + "?error=true";
@@ -112,7 +116,14 @@ internal sealed partial class GitHubSignInEvents(ISender sender, IClock clock, I
 
     LogSignInFailed(logger, context.Failure?.GetType().Name ?? "unknown", refusal?.ErrorCode);
 
-    context.Response.Redirect(refusal?.ErrorCode == AccessErrors.NoRepository ? NoRepositoryPath : FailedPath);
+    context.Response.Redirect(
+      refusal?.ErrorCode switch
+      {
+        AccessErrors.NoRepository => NoRepositoryPath,
+        AccessErrors.PendingAdmission => PendingAdmissionPath,
+        var _ => FailedPath,
+      }
+    );
     context.HandleResponse();
 
     return Task.CompletedTask;

@@ -90,12 +90,13 @@ public sealed class GitHubSignInEventsTests
   }
 
   [Theory]
-  [InlineData(true, GitHubSignInEvents.NoRepositoryPath)]
-  [InlineData(false, GitHubSignInEvents.FailedPath)]
-  public async Task RemoteFailure_ShouldRedirectWithoutAnySession(bool noRepository, string expected)
+  [InlineData(AccessErrors.NoRepository, GitHubSignInEvents.NoRepositoryPath)]
+  [InlineData(AccessErrors.PendingAdmission, GitHubSignInEvents.PendingAdmissionPath)]
+  [InlineData(null, GitHubSignInEvents.FailedPath)]
+  public async Task RemoteFailure_ShouldRedirectWithoutAnySession(string? errorCode, string expected)
   {
     var http = new DefaultHttpContext();
-    Exception failure = noRepository ? new ForbiddenException(AccessErrors.NoRepository, "No repository.") : new InvalidOperationException("ghu_secret");
+    Exception failure = errorCode is not null ? new ForbiddenException(errorCode, "Refused.") : new InvalidOperationException("ghu_secret");
     var context = new RemoteFailureContext(http, Scheme, new GitHubAuthenticationOptions(), failure);
 
     await _events.RemoteFailure(context);

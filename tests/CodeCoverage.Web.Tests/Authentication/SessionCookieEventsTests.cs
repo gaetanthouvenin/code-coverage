@@ -29,6 +29,8 @@ public sealed class SessionCookieEventsTests
 
   private readonly CurrentUserContext _currentUser = new();
 
+  private readonly SessionState _session;
+
   private readonly SessionCookieEvents _events;
 
   #endregion
@@ -37,7 +39,8 @@ public sealed class SessionCookieEventsTests
 
   public SessionCookieEventsTests()
   {
-    _events = new SessionCookieEvents(_users, _currentUser);
+    _session = new SessionState(_currentUser);
+    _events = new SessionCookieEvents(_users, _currentUser, _session);
   }
 
   #endregion
@@ -56,6 +59,8 @@ public sealed class SessionCookieEventsTests
     _currentUser.UserId.ShouldBe(42);
     _currentUser.Login.ShouldBe("octocat");
     _currentUser.IsAdmin.ShouldBeFalse();
+    _session.IsSignedIn.ShouldBeTrue();
+    _session.WasRejected.ShouldBeFalse();
   }
 
   // A renewal GitHub refused cleared the tokens: the session ends, and the next page asks to sign in.
@@ -69,6 +74,7 @@ public sealed class SessionCookieEventsTests
 
     context.Principal.ShouldBeNull();
     _currentUser.IsAuthenticated.ShouldBeFalse();
+    _session.WasRejected.ShouldBeTrue();
     A.CallTo(() => _authentication.SignOutAsync(A<HttpContext>._, CookieAuthenticationDefaults.AuthenticationScheme, A<AuthenticationProperties?>._)).MustHaveHappenedOnceExactly();
   }
 

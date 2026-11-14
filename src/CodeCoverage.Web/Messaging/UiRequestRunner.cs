@@ -15,6 +15,7 @@ using Microsoft.Extensions.Localization;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Web.Components.Ui.Models;
 using CodeCoverage.Web.Components.Ui.Services;
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Localization;
 using CodeCoverage.Web.Resources;
 
@@ -38,13 +39,15 @@ namespace CodeCoverage.Web.Messaging;
 ///     <item>
 ///       <description>
 ///         a <see cref="NotFoundException" /> gives a <see cref="UiResult{T}.NotFound" /> result,
-///         for the page to show its « not found or not accessible » empty state;
+///         for the page to show its « not found or not accessible » empty state, which reveals nothing; nobody
+///         signed in, the page leaves for the sign-in page instead, which brings the visitor back to it;
 ///       </description>
 ///     </item>
 ///     <item>
 ///       <description>
-///         an <see cref="UnauthorizedException" /> means the session ended (a renewal GitHub refused, a
-///         user removed): the page leaves for the sign-in page, which says so;
+///         an <see cref="UnauthorizedException" /> leaves for the sign-in page, which brings the user back to the
+///         page; it says the session expired only when a session existed (a renewal GitHub refused, a user
+///         removed), never to a visitor who did not sign in;
 ///       </description>
 ///     </item>
 ///     <item>
@@ -70,17 +73,16 @@ namespace CodeCoverage.Web.Messaging;
 /// <param name="errors">Translates the error codes.</param>
 /// <param name="localizer">The strings of the application.</param>
 /// <param name="navigation">The navigation of the circuit.</param>
+/// <param name="session">Whether someone is signed in, and whether a session was rejected.</param>
 public sealed class UiRequestRunner(
   ScopedSender sender,
   IToastService toasts,
   ErrorCodeLocalizer errors,
   IStringLocalizer<Common> localizer,
-  NavigationManager navigation)
+  NavigationManager navigation,
+  SessionState session)
 {
   #region Fields
-
-  /// <summary>Where a page goes when its session ended: the sign-in page, which says so.</summary>
-  internal const string ExpiredSessionUri = "signin?expired=true";
 
   // The messages the runner put on each form, cleared by the next request on the same form.
   private readonly ConditionalWeakTable<EditContext, ValidationMessageStore> _stores = [];
@@ -130,6 +132,12 @@ public sealed class UiRequestRunner(
       ShowMessages(form, store, exception);
       return UiResult<T>.Refused();
     }
+    catch (NotFoundException) when (!session.IsSignedIn)
+    {
+      // Anonymous, the refusal may only mean « sign in first »: the sign-in brings the visitor back here.
+      LeaveForSignIn();
+      return UiResult<T>.Refused();
+    }
     catch (NotFoundException)
     {
       return UiResult<T>.Missing();
@@ -146,8 +154,7 @@ public sealed class UiRequestRunner(
     }
     catch (UnauthorizedException)
     {
-      // A full load: the request that follows checks the session cookie again.
-      navigation.NavigateTo(ExpiredSessionUri, forceLoad: true);
+      LeaveForSignIn();
       return UiResult<T>.Refused();
     }
     catch (ApplicationException exception)
@@ -155,6 +162,18 @@ public sealed class UiRequestRunner(
       toasts.Show(CcTone.Danger, localizer["Toast_RequestFailed"], errors.Localize(exception.ErrorCode));
       return UiResult<T>.Refused();
     }
+  }
+
+  /// <summary>Leaves for the sign-in page, which brings the user back to the current page.</summary>
+  /// <remarks>
+  ///   The session expired when a cookie was rejected by this request, or when the circuit was opened by a session the
+  ///   server no longer accepts. A full load: the request that follows checks the session cookie again.
+  /// </remarks>
+  private void LeaveForSignIn()
+  {
+    var expired = session.WasRejected || session.IsSignedIn;
+
+    navigation.NavigateTo(AuthenticationEndpoints.SignInUri(new Uri(navigation.Uri).PathAndQuery, expired), forceLoad: true);
   }
 
   /// <summary>Removes the messages the runner put on a form by a previous request.</summary>

@@ -121,6 +121,20 @@ internal static class AccessGuards
       }
     }
 
+    /// <summary>
+    ///   Throws when an account reaches no repository of an active organization, but reaches an organization that waits
+    ///   for its admission.
+    /// </summary>
+    /// <param name="refused">Whether the sign-in is refused for that reason.</param>
+    /// <exception cref="ForbiddenException"><paramref name="refused" /> is <see langword="true" />.</exception>
+    public static void ThrowIfPendingAdmission([DoesNotReturnIf(true)] bool refused)
+    {
+      if (refused)
+      {
+        throw new ForbiddenException(AccessErrors.PendingAdmission, "The account only reaches organizations that wait for their admission.");
+      }
+    }
+
     /// <summary>Throws when a user who may read a repository lacks the permission a message requires on it.</summary>
     /// <param name="missing">Whether the permission is missing.</param>
     /// <param name="messageName">The name of the message.</param>

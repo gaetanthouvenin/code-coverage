@@ -21,6 +21,12 @@ public static class AccessErrors
   /// </summary>
   public const string NoRepository = "Access.NoRepository";
 
+  /// <summary>
+  ///   The account reaches no repository of an active organization, but an installation it reaches names an organization
+  ///   that waits for the admission of an administrator of the instance. Maps to HTTP 403 Forbidden.
+  /// </summary>
+  public const string PendingAdmission = "Access.PendingAdmission";
+
   /// <summary>The user owns no such personal token of the API. Maps to HTTP 404 Not Found.</summary>
   public const string ApiTokenNotFound = "Access.ApiTokenNotFound";
 

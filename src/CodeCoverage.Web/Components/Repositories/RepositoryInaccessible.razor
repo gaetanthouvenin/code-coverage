@@ -8,7 +8,15 @@
   <CcEmptyState Title="@L["Inaccessible_Title"]" Icon="CcIconName.Search">
     <ChildContent>@L["Inaccessible_Description"]</ChildContent>
     <Actions>
-      <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+      @if (Session.IsSignedIn)
+      {
+        <CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton>
+      }
+      else
+      {
+        <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.GitHub" Href="@SignInHref">@L["Nav_SignIn"]</CcButton>
+        <CcButton Href="./">@L["BackHome"]</CcButton>
+      }
     </Actions>
   </CcEmptyState>
 </div>
