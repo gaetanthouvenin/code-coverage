@@ -19,7 +19,7 @@
 4. [Jalon M1 – Ingestion](#4-jalon-m1--ingestion)
 5. [Jalon M2 – Notification GitHub](#5-jalon-m2--notification-github)
 6. [Jalon M3 – Web, badges, historique](#6-jalon-m3--web-badges-historique)
-7. [Jalon M4 – Pilote et bascule](#7-jalon-m4--pilote-et-bascule)
+7. [Jalon M4 – Mise en production](#7-jalon-m4--mise-en-production)
 8. [Jalon M5 – Confort et compatibilité](#8-jalon-m5--confort-et-compatibilité)
 9. [Jalon M6 – Plus tard](#9-jalon-m6--plus-tard)
 10. [Écarts et compléments par rapport à l'architecture](#10-écarts-et-compléments-par-rapport-à-larchitecture)
@@ -125,9 +125,9 @@ graph LR
   M1 --> M2["M2 Notification GitHub"]
   M2 --> M3["M3 Web, badges, historique"]
   M1 --> M3
-  M3 --> M4["M4 Pilote et bascule"]
+  M3 --> M4["M4 Mise en production"]
   M4 --> M5["M5 Confort et compatibilité"]
-  M5 -. "M5.06 avant M4.08" .-> M4
+  M5 -. "M5.06 avant M4.08 (option)" .-> M4
   M3 -. "M3.03a avant M2.03a2" .-> M2
   M5 --> M6["M6 Plus tard"]
   M4 --> M7["M7 Azure DevOps"]
@@ -434,8 +434,8 @@ graph TD
   M4_02["M4.02 Déploiement VM"]
   M4_03["M4.03 Déploiement Azure"]
   M4_04["M4.04 Alertes"]
-  M4_05["M4.05 Guide de migration"] --> M4_07["M4.07 Scripts de déploiement pilote"]
-  M4_06["M4.06 Parité quotidienne"] --> M4_08["M4.08 Bascule et résiliation"]
+  M4_05["M4.05 Guide de migration (option)"] --> M4_07["M4.07 Scripts de déploiement pilote (option)"]
+  M4_06["M4.06 Parité quotidienne (option)"] --> M4_08["M4.08 Bascule et résiliation (option)"]
   M4_07 --> M4_08
   M4_01 --> M4_07
   M4_01 --> M4_05
@@ -448,7 +448,7 @@ graph TD
   M5_03["M5.03 Outil dotnet sur le flux"]
   M5_04["M5.04 behavior new/spammy"]
   M5_05["M5.05 Check Runs"]
-  M5_06["M5.06 Import historique Codecov"] --> M4_08
+  M5_06["M5.06 Import historique Codecov (option)"] --> M4_08
   M5_07["M5.07 Shim codecov-cli (conditionnel)"]
 ```
 
@@ -2452,9 +2452,11 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 ---
 
-## 7. Jalon M4 – Pilote et bascule
+## 7. Jalon M4 – Mise en production
 
-**Critère de sortie :** Codecov désinstallé et abonnement résilié.
+**Critère de sortie :** une instance de production sert les dépôts du propriétaire : une release `v*` publiée (M4.01), la VM déployée avec une sauvegarde hors machine restaurée une fois (M4.02), la liste de contrôle GitHub exécutée (M4.02a) et les alertes branchées sur un récepteur (M4.04). M4.03 reste une option de déploiement.
+
+**Migration depuis Codecov (option).** M4.05 à M4.08, comme l'import d'historique M5.06, servent seulement une organisation qui quitte un abonnement Codecov : guide, parité, double upload, bascule. Elles sont livrées (#254) mais sortent du critère de sortie : le propriétaire n'a pas d'abonnement Codecov, CodeCoverage sert justement à s'en passer (2026-11-14). Leurs étapes « propriétaire » ne s'appliquent qu'à une telle organisation.
 
 #### M4.01 — Release CI : binaires de l'uploader et sommes de contrôle
 - **Issue :** [#214](https://github.com/gaetanthouvenin/code-coverage/issues/214)
@@ -2480,7 +2482,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Couches :** docs, exploitation.
 - **Fichiers :** `docs/operations/organization-onboarding.md` (installation de l'App, admission, paramètres d'organisation, import des jetons, écarts non configurables d'ADR-013, sans les logins réservés retirés en M3.43a) et `docs/operations/github-verification-checklist.md` (une ligne par comportement « Probable » d'ADR-013 : procédure, résultat attendu tiré du code, preuve attendue, colonnes « confirmé / corrigé / non vérifiable / date »), avec en annexe l'inventaire des chemins de `GitHubAppGateway`. La liste est exécutée sur deux comptes réels : SAML et `GET /user/installations` (le point SAML exige une organisation GitHub Enterprise Cloud ; sans elle, il est consigné « non vérifiable » avec son risque) ; présence d'un collaborateur externe dans cette liste ; contenu de l'événement `transferred` ; réception de `installation_repositories` retiré par le compte d'origine ; `organization` renommé et `installation_target` renommé sur les deux types de compte ; conservation des secrets Actions après un transfert ; lecture d'un dépôt public d'un autre compte par un jeton d'installation ; forme `/repositories/{id}` sur chaque endpoint de la passerelle.
 - **Tests :** exécution de la liste de contrôle sur deux comptes réels (propriétaire).
-- **Acceptation :** le guide et la liste vierge sont livrés dans le dépôt ; chaque point est ensuite consigné par le propriétaire comme confirmé, corrigé ou non vérifiable, et une correction ouvre une modification du plan avant M4.08.
+- **Acceptation :** le guide et la liste vierge sont livrés dans le dépôt ; chaque point est ensuite consigné par le propriétaire comme confirmé, corrigé ou non vérifiable, et une correction ouvre une modification du plan avant la mise en production.
 - **Dépend de :** M4.02, M2.03a2, M3.43a
 
 #### M4.03 — Déploiement Azure Container Apps (option)
@@ -2505,7 +2507,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** chaque alerte passe ses tests promtool et se déclenche une fois sur la pile locale autant que possible ; le déclenchement en recette sur l'hôte réel est consigné par le propriétaire après M4.02.
 - **Dépend de :** M0.26, M1.25, M2.02, M3.13a
 
-#### M4.05 — Guide de migration depuis Codecov
+#### M4.05 — Guide de migration depuis Codecov (option)
 - **Issue :** [#219](https://github.com/gaetanthouvenin/code-coverage/issues/219)
 - **Objectif :** documenter la bascule des pipelines.
 - **Couches :** docs.
@@ -2514,7 +2516,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** un dépôt pilote est migré en suivant le guide seul (vérifié par le propriétaire avant M4.08).
 - **Dépend de :** M2.23, M1.46, M3.11, M3.15, M4.01
 
-#### M4.06 — Script de parité quotidien (API)
+#### M4.06 — Script de parité quotidien (API) (option)
 - **Issue :** [#220](https://github.com/gaetanthouvenin/code-coverage/issues/220)
 - **Objectif :** comparer chaque jour les totaux et les totaux de patch par fichier avec Codecov.
 - **Couches :** outillage.
@@ -2523,7 +2525,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** chaque écart est expliqué un par un dans `docs/parity-log.md` (exécutions réelles par le propriétaire).
 - **Dépend de :** M3.08, M3.05, M1.47, M3.10
 
-#### M4.07 — Scripts de déploiement pilote (double upload)
+#### M4.07 — Scripts de déploiement pilote (double upload) (option)
 - **Issue :** [#221](https://github.com/gaetanthouvenin/code-coverage/issues/221)
 - **Objectif :** PR d'une étape, scriptées avec `gh`, qui ajoutent l'upload vers CodeCoverage à côté de l'étape Codecov existante.
 - **Couches :** outillage.
@@ -2532,7 +2534,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** tous les dépôts envoient leurs uploads aux deux services (propriétaire). Le pilote mesure aussi combien de dépôts gardent `codecov/codecov-action`, mesure qui tranche la décision 13.2-1 (M5.07).
 - **Dépend de :** M4.05, M3.11, M4.01
 
-#### M4.08 — Bascule et résiliation
+#### M4.08 — Bascule et résiliation (option)
 - **Issue :** [#222](https://github.com/gaetanthouvenin/code-coverage/issues/222)
 - **Objectif :** par organisation, passer `Notifications:StatusContextPrefix` à `codecov` dans les paramètres de l'organisation, retirer les étapes et l'App Codecov, résilier.
 - **Couches :** exploitation.
