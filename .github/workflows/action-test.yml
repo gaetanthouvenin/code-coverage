@@ -1,0 +1,112 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - test of the composite action of action/ (M5.01), on Linux, Windows and macOS.
+# The uploader of each runner is published from the sources as a fake release served on localhost:
+# the action downloads it, checks its sum and runs it with --dry-run. The failure cases (a wrong
+# pinned sum, an unreachable server) must end the step successfully with installed=false and a
+# warning. Nothing is sent outside the runner, and no secret is used.
+# ------------------------------------------------------------------------------------------------
+name: Composite action
+
+on:
+  pull_request:
+    paths:
+      - action/**
+      - .github/workflows/action-test.yml
+      - src/CodeCoverage.Uploader/**
+  push:
+    branches: [develop]
+    paths:
+      - action/**
+      - .github/workflows/action-test.yml
+      - src/CodeCoverage.Uploader/**
+
+permissions: {}
+
+jobs:
+  no-interpolation:
+    name: No input interpolation in run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      # Every input reaches the scripts through env: only.
+      - name: No expression in a run block of the action
+        shell: bash
+        run: |
+          if grep -nE '^\s*run:.*\$\{\{' action/action.yml; then
+            echo "::error::action/action.yml interpolates an expression in a run block."
+            exit 1
+          fi
+
+      # Where install.sh reads the release without download-url: the repository of the action, or
+      # its checkout path when github.action_repository is empty. curl is stubbed: no network.
+      - name: install.sh resolves the release offline
+        shell: bash
+        run: bash action/tests/test-install.sh
+
+  action:
+    name: Action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: no-interpolation
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - id: release
+        name: Serve a fake release of the uploader of this runner
+        shell: bash
+        run: bash action/tests/serve-release.sh
+
+      - id: ok
+        name: Install and run the uploader (dry run)
+        uses: ./action
+        with:
+          version: 0.0.0-test
+          sha256: ${{ steps.release.outputs.sha256 }}
+          download-url: ${{ steps.release.outputs.url }}
+          url: http://127.0.0.1:9
+          token: not-a-real-token
+          files: tests/fixtures/reports/cobertura/coverlet-async.xml
+          flags: unit
+          name: action-test
+          dry-run: "true"
+
+      - id: wrong-sum
+        name: A wrong pinned sum warns and installs nothing
+        uses: ./action
+        with:
+          version: 0.0.0-test
+          sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+          download-url: ${{ steps.release.outputs.url }}
+          url: http://127.0.0.1:9
+
+      - id: unreachable
+        name: An unreachable release warns and installs nothing
+        uses: ./action
+        with:
+          version: 0.0.0-test
+          download-url: http://127.0.0.1:1
+          url: http://127.0.0.1:9
+
+      - name: Check the outcomes
+        shell: bash
+        env:
+          OK: ${{ steps.ok.outputs.installed }}
+          WRONG_SUM: ${{ steps.wrong-sum.outputs.installed }}
+          UNREACHABLE: ${{ steps.unreachable.outputs.installed }}
+        run: |
+          test "$OK" = "true" || { echo "::error::The valid release was not installed."; exit 1; }
+          test "$WRONG_SUM" = "false" || { echo "::error::A wrong pinned sum was accepted."; exit 1; }
+          test "$UNREACHABLE" = "false" || { echo "::error::An unreachable release was reported installed."; exit 1; }
