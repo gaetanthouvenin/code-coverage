@@ -441,6 +441,8 @@ graph TD
   M4_01 --> M4_05
   M4_02 --> M4_08
   M4_02 --> M4_02a["M4.02a Vérification sur deux organisations"]
+  M4_01 --> M4_02b["M4.02b Déploiement continu"]
+  M4_02 --> M4_02b
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2454,7 +2456,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 
 ## 7. Jalon M4 – Mise en production
 
-**Critère de sortie :** une instance de production sert les dépôts du propriétaire : une release `v*` publiée (M4.01), la VM déployée avec une sauvegarde hors machine restaurée une fois (M4.02), la liste de contrôle GitHub exécutée (M4.02a) et les alertes branchées sur un récepteur (M4.04). M4.03 reste une option de déploiement.
+**Critère de sortie :** une instance de production sert les dépôts du propriétaire : une release `v*` publiée (M4.01), la VM déployée avec une sauvegarde hors machine restaurée une fois (M4.02), la release arrivée sur l'hôte par le déploiement continu du runner auto-hébergé (M4.02b), la liste de contrôle GitHub exécutée (M4.02a) et les alertes branchées sur un récepteur (M4.04). M4.03 reste une option de déploiement.
 
 **Migration depuis Codecov (option).** M4.05 à M4.08, comme l'import d'historique M5.06, servent seulement une organisation qui quitte un abonnement Codecov : guide, parité, double upload, bascule. Elles sont livrées (#254) mais sortent du critère de sortie : le propriétaire n'a pas d'abonnement Codecov, CodeCoverage sert justement à s'en passer (2026-11-14). Leurs étapes « propriétaire » ne s'appliquent qu'à une telle organisation.
 
@@ -2484,6 +2486,21 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** exécution de la liste de contrôle sur deux comptes réels (propriétaire).
 - **Acceptation :** le guide et la liste vierge sont livrés dans le dépôt ; chaque point est ensuite consigné par le propriétaire comme confirmé, corrigé ou non vérifiable, et une correction ouvre une modification du plan avant la mise en production.
 - **Dépend de :** M4.02, M2.03a2, M3.43a
+
+#### M4.02b — Déploiement continu sur le runner auto-hébergé
+- **Issue :** [#257](https://github.com/gaetanthouvenin/code-coverage/issues/257)
+- **Objectif :** déployer chaque tag `v*` (pré-versions comprises) sur l'hôte Docker du propriétaire depuis la CI, sans geste manuel, par le runner auto-hébergé et l'environnement GitHub `production` (relecteur requis), avec le compose de M4.02 dans `/data03/docker/code-coverage` derrière le Nginx Proxy Manager (NPX) déjà en place sur l'hôte (décisions du propriétaire du 2026-11-14).
+- **Couches :** CI, déploiement, Api et Web (amorçage), docs.
+- **Fichiers :**
+  - **Job `deploy` de `.github/workflows/ci-cd.yml`**, dans le même workflow pour que la ref soit le tag (workflow, script et `deploy/vm` du commit du tag ; images et release déjà publiées) : `needs: [gitversion, release]`, jamais sur `pull_request` (`if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')`), `runs-on: [self-hosted, cc-production]`, `environment: production` (son `url` lu dans la variable `PRODUCTION_URL`, l'adresse https du Web, facultative), `timeout-minutes: 20` (l'attente de l'approbation n'en fait pas partie), `concurrency` `production` sans annulation, permissions `contents: read` et `packages: read`, toute valeur par `env:`, `DOCKER_CONFIG` dans `runner.temp`, `actions/checkout` épinglé par SHA avec `persist-credentials: false`. Étapes : contrôle des outils (`pwsh` 7.4+, compose 2.24+, `curl`) ; garde d'ascendance (une version stable descend de `origin/main`, une pré-version de `origin/develop` ou d'une branche `release/*`) ; connexion GHCR par `--password-stdin` ; `scripts/Deploy-Production.ps1 -Execute` ; déconnexion et nettoyage en `always()`. Un redéploiement est un « Re-run job » du tag ; un retour en arrière passe par le script lancé à la main avec `-AllowDowngrade` et une restauration.
+  - **`scripts/Deploy-Production.ps1`**, en simulation par défaut : contrôles (`.env`, `secrets/dp.pfx`, dossiers de `DATA_DIR`, `TAG` courant, comparaison SemVer 2.0 qui refuse une version plus ancienne sauf `-AllowDowngrade`) ; copie en place d'une liste explicite de `deploy/vm` (jamais `.env` ni `secrets/`) ; `pull api web` ; révision `org.opencontainers.image.revision` des deux images égale au commit du tag ; sauvegarde `BACKUP_ONCE` dont le dump est exigé ; écriture du `TAG` (l'ancien dans `.env.previous-tag`) seulement après le pull et la sauvegarde ; démarrage de l'Api puis du Web avec attente de santé par sondage ; vérification `curl --resolve <hôte>:443:127.0.0.1` de `/health/ready` sur les deux hôtes et de l'uploader servi contre l'asset de la release ; remise de l'ancien `TAG` sur un échec avant le démarrage de l'Api, procédure de restauration nommée après ; nettoyage des seules images `-api` et `-web` ni courantes ni précédentes ; résumé dans `$GITHUB_STEP_SUMMARY`. `scripts/Test-DeployProduction.ps1` le vérifie hors ligne (`docker` et `curl` remplacés), dans `build-and-test` à côté de `Test-Rollout.ps1`.
+  - **`deploy/vm/docker-compose.host.yml`**, surcharge activée par `COMPOSE_FILE` dans `.env` : Api et Web sur le réseau Docker externe de NPX (`PROXY_NETWORK`) sans port publié, Caddy désactivé (`profiles: [caddy]`), `KnownProxies` vidé et `KnownNetworks` à `PROXY_NETWORK_CIDR`, volumes en montages liés sous `DATA_DIR` (`db`, `backups`, `api`, `web`). `.env.example` reçoit `COMPOSE_FILE`, `PROXY_NETWORK`, `PROXY_NETWORK_CIDR` et `DATA_DIR`.
+  - **Clé d'amorçage `ForwardedHeaders:KnownNetworks`** (liste de CIDR, même format que `KnownProxies`, valeur invalide refusée au démarrage) dans `ForwardedHeadersConfiguration` de l'Api et du Web ; ARCHITECTURE §4bis.2 et §12 mis à jour.
+  - **`deploy/vm/runner/job-started.sh`**, crochet pré-job `ACTIONS_RUNNER_HOOK_JOB_STARTED` du runner : refuse tout job qui n'est pas un `push` d'un tag `v*` de ce dépôt par `ci-cd.yml` du tag ; son test hors ligne tourne en CI.
+  - **`docs/operations.md`, section « Continuous deployment »** : préparation de l'hôte (outils, groupe `docker` équivalent root, droits de `.env`, `secrets/` et des dossiers de données), runner et crochet, hôtes proxy NPX (WebSocket pour le Web), réglages GitHub du propriétaire (règle de tag `v*.*.*` et variables `DEPLOY_DIR` et `PRODUCTION_URL` de `production`, relecteur requis, ruleset de tags obligatoire, accès du paquet GHCR), retour manuel, et « Before making the repository public ». En-tête de `ci-cd.yml` mis à jour.
+- **Tests :** unitaires et d'hôte de `KnownNetworks` dans `Api.Tests` et `Web.Tests` ; `Test-DeployProduction.ps1` et le test du crochet en CI ; puis un premier déploiement réel par une pré-version (propriétaire).
+- **Acceptation :** un tag `v*` dont la CI réussit est déployé après approbation dans `/data03/docker/code-coverage` ; l'Api et le Web sont prêts derrière NPX ; l'uploader servi est celui de la release ; une image dont la révision diffère du tag est refusée ; un job d'une PR qui vise le label est refusé par le crochet (propriétaire).
+- **Dépend de :** M4.01, M4.02
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
