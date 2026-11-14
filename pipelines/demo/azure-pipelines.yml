@@ -1,0 +1,50 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - demonstration pipeline of the Azure template (M5.02), for a repository hosted on
+# GitHub and built by Azure Pipelines. The owner runs it once on a real Azure DevOps organization;
+# it is not run by the CI of this repository.
+#
+# Prerequisites in the Azure DevOps project:
+#   - a GitHub service connection (named below "github") that can read <owner>/code-coverage;
+#   - a variable group "code-coverage": COVERAGE_URL, COVERAGE_TOKEN (secret: a token of the
+#     organization, or the imported CODECOV_TOKEN), and optionally UPLOADER_SHA256_LINUX_X64 (the sum
+#     of the release, pinned; changed with the version below).
+# ------------------------------------------------------------------------------------------------
+trigger:
+  branches:
+    include: [develop, main]
+
+pr:
+  branches:
+    include: ["*"]
+
+resources:
+  repositories:
+    - repository: coverage
+      type: github
+      name: gaetanthouvenin/code-coverage
+      endpoint: github
+      ref: refs/tags/v1.0.0
+
+variables:
+  - group: code-coverage
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 1 # enough: the commit is SYSTEM_PULLREQUEST_SOURCECOMMITID, the diff is read from GitHub
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - script: dotnet test -c Release --collect:"XPlat Code Coverage" --results-directory "$(Agent.TempDirectory)/coverage"
+    displayName: Test with coverage
+
+  - template: pipelines/templates/coverage-upload.yml@coverage
+    parameters:
+      version: 1.0.0
+      url: $(COVERAGE_URL)
+      files: $(Agent.TempDirectory)/coverage/**/coverage.cobertura.xml
+      flags: unit

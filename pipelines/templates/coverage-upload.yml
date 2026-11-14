@@ -1,0 +1,160 @@
+# ------------------------------------------------------------------------------------------------
+# CodeCoverage - Azure Pipelines step template (M5.02): downloads the standalone uploader of a pinned
+# release, checks its SHA-256 (the .sha256 of the release, and the sum pinned in the variable group
+# when there is one: UPLOADER_SHA256_LINUX_X64, UPLOADER_SHA256_LINUX_MUSL_X64,
+# UPLOADER_SHA256_WIN_X64, UPLOADER_SHA256_OSX_ARM64), then runs it.
+#
+# The script reads only $env: values: no template expression and no macro inside it. The secrets are
+# mapped explicitly (COVERAGE_TOKEN); a macro the pipeline does not define stays as its literal text,
+# which the script treats as absent. A failed installation writes a warning and exits 0, unless
+# failOnError is true: coverage tooling never breaks a build (rule 6).
+#
+#   resources:
+#     repositories:
+#       - repository: coverage
+#         type: github
+#         name: <owner>/code-coverage
+#         endpoint: <GitHub service connection>
+#         ref: refs/tags/v1.2.3
+#   steps:
+#     - template: pipelines/templates/coverage-upload.yml@coverage
+#       parameters:
+#         version: 1.2.3
+#         url: https://coverage-api.example.com
+#         files: $(Agent.TempDirectory)/**/coverage.cobertura.xml
+#         flags: unit
+# ------------------------------------------------------------------------------------------------
+parameters:
+  - name: version
+    displayName: The release of the uploader, without the v (1.2.3 for the tag v1.2.3)
+    type: string
+  - name: url
+    displayName: The public address of the CodeCoverage Api
+    type: string
+  - name: files
+    displayName: The report files, separated by ";"; empty searches the sources
+    type: string
+    default: ""
+  - name: flags
+    displayName: The flags of the upload, separated by commas
+    type: string
+    default: ""
+  - name: name
+    displayName: The name of the upload
+    type: string
+    default: ""
+  - name: dryRun
+    displayName: Prepare and print the upload without sending it
+    type: boolean
+    default: false
+  - name: failOnError
+    displayName: Fail the step when the installation or the upload fails
+    type: boolean
+    default: false
+  - name: downloadUrl
+    displayName: Where the release files are read
+    type: string
+    default: https://github.com/gaetanthouvenin/code-coverage/releases/download
+
+steps:
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+
+      # A macro the pipeline does not define is passed as its own text: it counts as absent.
+      function Get-Setting([string] $Name) {
+        $value = [Environment]::GetEnvironmentVariable($Name)
+        if ([string]::IsNullOrWhiteSpace($value) -or $value -match '^\$[(][A-Za-z0-9_.]+[)]$') {
+          return $null
+        }
+        return $value.Trim()
+      }
+
+      function Stop-Install([string] $Message) {
+        if ((Get-Setting 'COVERAGE_FAIL_ON_ERROR') -eq 'true') {
+          Write-Host "##vso[task.logissue type=error]CodeCoverage uploader not installed: $Message"
+          exit 1
+        }
+        Write-Host "##vso[task.logissue type=warning]CodeCoverage uploader not installed, no coverage is uploaded: $Message"
+        exit 0
+      }
+
+      $version = Get-Setting 'COVERAGE_UPLOADER_VERSION'
+      if ($null -ne $version) { $version = $version.TrimStart('v') }
+      if ($version -notmatch '^[0-9]+[.][0-9]+[.][0-9]+([-+][0-9A-Za-z.-]+)?$') {
+        Stop-Install "the version '$version' is not a release version such as 1.2.3."
+      }
+
+      $rid = [System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier
+      $files = @{
+        'linux-x64'      = 'coverage-upload-linux-x64'
+        'linux-musl-x64' = 'coverage-upload-linux-musl-x64'
+        'win-x64'        = 'coverage-upload-win-x64.exe'
+        'osx-arm64'      = 'coverage-upload-osx-arm64'
+      }
+      if (-not $files.ContainsKey($rid)) {
+        Stop-Install "no uploader is published for $rid (linux-x64, linux-musl-x64, win-x64 and osx-arm64 are)."
+      }
+
+      $file = $files[$rid]
+      $base = (Get-Setting 'COVERAGE_DOWNLOAD_URL')
+      if ($null -eq $base) { Stop-Install 'downloadUrl is empty.' }
+      $base = $base.TrimEnd('/')
+      $temp = Get-Setting 'AGENT_TEMPDIRECTORY'
+      if ($null -eq $temp) { $temp = [System.IO.Path]::GetTempPath() }
+      $directory = Join-Path $temp "coverage-upload-$version"
+      New-Item -ItemType Directory -Force -Path $directory | Out-Null
+      $binary = Join-Path $directory $file
+
+      try {
+        Invoke-WebRequest -Uri "$base/v$version/$file" -OutFile $binary -MaximumRetryCount 3 -RetryIntervalSec 2
+        Invoke-WebRequest -Uri "$base/v$version/$file.sha256" -OutFile "$binary.sha256" -MaximumRetryCount 3 -RetryIntervalSec 2
+      }
+      catch {
+        $reason = $_.Exception.Message
+        Stop-Install "the download of $base/v$version/$file failed: $reason"
+      }
+
+      $actual = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+      $published = (Get-Content -LiteralPath "$binary.sha256" -Raw).Trim().ToLowerInvariant()
+      if ($actual -cne $published) {
+        Remove-Item -LiteralPath $binary -Force
+        Stop-Install "the SHA-256 of $file ($actual) is not the one of the release ($published)."
+      }
+
+      $pinnedName = 'UPLOADER_SHA256_' + $rid.ToUpperInvariant().Replace('-', '_')
+      $pinned = Get-Setting $pinnedName
+      if ($null -eq $pinned) {
+        Write-Host "No $pinnedName in the variables: only the sum of the release is checked."
+      }
+      elseif ($actual -cne $pinned.ToLowerInvariant()) {
+        Remove-Item -LiteralPath $binary -Force
+        Stop-Install "the SHA-256 of $file ($actual) is not the one pinned in $pinnedName ($pinned)."
+      }
+
+      if (-not $IsWindows) { & chmod +x $binary }
+      Write-Host "CodeCoverage uploader $version ($rid) installed, SHA-256 $actual."
+
+      # An undefined secret is no credential: the uploader then tries the other ones.
+      foreach ($name in 'COVERAGE_TOKEN', 'CODECOV_TOKEN') {
+        if ($null -eq (Get-Setting $name)) { Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue }
+      }
+
+      & $binary
+      exit $LASTEXITCODE
+    displayName: Upload coverage to CodeCoverage
+    condition: succeededOrFailed()
+    env:
+      COVERAGE_UPLOADER_VERSION: ${{ parameters.version }}
+      COVERAGE_DOWNLOAD_URL: ${{ parameters.downloadUrl }}
+      COVERAGE_URL: ${{ parameters.url }}
+      COVERAGE_FILE: ${{ parameters.files }}
+      COVERAGE_FLAGS: ${{ parameters.flags }}
+      COVERAGE_NAME: ${{ parameters.name }}
+      COVERAGE_DRY_RUN: ${{ lower(parameters.dryRun) }}
+      COVERAGE_FAIL_ON_ERROR: ${{ lower(parameters.failOnError) }}
+      COVERAGE_TOKEN: $(COVERAGE_TOKEN)
+      CODECOV_TOKEN: $(CODECOV_TOKEN)
+      UPLOADER_SHA256_LINUX_X64: $(UPLOADER_SHA256_LINUX_X64)
+      UPLOADER_SHA256_LINUX_MUSL_X64: $(UPLOADER_SHA256_LINUX_MUSL_X64)
+      UPLOADER_SHA256_WIN_X64: $(UPLOADER_SHA256_WIN_X64)
+      UPLOADER_SHA256_OSX_ARM64: $(UPLOADER_SHA256_OSX_ARM64)
