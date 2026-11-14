@@ -236,9 +236,10 @@ function New-ShimDirectory {
 }
 
 function Invoke-WithShim {
-  param([string] $Script, [string[]] $Arguments)
+  param([string] $Script, [string[]] $Arguments, [scriptblock] $Prepare)
 
   $directory = New-ShimDirectory
+  if ($Prepare) { & $Prepare $directory }
   $log = Join-Path $directory 'calls.jsonl'
   $saved = @{ ROLLOUT_GH = $env:ROLLOUT_GH; ROLLOUT_SHIM_DIR = $env:ROLLOUT_SHIM_DIR; ROLLOUT_SHIM_LOG = $env:ROLLOUT_SHIM_LOG }
   $env:ROLLOUT_GH = Join-Path $samples 'gh-shim.ps1'
@@ -336,6 +337,81 @@ finally {
   Stop-Instance $tokens
   Remove-Item -LiteralPath $csv -Force -ErrorAction SilentlyContinue
 }
+
+Write-Host 'Remove-CodecovUpload.ps1'
+
+foreach ($name in 'ci-oidc', 'ci-token') {
+  Assert-True "$name loses its Codecov step only" ((Remove-CodecovUploadStep -Text (Read-Sample "$name.expected-add.yml")) -ceq (Read-Sample "$name.expected-remove.yml"))
+}
+Assert-True 'a workflow without Codecov is left alone by the removal' ($null -eq (Remove-CodecovUploadStep -Text (Read-Sample 'lint.yml')))
+
+# The pilot state: ci-oidc.yml already carries both uploads.
+$afterPilot = {
+  param([string] $Directory)
+  $content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((Read-Sample 'ci-oidc.expected-add.yml')))
+  Set-Content -LiteralPath (Join-Path $Directory 'repos__octo-org__app__contents__.github__workflows__ci-oidc.yml.json') -Value (@{ sha = 'sha-ci-oidc.yml'; content = $content } | ConvertTo-Json -Compress)
+}
+
+$dryRemove = Invoke-WithShim 'Remove-CodecovUpload.ps1' @('-Repository', 'octo-org/app') $afterPilot
+Assert-True 'removal dry run exits with 0' ($dryRemove.ExitCode -eq 0) $dryRemove.Output
+Assert-True 'removal dry run names the changed workflow only' ($dryRemove.Output -match 'would change \.github/workflows/ci-oidc\.yml' -and $dryRemove.Output -notmatch 'lint\.yml') $dryRemove.Output
+Assert-True 'removal dry run writes nothing' ((Test-Write $dryRemove.Calls) -eq 0)
+
+$runRemove = Invoke-WithShim 'Remove-CodecovUpload.ps1' @('-Repository', 'octo-org/app', '-Execute') $afterPilot
+Assert-True 'removal execute exits with 0' ($runRemove.ExitCode -eq 0) $runRemove.Output
+$putRemove = @($runRemove.Calls | Where-Object { $_ -contains 'repos/octo-org/app/contents/.github/workflows/ci-oidc.yml' -and $_ -contains 'PUT' })
+$removed = if ($putRemove.Count -eq 1) { ($putRemove[0] | Where-Object { $_.StartsWith('content=') }) -replace '^content=', '' } else { '' }
+Assert-True 'removal execute writes the workflow without Codecov' ($removed -and [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($removed)) -ceq (Read-Sample 'ci-oidc.expected-remove.yml'))
+Assert-True 'removal execute opens one pull request' (@($runRemove.Calls | Where-Object { ($_[0] -eq 'pr' -and $_[1] -eq 'create') }).Count -eq 1) $runRemove.Output
+
+$removeFile = Join-Path ([System.IO.Path]::GetTempPath()) "repos-$([guid]::NewGuid().ToString('N')).txt"
+@('octo-org/empty', 'octo-org/app') | Set-Content -LiteralPath $removeFile
+try {
+  $removeBatch = Invoke-WithShim 'Remove-CodecovUpload.ps1' @('-RepositoriesFile', $removeFile, '-Execute') $afterPilot
+}
+finally {
+  Remove-Item -LiteralPath $removeFile -Force -ErrorAction SilentlyContinue
+}
+Assert-True 'removal skips a repository without workflows and goes on' ($removeBatch.ExitCode -eq 0 -and $removeBatch.Output -match 'unchanged: octo-org/empty' -and $removeBatch.Output -match 'opened: octo-org/app') $removeBatch.Output
+
+Write-Host 'Test-BranchProtection.ps1'
+
+# $null classic protection: GitHub's "Branch not protected"; $null rules: an empty list.
+function New-ProtectionShim([object] $Classic, [object] $Rules) {
+  return {
+    param([string] $Directory)
+    $classicFile = Join-Path $Directory 'repos__octo-org__app__branches__main__protection__required_status_checks.json'
+    if ($null -ne $Classic) {
+      Set-Content -LiteralPath $classicFile -Value ($Classic | ConvertTo-Json -Depth 8 -Compress)
+    }
+    else {
+      Set-Content -LiteralPath ([System.IO.Path]::ChangeExtension($classicFile, '.error')) -Value 'gh: Branch not protected (HTTP 404)'
+    }
+    Set-Content -LiteralPath (Join-Path $Directory 'repos__octo-org__app__rules__branches__main.json') -Value (ConvertTo-Json -InputObject @($Rules | Where-Object { $null -ne $_ }) -Depth 8 -Compress)
+  }.GetNewClosure()
+}
+
+$anyApp = New-ProtectionShim @{ checks = @(@{ context = 'codecov/project'; app_id = $null }, @{ context = 'build'; app_id = 15368 }) } @(
+  @{ type = 'required_status_checks'; parameters = @{ required_status_checks = @(@{ context = 'codecov/patch' }) } })
+$open = Invoke-WithShim 'Test-BranchProtection.ps1' @('-Repository', 'octo-org/app', '-ExpectedAppId', '4242') $anyApp
+Assert-True 'checks of any application are satisfied' ($open.ExitCode -eq 0 -and $open.Output -match 'codecov/project\s+ok \(any application\)' -and $open.Output -match 'codecov/patch\s+ok \(any application\)') $open.Output
+Assert-True 'checks outside the prefix are not judged' ($open.Output -notmatch '\bbuild\b') $open.Output
+Assert-True 'the protection check only reads' ((Test-Write $open.Calls) -eq 0)
+
+$ours = New-ProtectionShim @{ checks = @(@{ context = 'codecov/project'; app_id = 4242 }) } $null
+$mine = Invoke-WithShim 'Test-BranchProtection.ps1' @('-Repository', 'octo-org/app', '-ExpectedAppId', '4242') $ours
+Assert-True 'a check pinned to the App of CodeCoverage is satisfied' ($mine.ExitCode -eq 0 -and $mine.Output -match 'ok \(CodeCoverage\)') $mine.Output
+
+$codecov = New-ProtectionShim $null @(@{ type = 'required_status_checks'; parameters = @{ required_status_checks = @(@{ context = 'codecov/patch'; integration_id = 254 }) } })
+$pinnedRun = Invoke-WithShim 'Test-BranchProtection.ps1' @('-Repository', 'octo-org/app', '-ExpectedAppId', '4242') $codecov
+Assert-True 'a ruleset pinned to another application exits with 1' ($pinnedRun.ExitCode -eq 1 -and $pinnedRun.Output -match 'pinned to application 254') $pinnedRun.Output
+
+$bare = Invoke-WithShim 'Test-BranchProtection.ps1' @('-Repository', 'octo-org/app') (New-ProtectionShim $null $null)
+Assert-True 'an unprotected branch is reported, not failed' ($bare.ExitCode -eq 0 -and $bare.Output -match 'no required codecov/\* check') $bare.Output
+
+# A token without admin access: GitHub answers 404 Not Found, which is no all-clear.
+$hidden = Invoke-WithShim 'Test-BranchProtection.ps1' @('-Repository', 'octo-org/app') { param([string] $Directory) }
+Assert-True 'an unreadable protection is unknown and exits with 1' ($hidden.ExitCode -eq 1 -and $hidden.Output -match 'unknown: not readable' -and $hidden.Output -notmatch 'no required') $hidden.Output
 
 if ($failures.Count -gt 0) {
   Write-Host ''

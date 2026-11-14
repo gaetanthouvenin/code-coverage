@@ -154,7 +154,7 @@ When the parity of the pilot is explained (`tools/parity`, [parity-log.md](parit
 organization administrator switches the organization: Codecov's notifications stopped, then
 `Notifications:StatusContextPrefix` set to `codecov` (and `Notifications:ChecksEnabled` turned on) in the
 settings of the organization. The statuses keep the names your branch protections require. The full
-sequence is in the cut-over runbook (`docs/cutover-runbook.md`, M4.08).
+sequence is in [the cut-over runbook](cutover-runbook.md).
 
 ## Differences with Codecov
 
