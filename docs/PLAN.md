@@ -455,6 +455,9 @@ graph TD
   M4_02i --> M4_02k
   M4_02l["M4.02l Liens de navigation"]
   M4_02m["M4.02m Messages et pages d'erreur"]
+  M4_02n["M4.02n Maquette de la documentation"] --> M4_02o["M4.02o Documentation dans l'application"]
+  M4_02i --> M4_02o
+  M4_02k --> M4_02o
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -2699,6 +2702,37 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Web.Tests** : une erreur de validation en `fr-FR` est affichée en français, sur son champ ; un 400 sans corps n'affiche pas « introuvable » ; `/error` répond avec une base injoignable.
 - **Acceptation :** aucun message anglais dans l'interface française ; une erreur dit ce qui s'est passé, et où.
 - **Dépend de :** M3.43
+
+#### M4.02n — Maquette de la documentation dans l'application
+- **Issue :** à créer
+- **Objectif :** décider, puis faire valider par le propriétaire, la présentation d'une documentation lue dans le Web. Elle doit expliquer comment mettre en place l'instance, l'App GitHub, les organisations et les dépôts, sans renvoyer au dépôt GitHub. Demande du propriétaire du 2026-11-14, après le premier démarrage de l'instance de production.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html`, avec les composants maison `Cc*` et le préfixe `cc-`, en mode clair, sombre et largeur mobile :
+  - **Entrée « Documentation »** dans la barre du haut et dans le menu mobile, visible connecté ou non.
+  - **Page `/docs/{page}`** : navigation à gauche par rubrique (premier démarrage ; installer l'App et admettre un compte ; configurer un dépôt : GitHub Actions, Azure Pipelines, jetons d'upload, `codecov.yml` ; paramètres de l'instance et de l'organisation ; exploitation ; migration depuis Codecov), contenu Markdown rendu (titres, listes, tableaux, blocs de code avec bouton copier, encadrés), sommaire de la page, liens précédent et suivant, version de l'instance affichée.
+  - **Aide contextuelle** : un bouton « ? » discret dans l'en-tête de `/setup`, `/admin/organizations`, `/admin/settings`, `/orgs/{forge}/{org}/settings`, des jetons d'upload et de l'état vide d'un dépôt, qui ouvre la bonne section.
+  - **États** : page inconnue, chargement, mobile avec navigation repliée.
+  - `docs/ui-design.md` : la rubrique et ses règles.
+- **Tests :** validation de la maquette par le propriétaire.
+- **Acceptation :** le propriétaire valide la maquette avant M4.02o.
+- **Dépend de :** M3.18
+
+#### M4.02o — Documentation dans l'application
+- **Issue :** à créer
+- **Objectif :** servir dans le Web la documentation utilisateur de `docs/`, selon la maquette de M4.02n. Les fichiers de `docs/` restent la seule source : la documentation affichée est celle de la version déployée.
+- **Couches :** Web, docs.
+- **Fichiers :**
+  - **Source** : liste blanche des documents publiés (`docs/operations.md`, `docs/operations/organization-onboarding.md`, `docs/operations/github-verification-checklist.md`, `docs/migration-from-codecov.md`, `docs/deployment-azure.md`, `action/README.md`, la documentation du template Azure Pipelines), embarqués comme ressources du Web au build. Le plan, les ADR, ARCHITECTURE et CONVENTIONS ne sont jamais publiés.
+  - **Rendu** : Markdown converti en HTML côté serveur, avec un HTML brut neutralisé, des ancres de titres, des liens entre documents réécrits vers `/docs/…` et les autres liens du dépôt vers GitHub à la version déployée.
+  - **Pages** : `Web/Components/Pages/Docs.razor(.cs)`, accessibles sans connexion et pendant le premier démarrage (chemin ouvert de `SetupRedirectMiddleware`) ; entrée de navigation ; boutons d'aide contextuelle des écrans de la maquette.
+  - **Langue** : documents en anglais. Une traduction `*.fr.md` à côté d'un document est servie en culture française quand elle existe (traductions dans une micro-feature suivante).
+  - **Paquet** : une bibliothèque Markdown (par exemple Markdig) ajoutée à `Directory.Packages.props`, si la maquette n'impose pas mieux.
+- **Tests :**
+  - **Web.Tests** : chaque document de la liste blanche est servi ; un document hors liste répond 404 ; `/docs` répond sans connexion et avant la fin du setup ; un HTML brut du Markdown est neutralisé ; les liens entre documents sont réécrits.
+  - **bUnit** : navigation et liens d'aide contextuelle.
+  - **Contrôle de source** : chaque lien d'aide vise une ancre qui existe.
+- **Acceptation :** un administrateur installe l'instance, l'App et un premier dépôt en lisant seulement la documentation de l'application.
+- **Dépend de :** M4.02n, M4.02i, M4.02k
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
