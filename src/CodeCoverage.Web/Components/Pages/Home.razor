@@ -39,6 +39,10 @@
           {
             <CcButton Variant="CcButtonVariant.Primary" Href="admin/organizations">@L["Nav_Instance"]</CcButton>
           }
+          @if (IsInstanceAdmin && InstallUrl is { } installUrl)
+          {
+            <CcButton Icon="CcIconName.External" Href="@installUrl" target="_blank" rel="noopener noreferrer" data-action="install">@L["Action_InstallApp"]</CcButton>
+          }
         </Actions>
       </CcEmptyState>
     </div>

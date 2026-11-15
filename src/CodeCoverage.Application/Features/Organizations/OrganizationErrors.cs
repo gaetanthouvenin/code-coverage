@@ -26,5 +26,8 @@ public static class OrganizationErrors
   /// <summary>The identifier of the account is empty or too long.</summary>
   public const string InvalidAccountId = "Organization.InvalidAccountId";
 
+  /// <summary>GitHub knows no account of the login an administrator typed.</summary>
+  public const string UnknownGitHubLogin = "Organization.UnknownGitHubLogin";
+
   #endregion
 }

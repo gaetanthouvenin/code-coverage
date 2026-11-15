@@ -14,7 +14,12 @@
     <Actions>
       @if (State is PageState.Ready)
       {
-        <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Plus" OnClick="OpenAdmit">@L["Action_AdmitAccount"]</CcButton>
+        @if (InstallUrl is { } installUrl)
+        {
+          <CcButton Icon="CcIconName.External" Href="@installUrl" target="_blank" rel="noopener noreferrer" data-action="install">@L["Action_InstallApp"]</CcButton>
+        }
+        <CcButton Icon="CcIconName.Refresh" Disabled="@_busy" OnClick="CheckInstallationsAsync" data-action="check-installations">@L["Action_CheckInstallations"]</CcButton>
+        <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Plus" OnClick="OpenAdmit" data-action="admit">@L["Action_AdmitAccount"]</CcButton>
       }
     </Actions>
   </CcHeader>
@@ -42,7 +47,13 @@
     <div class="cc-panel cc-status-page">
       <CcEmptyState Title="@L["AdminOrganizations_EmptyTitle"]" Icon="CcIconName.Layers">
         <ChildContent>@L["AdminOrganizations_EmptyText"]</ChildContent>
-        <Actions><CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Plus" OnClick="OpenAdmit">@L["Action_AdmitAccount"]</CcButton></Actions>
+        <Actions>
+          @if (InstallUrl is { } emptyInstallUrl)
+          {
+            <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.External" Href="@emptyInstallUrl" target="_blank" rel="noopener noreferrer" data-action="install">@L["Action_InstallApp"]</CcButton>
+          }
+          <CcButton Icon="CcIconName.Plus" OnClick="OpenAdmit" data-action="admit">@L["Action_AdmitAccount"]</CcButton>
+        </Actions>
       </CcEmptyState>
     </div>
   }
@@ -117,12 +128,25 @@
 <CcDialog Open="_admitOpen" Title="@L["Action_AdmitAccount"]" OnClose="CloseAdmit">
   <ChildContent>
     <CcSelectField Label="@L["Column_Forge"]" Options="Forges" @bind-Value="AdmitForge" />
-    <CcTextField Label="@L["AdminOrganizations_Login"]" @bind-Value="_admit.Login" Error="@ErrorOf(nameof(AdmitAccountForm.Login))" />
-    <CcTextField Label="@L["AdminOrganizations_AccountId"]" @bind-Value="_admit.ExternalAccountId" Error="@ErrorOf(nameof(AdmitAccountForm.ExternalAccountId))" />
+    <CcTextField Label="@L["AdminOrganizations_Login"]" Help="@L["AdminOrganizations_LoginHelp"]" Value="@_admit.Login" ValueChanged="ChangeLogin" Error="@ErrorOf(nameof(AdmitAccountForm.Login))" />
+    @if (Resolved is { } account)
+    {
+      <div class="cc-stack" data-state="resolved">
+        <p><strong>@L["AdminOrganizations_Resolved", account.Login, account.ExternalAccountId]</strong> · <span class="cc-muted">@L[account.IsUser ? "AccountType_User" : "AccountType_Organization"]</span></p>
+        <p class="cc-muted cc-small">@L["AdminOrganizations_ResolvedHint"]</p>
+      </div>
+    }
   </ChildContent>
   <Actions>
     <CcButton OnClick="CloseAdmit">@L["Action_Cancel"]</CcButton>
-    <CcButton Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="AdmitTypedAsync">@L["Action_Admit"]</CcButton>
+    @if (Resolved is null)
+    {
+      <CcButton Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="FindAccountAsync" data-action="find">@L["Action_FindAccount"]</CcButton>
+    }
+    else
+    {
+      <CcButton Variant="CcButtonVariant.Primary" Disabled="@_busy" OnClick="AdmitTypedAsync" data-action="confirm">@L["Action_Admit"]</CcButton>
+    }
   </Actions>
 </CcDialog>
 

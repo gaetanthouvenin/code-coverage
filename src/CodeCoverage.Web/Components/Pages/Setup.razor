@@ -39,7 +39,13 @@
       <div class="cc-panel cc-status-page" data-state="complete">
         <CcEmptyState Title="@L["Setup_CompleteTitle"]" Icon="CcIconName.Check">
           <ChildContent>@L["Setup_CompleteText"]</ChildContent>
-          <Actions><CcButton Variant="CcButtonVariant.Primary" Href="./">@L["BackHome"]</CcButton></Actions>
+          <Actions>
+            @if (InstallUrl is { } installUrl)
+            {
+              <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.External" Href="@installUrl" target="_blank" rel="noopener noreferrer" data-action="install">@L["Action_InstallApp"]</CcButton>
+            }
+            <CcButton Variant="@(InstallUrl is null ? CcButtonVariant.Primary : CcButtonVariant.Secondary)" Href="./">@L["BackHome"]</CcButton>
+          </Actions>
         </CcEmptyState>
       </div>
     }

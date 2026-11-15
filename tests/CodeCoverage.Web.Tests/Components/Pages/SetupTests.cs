@@ -21,6 +21,7 @@ using CodeCoverage.Application.Features.Settings.Commands.SaveGitHubApp;
 using CodeCoverage.Application.Features.Settings.Commands.SavePublicUrls;
 using CodeCoverage.Application.Features.Settings.Queries.GetSetupState;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Web.Components.Pages;
 
 using SetupPage = CodeCoverage.Web.Components.Pages.Setup;
@@ -45,6 +46,8 @@ public sealed class SetupTests : UiTestContext
 
   private readonly DefaultHttpContext _context = new();
 
+  private readonly GitHubOptions _github = new();
+
   private SetupState _state = new(false, false, false);
 
   #endregion
@@ -55,6 +58,7 @@ public sealed class SetupTests : UiTestContext
   {
     Services.AddFakeSenderRunner(_sender);
     Services.AddSingleton(_cookie);
+    Services.AddSingleton(new AppInstallationLink(new TestOptionsMonitor<GitHubOptions>(_github)));
 
     A.CallTo(() => _sender.Send(A<GetSetupStateQuery>._, A<CancellationToken>._)).ReturnsLazily(() => new ValueTask<SetupState>(_state));
   }
@@ -123,6 +127,19 @@ public sealed class SetupTests : UiTestContext
     var cut = Render<SetupPage>(WithContext());
 
     cut.Find("[data-state=complete]").TextContent.ShouldContain(L("Setup_CompleteTitle"));
+  }
+
+  // M4.02i: the wizard ends on the installation of the App, which it never requires.
+  [Fact]
+  public void Render_Complete_ShouldLinkToTheInstallationOfTheApp()
+  {
+    _github.AppSlug = "codecoverage-acme";
+    _state = new SetupState(true, true, true);
+    WithToken();
+
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("[data-state=complete] a[data-action=install]").GetAttribute("href").ShouldBe("https://github.com/apps/codecoverage-acme/installations/new");
   }
 
   [Fact]

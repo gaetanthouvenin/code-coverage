@@ -657,6 +657,47 @@ internal sealed partial class GitHubAppGateway(
   }
 
   /// <inheritdoc />
+  /// <remarks>
+  ///   Sent without any token: the JSON Web Token of the App only opens the routes of <c>/app</c>, and no installation
+  ///   may exist yet. Its quota is the one of the address of the host, so it is published neither under the App nor
+  ///   under an installation. A login that cannot be a segment of the path is unknown without a call.
+  /// </remarks>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  public async Task<GitHubAccountInfo?> GetAccountByLoginAsync(string login, CancellationToken cancellationToken)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(login);
+
+    var trimmed = login.Trim();
+
+    if (!IsPathSegment(trimmed))
+    {
+      return null;
+    }
+
+    var address = $"users/{Uri.EscapeDataString(trimmed)}";
+
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(address, UriKind.Relative));
+
+    request.Options.Set(RateLimitHandler.UserToken, true);
+
+    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(
+             response,
+             address,
+             GitHubJsonContext.Default.GitHubPublicAccountResponse,
+             NotFound,
+             static account => new GitHubAccountInfo(
+               account.Id.ToString(CultureInfo.InvariantCulture),
+               account.Login,
+               GitHubAccountTypes.ToAccountType(account.Type)
+             ),
+             cancellationToken
+           ).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
   /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
   public async Task<IReadOnlyList<GitHubInstallationInfo>> ListInstallationsAsync(CancellationToken cancellationToken)

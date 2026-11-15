@@ -7,8 +7,10 @@
 using Mediator;
 
 using CodeCoverage.Application.Features.Organizations.Commands.AdmitOrganization;
+using CodeCoverage.Application.Features.Organizations.Commands.CheckInstallations;
 using CodeCoverage.Application.Features.Organizations.Commands.SuspendOrganization;
 using CodeCoverage.Application.Features.Organizations.Queries.ListOrganizations;
+using CodeCoverage.Application.Features.Organizations.Queries.ResolveGitHubAccount;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Web.ViewModels.Organizations;
 
@@ -51,6 +53,35 @@ internal static class OrganizationsMapper
     ArgumentNullException.ThrowIfNull(sender);
 
     await sender.Send(new AdmitOrganizationCommand(ForgeOf(forge), login, externalAccountId), cancellationToken).ConfigureAwait(false);
+
+    return true;
+  }
+
+  /// <summary>Finds a GitHub account by its login, before its admission.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="login">The login the administrator typed.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The account, with the identifier GitHub gives it.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<GitHubAccountViewModel> GetGitHubAccountViewModelAsync(this ISender sender, string login, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var account = await sender.Send(new ResolveGitHubAccountQuery(login), cancellationToken).ConfigureAwait(false);
+
+    return new GitHubAccountViewModel(account.Login, account.ExternalId, account.AccountType is OrganizationAccountType.User);
+  }
+
+  /// <summary>Queues the listing of the installations of the GitHub App now.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns><see langword="true" /> once the listing is queued.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<bool> CheckInstallationsAsync(this ISender sender, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    await sender.Send(new CheckInstallationsCommand(), cancellationToken).ConfigureAwait(false);
 
     return true;
   }

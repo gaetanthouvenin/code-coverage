@@ -62,6 +62,13 @@ internal sealed class AdmitOrganizationCommandHandler(
     if (command.Forge is Forge.GitHub)
     {
       await jobQueue.EnqueueAsync(SyncInstallationsJobs.Create(), cancellationToken).ConfigureAwait(false);
+
+      // The administrator who admits the account sees it without signing in again: its memberships are read from the
+      // installations it reaches, now that the organization is active. The system admits for no user.
+      if (currentUser.UserId is { } userId)
+      {
+        await jobQueue.EnqueueAsync(RefreshUserMembershipsJobs.Create(userId), cancellationToken).ConfigureAwait(false);
+      }
     }
 
     return admitted;

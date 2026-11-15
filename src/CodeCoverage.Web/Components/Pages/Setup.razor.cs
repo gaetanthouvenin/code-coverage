@@ -102,6 +102,9 @@ public partial class Setup
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private AppInstallationLink InstallLink { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -114,6 +117,9 @@ public partial class Setup
 
   /// <summary>Gets what the wizard shows about the last refusal: its own message, else the one of the server.</summary>
   private string? Refusal => Error ?? Toasts.Toasts.LastOrDefault(static t => t.Tone is CcTone.Danger)?.Message;
+
+  /// <summary>Gets the address that installs the App, shown once the setup is complete, or <see langword="null" />.</summary>
+  private string? InstallUrl => InstallLink.Current?.AbsoluteUri;
 
   /// <summary>Gets the manifest to post to GitHub, once the operator asked for it.</summary>
   private string? Manifest { get; set; }
