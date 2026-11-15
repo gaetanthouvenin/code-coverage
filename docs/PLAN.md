@@ -3410,7 +3410,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 > M5.08 à M5.16 viennent de la demande du propriétaire du 2026-11-15, après les premiers uploads de Capto (Cobertura, 77,91 % sur 615 fichiers) : un rapport qui montre par fichier chaque sorte de couverture, lignes, branches et méthodes, comme ReportGenerator. ReportGenerator n'était jusque-là qu'un oracle de tests (M1.15). État au 2026-11-15, prouvé sur le code : les cinq parseurs gardent par ligne les branches couvertes et leur total (`condition-coverage` de Cobertura, `BranchPoint` d'OpenCover, `BRDA` de LCOV sauf pour un fichier `.js`, `mb` et `cb` de JaCoCo, `cond` de Clover à deux branches) ; aucun ne garde l'état d'une méthode : Cobertura et OpenCover ignorent leurs méthodes, LCOV ne lit `FN` que pour écarter les fonctions C++ décorées, JaCoCo et Clover marquent seulement la ligne d'une méthode (`IsMethod`) ; `CoverageTotals.Branches` et `Methods` sont les compteurs de Codecov, des nombres de lignes ; `CommitReports.FileIndex` (`CFI1`) n'a par fichier que hits, misses, partials et ces deux compteurs. La décision et le stockage sont dans [ADR-016](adr/0016-detailed-coverage.md) : le chiffre Codecov reste en tête, trois chiffres nommés s'y ajoutent, les méthodes passent par un canal à part et deux formats de blob passent en version 2, sans colonne ni migration. Ces micro-features sont dans M5 (confort) plutôt qu'après M4.02z, réservé aux corrections du déploiement.
 
 #### M5.08 — Maquette du rapport de couverture détaillé
-- **Issue :** à créer
+- **Issue :** [#430](https://github.com/gaetanthouvenin/code-coverage/issues/430)
 - **Objectif :** décider, puis faire valider par le propriétaire, où s'ouvre le rapport détaillé, ce qu'il montre par fichier et au total, comment il se trie et se filtre, et comment il se comporte pour un commit traité avant lui.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html` (livré avec ce découpage), en mode clair, sombre et largeur mobile :
@@ -3424,7 +3424,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** —
 
 #### M5.09 — ADR-016 : couverture détaillée et formats de blob en version 2
-- **Issue :** à créer
+- **Issue :** [#431](https://github.com/gaetanthouvenin/code-coverage/issues/431)
 - **Objectif :** écrire la décision avant le code : définitions des trois chiffres de plus, canal des méthodes, formats de blob, écarts nommés avec ReportGenerator.
 - **Couches :** docs.
 - **Fichiers :** `docs/adr/0016-detailed-coverage.md` (livré avec ce découpage, accepté le 2026-11-15) et sa ligne dans `docs/adr/README.md`. Le numéro 015 est celui de l'ADR des langues de M4.02r.
@@ -3433,7 +3433,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** —
 
 #### M5.10 — Méthodes et détail de couverture dans le Domain
-- **Issue :** à créer
+- **Issue :** [#432](https://github.com/gaetanthouvenin/code-coverage/issues/432)
 - **Objectif :** porter les méthodes d'un fichier à côté de ses lignes, et calculer par fichier les lignes exécutées, les branches et les méthodes, sans changer un seul chiffre Codecov.
 - **Couches :** Domain, Application.
 - **Fichiers :**
@@ -3446,7 +3446,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.09
 
 #### M5.11 — Codecs : `CCR1` version 2 et index `CFI2`
-- **Issue :** à créer
+- **Issue :** [#433](https://github.com/gaetanthouvenin/code-coverage/issues/433)
 - **Objectif :** stocker les méthodes et le détail par fichier, en lisant toujours les blobs écrits avant.
 - **Couches :** Infrastructure, docs.
 - **Fichiers :**
@@ -3458,7 +3458,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.10
 
 #### M5.12 — Méthodes des rapports Cobertura et OpenCover
-- **Issue :** à créer
+- **Issue :** [#434](https://github.com/gaetanthouvenin/code-coverage/issues/434)
 - **Objectif :** lire les méthodes des deux formats .NET, ceux de Capto.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3469,7 +3469,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.10
 
 #### M5.13 — Méthodes des rapports LCOV, JaCoCo et Clover
-- **Issue :** à créer
+- **Issue :** [#435](https://github.com/gaetanthouvenin/code-coverage/issues/435)
 - **Objectif :** lire les méthodes des trois autres formats.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3481,7 +3481,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.10
 
 #### M5.14 — Détail des fichiers dans l'Api
-- **Issue :** à créer
+- **Issue :** [#436](https://github.com/gaetanthouvenin/code-coverage/issues/436)
 - **Objectif :** exposer le détail de chaque fichier aux clients de l'Api, sans changer ce qu'ils lisent déjà.
 - **Couches :** Api, docs.
 - **Fichiers :** `Api/Contracts/Commits/CoverageDetailModel.cs` (`executedLines`, `coverableLines`, `coveredBranches`, `totalBranches`, `coveredMethods?`, `totalMethods?` et les trois couvertures) ; `FileTotalsResponse` porte `CoverageDetailModel? Detail`, `null` pour un index `CFI1` ; `Api/Mapping/CommitMapper.cs` ; documentation XML de `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` pour Swagger et Scalar ; `docs/ARCHITECTURE.md` §10.
@@ -3490,7 +3490,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.11
 
 #### M5.15 — Écran « Rapport de couverture détaillé »
-- **Issue :** à créer
+- **Issue :** [#437](https://github.com/gaetanthouvenin/code-coverage/issues/437)
 - **Objectif :** construire l'écran validé par M5.08.
 - **Couches :** Web, docs.
 - **Fichiers :**
@@ -3503,7 +3503,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.08, M5.11
 
 #### M5.16 — Documentation du rapport détaillé
-- **Issue :** à créer
+- **Issue :** [#438](https://github.com/gaetanthouvenin/code-coverage/issues/438)
 - **Objectif :** expliquer aux utilisateurs les trois chiffres de plus et leurs écarts avec Codecov et ReportGenerator.
 - **Couches :** docs.
 - **Fichiers :** `docs/migration-from-codecov.md` (servi par `/docs/migration-from-codecov`) : section « Rapport détaillé » (définitions, `—`, commit traité avant, écarts nommés d'ADR-016) et ses traductions existantes à ce moment-là ; aide contextuelle de l'écran vers cette section (`DocumentationLinks`).
