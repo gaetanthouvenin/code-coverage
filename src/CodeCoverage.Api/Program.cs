@@ -25,7 +25,10 @@ using CodeCoverage.Infrastructure.SqlServer;
 // "admin ..." runs one administration command and exits: its arguments are not configuration.
 var administration = AdminCommandLine.IsRequested(args);
 
-Log.Logger = SerilogConfiguration.CreateBootstrapLogger(administration);
+// Each host reloads and freezes its own bootstrap logger, even next to another host of the same process.
+var bootstrapLogger = SerilogConfiguration.CreateBootstrapLogger(administration);
+
+Log.Logger = bootstrapLogger;
 
 try
 {
@@ -41,7 +44,7 @@ try
   // appsettings.json. Secrets stay in their protected form in the configuration.
   builder.Configuration.AddCodeCoverageSettingsStore();
 
-  builder.Host.UseSerilog(SerilogConfiguration.ConfigureLogger);
+  SerilogConfiguration.UseSerilog(builder, bootstrapLogger);
 
   // Traces and metrics, exported in OTLP only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
   builder.Services.AddTelemetry(builder.Configuration);

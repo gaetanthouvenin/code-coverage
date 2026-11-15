@@ -8,9 +8,8 @@ using System.Globalization;
 
 using Serilog;
 using Serilog.Events;
+using Serilog.Extensions.Hosting;
 using Serilog.Formatting.Compact;
-
-using ILogger = Serilog.ILogger;
 
 namespace CodeCoverage.Web.Configuration;
 
@@ -32,17 +31,77 @@ public static class SerilogConfiguration
 
   private const int RetainedFileCountLimit = 31;
 
+  // Serializes the registrations of the hosts of one process: see UseSerilog.
+  private static readonly Lock RegistrationLock = new();
+
   #endregion
 
   #region Methods
 
   /// <summary>Creates the bootstrap logger used before the host is built.</summary>
   /// <returns>The bootstrap logger.</returns>
-  public static ILogger CreateBootstrapLogger()
+  public static ReloadableLogger CreateBootstrapLogger()
   {
     return new LoggerConfiguration().MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                                     .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
                                     .CreateBootstrapLogger();
+  }
+
+  /// <summary>
+  ///   Sets Serilog as the logging provider of a host, which reloads then freezes its own bootstrap logger
+  ///   with <see cref="ConfigureLogger" />.
+  /// </summary>
+  /// <param name="builder">The builder of the host.</param>
+  /// <param name="bootstrapLogger">The bootstrap logger of this host, made by <see cref="CreateBootstrapLogger" />.</param>
+  /// <remarks>
+  ///   <para>
+  ///     <c>AddSerilog</c> reloads, then freezes, the <see cref="ReloadableLogger" /> it reads from the static
+  ///     <see cref="Log.Logger" /> at the moment it is called. Hosts built in parallel in one process
+  ///     (<c>WebApplicationFactory</c>) replace that static logger, so two of them could freeze the same one:
+  ///     « The logger is already frozen. ».
+  ///   </para>
+  ///   <para>
+  ///     The registration puts the bootstrap logger of this host back in <see cref="Log.Logger" />, registers
+  ///     Serilog, and starts again if another host replaced the static logger meanwhile: only this method
+  ///     writes this bootstrap logger there, so finding it unchanged afterwards proves <c>AddSerilog</c> read it.
+  ///     A single host registers exactly what <c>UseSerilog</c> registers.
+  ///   </para>
+  /// </remarks>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="builder" /> or <paramref name="bootstrapLogger" /> is <see langword="null" />.
+  /// </exception>
+  public static void UseSerilog(WebApplicationBuilder builder, ReloadableLogger bootstrapLogger)
+  {
+    ArgumentNullException.ThrowIfNull(builder);
+    ArgumentNullException.ThrowIfNull(bootstrapLogger);
+
+    // The context UseSerilog passes to ConfigureLogger.
+    var context = new HostBuilderContext(((IHostBuilder)builder.Host).Properties)
+    {
+      Configuration = builder.Configuration,
+      HostingEnvironment = builder.Environment,
+    };
+
+    lock (RegistrationLock)
+    {
+      while (true)
+      {
+        var registrations = new ServiceCollection();
+
+        Log.Logger = bootstrapLogger;
+        registrations.AddSerilog((services, configuration) => ConfigureLogger(context, services, configuration));
+
+        if (ReferenceEquals(Log.Logger, bootstrapLogger))
+        {
+          foreach (var registration in registrations)
+          {
+            builder.Services.Add(registration);
+          }
+
+          return;
+        }
+      }
+    }
   }
 
   /// <summary>Configures the application logger.</summary>
