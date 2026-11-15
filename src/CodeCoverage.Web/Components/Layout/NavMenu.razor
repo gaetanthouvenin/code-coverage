@@ -4,7 +4,8 @@
    </copyright>
    ---------------------------------------------------------------------------------------------- *@
 
-<CcTopNav Items="Items">
+@* Signed out, the public bar: up to 640px its documentation icon gives way to the line of the mobile menu. *@
+<CcTopNav Items="Items" Class="@(SignedIn ? null : "cc-topnav__public")">
   <Start>
     @if (Switcher.Count > 0)
     {
@@ -18,11 +19,29 @@
                      ValueChanged="OnOrganizationChanged" />
     }
   </Start>
+  <Actions>
+    @* From 1181px; below, the entry stays in the user menu and moves to the mobile menu. Signed out, it stays visible. *@
+    <a href="docs"
+       class="@(SignedIn ? "cc-round-button cc-topnav__docs" : "cc-round-button cc-topnav__docs cc-topnav__docs--public")"
+       aria-label="@L["Nav_Docs"]"
+       title="@L["Nav_Docs"]"
+       aria-current="@(OnDocs ? "page" : null)">
+      <CcIcon Name="CcIconName.Book" />
+    </a>
+  </Actions>
+  <MobileEnd>
+    <a href="docs"
+       class="@(OnDocs ? "cc-topnav__tab cc-topnav__mobile-docs cc-topnav__tab--active" : "cc-topnav__tab cc-topnav__mobile-docs")"
+       aria-current="@(OnDocs ? "page" : null)">
+      <CcIcon Name="CcIconName.Book" />@L["Nav_Docs"]
+    </a>
+  </MobileEnd>
   <UserMenu>
     @if (Model is not null)
     {
       <CcUserMenu UserName="@Model.Login" RoleLabel="@RoleLabel">
         <a href="account/tokens">@L["Nav_Account"]</a>
+        <a href="docs">@L["Nav_Docs"]</a>
         @* A real form post: the sign-out endpoint checks the antiforgery token and clears the cookie. *@
         <form method="post" action="signout" data-enhance="false" class="cc-user-menu__signout">
           <AntiforgeryToken />

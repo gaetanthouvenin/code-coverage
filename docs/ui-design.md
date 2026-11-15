@@ -204,7 +204,7 @@ Un sixième onglet texte n'entre pas : avec le sélecteur d'organisation, la bar
 ### Page `/docs/{page}`
 
 - **Trois colonnes** à partir de 1281 px : navigation (250 px, collante), article (`CcPanel`), sommaire « Sur cette page » (210 px, collant) tiré des titres `h2`. De 901 à 1280 px, le sommaire passe en tête de l'article, replié (`details`). Jusqu'à 900 px, la navigation se replie derrière un bouton qui affiche la rubrique et la page courantes.
-- **Navigation** par rubrique, dans cet ordre : Getting started ; GitHub App and accounts ; Configure a repository (GitHub Actions, Azure Pipelines, Upload tokens, `codecov.yml`) ; Settings ; Operations ; Migration from Codecov. Les intitulés sont les titres des documents, en anglais.
+- **Navigation** par rubrique, dans cet ordre : Getting started ; GitHub App and accounts ; Configure a repository (GitHub Actions, Azure Pipelines, Upload tokens, `codecov.yml`) ; Settings ; Operations ; Migration from Codecov. Les intitulés sont les titres des documents, en anglais. M4.02o n'en garde qu'une page par document (« Écarts de M4.02o avec la maquette »).
 - **Article** : fil d'Ariane, titre, version et fichier source, chapeau, contenu, puis liens précédent et suivant dans l'ordre de la navigation.
 - **Rendu du Markdown** (`cc-md`) : `h2` et `h3` avec ancre `#` au survol ; tableaux en `CcTable` ; blocs de code en `cc-copy` avec la langue et le bouton Copier (`cc-code__tools`) ; encadrés `cc-callout--note`, `--tip` et `--warning` rendus depuis les alertes GitHub `> [!NOTE]`, `> [!TIP]`, `> [!WARNING]` ; liens entre documents réécrits vers `/docs/…`.
 - **États** : page inconnue (`CcEmptyState` dans l'article, navigation conservée, réponse 404) ; chargement (titre connu, `CcLoadingSpinner` et lignes `cc-skeleton-line`) ; mobile avec la navigation repliée ou dépliée.
@@ -213,16 +213,25 @@ Un sixième onglet texte n'entre pas : avec le sélecteur d'organisation, la bar
 
 Un bouton `cc-help` « ? » (26 px, bordure fine, à droite du titre de `CcHeader`, paramètre `help`) ouvre la page et l'ancre de la documentation. Son nom accessible est « Aide sur cette page : {titre de la page} ». Dans un état vide, l'aide est un lien texte `cc-help-link` avec l'icône `book`.
 
-| Écran | Cible |
-|---|---|
-| `/setup` | `/docs/getting-started#open-the-setup-page` (barre publique) |
-| `/admin/organizations` | `/docs/onboarding#admit-it` |
-| `/admin/settings` | `/docs/settings#instance-settings` |
-| `/orgs/{forge}/{org}/settings` | `/docs/settings#organization-settings` |
-| `/orgs/{forge}/{org}/upload-tokens` | `/docs/upload-tokens` |
-| Dépôt sans rapport (`#overview--nodata`) | « Comment envoyer le premier rapport » → `/docs/github-actions` |
+| Écran | Cible de la maquette | Cible construite (M4.02o) |
+|---|---|---|
+| `/setup` | `/docs/getting-started#open-the-setup-page` (barre publique) | `/docs/operations#first-deployment` |
+| `/admin/organizations` | `/docs/onboarding#admit-it` | `/docs/organization-onboarding#2-admit-it` |
+| `/admin/settings` | `/docs/settings#instance-settings` | aucune, faute de document |
+| `/orgs/{forge}/{org}/settings` | `/docs/settings#organization-settings` | `/docs/organization-onboarding#3-configure-it` |
+| `/orgs/{forge}/{org}/upload-tokens` | `/docs/upload-tokens` | `/docs/migration-from-codecov#2-tokens` |
+| Dépôt sans rapport (`#overview--nodata`) | « Comment envoyer le premier rapport » → `/docs/github-actions` | `/docs/github-actions` |
 
-Chaque cible doit exister : M4.02o le vérifie par un contrôle de source.
+Chaque cible doit exister : M4.02o le vérifie par un contrôle de source (`DocumentationSourceTests`).
+
+### Écarts de M4.02o avec la maquette
+
+Décision du propriétaire du 2026-11-15 (option A) :
+
+- **Une page par document** de la liste blanche, avec ses vrais titres, au lieu des treize pages de la maquette taillées dans ces documents avec des titres inventés. Pages et rubriques : Getting started (`operations`) ; GitHub App and accounts (`organization-onboarding`, `github-checklist`) ; Configure a repository (`github-actions`) ; Operations (`deployment-azure`) ; Migration from Codecov (`migration-from-codecov`). La rubrique Settings, sans document, n'apparaît pas.
+- **Aides** sur les titres réels, comme dans la troisième colonne du tableau ci-dessus ; pas de « ? » sur `/admin/settings`.
+- **Documents manquants**, à écrire dans une micro-feature suivante : les paramètres de l'instance, et la page du template Azure Pipelines (`pipelines/templates/README.md`).
+- **Barre publique** : `/docs` garde la barre de la console ; non connecté, elle ne montre que la marque, Documentation (`cc-topnav__docs--public`), le thème et Se connecter.
 
 ## Libellés clés
 

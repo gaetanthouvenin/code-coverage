@@ -183,6 +183,42 @@ public sealed class NavMenuTests : UiTestContext
     form.GetAttribute("action").ShouldBe("signout");
   }
 
+  // M4.02o: the documentation is in the bar (from 1181px), the user menu and the last line of the mobile menu.
+  [Fact]
+  public void Render_SignedIn_ShouldOfferTheDocumentationEverywhere()
+  {
+    var cut = Render<NavMenu>(p => p.Add(n => n.Model, new NavigationViewModel("octocat", false, [])).Add(n => n.SignedIn, true));
+
+    var icon = cut.Find(".cc-topnav__icons a.cc-topnav__docs");
+    icon.GetAttribute("href").ShouldBe("docs");
+    icon.GetAttribute("aria-label").ShouldBe(Common("Nav_Docs"));
+    icon.ClassList.ShouldNotContain("cc-topnav__docs--public");
+    icon.HasAttribute("aria-current").ShouldBeFalse();
+    cut.Find(".cc-topnav__mobile a.cc-topnav__mobile-docs").TextContent.Trim().ShouldBe(Common("Nav_Docs"));
+
+    cut.Find(".cc-user-menu__trigger").Click();
+
+    var menu = cut.FindAll(".cc-user-menu__panel a").Select(static a => a.GetAttribute("href")).ToList();
+    menu.ShouldBe(["account/tokens", "docs"]);
+  }
+
+  // Signed out, /docs opens in a public bar: the brand, Documentation, the theme and Sign in, no tab.
+  [Fact]
+  public void Render_SignedOutOnTheDocumentation_ShouldShowThePublicBar()
+  {
+    Navigation.NavigateTo("docs/operations");
+
+    var cut = Render<NavMenu>();
+
+    Tabs(cut).ShouldBeEmpty();
+    cut.Find(".cc-topnav").ClassList.ShouldContain("cc-topnav__public");
+    var icon = cut.Find("a.cc-topnav__docs");
+    icon.ClassList.ShouldContain("cc-topnav__docs--public");
+    icon.GetAttribute("aria-current").ShouldBe("page");
+    cut.Find(".cc-topnav__mobile-docs").ClassList.ShouldContain("cc-topnav__tab--active");
+    cut.FindAll("a.cc-topnav__signin").ShouldHaveSingleItem();
+  }
+
   [Theory]
   [InlineData("github/octo-org/app", "github", "octo-org")]
   [InlineData("gl/group:sub/app/pulls", "gitlab", "group")]

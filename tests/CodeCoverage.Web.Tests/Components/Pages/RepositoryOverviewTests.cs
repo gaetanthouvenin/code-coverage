@@ -209,6 +209,19 @@ public sealed class RepositoryOverviewTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetCoverageHistoryQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // M4.02o: the empty state links the documentation of the first upload.
+  [Fact]
+  public void Render_NoReport_ShouldLinkTheDocumentationOfTheFirstUpload()
+  {
+    Overview(["backend"]);
+
+    var cut = Render<OverviewPage>(Address());
+
+    var help = cut.Find("[data-state=nodata] a.cc-help-link");
+    help.GetAttribute("href").ShouldBe("docs/github-actions");
+    help.TextContent.ShouldBe(L("Overview_FirstReportHelp"));
+  }
+
   // The empty state tells what to put in a workflow: the action pinned on the deployed version, without its build
   // metadata, with the public address of the Api and the permission of the OIDC token.
   [Fact]

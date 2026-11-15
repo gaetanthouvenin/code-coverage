@@ -65,7 +65,8 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
 
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
     html.ShouldContain("class=\"cc-shell\"");
-    html.ShouldContain("class=\"cc-topnav\"");
+    // Signed out: the public bar (M4.02o), whose documentation icon gives way to the mobile menu up to 640px.
+    html.ShouldContain("class=\"cc-topnav cc-topnav__public\"");
     html.ShouldContain("css/app");
     html.ShouldContain("class=\"cc-header__title\"");
     response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);

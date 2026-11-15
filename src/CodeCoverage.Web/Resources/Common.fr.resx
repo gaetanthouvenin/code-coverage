@@ -579,4 +579,25 @@
   <data name="Compare_FullShaExpected" xml:space="preserve"><value>Un SHA complet de 40 caractères hexadécimaux est attendu.</value></data>
   <data name="Compare_NotComputed" xml:space="preserve"><value>Non calculée</value></data>
   <data name="Compare_NotComputedText" xml:space="preserve"><value>Aucune comparaison n’est enregistrée pour ces deux commits. Une comparaison n’est calculée que lorsqu’une notification les compare, jamais à la demande.</value></data>
+  <data name="Nav_Docs" xml:space="preserve"><value>Documentation</value></data>
+  <data name="Docs_Read" xml:space="preserve"><value>Lire la documentation</value></data>
+  <data name="Docs_AllPages" xml:space="preserve"><value>Toutes les pages</value></data>
+  <data name="Docs_Sections" xml:space="preserve"><value>Rubriques de la documentation</value></data>
+  <data name="Docs_DeployedVersion" xml:space="preserve"><value>Documentation de la version déployée</value></data>
+  <data name="Docs_OnThisPage" xml:space="preserve"><value>Sur cette page</value></data>
+  <data name="Docs_Previous" xml:space="preserve"><value>Précédent</value></data>
+  <data name="Docs_Next" xml:space="preserve"><value>Suivant</value></data>
+  <data name="Docs_Pager" xml:space="preserve"><value>Pages précédente et suivante</value></data>
+  <data name="Docs_UnknownTitle" xml:space="preserve"><value>Aucune page de documentation ici</value></data>
+  <data name="Docs_UnknownText" xml:space="preserve"><value>La version {0} n’a pas de page /docs/{1}. Elle a peut-être été renommée : choisissez une page dans la liste.</value></data>
+  <data name="Docs_AnchorLabel" xml:space="preserve"><value>Lien vers cette section</value></data>
+  <data name="Docs_CalloutNote" xml:space="preserve"><value>Remarque</value></data>
+  <data name="Docs_CalloutTip" xml:space="preserve"><value>Astuce</value></data>
+  <data name="Docs_CalloutWarning" xml:space="preserve"><value>Attention</value></data>
+  <data name="Docs_Section_GettingStarted" xml:space="preserve"><value>Premiers pas</value></data>
+  <data name="Docs_Section_GitHubApp" xml:space="preserve"><value>App GitHub et comptes</value></data>
+  <data name="Docs_Section_ConfigureRepository" xml:space="preserve"><value>Configurer un dépôt</value></data>
+  <data name="Docs_Section_Operations" xml:space="preserve"><value>Exploitation</value></data>
+  <data name="Docs_Section_Migration" xml:space="preserve"><value>Migration depuis Codecov</value></data>
+  <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Comment envoyer le premier rapport</value></data>
 </root>

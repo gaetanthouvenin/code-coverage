@@ -1,0 +1,138 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="Docs.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/docs"
+@page "/docs/{Slug}"
+
+<PageTitle>@L["PageTitle_Format", PageTitleText]</PageTitle>
+
+<CcPageContainer>
+  <div class="@LayoutClass">
+    <aside class="cc-docs__side" aria-label="@L["Nav_Docs"]">
+      <button type="button"
+              class="cc-docs__nav-toggle"
+              aria-expanded="@(NavOpen ? "true" : "false")"
+              aria-controls="docs-nav"
+              @onclick="ToggleNav">
+        <span>
+          <small>@(Entry is null ? L["Nav_Docs"] : SectionLabel(Entry.Section))</small>
+          @(Entry is null ? L["Docs_AllPages"] : TitleOf(Entry))
+        </span>
+        <CcIcon Name="CcIconName.ChevronDown" />
+      </button>
+      <nav id="docs-nav" class="cc-docs__nav" aria-label="@L["Docs_Sections"]">
+        @foreach (var section in Sections)
+        {
+          <div class="cc-docs__section">
+            <h2>@SectionLabel(section.Key)</h2>
+            <ul>
+              @foreach (var entry in section)
+              {
+                <li>
+                  <a href="@entry.Href" class="cc-docs__link" aria-current="@(entry == Entry ? "page" : null)">@TitleOf(entry)</a>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </nav>
+      <div class="cc-docs__version">
+        <span>@L["Docs_DeployedVersion"]</span>
+        <b>v@(Version)</b>
+      </div>
+    </aside>
+
+    @if (Entry is null)
+    {
+      <div class="cc-panel cc-docs__article" data-state="unknown">
+        <div class="cc-status-page">
+          <CcEmptyState Title="@L["Docs_UnknownTitle"]" Icon="CcIconName.Search">
+            <ChildContent>@L["Docs_UnknownText", Version, Slug ?? string.Empty]</ChildContent>
+            <Actions>
+              <CcButton Variant="CcButtonVariant.Primary" Icon="CcIconName.Book" Href="@DocumentationCatalog.Default.Href">@TitleOf(DocumentationCatalog.Default)</CcButton>
+            </Actions>
+          </CcEmptyState>
+        </div>
+      </div>
+      <div></div>
+    }
+    else if (Document is null)
+    {
+      <div class="cc-panel cc-docs__article" aria-busy="true" data-state="loading">
+        <nav class="cc-breadcrumb" aria-label="@U["Breadcrumb"]">
+          <span>@L["Nav_Docs"]</span>
+          <span class="cc-breadcrumb__sep" aria-hidden="true">/</span>
+          <span>@SectionLabel(Entry.Section)</span>
+        </nav>
+        <h1 class="cc-docs__title">@TitleOf(Entry)</h1>
+        <div class="cc-docs__meta"></div>
+        <div class="cc-docs__loading">
+          <CcLoadingSpinner Label="@L["Loading"]" />
+          @for (var i = 0; i < SkeletonLines; i++)
+          {
+            <span class="cc-skeleton-line"></span>
+          }
+        </div>
+      </div>
+      <div></div>
+    }
+    else
+    {
+      <article class="cc-panel cc-docs__article">
+        <nav class="cc-breadcrumb" aria-label="@U["Breadcrumb"]">
+          <a href="@DocumentationCatalog.Default.Href">@L["Nav_Docs"]</a>
+          <span class="cc-breadcrumb__sep" aria-hidden="true">/</span>
+          <span>@SectionLabel(Entry.Section)</span>
+        </nav>
+        <h1 class="cc-docs__title">@Document.Title</h1>
+        <div class="cc-docs__meta">
+          <span><CcIcon Name="CcIconName.Tag" />v@(Version)</span>
+          <span><CcIcon Name="CcIconName.File" /><span class="cc-mono">@Entry.SourcePath</span></span>
+        </div>
+        @if (Document.Contents.Count > 1)
+        {
+          <details class="cc-docs__toc-inline">
+            <summary>@L["Docs_OnThisPage"]</summary>
+            <ol>
+              @foreach (var heading in Document.Contents)
+              {
+                <li><a href="@($"{Entry.Href}#{heading.Id}")">@heading.Text</a></li>
+              }
+            </ol>
+          </details>
+        }
+        <div class="cc-md" lang="@Document.Language">@((MarkupString)Document.Html)</div>
+        @if (Previous is not null || Next is not null)
+        {
+          <nav class="cc-docs__pager" aria-label="@L["Docs_Pager"]">
+            @if (Previous is not null)
+            {
+              <a href="@Previous.Href"><small>← @L["Docs_Previous"]</small><b>@TitleOf(Previous)</b></a>
+            }
+            @if (Next is not null)
+            {
+              <a href="@Next.Href" class="cc-docs__next"><small>@L["Docs_Next"] →</small><b>@TitleOf(Next)</b></a>
+            }
+          </nav>
+        }
+      </article>
+      @if (Document.Contents.Count > 0)
+      {
+        <aside class="cc-docs__toc" aria-label="@L["Docs_OnThisPage"]">
+          <h2>@L["Docs_OnThisPage"]</h2>
+          @foreach (var heading in Document.Contents)
+          {
+            <a href="@($"{Entry.Href}#{heading.Id}")">@heading.Text</a>
+          }
+        </aside>
+      }
+      else
+      {
+        <div></div>
+      }
+    }
+  </div>
+</CcPageContainer>

@@ -43,6 +43,20 @@ tests/
 tools/
 *.md
 
+# The documents the Web embeds for /docs (PublishedDocument items of CodeCoverage.Web.csproj), and their translations.
+!docs/operations.md
+!docs/operations.fr.md
+!docs/operations/organization-onboarding.md
+!docs/operations/organization-onboarding.fr.md
+!docs/operations/github-verification-checklist.md
+!docs/operations/github-verification-checklist.fr.md
+!docs/deployment-azure.md
+!docs/deployment-azure.fr.md
+!docs/migration-from-codecov.md
+!docs/migration-from-codecov.fr.md
+!action/README.md
+!action/README.fr.md
+
 # Deployment files and local secrets (the Data Protection certificate never enters an image)
 secrets/
 **/*.pfx

@@ -34,7 +34,7 @@ public partial class NavMenu : IDisposable
 
   // The first segments that never start the address of a repository.
   private static readonly HashSet<string> ReservedSegments =
-    new(["orgs", "admin", "account", "setup", "signin", "signout", "error", "not-found", "access-denied", "ui-gallery", "health", "_content", "_framework"],
+    new(["orgs", "admin", "account", "docs", "setup", "signin", "signout", "error", "not-found", "access-denied", "ui-gallery", "health", "_content", "_framework"],
         StringComparer.OrdinalIgnoreCase);
 
   #endregion
@@ -78,6 +78,9 @@ public partial class NavMenu : IDisposable
 
   // The sign-in brings the visitor back to the page it was on.
   private string SignInHref { get; set; } = string.Empty;
+
+  // The documentation is the current page: its entries are shown pressed.
+  private bool OnDocs { get; set; }
 
   #endregion
 
@@ -156,7 +159,12 @@ public partial class NavMenu : IDisposable
                                                                 && string.Equals(o.Login, named.Login, StringComparison.OrdinalIgnoreCase))
                             : null;
 
-    var items = new List<CcNavItem> { new(string.Empty, L["Nav_Repositories"], Active: segments.Length == 0 || IsRepositoryAddress(segments)) };
+    OnDocs = section == "docs";
+
+    // Signed out, the documentation opens in a public bar: the brand, Documentation, the theme and Sign in.
+    List<CcNavItem> items = OnDocs && !SignedIn
+                              ? []
+                              : [new CcNavItem(string.Empty, L["Nav_Repositories"], Active: segments.Length == 0 || IsRepositoryAddress(segments))];
 
     if (Model is not null)
     {

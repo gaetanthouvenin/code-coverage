@@ -30,6 +30,8 @@ public static class PageProbes
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/commit/{Sha}/blob/{*Path}", $"/github/{{owner}}/app/commit/{TwoOrganizationWeb.SecondSha}/blob/{TwoOrganizationWeb.SecondFile}"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/commits", "/github/{owner}/app/commits"),
     PageProbe.Addressed("/{Forge}/{Owner}/{Name}/compare/{Range}", $"/github/{{owner}}/app/compare/{TwoOrganizationWeb.SecondBaseSha}...{TwoOrganizationWeb.SecondSha}"),
+    PageProbe.NotAddressed("/docs", "The documentation embedded in the Web, the same for everyone."),
+    PageProbe.NotAddressed("/docs/{Slug}", "A page of the documentation embedded in the Web, the same for everyone."),
     PageProbe.NotAddressed("/error", "The error page of the console, the same for everyone."),
     PageProbe.NotAddressed("/", "The repositories the signed-in user reads, which name no organization in the address."),
     PageProbe.NotAddressed("/not-found", "The not-found page of the console, the same for everyone."),

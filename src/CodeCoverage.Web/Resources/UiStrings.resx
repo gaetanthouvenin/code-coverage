@@ -35,4 +35,5 @@
   <data name="Next" xml:space="preserve"><value>Next</value></data>
   <data name="PagerRange" xml:space="preserve"><value>{0} – {1} of {2}</value></data>
   <data name="PagerEmpty" xml:space="preserve"><value>0 of 0</value></data>
+  <data name="HelpOnPage" xml:space="preserve"><value>Help on this page: {0}</value></data>
 </root>

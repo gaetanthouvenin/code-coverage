@@ -35,6 +35,10 @@
           <CcIcon Name="icon" />
         }
         @Title
+        @if (!string.IsNullOrEmpty(HelpHref))
+        {
+          <a class="cc-help" href="@HelpHref" aria-label="@HelpLabel" title="@HelpLabel">?</a>
+        }
       </h1>
       @if (SubtitleContent is not null)
       {
