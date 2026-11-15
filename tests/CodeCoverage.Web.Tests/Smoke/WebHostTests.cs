@@ -16,7 +16,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Users;
 using CodeCoverage.Web.Configuration;
 using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Tests.Support;
@@ -168,6 +170,34 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
     var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
 
     response.StatusCode.ShouldBe(status);
+    html.ShouldContain("Une erreur est survenue");
+  }
+
+  // M4.02ac: a page that fails after the session was validated re-executes /error, which shows the error page instead
+  // of sending the user to the sign-in page.
+  [Fact]
+  public async Task Get_WithASessionAndAPageThatFails_ShouldShowTheErrorPage()
+  {
+    var user = AppUser.Create(Forge.GitHub, "583231", TestAuthenticationHandler.Login, null);
+    typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, CodeCoverageWebFactory.KnownUserId);
+    // A session stands only for a user whose tokens are kept.
+    user.ReplaceTokens(A.Fake<ISecretProtector>(), "ghu_token", null, null, null);
+    var users = A.Fake<IUserRepository>();
+    A.CallTo(() => users.FindAsync(CodeCoverageWebFactory.KnownUserId, A<CancellationToken>._)).Returns(user);
+    // The bar of the page fails before the response starts: the exception handler re-executes /error.
+    var memberships = A.Fake<IOrganizationMembershipRepository>();
+    A.CallTo(() => memberships.ListOfUserAsync(A<long>._, A<CancellationToken>._)).Throws(new InvalidOperationException("The page fails."));
+    await using var host = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddScoped(_ => users).AddScoped(_ => memberships)));
+    using var client = host.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/no/such/page/here", UriKind.Relative));
+    request.Headers.Add("Cookie", $"{AuthenticationConfiguration.SessionCookieName}={SessionCookie(host, CodeCoverageWebFactory.KnownUserId)}");
+    request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("fr"));
+
+    using var response = await client.SendAsync(request, Ct);
+    var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
+
+    response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+    response.Headers.Location.ShouldBeNull();
     html.ShouldContain("Une erreur est survenue");
   }
 

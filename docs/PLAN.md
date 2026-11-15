@@ -475,6 +475,7 @@ graph TD
   M4_02v --> M4_02y["M4.02y Documentation en espagnol"]
   M4_02g --> M4_02z["M4.02z Version de l'uploader refusée par le serveur"]
   M4_02aa["M4.02aa Snippet du badge hors de sa carte"]
+  M4_02m --> M4_02ac["M4.02ac Page d'erreur d'un utilisateur connecté"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -3281,6 +3282,16 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** `Web.Tests` (`UiStylesheetTests`) : la règle `.cc-stack` de `components.css` et de la maquette déclare `grid-template-columns: minmax(0, 1fr)`. **Propriétaire** : vue d'ensemble de Capto en largeur desktop et mobile, carte « Badge » en Markdown et en HTML, sans défilement horizontal de la page.
 - **Acceptation :** aucune page de la console ne défile horizontalement à cause d'un bloc de code ; un snippet long défile dans son propre bloc.
 - **Dépend de :** —
+
+#### M4.02ac — Page d'erreur d'un utilisateur connecté
+- **Issue :** [#450](https://github.com/gaetanthouvenin/code-coverage/issues/450)
+- **Objectif :** qu'un utilisateur connecté dont la page lève une exception non gérée voie la page d'erreur, et non la page de connexion. Constaté pendant M4.02ab : une requête avec un cookie de session valide sur une page dont la barre échoue avant le début de la réponse est renvoyée vers `/signin?returnUrl=%2Ferror` (302, corps vide). Cause prouvée : le gestionnaire d'exceptions ré-exécute `/error` dans une nouvelle portée ; `SessionCookieEvents.ValidatePrincipal` y appelle `RejectPrincipal()` pour que la page d'erreur ne lise pas l'utilisateur (M4.02m), mais `AuthenticationMiddleware` ne remplace `HttpContext.User` que lorsqu'un principal revient : le principal connecté du premier passage reste sur le contexte, alors que `CurrentUserContext` de la nouvelle portée n'est pas renseigné. `MainLayout` se croit connecté, `GetCurrentUserAccessQuery` lève `UnauthorizedException`, et `UiRequestRunner` part vers la connexion. M4.02m ne couvrait que la base indisponible, où l'authentification échoue avant de poser un utilisateur.
+- **Décision :** rendre `/error` vraiment anonyme plutôt que faire décider la barre par la session validée : c'est ce que les remarques de `SessionCookieEvents` promettent déjà (« the request runs signed out »), l'état d'authentification reste cohérent avec la portée pour tous ses lecteurs (layout, `AuthorizeView`, état transmis au circuit), et le cas de la base indisponible suit le même chemin.
+- **Couches :** Web.
+- **Fichiers :** **`Web/Configuration/Authentication/SessionCookieEvents.cs`** : sur `/error`, après `RejectPrincipal()`, `HttpContext.User` devient un principal anonyme ; remarques mises à jour.
+- **Tests :** `Web.Tests` (`WebHostTests.Get_WithASessionAndAPageThatFails_ShouldShowTheErrorPage`) : avec une session valide et des appartenances dont la lecture lève une exception synchrone, `/no/such/page/here` répond 500 avec la page d'erreur, sans redirection ; échoue sans le correctif (302 vers `/signin?returnUrl=%2Ferror`).
+- **Acceptation :** une exception non gérée d'une page d'un utilisateur connecté affiche la page d'erreur ; la page suivante relit la session.
+- **Dépend de :** M4.02m
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)

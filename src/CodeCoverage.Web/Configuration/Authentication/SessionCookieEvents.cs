@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Security.Claims;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
@@ -33,7 +35,7 @@ namespace CodeCoverage.Web.Configuration.Authentication;
 ///   <para>
 ///     The error page of an unhandled error is answered without reading the user: it must still render when the database is down, which
 ///     is often why it is shown. The cookie is kept, but the request runs signed out, so the layout reads nothing
-///     either.
+///     either; the user the failed page left on the context is replaced by the anonymous one (M4.02ac).
 ///   </para>
 /// </remarks>
 internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserContext currentUser, SessionState session) : CookieAuthenticationEvents
@@ -83,8 +85,11 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
 
     if (context.HttpContext.Request.Path.Equals(ErrorPath, StringComparison.OrdinalIgnoreCase))
     {
-      // Neither signed out nor expired: this one request is anonymous, and the next page checks the cookie again.
+      // Neither signed out nor expired: this one request is anonymous, and the next page checks the cookie again. The
+      // authentication middleware leaves the user of the failed page on a re-executed request when no principal comes
+      // back: the anonymous user replaces it, or the layout would read the navigation of a user this scope never set.
       context.RejectPrincipal();
+      context.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
 
       return;
     }
