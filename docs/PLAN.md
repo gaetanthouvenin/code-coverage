@@ -484,6 +484,15 @@ graph TD
   M5_05["M5.05 Check Runs"]
   M5_06["M5.06 Import historique Codecov (option)"] --> M4_08
   M5_07["M5.07 Shim codecov-cli (conditionnel)"]
+  M5_08["M5.08 Maquette du rapport détaillé"]
+  M5_09["M5.09 ADR-016 couverture détaillée"] --> M5_10["M5.10 Méthodes et détail dans le Domain"]
+  M5_10 --> M5_11["M5.11 Codecs CCR v2 et CFI2"]
+  M5_10 --> M5_12["M5.12 Méthodes Cobertura et OpenCover"]
+  M5_10 --> M5_13["M5.13 Méthodes LCOV, JaCoCo et Clover"]
+  M5_11 --> M5_14["M5.14 Détail des fichiers dans l'Api"]
+  M5_08 --> M5_15["M5.15 Écran Rapport détaillé"]
+  M5_11 --> M5_15
+  M5_15 --> M5_16["M5.16 Documentation du rapport détaillé"]
 ```
 
 ### 2.7 M7 – Azure DevOps Services
@@ -3397,6 +3406,110 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** rejeu de requêtes codecov-cli enregistrées (`tests/fixtures/codecov-cli/*`).
 - **Acceptation :** les étapes `codecov/codecov-action@v5` fonctionnent avec `url:`, la version est épinglée, et l'URL d'upload signée lie l'organisation, le dépôt et l'upload.
 - **Dépend de :** M1.31, M1.32, M3.43a, M4.07 (décision 13.2-1)
+
+> M5.08 à M5.16 viennent de la demande du propriétaire du 2026-11-15, après les premiers uploads de Capto (Cobertura, 77,91 % sur 615 fichiers) : un rapport qui montre par fichier chaque sorte de couverture, lignes, branches et méthodes, comme ReportGenerator. ReportGenerator n'était jusque-là qu'un oracle de tests (M1.15). État au 2026-11-15, prouvé sur le code : les cinq parseurs gardent par ligne les branches couvertes et leur total (`condition-coverage` de Cobertura, `BranchPoint` d'OpenCover, `BRDA` de LCOV sauf pour un fichier `.js`, `mb` et `cb` de JaCoCo, `cond` de Clover à deux branches) ; aucun ne garde l'état d'une méthode : Cobertura et OpenCover ignorent leurs méthodes, LCOV ne lit `FN` que pour écarter les fonctions C++ décorées, JaCoCo et Clover marquent seulement la ligne d'une méthode (`IsMethod`) ; `CoverageTotals.Branches` et `Methods` sont les compteurs de Codecov, des nombres de lignes ; `CommitReports.FileIndex` (`CFI1`) n'a par fichier que hits, misses, partials et ces deux compteurs. La décision et le stockage sont dans [ADR-016](adr/0016-detailed-coverage.md) : le chiffre Codecov reste en tête, trois chiffres nommés s'y ajoutent, les méthodes passent par un canal à part et deux formats de blob passent en version 2, sans colonne ni migration. Ces micro-features sont dans M5 (confort) plutôt qu'après M4.02z, réservé aux corrections du déploiement.
+
+#### M5.08 — Maquette du rapport de couverture détaillé
+- **Issue :** à créer
+- **Objectif :** décider, puis faire valider par le propriétaire, où s'ouvre le rapport détaillé, ce qu'il montre par fichier et au total, comment il se trie et se filtre, et comment il se comporte pour un commit traité avant lui.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (livré avec ce découpage), en mode clair, sombre et largeur mobile :
+  - **Entrée** : bouton « Rapport détaillé » dans les outils du panneau Fichiers de `#commit`, dont l'arbre Codecov ne change pas.
+  - **Écran `#commitreport`** (`/{forge}/{owner}/{repo}/commit/{sha}/report`) : liste des flags en tête ; quatre cartes, Couverture (Codecov) en accent, Lignes, Branches et Méthodes ; tableau plat des fichiers, colonnes Fichier, Codecov, puis Lignes, Branches et Méthodes avec « couvertes / total » et un pourcentage en barre ; ligne Total hors du tri ; aide sous le titre du panneau (Codecov contre Lignes, sens de `—`).
+  - **Tri et filtre** : clic sur un en-tête, second clic pour inverser, `aria-sort` ; recherche sur le chemin ; liste « Afficher » (tous, sous l'objectif, branches non couvertes, méthodes non exécutées) ; état vide sans résultat.
+  - **États** : Nominal, Traité avant le détail (index `CFI1` : bandeau, « Retraiter » pour un admin du dépôt, `—` partout sauf Codecov), Compacté, Chargement, Introuvable ou inaccessible. En mobile, des cartes par fichier et une liste « Trier ».
+  - `docs/ui-design.md` : inventaire, correspondance et section « Rapport de couverture détaillé » (livrés).
+- **Tests :** validation de la maquette par le propriétaire.
+- **Acceptation :** le propriétaire valide la maquette avant M5.15.
+- **Dépend de :** —
+
+#### M5.09 — ADR-016 : couverture détaillée et formats de blob en version 2
+- **Issue :** à créer
+- **Objectif :** écrire la décision avant le code : définitions des trois chiffres de plus, canal des méthodes, formats de blob, écarts nommés avec ReportGenerator.
+- **Couches :** docs.
+- **Fichiers :** `docs/adr/0016-detailed-coverage.md` (livré avec ce découpage, statut « proposé ») et sa ligne dans `docs/adr/README.md`. Le numéro 015 est celui de l'ADR des langues de M4.02r.
+- **Tests :** —
+- **Acceptation :** le propriétaire accepte l'ADR ; son statut devient « accepté » avant M5.10.
+- **Dépend de :** —
+
+#### M5.10 — Méthodes et détail de couverture dans le Domain
+- **Issue :** à créer
+- **Objectif :** porter les méthodes d'un fichier à côté de ses lignes, et calculer par fichier les lignes exécutées, les branches et les méthodes, sans changer un seul chiffre Codecov.
+- **Couches :** Domain, Application.
+- **Fichiers :**
+  - **`Domain/Coverage/MethodCoverage.cs`** : `readonly record struct` (`Line` ≥ 1, `Hits` ≥ 0), la première ligne d'une méthode et ses exécutions.
+  - **`Domain/Coverage/CoverageDetail.cs`** : `readonly record struct` (`ExecutedLines`, `CoverableLines`, `CoveredBranches`, `TotalBranches`, `CoveredMethods?`, `TotalMethods?`), ses trois ratios par `CoverageMath.Ratio` et une somme pour la ligne Total (des méthodes inconnues d'un côté rendent la somme inconnue).
+  - **`ParsedFile`** : `IReadOnlyList<MethodCoverage>? Methods` (`null` par défaut) ; **`FileCoverage.Create(path, lines, methods)`** fusionne les méthodes d'une même ligne (plus grand `Hits`), garde `null` pour des méthodes inconnues et expose `Detail` ; **`CoverageReport.Create`** rend inconnues les méthodes d'un fichier dont une partie ne les connaît pas ; **`FileTotals`** porte `CoverageDetail? Detail`.
+  - **`ReportMerger`**, **`Diffs/LineShifter`** (une méthode suit le décalage de sa ligne, retirée avec elle), **`Commits/CarryforwardBuilder`**, **`ReportView`** et **`PartialsAsHitsTransform`** gardent les méthodes ; **`Application/Services/UploadProcessor.cs`** passe celles de `ParsedFile` à `FileCoverage`.
+- **Tests :** `FileCoverageTests` — `Create_MethodsOnSameLine_ShouldKeepOneWithMostHits`, `Detail_ShouldCountExecutedLinesBranchesAndMethods`, `Detail_BranchLineExecutedWithoutBranch_ShouldCountAsExecuted` ; `CoverageReportTests` — `Create_PartWithoutMethods_ShouldMakeMethodsUnknown`, `Totals_WithMethods_ShouldKeepCodecovCounts` ; `LineShifterTests` — `Shift_MethodOnRemovedLine_ShouldDropIt` ; `CoverageDetailTests` — ratios nuls sans rien de couvrable, somme avec méthodes inconnues.
+- **Acceptation :** `CoverageTotals`, `IsMethod` et `LineKind` ne changent pas ; tous les tests existants passent sans modification de leurs valeurs attendues.
+- **Dépend de :** M5.09
+
+#### M5.11 — Codecs : `CCR1` version 2 et index `CFI2`
+- **Issue :** à créer
+- **Objectif :** stocker les méthodes et le détail par fichier, en lisant toujours les blobs écrits avant.
+- **Couches :** Infrastructure, docs.
+- **Fichiers :**
+  - **`Infrastructure/Reports/Codecs/CcrCodec.cs`** : écrit la version 2 (après les lignes de chaque fichier, un octet de drapeaux puis `methodCount`, `deltaLine` et `hits` de chaque méthode) ; `Open` accepte les versions 1 et 2 ; une version 1 donne des fichiers sans méthodes (`null`). Les plafonds de lecture (nombre de méthodes, lignes croissantes) sont ceux des lignes.
+  - **`Infrastructure/Reports/Codecs/FileIndexCodec.cs`** : écrit `CFI2` (les cinq compteurs de `CFI1`, puis lignes exécutées, branches couvertes et totales, drapeaux et méthodes) ; lit `CFI1` sans détail.
+  - **`docs/ARCHITECTURE.md`** : §4.2 (`FileIndex`), §4.3 (version 2, retour arrière d'image non pris en charge une fois la version 2 écrite).
+- **Tests :** `CcrCodecTests` — `Decode_V1Fixture_ShouldReadLinesWithoutMethods` (`tests/fixtures/ccr/v1-sample.bin`), `RoundTrip_WithMethods_ShouldKeepThem`, `RoundTrip_UnknownMethods_ShouldStayUnknown`, `Decode_TooManyMethods_ShouldThrow` ; fixture `tests/fixtures/ccr/v2-sample.bin` ; `FileIndexCodecTests` — `Decode_Cfi1_ShouldHaveNoDetail`, `RoundTrip_Cfi2_ShouldKeepDetail`.
+- **Acceptation :** aucune migration (le test « pas de changement de modèle sans migration » passe, les deux instantanés ne bougent pas) ; un commit traité avant reste lisible partout (page, statuts, comparaisons, vues par flag).
+- **Dépend de :** M5.10
+
+#### M5.12 — Méthodes des rapports Cobertura et OpenCover
+- **Issue :** à créer
+- **Objectif :** lire les méthodes des deux formats .NET, ceux de Capto.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Reports/Parsers/CoberturaParser.cs`** : chaque `<method>` d'une classe devient une méthode à la plus petite ligne de ses `<line>`, exécutée autant que la plus exécutée d'entre elles ; une méthode sans ligne est ignorée. Les lignes de la classe sont lues comme aujourd'hui.
+  - **`Infrastructure/Reports/Parsers/OpenCoverParser.cs`** : chaque `<Method>` qui a un `SequencePoint` devient une méthode à la ligne du premier, exécutée selon le `vc` de son `MethodPoint` (à défaut, le plus grand `vc` de ses `SequencePoint`) ; une méthode `skippedDueTo` est ignorée.
+- **Tests :** `CoberturaParserTests` — `Parse_Methods_ShouldReadFirstLineAndHits`, `Parse_MethodWithoutLine_ShouldIgnoreIt` ; `OpenCoverParserTests` — `Parse_Methods_ShouldReadMethodPointHits` ; `ParserOracleTests` — `Parse_EachFixture_ShouldMatchOracleBranchAndMethodCounts` sur les fixtures Cobertura et OpenCover (branches couvertes et totales, méthodes couvertes et totales de ReportGenerator), chaque écart expliqué dans `tests/fixtures/reports/expected-detail.json` ; les totaux Codecov de chaque fixture ne changent pas.
+- **Acceptation :** chaque écart avec ReportGenerator est nul ou nommé par ADR-016 ; les uploads Cobertura et OpenCover reçus après le déploiement ont leurs méthodes.
+- **Dépend de :** M5.10
+
+#### M5.13 — Méthodes des rapports LCOV, JaCoCo et Clover
+- **Issue :** à créer
+- **Objectif :** lire les méthodes des trois autres formats.
+- **Couches :** Infrastructure.
+- **Fichiers :**
+  - **`Infrastructure/Reports/Parsers/LcovRecord.cs`** : `FN` donne la ligne d'une fonction, `FNDA` ses exécutions, reliées par le nom ; une fonction C++ décorée reste écartée. Les méthodes d'un fichier `.js` sont lues : seul `BRDA` y est ignoré, pour la parité Codecov des lignes. `FNF` et `FNH` restent ignorés.
+  - **`Infrastructure/Reports/Parsers/JacocoParser.cs`** : chaque `<method line>` d'une classe, avec ou sans compteur `COMPLEXITY`, devient une méthode du fichier de son `sourcefilename`, exécutée (1) si son compteur `METHOD` a `covered > 0`, sinon 0. Le marquage `IsMethod` de Codecov ne change pas.
+  - **`Infrastructure/Reports/Parsers/CloverParser.cs`** : chaque ligne `type="method"` devient aussi une méthode, avec son `count`.
+- **Tests :** `LcovParserTests` — `Parse_FnAndFnda_ShouldReadMethods`, `Parse_JavaScriptFile_ShouldReadMethodsWithoutBranches` ; `JacocoParserTests` — `Parse_MethodCounter_ShouldMarkMethodExecuted` ; `CloverParserTests` — `Parse_MethodLine_ShouldReadMethod` ; `ParserOracleTests` étendu aux fixtures LCOV, JaCoCo et Clover, écarts dans `expected-detail.json`.
+- **Acceptation :** comme M5.12.
+- **Dépend de :** M5.10
+
+#### M5.14 — Détail des fichiers dans l'Api
+- **Issue :** à créer
+- **Objectif :** exposer le détail de chaque fichier aux clients de l'Api, sans changer ce qu'ils lisent déjà.
+- **Couches :** Api, docs.
+- **Fichiers :** `Api/Contracts/Commits/CoverageDetailModel.cs` (`executedLines`, `coverableLines`, `coveredBranches`, `totalBranches`, `coveredMethods?`, `totalMethods?` et les trois couvertures) ; `FileTotalsResponse` porte `CoverageDetailModel? Detail`, `null` pour un index `CFI1` ; `Api/Mapping/CommitMapper.cs` ; documentation XML de `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` pour Swagger et Scalar ; `docs/ARCHITECTURE.md` §10.
+- **Tests :** `Api.Tests` — `GetCommitFiles_Cfi2_ShouldReturnDetail`, `GetCommitFiles_Cfi1_ShouldReturnNullDetail`, `GetCommitFiles_Flag_ShouldReturnDetailOfFlagView`.
+- **Acceptation :** l'ajout est compatible (aucun champ existant ne change) ; la route n'est pas une route Codecov.
+- **Dépend de :** M5.11
+
+#### M5.15 — Écran « Rapport de couverture détaillé »
+- **Issue :** à créer
+- **Objectif :** construire l'écran validé par M5.08.
+- **Couches :** Web, docs.
+- **Fichiers :**
+  - **`Web/Components/Pages/CommitReport.razor(.cs)`** (`/{forge}/{owner}/{repo}/commit/{sha}/report`, lecture du dépôt) : cartes, tableau plat, ligne Total, tri par en-tête et inversion, recherche, liste « Afficher », liste « Trier » en mobile ; `flag`, `sort` et `filter` dans la query string pour qu'une adresse partagée ouvre la même vue.
+  - **`Web/ViewModels/Commits/CommitReportViewModel.cs`** et **`CommitReportRowViewModel.cs`** ; **`Web/Mapping/CommitMapper.cs`** (`GetCommitReportViewModelAsync`, par `GetCommitFilesQuery`, pourcentages formatés avec `coverage.precision` et `coverage.round` comme `FileTreeBuilder`, objectif du statut projet pour le filtre « sous l'objectif »).
+  - **`Web/Components/Commits/FileTree.razor`** : bouton « Rapport détaillé ».
+  - Styles `cc-report*` de la maquette ; clés dans `Common.resx` et chaque traduction présente à ce moment-là ; `docs/ARCHITECTURE.md` §10bis (table des routes).
+- **Tests :** bUnit, `CommitReportTests` — `Render_ShouldShowCodecovFirstThenThreeGroups`, `SortHeader_ClickedTwice_ShouldReverseOrder`, `Sort_DashValues_ShouldStayLast`, `Filter_UncoveredBranches_ShouldHideOtherFiles`, `Render_Cfi1_ShouldShowBannerAndDashes`, `Render_UnknownMethods_ShouldShowDash` ; `FileTreeTests` — lien vers le rapport avec le flag courant ; accès d'un non-membre refusé comme pour `#commit`.
+- **Acceptation :** conforme à la maquette en clair, en sombre et en mobile ; sur un commit de Capto retraité, le propriétaire compare les chiffres à ceux de ReportGenerator et retrouve les seuls écarts nommés par ADR-016.
+- **Dépend de :** M5.08, M5.11
+
+#### M5.16 — Documentation du rapport détaillé
+- **Issue :** à créer
+- **Objectif :** expliquer aux utilisateurs les trois chiffres de plus et leurs écarts avec Codecov et ReportGenerator.
+- **Couches :** docs.
+- **Fichiers :** `docs/migration-from-codecov.md` (servi par `/docs/migration-from-codecov`) : section « Rapport détaillé » (définitions, `—`, commit traité avant, écarts nommés d'ADR-016) et ses traductions existantes à ce moment-là ; aide contextuelle de l'écran vers cette section (`DocumentationLinks`).
+- **Tests :** `DocumentationLinksTests` : l'ancre existe dans chaque langue.
+- **Acceptation :** l'aide de l'écran ouvre la section dans la langue de la console, ou en anglais avec le bandeau de page non traduite.
+- **Dépend de :** M5.15
 
 ---
 
