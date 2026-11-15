@@ -462,6 +462,17 @@ graph TD
   M4_02i --> M4_02o
   M4_02k --> M4_02o
   M4_02p["M4.02p Logger Serilog gelé deux fois dans les tests d'hôte"]
+  M4_02o --> M4_02q["M4.02q Maquette du choix de la langue"]
+  M4_02r["M4.02r Langues de la console : décision"] --> M4_02s["M4.02s Italien et espagnol dans les ressources"]
+  M4_02m --> M4_02s
+  M4_02q --> M4_02t["M4.02t Choix et mémorisation de la langue"]
+  M4_02s --> M4_02t
+  M4_02t --> M4_02u["M4.02u Langue retenue par le compte (option)"]
+  M4_02q --> M4_02v["M4.02v Documentation par langue avec repli"]
+  M4_02s --> M4_02v
+  M4_02v --> M4_02w["M4.02w Documentation en français"]
+  M4_02v --> M4_02x["M4.02x Documentation en italien"]
+  M4_02v --> M4_02y["M4.02y Documentation en espagnol"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -3106,6 +3117,134 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** `Api.Tests` et `Web.Tests` : `SerilogBootstrapTests.Start_HostsInParallel_ShouldStartEveryHost` construit huit hôtes en même temps, trois fois. Il échoue à chaque exécution sans la correction (3 sur 3 pour chaque hôte) et passe avec.
 - **Acceptation :** les tests d'hôte ne lèvent plus « The logger is already frozen. » ; les journaux d'un hôte réel (console, fichier, enrichissements, événements de `Program`) ne changent pas.
 - **Dépend de :** —
+
+> M4.02q à M4.02y viennent de la demande du propriétaire du 2026-11-15, après M4.02o : la console et sa documentation existent au moins en français, en anglais, en italien et en espagnol, car une console en français qui affiche une documentation en anglais n'est pas acceptable. L'anglais reste la langue de référence et de repli. État au 2026-11-15, prouvé sur le code : `Program` du Web n'accepte que `en` et `fr` (`UseRequestLocalization`, culture par défaut `en`), choisies par l'en-tête `Accept-Language` seulement, car rien n'écrit le cookie de culture ; `Common.resx` et `UiStrings.resx` n'ont qu'une traduction `.fr.resx`, et seuls des tests en français (`CommonTests`, `UiStringsTests`, `ErrorCodeLocalizerTests`, `ResourceEntryFormatTests`) vérifient leurs clés ; `DocumentationLibrary` sert `{slug}.fr.md` en culture française quand il est embarqué, aucune traduction n'existe, et les ancres viennent du texte des titres (`UseAutoIdentifiers(GitHub)`), si bien qu'un titre traduit casserait les cibles de `DocumentationLinks` ; les formats SVG en culture française sont corrigés par M4.02h.
+
+#### M4.02q — Maquette du choix de la langue
+- **Issue :** à créer
+- **Objectif :** décider, puis faire valider par le propriétaire, où l'utilisateur choisit la langue de la console, comment la langue courante se voit, et comment une page de documentation non traduite l'annonce.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html` (livré avec ce découpage), en mode clair, sombre et largeur mobile :
+  - **Sélecteur `CcLanguagePicker`** : un groupe « Langue » (icône `globe`) de quatre liens, chacun nommé dans sa propre langue (English, Français, Italiano, Español, attributs `lang` et `hreflang`), la langue courante en évidence (`aria-current="true"`).
+  - **Connecté** : en bas du menu utilisateur, sous un filet, en deux colonnes ; aucun bouton de plus dans la barre du haut, dont M4.02h a réglé la largeur au pixel près. Jusqu'à 1040 px : dernière ligne du menu mobile, sur quatre colonnes (deux sous 400 px).
+  - **Non connecté** : un bouton rond `globe` dans la barre publique de `/docs`, entre Documentation et le thème, avec le code de la langue en pastille, qui ouvre le même groupe ; une ligne de langue en bas de la carte de connexion et sous `/setup`.
+  - **Documentation** : état « Page pas encore traduite » de `#docs`, un bandeau d'information au-dessus du contenu (« Cette page n'est pas encore traduite en français : elle s'affiche en anglais, la langue de référence de la documentation. ») et le contenu marqué `lang="en"`.
+  - **Barre de revue** : quatre langues ; les textes de la maquette n'existent qu'en anglais et en français, l'italien et l'espagnol y montrent le sélecteur, les formats de nombres et de dates et le bandeau.
+  - `docs/ui-design.md` : section « Langues de la console ».
+- **Tests :** validation de la maquette par le propriétaire.
+- **Acceptation :** le propriétaire valide la maquette avant M4.02t et M4.02v.
+- **Dépend de :** M4.02o
+
+#### M4.02r — Langues de la console : décision et ce qui reste en anglais
+- **Issue :** à créer
+- **Objectif :** écrire la décision avant le code : quelles langues, où elles s'appliquent, et ce qui reste en anglais.
+- **Couches :** docs, Architecture.Tests.
+- **Fichiers :**
+  - **ADR** `docs/adr/00NN-console-languages.md` (numéro libre suivant au moment de l'écrire) et son entrée dans `docs/adr/README.md` :
+    - **Langues** : anglais (référence, langue par défaut et de repli), français, italien, espagnol, cultures neutres `en`, `fr`, `it`, `es` (`it-CH` ou `es-MX` du navigateur retombent sur leur parent). Une langue de plus est une ligne de `ConsoleLanguages` (M4.02s), ses deux `.resx` et, au besoin, ses traductions de documents.
+    - **Choix** : cookie de culture d'ASP.NET Core, posé par le sélecteur ; sans cookie, `Accept-Language` ; sinon l'anglais. Le paramètre de requête `?culture=` n'est pas accepté, pour que les adresses partagées ne changent pas la langue de celui qui les ouvre.
+    - **Ce qui reste en anglais**, sans réglage : l'Api (réponses `ProblemDetails`, codes d'erreur, OpenAPI, Swagger et Scalar) ; l'uploader `coverage-upload` (messages, `--help`, journaux), l'action composite et le template Azure Pipelines ; les journaux Serilog des deux hôtes ; ce qui est publié sur une forge, commentaires de pull request, statuts de commit et leurs noms, badges, parce qu'ils doivent rester ceux de Codecov (règle critique 1) et qu'un dépôt est lu par des personnes de toutes langues ; les identifiants stockés (codes d'erreur, codes du journal de traitement, actions d'audit, clés de réglages), traduits seulement à l'affichage ; la ligne de commande d'administration (M1.22a) ; les documents internes jamais publiés (plan, ADR, architecture, conventions), qui gardent leur langue actuelle.
+    - **Documentation** : un document publié est écrit en anglais, puis traduit à côté de lui (`{nom}.{langue}.md`) ; une page sans traduction s'affiche en anglais avec un avis (M4.02v).
+  - **`docs/ARCHITECTURE.md`** et **`docs/CONVENTIONS.md`** : renvoi à l'ADR là où ils parlent des ressources (« pas de texte d'interface en dur ») ; `AGENT.md` §2 : « `IStringLocalizer<Common>`, quatre langues ».
+- **Tests :** **Architecture.Tests** : seuls le Web référence `Microsoft.Extensions.Localization` et contient des `.resx` ; aucun projet hors du Web n'embarque de ressource satellite. Les deux tests passent sur le code actuel et gardent la frontière.
+- **Acceptation :** l'ADR est accepté par le propriétaire ; la liste de ce qui reste en anglais est fermée et chaque élément y a sa raison.
+- **Dépend de :** —
+
+#### M4.02s — Italien et espagnol dans les ressources de la console
+- **Issue :** à créer
+- **Objectif :** la console parle italien et espagnol, choisis par `Accept-Language` en attendant le sélecteur de M4.02t, et un test prouve que chaque fichier de ressources a les mêmes clés que l'anglais.
+- **Couches :** Web.
+- **Fichiers :**
+  - **`Web/Localization/ConsoleLanguages.cs`** : seule source des langues de la console (code, nom dans sa propre langue, `en` par défaut), lue par `Program`, par le sélecteur de M4.02t, par la documentation (M4.02v) et par les tests.
+  - **`Web/Program.cs`** : `UseRequestLocalization` construit depuis `ConsoleLanguages` (cultures et cultures d'interface `en`, `fr`, `it`, `es`, défaut `en`) ; fournisseurs dans l'ordre cookie puis `Accept-Language`, sans `QueryStringRequestCultureProvider` (ADR de M4.02r). Le commentaire « The interface speaks English and French » suit.
+  - **`Web/Resources/Common.it.resx`**, **`Common.es.resx`**, **`UiStrings.it.resx`**, **`UiStrings.es.resx`** : toutes les clés de `Common.resx` (588 au 2026-11-15) et de `UiStrings.resx`, une entrée par ligne (`ResourceEntryFormatTests`), mêmes paramètres `{0}`, `{1}` que l'anglais, typographie de chaque langue (guillemets, espaces). Les noms de produits, de forges et les termes techniques gardés en anglais par le français (`pull request`, `commit`, `upload`, `token` selon `Common.fr.resx`) sont traités de même, sauf usage établi contraire de la langue.
+  - **`docs/ui-design.md`** : le tableau « Libellés clés » gagne les colonnes Italien et Espagnol.
+- **Tests :**
+  - **Web.Tests** (`Resources/ResourceParityTests`, remplace les deux tests `…ShouldTranslateEveryKeyInFrench`) : pour `Common` et `UiStrings`, chaque langue de `ConsoleLanguages` autre que l'anglais a un fichier, avec exactement les clés de l'anglais (ni manquante, ni en trop), aucune valeur vide, et les mêmes paramètres de format par clé ; aucun `.resx` de culture hors de `ConsoleLanguages`. Le test échoue sur le code actuel (italien et espagnol absents).
+  - **Web.Tests** : `ResourceEntryFormatTests` et `ErrorCodeLocalizerTests.Resources_ShouldTranslateEveryErrorCodeOfTheApplication` parcourent tous les fichiers de langue, plus seulement `en` et `fr` ; `UiStringsTests` et `ErrorCodeLocalizerTests` ont un cas `it` et un cas `es`.
+  - **Web.Tests** (hôte) : `Accept-Language: it-CH` sert `<html lang="it">` et un libellé italien ; `es-MX` l'espagnol ; `de` l'anglais.
+  - **bUnit** : comme M4.02h en `fr-FR`, `CcGauge`, `CcLineChart` et `CcSparkline` rendus en `it-IT` et `es-ES` n'ont aucune virgule dans leurs attributs numériques ; un pourcentage et une date d'une page (par exemple la tendance de `Home`) suivent la culture.
+  - **Propriétaire** : relecture de l'italien et de l'espagnol par un locuteur si possible ; sinon, les traductions sont livrées et marquées à relire dans la PR.
+- **Acceptation :** un navigateur en italien ou en espagnol voit toute la console dans sa langue, messages de validation et refus compris ; aucune clé ne manque dans aucune langue.
+- **Dépend de :** M4.02r, M4.02m
+
+#### M4.02t — Choix et mémorisation de la langue
+- **Issue :** à créer
+- **Objectif :** l'utilisateur choisit la langue de la console, connecté ou non, et la retrouve à sa prochaine visite sur ce navigateur, selon la maquette de M4.02q.
+- **Couches :** Web.
+- **Fichiers :**
+  - **`Web/Configuration/Localization/CultureEndpoints.cs`** (`MapCultureEndpoint`, appelé par `Program`) : `GET /culture?lang={code}&returnUrl={chemin}`. Une langue hors de `ConsoleLanguages` ne pose rien. Sinon, il écrit le cookie `CookieRequestCultureProvider.DefaultCookieName` (`MakeCookieValue`, culture et culture d'interface), `Path=/`, un an, `SameSite=Lax`, `Secure`, `HttpOnly`, `IsEssential`. Puis il redirige (302) vers `returnUrl` seulement s'il est local (`/…`, jamais `//` ni `/\`), sinon vers `/`. L'adresse est ouverte sans connexion et pendant le premier démarrage (chemin ouvert de `SetupRedirectMiddleware`). Un `GET` ne change qu'une préférence d'affichage, sans risque à protéger par l'antiforgery.
+  - **`Web/Components/Ui/CcLanguagePicker.razor(.cs)`** : paramètre `Variant` (`Menu`, `Row`, `Inline`), un lien par langue de `ConsoleLanguages` vers `culture?lang=…&returnUrl=…` (chemin et requête courants de `NavigationManager`, encodés), `data-enhance-nav="false"` pour recharger la page : un circuit Blazor Server garde la culture de son démarrage. Nom accessible et libellé `Language_Label` ; les noms des langues viennent de `ConsoleLanguages`, jamais traduits.
+  - **Emplacements** : menu utilisateur et menu mobile (`Layout/NavMenu.razor`), barre publique de `/docs` (bouton rond `globe` et pastille du code, même ouverture que le menu utilisateur), `SignIn.razor` et `Setup.razor` (ligne en bas) ; styles `cc-lang*` de la maquette reportés dans `wwwroot/css/components.css`.
+  - **Ressources** : `Language_Label` dans les quatre `Common*.resx`.
+- **Tests :**
+  - **Web.Tests** : `GET /culture?lang=it&returnUrl=/docs` répond 302 vers `/docs` avec le cookie `c=it|uic=it` et ses attributs ; `lang=de` ne pose aucun cookie ; `returnUrl` absolu, `//hôte` ou `/\hôte` redirige vers `/` ; l'adresse répond sans connexion et avant la fin du setup ; une requête portant le cookie `es` et `Accept-Language: fr` est servie en espagnol (`<html lang="es">`).
+  - **bUnit** : `CcLanguagePicker` marque la langue courante (`aria-current`), chaque lien porte `lang`, `hreflang` et un `returnUrl` encodé de la page courante, dans chaque variante ; le menu utilisateur et le menu mobile le contiennent.
+  - **Contrôle de source** (`UiStylesheetTests`) : les règles `cc-lang*` de la maquette existent dans `components.css`.
+  - **Mesure dans le navigateur** : comme M4.02h, de 1041 à 1400 px la barre du haut ne change pas de largeur ; le menu utilisateur ouvert tient dans la fenêtre.
+- **Acceptation :** choisir une langue recharge la page courante dans cette langue, partout, connecté ou non ; la langue est retrouvée après fermeture du navigateur ; une adresse externe dans `returnUrl` ne redirige jamais hors de la console.
+- **Dépend de :** M4.02q, M4.02s
+
+#### M4.02u — Langue retenue par le compte (option)
+- **Issue :** à créer
+- **Objectif :** un utilisateur connecté retrouve sa langue sur un autre navigateur ou après avoir effacé ses cookies.
+- **Couches :** Domain, Application, Infrastructure (deux fournisseurs), Web.
+- **Fichiers :**
+  - **Domain** : `AppUser.PreferredLanguage` (code de langue facultatif, validé par le Web contre `ConsoleLanguages`, le Domain ne connaissant pas les langues de la console : il ne garde qu'un code de deux lettres minuscules).
+  - **Application** : `SetPreferredLanguageCommand` (utilisateur courant, `IUserScoped`) et son validateur.
+  - **Infrastructure** : colonne `Users.PreferredLanguage` (`nvarchar(8)`/`varchar(8)` nullable), migrations PostgreSQL et SQL Server dans le même commit ; `Users` reste une table globale (`TableClassification`).
+  - **Web** : `GET /culture` connecté envoie aussi la commande ; à la connexion (`SessionCookieEvents` ou le rappel de connexion), une langue enregistrée écrit le cookie de culture si elle diffère.
+- **Tests :** Domain, validateur, repository sur les deux fournisseurs (Testcontainers), test « pas de changement de modèle sans migration » ; Web.Tests : choisir `it` connecté l'enregistre, et une nouvelle session sans cookie de culture revient en italien.
+- **Acceptation :** la langue choisie suit le compte d'un navigateur à l'autre ; un visiteur non connecté garde le seul cookie.
+- **Dépend de :** M4.02t
+
+#### M4.02v — Documentation par langue avec repli sur l'anglais
+- **Issue :** à créer
+- **Objectif :** servir chaque document publié dans la langue de la console quand sa traduction existe, sinon en anglais avec l'avis de la maquette, avec les mêmes ancres dans toutes les langues. Cette micro-feature livre le mécanisme ; les traductions viennent ensuite (M4.02w à M4.02y).
+- **Couches :** Web, docs.
+- **Fichiers :**
+  - **`Documentation/DocumentationLibrary.cs`** : la langue demandée est la langue d'interface courante si elle est dans `ConsoleLanguages` ; la ressource `{slug}.{langue}.md` est servie si elle est embarquée, sinon `{slug}.md`. `RenderedDocument` porte la langue servie et la langue demandée (`IsFallback`). Le cache reste par document et langue de la console ; les libellés des encadrés suivent la langue servie, comme aujourd'hui.
+  - **`CodeCoverage.Web.csproj`** : propriété `DocumentationLanguages` (`fr;it;es`) ; la cible `EmbedPublishedDocuments` embarque `{nom}.{langue}.md` de chaque langue s'il existe (`LogicalName` `CodeCoverage.Web.Docs.{slug}.{langue}.md`, `WithCulture="false"`).
+  - **Ancres** : les titres `h2` et `h3` d'une traduction reçoivent, dans l'ordre, les identifiants des titres de même niveau du document anglais. Une traduction a donc le même plan que l'anglais (mêmes niveaux, même nombre, même ordre), ce qu'un test vérifie. `DocumentationLinks`, les liens entre documents (`autre.md#ancre`) et les ancres partagées ne changent pas d'une langue à l'autre, et un titre traduit ne casse aucune aide contextuelle.
+  - **Fraîcheur** : chaque traduction commence par un en-tête YAML `source-sha256: {empreinte}` du document anglais (texte normalisé en LF, pour ne pas dépendre de la copie de travail), ignoré au rendu (`UseYamlFrontMatter` de Markdig). Une modification d'un document anglais met donc à jour ses traductions dans la même PR, comme une modification de modèle porte ses deux migrations.
+  - **`Pages/Docs.razor(.cs)`** : bandeau `CcBanner` d'information `Docs_NotTranslated` (« … pas encore traduite en {langue} : elle s'affiche en anglais… », jamais affiché en anglais) au-dessus du contenu quand `IsFallback` ; `lang` du contenu égal à la langue servie. Navigation et titres des pages dans la langue servie de chaque document.
+  - **`.dockerignore`** : les traductions entrent dans la construction de l'image.
+  - **`docs/CONVENTIONS.md`** : section « Traduire un document publié » : fichier `{nom}.{langue}.md` à côté de l'anglais, en-tête `source-sha256`, même plan de titres, blocs de code, commandes, clés de réglages, noms de produits et adresses inchangés, liens vers les fichiers anglais (`autre.md#ancre`), encadrés GitHub `> [!NOTE]` gardés tels quels.
+  - **`docs/ui-design.md`** : la sous-section « Source et langue » ne dit plus « en anglais » seulement.
+- **Tests :**
+  - **Web.Tests** (`DocumentationSourceTests`, sur chaque langue de `DocumentationLanguages`) : chaque traduction présente est embarquée et a un document anglais ; même plan de titres que l'anglais ; `source-sha256` égal à l'empreinte du document anglais (le message donne l'empreinte attendue) ; `HelpLinks_OfTheConsole_ShouldEachTargetAnExistingAnchor` et `LinksBetweenDocuments_ShouldEachTargetAnExistingAnchor` passent dans chaque langue ; `DockerIgnore_ShouldLetEveryPublishedDocumentIntoTheImageBuild` couvre les traductions ; `DocumentationLanguages` est égal à `ConsoleLanguages` sans l'anglais.
+  - **Web.Tests** (rendu, sur une traduction de test) : culture `it` avec traduction → contenu italien, ancres anglaises, aucun bandeau ; culture `es` sans traduction → contenu anglais, `lang="en"`, bandeau ; culture `en` → jamais de bandeau ; en-tête YAML absent du HTML.
+  - **Architecture.Tests** : `Documents_ShouldNotCiteTheMajorTagOfTheAction` parcourt aussi les traductions.
+  - **bUnit** : `Docs` affiche le bandeau et le `lang` du contenu selon `IsFallback`.
+- **Acceptation :** dans chaque langue, chaque page de `/docs` s'affiche, traduite ou en anglais avec l'avis ; chaque aide contextuelle ouvre la bonne section dans chaque langue ; un document anglais modifié sans ses traductions fait échouer la CI.
+- **Dépend de :** M4.02q, M4.02s
+
+#### M4.02w — Documentation en français
+- **Issue :** à créer
+- **Objectif :** traduire en français les six documents publiés, pour qu'une console en français n'affiche plus de documentation en anglais.
+- **Couches :** docs.
+- **Fichiers :** `docs/operations.fr.md`, `docs/operations/organization-onboarding.fr.md`, `docs/operations/github-verification-checklist.fr.md`, `action/README.fr.md`, `docs/deployment-azure.fr.md`, `docs/migration-from-codecov.fr.md`, selon la section « Traduire un document publié » de `docs/CONVENTIONS.md`. Les termes suivent `Common.fr.resx` (ce que la console affiche, la documentation le nomme de même).
+- **Tests :** ceux de M4.02v (plan, empreinte, ancres, liens) sur les six traductions ; **propriétaire** : relecture.
+- **Acceptation :** console en français, les six pages de `/docs` sont en français, sans bandeau, et chaque aide contextuelle ouvre la bonne section.
+- **Dépend de :** M4.02v
+
+#### M4.02x — Documentation en italien
+- **Issue :** à créer
+- **Objectif :** traduire en italien les six documents publiés.
+- **Couches :** docs.
+- **Fichiers :** les six fichiers `{nom}.it.md` à côté des documents anglais, selon `docs/CONVENTIONS.md` ; termes de `Common.it.resx`.
+- **Tests :** ceux de M4.02v sur les six traductions ; **propriétaire** : relecture par un locuteur si possible, sinon marquée à relire dans la PR.
+- **Acceptation :** console en italien, les six pages de `/docs` sont en italien, sans bandeau.
+- **Dépend de :** M4.02v
+
+#### M4.02y — Documentation en espagnol
+- **Issue :** à créer
+- **Objectif :** traduire en espagnol les six documents publiés.
+- **Couches :** docs.
+- **Fichiers :** les six fichiers `{nom}.es.md` à côté des documents anglais, selon `docs/CONVENTIONS.md` ; termes de `Common.es.resx`.
+- **Tests :** ceux de M4.02v sur les six traductions ; **propriétaire** : relecture par un locuteur si possible, sinon marquée à relire dans la PR.
+- **Acceptation :** console en espagnol, les six pages de `/docs` sont en espagnol, sans bandeau.
+- **Dépend de :** M4.02v
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
