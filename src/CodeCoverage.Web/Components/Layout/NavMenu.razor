@@ -28,6 +28,11 @@
        aria-current="@(OnDocs ? "page" : null)">
       <CcIcon Name="CcIconName.Book" />
     </a>
+    @* Signed out, the round globe button opens the languages; signed in, they are at the bottom of the user menu. *@
+    @if (!SignedIn)
+    {
+      <CcLanguageMenu />
+    }
   </Actions>
   <MobileEnd>
     <a href="docs"
@@ -35,6 +40,7 @@
        aria-current="@(OnDocs ? "page" : null)">
       <CcIcon Name="CcIconName.Book" />@L["Nav_Docs"]
     </a>
+    <CcLanguagePicker Variant="CcLanguagePickerVariant.Row" />
   </MobileEnd>
   <UserMenu>
     @if (Model is not null)
@@ -47,6 +53,7 @@
           <AntiforgeryToken />
           <button type="submit">@L["Nav_SignOut"]</button>
         </form>
+        <CcLanguagePicker />
       </CcUserMenu>
     }
     else if (!SignedIn)

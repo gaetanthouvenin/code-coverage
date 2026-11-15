@@ -600,4 +600,5 @@
   <data name="Docs_Section_Operations" xml:space="preserve"><value>Operaciones</value></data>
   <data name="Docs_Section_Migration" xml:space="preserve"><value>Migración desde Codecov</value></data>
   <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Cómo enviar el primer informe</value></data>
+  <data name="Language_Label" xml:space="preserve"><value>Idioma</value></data>
 </root>

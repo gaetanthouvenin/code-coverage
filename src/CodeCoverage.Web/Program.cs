@@ -17,6 +17,7 @@ using CodeCoverage.Infrastructure.SqlServer;
 using CodeCoverage.Web.Components;
 using CodeCoverage.Web.Configuration;
 using CodeCoverage.Web.Configuration.Authentication;
+using CodeCoverage.Web.Configuration.Localization;
 using CodeCoverage.Web.Configuration.Security;
 using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Documentation;
@@ -110,6 +111,7 @@ try
   app.MapStaticAssets();
   app.MapHealthProbes();
   app.MapAuthenticationEndpoints();
+  app.MapCultureEndpoint();
 
   // The frame-ancestors directive comes from SecurityHeadersMiddleware alone, for every response.
   app.MapRazorComponents<App>()

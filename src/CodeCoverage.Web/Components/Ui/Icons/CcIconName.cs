@@ -126,6 +126,9 @@ public enum CcIconName
   /// <summary>The icon of documentation.</summary>
   Book,
 
+  /// <summary>The icon of the languages: a globe.</summary>
+  Globe,
+
   /// <summary>The icon of lines of text.</summary>
   Lines,
 
