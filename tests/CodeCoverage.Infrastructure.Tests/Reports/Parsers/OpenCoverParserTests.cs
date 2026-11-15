@@ -491,6 +491,80 @@ public sealed class OpenCoverParserTests
     provider.GetRequiredService<IReportParserCatalog>().Find(ReportFormat.OpenCover).ShouldBeOfType<OpenCoverParser>();
   }
 
+  [Fact]
+  public async Task Parse_Methods_ShouldReadMethodPointHits()
+  {
+    var file = await ParseFileAsync(
+      """
+      <Method>
+        <FileRef uid="1" />
+        <SequencePoints>
+          <SequencePoint vc="5" sl="9" el="9" />
+          <SequencePoint vc="0" sl="8" el="8" />
+        </SequencePoints>
+        <MethodPoint vc="3" sl="8" el="9" />
+      </Method>
+      """);
+
+    file.Methods.ShouldBe([new MethodCoverage(8, 3)]);
+  }
+
+  [Fact]
+  public async Task Parse_MethodWithoutMethodPoint_ShouldUseMostExecutedSequencePoint()
+  {
+    var file = await ParseFileAsync(
+      """<Method><FileRef uid="1" /><SequencePoint vc="5" sl="9" el="9" /><SequencePoint vc="0" sl="8" el="8" /></Method>""");
+
+    file.Methods.ShouldBe([new MethodCoverage(8, 5)]);
+  }
+
+  [Fact]
+  public async Task Parse_SkippedMethod_ShouldIgnoreItButKeepItsLines()
+  {
+    var file = await ParseFileAsync(
+      """
+      <Method skippedDueTo="Attribute"><FileRef uid="1" /><SequencePoint vc="1" sl="1" el="1" /></Method>
+      <Method><FileRef uid="1" /><SequencePoint vc="0" sl="4" el="4" /></Method>
+      """);
+
+    file.Methods.ShouldBe([new MethodCoverage(4, 0)]);
+    file.Lines.Select(line => line.Line).ShouldBe([1, 4]);
+  }
+
+  [Fact]
+  public async Task Parse_MethodWithoutSequencePoint_ShouldIgnoreIt()
+  {
+    var file = await ParseFileAsync(
+      """
+      <Method><FileRef uid="1" /><MethodPoint vc="1" /></Method>
+      <Method><FileRef uid="1" /><SequencePoint vc="2" sl="3" el="3" /></Method>
+      """);
+
+    file.Methods.ShouldBe([new MethodCoverage(3, 2)]);
+  }
+
+  [Fact]
+  public async Task Parse_TwoIdentifiersOfOnePath_ShouldKeepTheMethodsOfBoth()
+  {
+    var report = await ParseAsync(
+      $"""
+      <CoverageSession>
+        <File uid="1" fullPath="{FileName}" /><File uid="2" fullPath="{FileName}" />
+        <Method><FileRef uid="1" /><SequencePoint vc="1" sl="7" el="7" /></Method>
+        <Method><FileRef uid="2" /><SequencePoint vc="0" sl="2" el="2" /></Method>
+      </CoverageSession>
+      """);
+
+    report.Files.ShouldHaveSingleItem().Methods.ShouldBe([new MethodCoverage(2, 0), new MethodCoverage(7, 1)]);
+  }
+
+  private async Task<ParsedFile> ParseFileAsync(string methods)
+  {
+    var report = await ParseAsync($"""<CoverageSession><File uid="1" fullPath="{FileName}" />{methods}</CoverageSession>""");
+
+    return report.Files.ShouldHaveSingleItem();
+  }
+
   private async Task<IReadOnlyList<LineCoverage>> ParseLinesAsync(string content)
   {
     var report = await ParseAsync($"""<CoverageSession><File uid="1" fullPath="{FileName}" /><Method><FileRef uid="1" />{content}</Method></CoverageSession>""");

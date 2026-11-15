@@ -1,0 +1,112 @@
+{
+  "oracle": "ReportGenerator.Core 5.5.12",
+  "notes": "One entry per report of the formats whose parsers read the methods (ADR-016), today tests/fixtures/reports/{cobertura,opencover}. `parser` holds the covered and total branches and methods of the parsers, summed over the files; `oracle` those of ReportGenerator (CodeFile.CoveredBranches, TotalBranches, CoveredCodeElements, TotalCodeElements). The branches of each line are compared by expected-totals.json. `differences` lists every line where a method starts in one tool and not in the other, or where the two disagree on how many of the methods that start on it are executed (`executed/total methods`); an empty list means they agree on every method. Each difference names a rule of `rules`, which says what each tool does and which part of ADR-016 the parser follows. Paths are compared without their prefix, as in expected-totals.json.",
+  "rules": {},
+  "fixtures": {
+    "cobertura/coverlet-async.xml": {
+      "parser": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 9,
+        "totalMethods": 11
+      },
+      "oracle": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 9,
+        "totalMethods": 11
+      },
+      "differences": []
+    },
+    "cobertura/coverlet-multitarget.xml": {
+      "parser": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 9,
+        "totalMethods": 11
+      },
+      "oracle": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 9,
+        "totalMethods": 11
+      },
+      "differences": []
+    },
+    "cobertura/reportgenerator-merged.xml": {
+      "parser": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 10,
+        "totalMethods": 12
+      },
+      "oracle": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 10,
+        "totalMethods": 12
+      },
+      "differences": []
+    },
+    "cobertura/windows-paths.xml": {
+      "parser": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 10,
+        "totalMethods": 12
+      },
+      "oracle": {
+        "coveredBranches": 18,
+        "totalBranches": 30,
+        "coveredMethods": 10,
+        "totalMethods": 12
+      },
+      "differences": []
+    },
+    "opencover/coverlet-async.xml": {
+      "parser": {
+        "coveredBranches": 19,
+        "totalBranches": 32,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "oracle": {
+        "coveredBranches": 19,
+        "totalBranches": 32,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "differences": []
+    },
+    "opencover/coverlet-multitarget.xml": {
+      "parser": {
+        "coveredBranches": 20,
+        "totalBranches": 34,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "oracle": {
+        "coveredBranches": 20,
+        "totalBranches": 34,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "differences": []
+    },
+    "opencover/windows-paths.xml": {
+      "parser": {
+        "coveredBranches": 20,
+        "totalBranches": 34,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "oracle": {
+        "coveredBranches": 20,
+        "totalBranches": 34,
+        "coveredMethods": 12,
+        "totalMethods": 15
+      },
+      "differences": []
+    }
+  }
+}
