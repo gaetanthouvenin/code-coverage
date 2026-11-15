@@ -89,9 +89,25 @@ public sealed class SessionCookieEventsTests
     context.Principal.ShouldBeNull();
   }
 
-  private CookieValidatePrincipalContext Context()
+  // M4.02m: the error page renders with the database down; the cookie is kept for the next page.
+  [Fact]
+  public async Task ValidatePrincipal_OnTheErrorPage_ShouldRunSignedOutWithoutReadingTheUser()
+  {
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._)).ThrowsAsync(new InvalidOperationException("The database is down."));
+    var context = Context("/error");
+
+    await _events.ValidatePrincipal(context);
+
+    context.Principal.ShouldBeNull();
+    _session.WasRejected.ShouldBeFalse();
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _authentication.SignOutAsync(A<HttpContext>._, A<string?>._, A<AuthenticationProperties?>._)).MustNotHaveHappened();
+  }
+
+  private CookieValidatePrincipalContext Context(string path = "/")
   {
     var http = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(_authentication).BuildServiceProvider() };
+    http.Request.Path = path;
     var ticket = new AuthenticationTicket(SessionPrincipal.Create(42, DateTimeOffset.UnixEpoch), Scheme.Name);
 
     return new CookieValidatePrincipalContext(http, Scheme, new CookieAuthenticationOptions(), ticket);

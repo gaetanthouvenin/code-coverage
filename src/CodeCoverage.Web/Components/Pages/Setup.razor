@@ -55,10 +55,10 @@
         <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepUrls"]</h2></div>
         <div class="cc-panel__body cc-stack">
           <p class="cc-muted">@L["Setup_UrlsHelp"]</p>
-          <EditForm FormName="urls" Model="Urls!" OnValidSubmit="SaveUrlsAsync" class="cc-stack">
+          <EditForm FormName="urls" EditContext="UrlsForm" OnValidSubmit="SaveUrlsAsync" class="cc-stack">
             <AntiforgeryToken />
-            <CcTextField Label="@L["Setup_WebUrl"]" @bind-Value="Urls!.WebPublicUrl" Required="true" />
-            <CcTextField Label="@L["Setup_ApiUrl"]" @bind-Value="Urls!.ApiPublicUrl" Required="true" />
+            <CcTextField Label="@L["Setup_WebUrl"]" @bind-Value="Urls!.WebPublicUrl" Required="true" Error="@ErrorOf(UrlsForm, nameof(Urls.WebPublicUrl))" />
+            <CcTextField Label="@L["Setup_ApiUrl"]" @bind-Value="Urls!.ApiPublicUrl" Required="true" Error="@ErrorOf(UrlsForm, nameof(Urls.ApiPublicUrl))" />
             <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Action_Save"]</CcButton>
           </EditForm>
         </div>
@@ -91,17 +91,17 @@
               </EditForm>
             }
 
-            <details data-panel="manual">
+            <details data-panel="manual" open="@AppForm.GetValidationMessages().Any()">
               <summary>@L["Setup_ManualTitle"]</summary>
-              <EditForm FormName="manual-app" Model="App!" OnValidSubmit="SaveAppAsync" class="cc-stack">
+              <EditForm FormName="manual-app" EditContext="AppForm" OnValidSubmit="SaveAppAsync" class="cc-stack">
                 <AntiforgeryToken />
                 <p class="cc-muted">@L["Setup_ManualHelp"]</p>
-                <CcTextField Label="@L["Setup_AppId"]" @bind-Value="App!.AppId" Required="true" />
-                <CcTextField Label="@L["Setup_ClientId"]" @bind-Value="App!.ClientId" Required="true" />
-                <CcTextField Label="@L["Setup_ClientSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.ClientSecret" Required="true" />
-                <CcTextField Label="@L["Setup_WebhookSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.WebhookSecret" Required="true" />
-                <CcTextField Label="@L["Setup_PrivateKey"]" Type="password" AutoComplete="off" @bind-Value="App!.PrivateKeyPem" Required="true" />
-                <CcTextField Label="@L["Setup_AppSlug"]" @bind-Value="App!.Slug" />
+                <CcTextField Label="@L["Setup_AppId"]" @bind-Value="App!.AppId" Required="true" Error="@ErrorOf(AppForm, nameof(App.AppId))" />
+                <CcTextField Label="@L["Setup_ClientId"]" @bind-Value="App!.ClientId" Required="true" Error="@ErrorOf(AppForm, nameof(App.ClientId))" />
+                <CcTextField Label="@L["Setup_ClientSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.ClientSecret" Required="true" Error="@ErrorOf(AppForm, nameof(App.ClientSecret))" />
+                <CcTextField Label="@L["Setup_WebhookSecret"]" Type="password" AutoComplete="off" @bind-Value="App!.WebhookSecret" Required="true" Error="@ErrorOf(AppForm, nameof(App.WebhookSecret))" />
+                <CcTextField Label="@L["Setup_PrivateKey"]" Type="password" AutoComplete="off" @bind-Value="App!.PrivateKeyPem" Required="true" Error="@ErrorOf(AppForm, nameof(App.PrivateKeyPem))" />
+                <CcTextField Label="@L["Setup_AppSlug"]" @bind-Value="App!.Slug" Error="@ErrorOf(AppForm, nameof(App.Slug))" />
                 <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Action_Save"]</CcButton>
               </EditForm>
             </details>
@@ -115,9 +115,9 @@
           <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepAdmins"]</h2></div>
           <div class="cc-panel__body cc-stack">
             <p class="cc-muted">@L["Setup_AdminsHelp"]</p>
-            <EditForm FormName="admins" Model="Admins!" OnValidSubmit="CompleteAsync" class="cc-stack">
+            <EditForm FormName="admins" EditContext="AdminsForm" OnValidSubmit="CompleteAsync" class="cc-stack">
               <AntiforgeryToken />
-              <CcTextField Label="@L["Setup_AdminIds"]" @bind-Value="Admins!.AdminUserIds" Required="true" />
+              <CcTextField Label="@L["Setup_AdminIds"]" @bind-Value="Admins!.AdminUserIds" Required="true" Error="@ErrorOf(AdminsForm, nameof(Admins.AdminUserIds))" />
               <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Setup_Finish"]</CcButton>
             </EditForm>
           </div>

@@ -428,8 +428,8 @@
   <data name="Home_TrendNone" xml:space="preserve"><value>Aucune couverture sur 30 jours</value></data>
   <data name="Home_RepositoryCount" xml:space="preserve"><value>{0} dépôts</value></data>
   <data name="Home_EmptyTitle" xml:space="preserve"><value>Aucun dépôt</value></data>
-  <data name="Home_EmptyText" xml:space="preserve"><value>Votre compte GitHub ne peut lire aucun dépôt des organisations admises sur cette instance.</value></data>
-  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>Votre compte n’appartient à aucune organisation. L’administration de l’instance n’affiche pas les dépôts des organisations.</value></data>
+  <data name="Home_EmptyText" xml:space="preserve"><value>Votre compte GitHub ne peut lire aucun dépôt des comptes ou organisations admis sur cette instance.</value></data>
+  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>Aucun compte ou organisation admis ne vous donne accès à ses dépôts. L’administration de l’instance n’affiche pas les dépôts des comptes et organisations.</value></data>
   <data name="Home_NoMatchTitle" xml:space="preserve"><value>Aucun dépôt ne correspond</value></data>
   <data name="Home_NoMatchText" xml:space="preserve"><value>Modifiez la recherche ou le filtre.</value></data>
   <data name="Action_ClearFilters" xml:space="preserve"><value>Effacer les filtres</value></data>

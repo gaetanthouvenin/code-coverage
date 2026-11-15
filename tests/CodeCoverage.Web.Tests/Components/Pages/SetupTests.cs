@@ -4,7 +4,11 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Bunit;
+
+using FluentValidation.Results;
 
 using Mediator;
 
@@ -157,6 +161,59 @@ public sealed class SetupTests : UiTestContext
                 A<SavePublicUrlsCommand>.That.Matches(c => c.SetupToken == Token && c.WebPublicUrl == "https://coverage.example.com"),
                 A<CancellationToken>._))
      .MustHaveHappenedOnceExactly();
+  }
+
+  // M4.02m: a refused address says why, in French, under its own field; not a bare « some values are invalid ».
+  [Fact]
+  public void SaveUrls_RefusedInFrench_ShouldShowTheFrenchMessageUnderTheField()
+  {
+    A.CallTo(() => _sender.Send(A<SavePublicUrlsCommand>._, A<CancellationToken>._))
+     .ThrowsAsync(new ValidationException(
+     [
+       new ValidationFailure(nameof(SavePublicUrlsCommand.ApiPublicUrl), "The address must be an absolute HTTP or HTTPS URL.") { ErrorCode = SettingErrors.InvalidValue },
+     ]));
+    WithToken();
+    var previous = CultureInfo.CurrentUICulture;
+    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+
+    try
+    {
+      var cut = Render<SetupPage>(WithContext());
+
+      var inputs = cut.FindAll("[data-panel=urls] input");
+      inputs[0].Input("https://coverage.example.com");
+      inputs[1].Input("not-a-url");
+      cut.Find("[data-panel=urls] form").Submit();
+
+      var errors = cut.FindAll("[data-panel=urls] .cc-field__error");
+      errors.ShouldHaveSingleItem().TextContent.ShouldBe(L(SettingErrors.InvalidValue));
+      L(SettingErrors.InvalidValue).ShouldBe("La valeur ne correspond pas au type du paramètre.");
+      cut.FindAll("[data-panel=urls] input")[1].GetAttribute("aria-invalid").ShouldBe("true");
+      cut.Markup.ShouldNotContain("absolute HTTP");
+      cut.FindAll("[data-state=error]").ShouldBeEmpty("the message is on its field, not in a banner without field");
+    }
+    finally
+    {
+      CultureInfo.CurrentUICulture = previous;
+    }
+  }
+
+  // The manual form is folded by default: refused, it stays open on its messages.
+  [Fact]
+  public void SaveApp_Refused_ShouldKeepTheManualFormOpenOnTheField()
+  {
+    _state = new SetupState(false, true, false, "https://coverage.example.com", "https://coverage-api.example.com");
+    A.CallTo(() => _sender.Send(A<SaveGitHubAppCommand>._, A<CancellationToken>._))
+     .ThrowsAsync(new ValidationException([new ValidationFailure(nameof(SaveGitHubAppCommand.AppId), "The identifier of the App is a number.") { ErrorCode = SettingErrors.InvalidValue }]));
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("[data-panel=manual]").HasAttribute("open").ShouldBeFalse();
+    cut.Find("[data-panel=manual] form").Submit();
+
+    cut.Find("[data-panel=manual]").HasAttribute("open").ShouldBeTrue();
+    cut.FindAll("[data-panel=manual] input")[0].GetAttribute("aria-invalid").ShouldBe("true");
+    cut.Find("[data-panel=manual] .cc-field__error").TextContent.ShouldBe(L(SettingErrors.InvalidValue));
   }
 
   [Fact]

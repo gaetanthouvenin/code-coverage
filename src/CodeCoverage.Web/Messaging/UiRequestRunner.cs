@@ -33,7 +33,8 @@ namespace CodeCoverage.Web.Messaging;
 ///     <item>
 ///       <description>
 ///         a <see cref="ValidationException" />, when a form is given, puts its messages on the
-///         fields of the form (by property name; a message without property goes to the summary);
+///         fields of the form (by property name; a message without property goes to the summary), each
+///         one the translation of its error code, or its own text when the code has no translation;
 ///       </description>
 ///     </item>
 ///     <item>
@@ -197,11 +198,17 @@ public sealed class UiRequestRunner(
   /// <param name="form">The form.</param>
   /// <param name="store">The message store of the runner on this form.</param>
   /// <param name="exception">The validation failure.</param>
-  private static void ShowMessages(EditContext form, ValidationMessageStore store, ValidationException exception)
+  private void ShowMessages(EditContext form, ValidationMessageStore store, ValidationException exception)
   {
     foreach (var (property, messages) in exception.Errors)
     {
-      store.Add(new FieldIdentifier(form.Model, property), messages);
+      var codes = exception.ErrorCodes.GetValueOrDefault(property) ?? [];
+
+      // Each code is translated in the culture of the circuit; two failures of the same code show one message.
+      var translated = messages.Select((message, index) => errors.Localize(index < codes.Length ? codes[index] : null, message))
+                               .Distinct(StringComparer.Ordinal);
+
+      store.Add(new FieldIdentifier(form.Model, property), translated);
     }
 
     form.NotifyValidationStateChanged();

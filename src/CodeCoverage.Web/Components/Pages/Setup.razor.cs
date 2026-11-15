@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using Mediator;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Ui.Models;
@@ -38,6 +39,10 @@ namespace CodeCoverage.Web.Components.Pages;
 ///   <para>
 ///     A missing or invalid token shows its own state: the page never sends the visitor to the sign-in, which the
 ///     redirection of the wizard would send back here.
+///   </para>
+///   <para>
+///     A step the server refuses as invalid shows each message under its own field, through the
+///     <see cref="EditContext" /> of its form.
 ///   </para>
 /// </remarks>
 public partial class Setup
@@ -129,6 +134,15 @@ public partial class Setup
 
   private string? Token { get; set; }
 
+  /// <summary>Gets the form of the public addresses, which receives the refusals of its fields.</summary>
+  private EditContext UrlsForm { get; set; } = null!;
+
+  /// <summary>Gets the form of the App entered by hand, which receives the refusals of its fields.</summary>
+  private EditContext AppForm { get; set; } = null!;
+
+  /// <summary>Gets the form of the administrators, which receives the refusals of its field.</summary>
+  private EditContext AdminsForm { get; set; } = null!;
+
   #endregion
 
   #region Lifecycle
@@ -140,6 +154,7 @@ public partial class Setup
     Urls ??= new PublicUrlsFormViewModel();
     App ??= new ManualAppFormViewModel();
     Admins ??= new AdministratorsFormViewModel();
+    (UrlsForm, AppForm, AdminsForm) = (new EditContext(Urls), new EditContext(App), new EditContext(Admins));
 
     var (token, state) = Cookie.Read(HttpContext);
     (Token, AppName) = (token, AppName ?? L["Setup_AppNameDefault"]);
@@ -163,6 +178,8 @@ public partial class Setup
 
   private static string StepClass(bool done) => done ? "cc-stepper__step cc-stepper__step--done" : "cc-stepper__step";
 
+  private static string? ErrorOf(EditContext form, string field) => form.GetValidationMessages(form.Field(field)).FirstOrDefault();
+
   // Every step reads the state again: what the server stored is what the wizard shows.
   private async Task ReadStateAsync()
   {
@@ -181,17 +198,19 @@ public partial class Setup
 
     State = result.Succeeded ? result.Value : State;
 
-    if (State is { } loaded && Urls is { WebPublicUrl.Length: 0 })
+    // The same model is filled, never replaced: the form keeps the messages of its fields.
+    if (State is { } loaded && Urls is { WebPublicUrl.Length: 0 } urls)
     {
-      Urls = new PublicUrlsFormViewModel { WebPublicUrl = loaded.WebPublicUrl ?? string.Empty, ApiPublicUrl = loaded.ApiPublicUrl ?? string.Empty };
+      (urls.WebPublicUrl, urls.ApiPublicUrl) = (loaded.WebPublicUrl ?? string.Empty, loaded.ApiPublicUrl ?? string.Empty);
     }
   }
 
-  // A step that is refused leaves the wizard where it was, with the reason of the refusal.
-  private async Task RunAsync(Func<ISender, CancellationToken, Task<bool>> step)
+  // A step that is refused leaves the wizard where it was, with the reason of the refusal: on the fields of its form
+  // when the server names them.
+  private async Task RunAsync(Func<ISender, CancellationToken, Task<bool>> step, EditContext? form = null)
   {
     Error = null;
-    var result = await Runner.RunAsync(step, reportUnauthenticated: true).ConfigureAwait(true);
+    var result = await Runner.RunAsync(step, form, reportUnauthenticated: true).ConfigureAwait(true);
 
     if (result.Unauthenticated)
     {
@@ -213,21 +232,21 @@ public partial class Setup
   {
     var (token, urls) = (Token, Urls!);
 
-    return RunAsync((sender, ct) => sender.SavePublicUrlsAsync(token, urls.WebPublicUrl, urls.ApiPublicUrl, ct));
+    return RunAsync((sender, ct) => sender.SavePublicUrlsAsync(token, urls.WebPublicUrl, urls.ApiPublicUrl, ct), UrlsForm);
   }
 
   private Task SaveAppAsync()
   {
     var (token, app) = (Token, App!);
 
-    return RunAsync((sender, ct) => sender.SaveGitHubAppAsync(token, app, ct));
+    return RunAsync((sender, ct) => sender.SaveGitHubAppAsync(token, app, ct), AppForm);
   }
 
   private Task CompleteAsync()
   {
     var (token, admins) = (Token, Admins!);
 
-    return RunAsync((sender, ct) => sender.CompleteSetupAsync(token, admins.AdminUserIds, ct));
+    return RunAsync((sender, ct) => sender.CompleteSetupAsync(token, admins.AdminUserIds, ct), AdminsForm);
   }
 
   // The state of the round trip is drawn here and kept in the cookie: GitHub carries it back in the address, and

@@ -27,9 +27,21 @@ namespace CodeCoverage.Web.Configuration.Authentication;
 ///     then runs for that user. No organization and no administration right are set: the gate decides them for each
 ///     message.
 ///   </para>
+///   <para>
+///     The error page of an unhandled error is answered without reading the user: it must still render when the database is down, which
+///     is often why it is shown. The cookie is kept, but the request runs signed out, so the layout reads nothing
+///     either.
+///   </para>
 /// </remarks>
 internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserContext currentUser, SessionState session) : CookieAuthenticationEvents
 {
+  #region Fields
+
+  /// <summary>The address the exception handler re-executes after an unhandled error.</summary>
+  private const string ErrorPath = "/error";
+
+  #endregion
+
   #region Overrides of CookieAuthenticationEvents
 
   /// <inheritdoc />
@@ -37,6 +49,14 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
   public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
   {
     ArgumentNullException.ThrowIfNull(context);
+
+    if (context.HttpContext.Request.Path.Equals(ErrorPath, StringComparison.OrdinalIgnoreCase))
+    {
+      // Neither signed out nor expired: this one request is anonymous, and the next page checks the cookie again.
+      context.RejectPrincipal();
+
+      return;
+    }
 
     var user = await SessionUsers.FindAsync(users, context.Principal, context.HttpContext.RequestAborted).ConfigureAwait(false);
 

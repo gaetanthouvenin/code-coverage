@@ -8,10 +8,17 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Web.Configuration;
+using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Tests.Support;
 
 namespace CodeCoverage.Web.Tests.Smoke;
@@ -107,6 +114,45 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
     html.ShouldContain(title);
   }
 
+  // M4.02m: only a 404 is « not found »; any other status answered without a body is an error, whatever the method.
+  [Theory]
+  [InlineData("POST", "/signout", HttpStatusCode.BadRequest)]
+  [InlineData("PUT", "/", HttpStatusCode.MethodNotAllowed)]
+  public async Task Send_StatusWithoutBody_ShouldShowTheErrorPageRatherThanNotFound(string method, string path, HttpStatusCode status)
+  {
+    using var client = factory.CreateClient();
+    client.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("fr"));
+
+    using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative)) { Content = new FormUrlEncodedContent([]) };
+    using var response = await client.SendAsync(request, Ct);
+    var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
+
+    response.StatusCode.ShouldBe(status);
+    html.ShouldContain("Une erreur est survenue");
+    html.ShouldNotContain("introuvable");
+  }
+
+  // M4.02m: with the database down, a signed-in user gets the error page, never a bare 500.
+  [Theory]
+  [InlineData("/", HttpStatusCode.InternalServerError)]
+  [InlineData("/error", HttpStatusCode.OK)]
+  public async Task Get_WithASessionAndTheDatabaseDown_ShouldShowTheErrorPage(string path, HttpStatusCode status)
+  {
+    var users = A.Fake<IUserRepository>();
+    A.CallTo(() => users.FindAsync(A<long>._, A<CancellationToken>._)).ThrowsAsync(new InvalidOperationException("The database is down."));
+    await using var host = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddScoped(_ => users)));
+    using var client = host.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(path, UriKind.Relative));
+    request.Headers.Add("Cookie", $"{AuthenticationConfiguration.SessionCookieName}={SessionCookie(host, CodeCoverageWebFactory.KnownUserId)}");
+    request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("fr"));
+
+    using var response = await client.SendAsync(request, Ct);
+    var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
+
+    response.StatusCode.ShouldBe(status);
+    html.ShouldContain("Une erreur est survenue");
+  }
+
   // The Web never migrates: the Api does, and the Web waits for it (readiness probe).
   [Fact]
   public void Host_ShouldNotRegisterTheDatabaseMigrator()
@@ -114,6 +160,14 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
     var hostedServices = factory.Services.GetServices<IHostedService>().Select(s => s.GetType().Name);
 
     hostedServices.ShouldNotContain("DatabaseMigrator");
+  }
+
+  private static string SessionCookie(WebApplicationFactory<Program> host, long userId)
+  {
+    var options = host.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>().Get(CookieAuthenticationDefaults.AuthenticationScheme);
+    var ticket = new AuthenticationTicket(SessionPrincipal.Create(userId, DateTimeOffset.UtcNow), CookieAuthenticationDefaults.AuthenticationScheme);
+
+    return options.TicketDataFormat.Protect(ticket);
   }
 
   #endregion

@@ -47,5 +47,28 @@ public sealed class ErrorCodeLocalizer(IStringLocalizer<Common> localizer)
     return localizer[GeneralErrors.Unexpected].Value;
   }
 
+  /// <summary>Gets the message of an error code, or a given message when the code has no translation.</summary>
+  /// <param name="errorCode">The error code, e.g. <c>Setting.InvalidValue</c>.</param>
+  /// <param name="fallback">The message to show when the code is empty or has no translation.</param>
+  /// <returns>The translation of <paramref name="errorCode" />, or <paramref name="fallback" />.</returns>
+  /// <remarks>
+  ///   The messages of a validation failure fall back on their own text: a rule of FluentValidation without code of
+  ///   the application carries a message FluentValidation already translates in the culture of the circuit.
+  /// </remarks>
+  public string Localize(string? errorCode, string fallback)
+  {
+    if (!string.IsNullOrWhiteSpace(errorCode))
+    {
+      var message = localizer[errorCode];
+
+      if (!message.ResourceNotFound)
+      {
+        return message.Value;
+      }
+    }
+
+    return fallback;
+  }
+
   #endregion
 }

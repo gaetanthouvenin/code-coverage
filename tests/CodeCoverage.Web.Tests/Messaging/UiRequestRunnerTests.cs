@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using System.Reflection;
 
 using FluentValidation.Results;
@@ -154,6 +155,49 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
     form.GetValidationMessages(form.Field(nameof(SampleForm.Name))).ShouldBe(["Name is required.", "Name is too short."]);
     form.GetValidationMessages().ShouldContain("The token cannot be created.");
     Toasts.Toasts.ShouldBeEmpty("the messages go to the form, not to a toast");
+  }
+
+  // M4.02m: the message of a field is the translation of its error code, in the culture of the circuit.
+  [Fact]
+  public async Task RunAsync_WithValidationErrorCodeInFrench_ShouldShowTheFrenchMessageOnTheField()
+  {
+    var form = new EditContext(new SampleForm());
+    var previous = CultureInfo.CurrentUICulture;
+    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+
+    try
+    {
+      await Runner.RunAsync<int>(
+        (_, _) => throw new ValidationException(
+        [
+          new ValidationFailure(nameof(SampleForm.Name), "Give at least one numeric GitHub identifier.") { ErrorCode = "Setting.InvalidAdministrators" },
+          new ValidationFailure(nameof(SampleForm.Name), "The same rule twice.") { ErrorCode = "Setting.InvalidAdministrators" },
+        ]),
+        form,
+        Token);
+
+      form.GetValidationMessages(form.Field(nameof(SampleForm.Name)))
+          .ShouldHaveSingleItem()
+          .ShouldBe("Indiquez au moins un administrateur, par ses identifiants GitHub numériques séparés par des virgules.");
+    }
+    finally
+    {
+      CultureInfo.CurrentUICulture = previous;
+    }
+  }
+
+  // A code without translation, such as the default code of a FluentValidation rule, keeps the message of the rule.
+  [Fact]
+  public async Task RunAsync_WithUntranslatedValidationErrorCode_ShouldKeepTheMessage()
+  {
+    var form = new EditContext(new SampleForm());
+
+    await Runner.RunAsync<int>(
+      (_, _) => throw new ValidationException([new ValidationFailure(nameof(SampleForm.Name), "Name is required.") { ErrorCode = "NotEmptyValidator" }]),
+      form,
+      Token);
+
+    form.GetValidationMessages(form.Field(nameof(SampleForm.Name))).ShouldBe(["Name is required."]);
   }
 
   [Fact]
