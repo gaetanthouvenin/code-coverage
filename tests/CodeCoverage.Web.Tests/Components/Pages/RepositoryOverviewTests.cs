@@ -120,17 +120,20 @@ public sealed class RepositoryOverviewTests : UiTestContext
     cut.FindAll(".cc-kpi__value").Select(static v => v.TextContent).ShouldBe(["82.4%", "85.1%", "69.9%"]);
   });
 
-  [Fact]
-  public void Render_InFrench_ShouldUseTheSeparatorsOfTheCulture()
+  [Theory]
+  [InlineData("fr-FR", "82,4 %")]
+  [InlineData("it-IT", "82,4%")]
+  [InlineData("es-ES", "82,4 %")]
+  public void Render_InACulture_ShouldUseTheSeparatorsOfTheCulture(string culture, string expected)
   {
     var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
 
     try
     {
       var cut = Render<OverviewPage>(Address());
 
-      cut.FindAll(".cc-kpi__value")[0].TextContent.ShouldBe("82,4 %");
+      cut.FindAll(".cc-kpi__value")[0].TextContent.ShouldBe(expected);
     }
     finally
     {

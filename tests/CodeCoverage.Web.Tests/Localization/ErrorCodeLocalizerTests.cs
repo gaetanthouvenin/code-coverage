@@ -49,6 +49,8 @@ public sealed class ErrorCodeLocalizerTests : IDisposable
   [Theory]
   [InlineData("en", "You do not have the permission to do this.")]
   [InlineData("fr", "Vous n’avez pas la permission de faire cela.")]
+  [InlineData("it", "Non hai il permesso di eseguire questa operazione.")]
+  [InlineData("es", "No tiene permiso para hacer esto.")]
   public void Localize_WithKnownCode_ShouldTranslateItInTheCultureOfTheCircuit(string culture, string expected)
   {
     CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
@@ -72,7 +74,7 @@ public sealed class ErrorCodeLocalizerTests : IDisposable
   [Fact]
   public void Resources_ShouldTranslateEveryErrorCodeOfTheApplication()
   {
-    // PLAN §1.3: every Feature.Reason code of a {Feature}Errors class is translated in Common.resx.
+    // PLAN §1.3: every Feature.Reason code of a {Feature}Errors class is translated in Common.resx and each translation.
     var codes = typeof(DependencyInjection).Assembly
                                            .GetTypes()
                                            .Where(t => t is { IsAbstract: true, IsSealed: true }
@@ -85,7 +87,7 @@ public sealed class ErrorCodeLocalizerTests : IDisposable
     codes.ShouldContain(GeneralErrors.Unexpected);
     codes.ShouldContain(SecurityErrors.Forbidden);
 
-    foreach (var file in new[] { "Resources/Common.resx", "Resources/Common.fr.resx" })
+    foreach (var file in ConsoleLanguages.Codes.Select(static c => c == ConsoleLanguages.DefaultCode ? "Resources/Common.resx" : $"Resources/Common.{c}.resx"))
     {
       var keys = XDocument.Parse(WebRootFiles.Read(file))
                           .Root!

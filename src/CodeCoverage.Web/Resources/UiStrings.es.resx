@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AccountMenu" xml:space="preserve"><value>Menú de la cuenta</value></data>
+  <data name="Breadcrumb" xml:space="preserve"><value>Ruta de navegación</value></data>
+  <data name="CloseMenu" xml:space="preserve"><value>Cerrar el menú</value></data>
+  <data name="Dismiss" xml:space="preserve"><value>Descartar</value></data>
+  <data name="ErrorDescription" xml:space="preserve"><value>No se pudo mostrar esta parte de la página. Inténtelo de nuevo o recargue la página.</value></data>
+  <data name="ErrorTitle" xml:space="preserve"><value>Algo salió mal</value></data>
+  <data name="Home" xml:space="preserve"><value>{0}, inicio</value></data>
+  <data name="Loading" xml:space="preserve"><value>Cargando…</value></data>
+  <data name="MainNavigation" xml:space="preserve"><value>Navegación principal</value></data>
+  <data name="MobileNavigation" xml:space="preserve"><value>Navegación principal (móvil)</value></data>
+  <data name="Notifications" xml:space="preserve"><value>Notificaciones</value></data>
+  <data name="OpenMenu" xml:space="preserve"><value>Abrir el menú</value></data>
+  <data name="ProductName" xml:space="preserve"><value>Coverage</value></data>
+  <data name="Retry" xml:space="preserve"><value>Volver a intentarlo</value></data>
+  <data name="Search" xml:space="preserve"><value>Buscar</value></data>
+  <data name="SkipToContent" xml:space="preserve"><value>Ir al contenido</value></data>
+  <data name="ThemeToDark" xml:space="preserve"><value>Cambiar al tema oscuro</value></data>
+  <data name="ThemeToLight" xml:space="preserve"><value>Cambiar al tema claro</value></data>
+  <data name="Pagination" xml:space="preserve"><value>Paginación</value></data>
+  <data name="Previous" xml:space="preserve"><value>Anterior</value></data>
+  <data name="Next" xml:space="preserve"><value>Siguiente</value></data>
+  <data name="PagerRange" xml:space="preserve"><value>{0} – {1} de {2}</value></data>
+  <data name="PagerEmpty" xml:space="preserve"><value>0 de 0</value></data>
+  <data name="HelpOnPage" xml:space="preserve"><value>Ayuda sobre esta página: {0}</value></data>
+</root>

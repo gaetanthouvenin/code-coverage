@@ -18,11 +18,14 @@ public sealed class CcGaugeTests : UiTestContext
   #region Methods
 
   // Blazor writes a double in the current culture: a French "147,5" made the browser draw every segment at y=0.
-  [Fact]
-  public void Render_FrenchCulture_ShouldWriteTheCoordinatesWithADot()
+  [Theory]
+  [InlineData("fr-FR")]
+  [InlineData("it-IT")]
+  [InlineData("es-ES")]
+  public void Render_CultureWithADecimalComma_ShouldWriteTheCoordinatesWithADot(string culture)
   {
     var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
 
     try
     {

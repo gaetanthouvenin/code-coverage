@@ -24,12 +24,15 @@ public sealed class CcLineChartTests : UiTestContext
 
   #region Methods
 
-  // The coordinates go through the invariant culture: a French comma would break every SVG attribute.
-  [Fact]
-  public void Render_FrenchCulture_ShouldWriteTheCoordinatesWithADot()
+  // The coordinates go through the invariant culture: a decimal comma (French, Italian, Spanish) would break every SVG attribute.
+  [Theory]
+  [InlineData("fr-FR")]
+  [InlineData("it-IT")]
+  [InlineData("es-ES")]
+  public void Render_CultureWithADecimalComma_ShouldWriteTheCoordinatesWithADot(string culture)
   {
     var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
 
     try
     {
@@ -40,6 +43,29 @@ public sealed class CcLineChartTests : UiTestContext
       var values = cut.FindAll("svg *").SelectMany(e => names.Select(e.GetAttribute)).OfType<string>().ToList();
       values.ShouldNotBeEmpty();
       values.ShouldAllBe(static v => !v.Contains(','));
+    }
+    finally
+    {
+      (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = previous;
+    }
+  }
+
+  // The dates of the axis and of the table follow the culture of the console, unlike the coordinates.
+  [Theory]
+  [InlineData("en-US", "1 Nov")]
+  [InlineData("fr-FR", "1 nov.")]
+  [InlineData("it-IT", "1 nov")]
+  [InlineData("es-ES", "1 nov")]
+  public void Render_InACulture_ShouldWriteTheDatesOfTheCulture(string culture, string expected)
+  {
+    var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
+
+    try
+    {
+      var cut = Render<CcLineChart>(p => p.Add(c => c.Series, [Series("Project", 80, 81)]).Add(c => c.AriaLabel, "History"));
+
+      cut.FindAll("table th[scope=row]")[0].TextContent.ShouldBe(expected);
     }
     finally
     {

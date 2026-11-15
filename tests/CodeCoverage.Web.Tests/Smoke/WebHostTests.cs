@@ -98,6 +98,23 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
     html.ShouldContain("class=\"cc-shell\"");
   }
 
+  // M4.02s: a regional variant of the browser falls back on its language; a language the console does not speak, on English.
+  [Theory]
+  [InlineData("it-CH", "it", "Pagina non trovata")]
+  [InlineData("es-MX", "es", "Página no encontrada")]
+  [InlineData("de", "en", "Page not found")]
+  public async Task Get_WithTheLanguageOfTheBrowser_ShouldServeTheConsoleInItsLanguage(string browser, string language, string title)
+  {
+    using var client = factory.CreateClient();
+    client.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(browser));
+
+    using var response = await client.GetAsync(new Uri("/no/such/page/here", UriKind.Relative), Ct);
+    var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
+
+    html.ShouldContain($"<html lang=\"{language}\"");
+    html.ShouldContain(title);
+  }
+
   [Theory]
   [InlineData("/error", "en", "An error occurred")]
   [InlineData("/error", "fr", "Une erreur est survenue")]

@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Access.ApiTokenNotFound" xml:space="preserve"><value>Questo token API non esiste.</value></data>
+  <data name="Access.InvalidApiTokenName" xml:space="preserve"><value>Assegna al token un nome da 1 a 128 caratteri.</value></data>
+  <data name="Access.InvalidApiTokenOrganization" xml:space="preserve"><value>Scegli un’organizzazione per il token, oppure nessuna per un token dell’istanza.</value></data>
+  <data name="Access.InvalidApiTokenExpiry" xml:space="preserve"><value>La scadenza deve essere nel futuro.</value></data>
+  <data name="Access.Forbidden" xml:space="preserve"><value>Non hai il permesso di eseguire questa operazione.</value></data>
+  <data name="Access.NoRepository" xml:space="preserve"><value>Non puoi accedere: il tuo account GitHub non raggiunge alcun repository in cui CodeCoverage è installato. Chiedi a un amministratore della tua organizzazione di installare la GitHub App.</value></data>
+  <data name="Access.PendingAdmission" xml:space="preserve"><value>Il tuo account GitHub raggiunge un’organizzazione in cui CodeCoverage è installato, ma l’amministratore di questa istanza non l’ha ancora ammessa. Accedi di nuovo quando sarà ammessa.</value></data>
+  <data name="Access.Unauthenticated" xml:space="preserve"><value>La sessione è scaduta. Accedi di nuovo per continuare.</value></data>
+  <data name="AccessDenied_Description" xml:space="preserve"><value>Non hai il permesso di aprire questa pagina. Chiedilo a un amministratore se ti serve.</value></data>
+  <data name="AccessDenied_Title" xml:space="preserve"><value>Accesso negato</value></data>
+  <data name="BackHome" xml:space="preserve"><value>Torna ai repository</value></data>
+  <data name="Commit.NoUpload" xml:space="preserve"><value>Questo commit non ha upload da rielaborare.</value></data>
+  <data name="Commit.NotFound" xml:space="preserve"><value>Questo commit non esiste.</value></data>
+  <data name="Commit.FileNotFound" xml:space="preserve"><value>Questo file non è nel report di copertura del commit.</value></data>
+  <data name="Commit.InvalidPage" xml:space="preserve"><value>La pagina va da 1 a 21474836 e una pagina contiene da 1 a 100 commit.</value></data>
+  <data name="PullRequest.NotFound" xml:space="preserve"><value>Questa pull request non esiste.</value></data>
+  <data name="PullRequest.InvalidState" xml:space="preserve"><value>Lo stato di una pull request è open, closed, merged o all.</value></data>
+  <data name="PullRequest.InvalidPage" xml:space="preserve"><value>La pagina va da 1 a 21474836 e una pagina contiene da 1 a 100 pull request.</value></data>
+  <data name="Comparison.NotComputed" xml:space="preserve"><value>Questo confronto non è ancora calcolato: viene calcolato quando il commit head viene notificato.</value></data>
+  <data name="Commit.Compacted" xml:space="preserve"><value>La copertura di un upload di questo commit non esiste più.</value></data>
+  <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Questo commit è stato finalizzato nel frattempo. Finalizzalo di nuovo.</value></data>
+  <data name="Commit.RawExpired" xml:space="preserve"><value>I file grezzi di un upload di questo commit non sono più conservati: non può essere rielaborato.</value></data>
+  <data name="Error_Description" xml:space="preserve"><value>Non è stato possibile visualizzare la pagina. Riprova tra un momento; se il problema persiste, comunica a un amministratore l’identificativo della richiesta riportato qui sotto.</value></data>
+  <data name="Error_RequestId" xml:space="preserve"><value>Identificativo della richiesta</value></data>
+  <data name="Error_Title" xml:space="preserve"><value>Si è verificato un errore</value></data>
+  <data name="General.ConcurrentChange" xml:space="preserve"><value>I dati sono stati modificati o rimossi nel frattempo. Ricaricali e riprova.</value></data>
+  <data name="General.Unexpected" xml:space="preserve"><value>Si è verificato un errore imprevisto. Riprova tra un momento; se il problema persiste, contatta un amministratore.</value></data>
+  <data name="General.ValidationFailed" xml:space="preserve"><value>Alcuni valori non sono validi. Correggili, poi riprova.</value></data>
+  <data name="GitHub.StatusRefused" xml:space="preserve"><value>GitHub ha rifiutato definitivamente lo stato del commit: verifica che l’applicazione possa scrivere gli stati in questo repository e che il commit vi esista.</value></data>
+  <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub non è disponibile. Riprova tra qualche minuto.</value></data>
+  <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La consegna da gestire non esiste.</value></data>
+  <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La consegna non ha un identificativo o un evento valido.</value></data>
+  <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>Il corpo della consegna non può essere letto.</value></data>
+  <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>La firma della consegna è mancante o non valida.</value></data>
+  <data name="GitHubEvent.NoInstallation" xml:space="preserve"><value>Nessuna installazione della App serve questa organizzazione: installala su GitHub, poi sincronizza.</value></data>
+  <data name="Notification.CommitNotFound" xml:space="preserve"><value>Il commit da notificare non esiste più.</value></data>
+  <data name="Home_Title" xml:space="preserve"><value>Repository</value></data>
+  <data name="Nav_Repositories" xml:space="preserve"><value>Repository</value></data>
+  <data name="Nav_Organization" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="Nav_Instance" xml:space="preserve"><value>Istanza</value></data>
+  <data name="Nav_Account" xml:space="preserve"><value>Il mio account</value></data>
+  <data name="Org_Switcher" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="Org_All" xml:space="preserve"><value>Tutte le organizzazioni</value></data>
+  <data name="Org_Choose" xml:space="preserve"><value>Scegli un’organizzazione</value></data>
+  <data name="Role_Participant" xml:space="preserve"><value>Partecipante</value></data>
+  <data name="Role_OrganizationAdmin" xml:space="preserve"><value>Amministratore dell’organizzazione</value></data>
+  <data name="Role_InstanceAdmin" xml:space="preserve"><value>Amministratore dell’istanza</value></data>
+  <data name="Tabs_Repository" xml:space="preserve"><value>Sezioni del repository</value></data>
+  <data name="Tab_Overview" xml:space="preserve"><value>Panoramica</value></data>
+  <data name="Tab_Commits" xml:space="preserve"><value>Commit</value></data>
+  <data name="Tab_Pulls" xml:space="preserve"><value>Pull request</value></data>
+  <data name="Forge_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="Forge_AzureDevOps" xml:space="preserve"><value>Azure DevOps</value></data>
+  <data name="Forge_Bitbucket" xml:space="preserve"><value>Bitbucket</value></data>
+  <data name="Forge_GitLab" xml:space="preserve"><value>GitLab</value></data>
+  <data name="NotFound_Description" xml:space="preserve"><value>L’indirizzo non corrisponde ad alcuna pagina. Controlla il link, oppure riparti dall’elenco dei repository.</value></data>
+  <data name="NotFound_Title" xml:space="preserve"><value>Pagina non trovata</value></data>
+  <data name="Organization.InvalidAccountId" xml:space="preserve"><value>L’identificativo dell’account è obbligatorio e non può essere così lungo.</value></data>
+  <data name="Organization.InvalidLogin" xml:space="preserve"><value>Questo login non è uno che una forge possa assegnare.</value></data>
+  <data name="Organization.NotFound" xml:space="preserve"><value>Questa organizzazione non esiste, oppure non hai accesso.</value></data>
+  <data name="Organization.NotPending" xml:space="preserve"><value>Questa organizzazione è già stata ammessa oppure è sospesa.</value></data>
+  <data name="Organization.UnknownGitHubLogin" xml:space="preserve"><value>GitHub non conosce alcun account con questo login.</value></data>
+  <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
+  <data name="Repository.NotFound" xml:space="preserve"><value>Questo repository non esiste, oppure non hai accesso.</value></data>
+  <data name="Repository.Inactive" xml:space="preserve"><value>Questo repository è noto ma la sua copertura non viene tracciata.</value></data>
+  <data name="Upload.InvalidSlug" xml:space="preserve"><value>Il repository deve essere scritto nella forma owner/name.</value></data>
+  <data name="Upload.Duplicate" xml:space="preserve"><value>Questo upload è già stato ricevuto per la head della pull request: questa copia non è stata elaborata.</value></data>
+  <data name="Upload.MergeCommitRewritten" xml:space="preserve"><value>L’upload indicava un merge commit: è stato associato alla head della pull request.</value></data>
+  <data name="Upload.MetadataMustPrecedeFiles" xml:space="preserve"><value>I campi di testo devono precedere i file.</value></data>
+  <data name="Upload.NoFileMapped" xml:space="preserve"><value>Nessun file dei report è stato trovato nel repository.</value></data>
+  <data name="Upload.NotFailed" xml:space="preserve"><value>Solo un upload non riuscito può essere riprovato.</value></data>
+  <data name="Upload.OidcMismatch" xml:space="preserve"><value>Il token OIDC è stato emesso per un altro repository.</value></data>
+  <data name="Upload.RawExpired" xml:space="preserve"><value>I file grezzi di questo upload non sono più conservati: non può essere rielaborato.</value></data>
+  <data name="Upload.TokenInvalid" xml:space="preserve"><value>Il token di upload non è valido.</value></data>
+  <data name="Upload.TokenNotForRepository" xml:space="preserve"><value>Questo token di upload appartiene a un altro repository.</value></data>
+  <data name="Upload.TooLarge" xml:space="preserve"><value>Il contenuto di questo upload è troppo grande.</value></data>
+  <data name="Upload.UnsupportedFormat" xml:space="preserve"><value>Questo formato di report non è supportato.</value></data>
+  <data name="Upload.InvalidMetadata" xml:space="preserve"><value>Un campo di testo di questo upload non è valido.</value></data>
+  <data name="Upload.NoReport" xml:space="preserve"><value>Questo upload non contiene alcun report.</value></data>
+  <data name="Upload.TooManyFiles" xml:space="preserve"><value>Questo upload contiene troppi report.</value></data>
+  <data name="Upload.InvalidPart" xml:space="preserve"><value>Una parte di questo upload non è valida: un nome troppo lungo, un gzip danneggiato o più di un elenco di file.</value></data>
+  <data name="Upload.RateLimited" xml:space="preserve"><value>Troppi upload per questo repository: riprova tra un momento.</value></data>
+  <data name="Upload.NotFound" xml:space="preserve"><value>Questo upload non esiste, oppure non hai accesso.</value></data>
+  <data name="Upload.ParseFailed" xml:space="preserve"><value>Non è stato possibile leggere un report di questo upload.</value></data>
+  <data name="Uploader.NotAvailable" xml:space="preserve"><value>L’uploader per questo runtime non è distribuito con questo server.</value></data>
+  <data name="Uploader.UnknownRuntime" xml:space="preserve"><value>L’uploader non è pubblicato per questo runtime.</value></data>
+  <data name="UploadToken.AlreadyImported" xml:space="preserve"><value>Questo valore è già un token di questa organizzazione.</value></data>
+  <data name="UploadToken.InvalidExpiry" xml:space="preserve"><value>La scadenza deve essere nel futuro.</value></data>
+  <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un token importato deve essere un token Codecov (un UUID).</value></data>
+  <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Assegna al token un nome di al massimo 128 caratteri.</value></data>
+  <data name="UploadToken.NotFound" xml:space="preserve"><value>Questo token non esiste.</value></data>
+  <data name="Setting.InvalidValue" xml:space="preserve"><value>Il valore non corrisponde al tipo dell’impostazione.</value></data>
+  <data name="Setting.IsSecret" xml:space="preserve"><value>Questa impostazione è un segreto: sostituiscila invece di modificarla.</value></data>
+  <data name="Setting.NotSecret" xml:space="preserve"><value>Questa impostazione non è un segreto: modificane invece il valore.</value></data>
+  <data name="Setting.GitHubAppAlreadyCreated" xml:space="preserve"><value>La GitHub App esiste già su questa istanza.</value></data>
+  <data name="Setting.GitHubAppNotCreated" xml:space="preserve"><value>Crea prima la GitHub App.</value></data>
+  <data name="Setting.InvalidAdministrators" xml:space="preserve"><value>Indica almeno un amministratore, come identificativi GitHub numerici separati da virgole.</value></data>
+  <data name="Setting.InvalidManifestCode" xml:space="preserve"><value>GitHub non riconosce questo codice, oppure è scaduto. Crea di nuovo la App.</value></data>
+  <data name="Setting.InvalidSetupToken" xml:space="preserve"><value>Il token di configurazione è mancante o non valido. Lo trovi nei log dell’host Web.</value></data>
+  <data name="Setting.OutOfRange" xml:space="preserve"><value>Il valore è fuori dall’intervallo consentito per questa impostazione.</value></data>
+  <data name="Setting.ProvidedByEnvironment" xml:space="preserve"><value>Questa impostazione è fornita dall’ambiente e non può essere modificata qui.</value></data>
+  <data name="Setting.Unknown" xml:space="preserve"><value>Questa impostazione non esiste.</value></data>
+  <data name="Toast_RequestFailed" xml:space="preserve"><value>Non è stato possibile completare l’azione</value></data>
+  <data name="Action_SignIn" xml:space="preserve"><value>Accedi con GitHub</value></data>
+  <data name="Nav_SignOut" xml:space="preserve"><value>Esci</value></data>
+  <data name="Nav_SignIn" xml:space="preserve"><value>Accedi</value></data>
+  <data name="Loading" xml:space="preserve"><value>Caricamento…</value></data>
+  <data name="Action_Retry" xml:space="preserve"><value>Riprova</value></data>
+  <data name="Action_Cancel" xml:space="preserve"><value>Annulla</value></data>
+  <data name="Action_Save" xml:space="preserve"><value>Salva</value></data>
+  <data name="Action_Reset" xml:space="preserve"><value>Reimposta</value></data>
+  <data name="Action_Replace" xml:space="preserve"><value>Sostituisci</value></data>
+  <data name="Action_Clear" xml:space="preserve"><value>Cancella</value></data>
+  <data name="AdminOrganizations_Subtitle" xml:space="preserve"><value>Gli account che hanno installato la GitHub App e la loro ammissione.</value></data>
+  <data name="AdminOrganizations_Search" xml:space="preserve"><value>Cerca un login</value></data>
+  <data name="AdminOrganizations_PendingCount" xml:space="preserve"><value>{0} in attesa</value></data>
+  <data name="AdminOrganizations_EmptyTitle" xml:space="preserve"><value>Ancora nessuna organizzazione</value></data>
+  <data name="AdminOrganizations_EmptyText" xml:space="preserve"><value>Un account compare qui come In attesa quando installa la GitHub App. Puoi anche ammetterne uno direttamente.</value></data>
+  <data name="AdminOrganizations_Denied" xml:space="preserve"><value>Le organizzazioni dell’istanza sono riservate ai suoi amministratori.</value></data>
+  <data name="AdminOrganizations_Login" xml:space="preserve"><value>Login</value></data>
+  <data name="AdminOrganizations_AccountId" xml:space="preserve"><value>Identificativo dell’account</value></data>
+  <data name="AdminOrganizations_Admitted" xml:space="preserve"><value>Organizzazione ammessa</value></data>
+  <data name="AdminOrganizations_Suspended" xml:space="preserve"><value>Organizzazione sospesa</value></data>
+  <data name="AdminOrganizations_SuspendTitle" xml:space="preserve"><value>Sospendere «{0}»?</value></data>
+  <data name="AdminOrganizations_SuspendText" xml:space="preserve"><value>I suoi membri perdono l’accesso alla richiesta successiva e upload e notifiche si interrompono. I suoi dati vengono conservati.</value></data>
+  <data name="Action_InstallApp" xml:space="preserve"><value>Installa la GitHub App</value></data>
+  <data name="Action_CheckInstallations" xml:space="preserve"><value>Verifica le installazioni</value></data>
+  <data name="Action_FindAccount" xml:space="preserve"><value>Trova l’account</value></data>
+  <data name="AdminOrganizations_InstallationsQueued" xml:space="preserve"><value>Verifica delle installazioni in corso</value></data>
+  <data name="AdminOrganizations_LoginHelp" xml:space="preserve"><value>Il login dell’account GitHub, un utente o un’organizzazione.</value></data>
+  <data name="AdminOrganizations_Resolved" xml:space="preserve"><value>{0} → account {1}</value></data>
+  <data name="AdminOrganizations_ResolvedHint" xml:space="preserve"><value>Verifica che sia l’account da ammettere prima di confermare.</value></data>
+  <data name="AdminOrganizations_InstallText" xml:space="preserve"><value>Un account installa la GitHub App su GitHub, poi compare qui come In attesa.</value></data>
+  <data name="Action_Admit" xml:space="preserve"><value>Ammetti</value></data>
+  <data name="Action_AdmitAccount" xml:space="preserve"><value>Ammetti un account</value></data>
+  <data name="Action_Suspend" xml:space="preserve"><value>Sospendi</value></data>
+  <data name="Column_Organization" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="Column_Forge" xml:space="preserve"><value>Forge</value></data>
+  <data name="Column_Type" xml:space="preserve"><value>Tipo</value></data>
+  <data name="Column_State" xml:space="preserve"><value>Stato</value></data>
+  <data name="Column_Reason" xml:space="preserve"><value>Motivo</value></data>
+  <data name="Column_AdmittedBy" xml:space="preserve"><value>Ammessa da</value></data>
+  <data name="Column_QueueDepth" xml:space="preserve"><value>Job in coda</value></data>
+  <data name="Column_Actions" xml:space="preserve"><value>Azioni</value></data>
+  <data name="OrganizationState_Pending" xml:space="preserve"><value>In attesa</value></data>
+  <data name="OrganizationState_Active" xml:space="preserve"><value>Attiva</value></data>
+  <data name="OrganizationState_Suspended" xml:space="preserve"><value>Sospesa</value></data>
+  <data name="SuspensionReason_Administrator" xml:space="preserve"><value>Da un amministratore dell’istanza</value></data>
+  <data name="SuspensionReason_AppUninstalled" xml:space="preserve"><value>GitHub App disinstallata</value></data>
+  <data name="SuspensionReason_ReservedLogin" xml:space="preserve"><value>Login riservato</value></data>
+  <data name="AccountType_Organization" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="AccountType_User" xml:space="preserve"><value>Account personale</value></data>
+  <data name="Tabs_Instance" xml:space="preserve"><value>Sezioni dell’istanza</value></data>
+  <data name="Tab_Organizations" xml:space="preserve"><value>Organizzazioni</value></data>
+  <data name="Tab_InstanceSettings" xml:space="preserve"><value>Impostazioni</value></data>
+  <data name="Tab_Operations" xml:space="preserve"><value>Operazioni</value></data>
+  <data name="Tab_Audit" xml:space="preserve"><value>Registro di audit</value></data>
+  <data name="AdminSettings_Title" xml:space="preserve"><value>Impostazioni dell’istanza</value></data>
+  <data name="AdminSettings_Subtitle" xml:space="preserve"><value>Salvate nel database e applicate senza riavvio, salvo indicazione contraria.</value></data>
+  <data name="AdminSettings_Search" xml:space="preserve"><value>Cerca una chiave</value></data>
+  <data name="AdminSettings_NoMatch" xml:space="preserve"><value>Nessuna impostazione corrisponde a questa ricerca</value></data>
+  <data name="AdminSettings_Denied" xml:space="preserve"><value>Le impostazioni dell’istanza sono riservate ai suoi amministratori.</value></data>
+  <data name="Setting_SourceDatabase" xml:space="preserve"><value>Database</value></data>
+  <data name="Setting_SourceEnvironment" xml:space="preserve"><value>Ambiente</value></data>
+  <data name="Setting_SourceDefault" xml:space="preserve"><value>Predefinito</value></data>
+  <data name="Setting_RequiresRestart" xml:space="preserve"><value>Riavvio necessario</value></data>
+  <data name="Setting_Defined" xml:space="preserve"><value>Definita</value></data>
+  <data name="Setting_NotDefined" xml:space="preserve"><value>Non definita</value></data>
+  <data name="Setting_SetByEnvironment" xml:space="preserve"><value>Impostata dall’ambiente</value></data>
+  <data name="Setting_Saved" xml:space="preserve"><value>Impostazione salvata</value></data>
+  <data name="Setting_Reset" xml:space="preserve"><value>Valore reimpostato</value></data>
+  <data name="Secret_Replaced" xml:space="preserve"><value>Segreto sostituito</value></data>
+  <data name="Secret_Cleared" xml:space="preserve"><value>Segreto cancellato</value></data>
+  <data name="SecretDialog_Text" xml:space="preserve"><value>Il valore attuale non viene mai mostrato. Quello nuovo viene cifrato e applicato senza riavvio.</value></data>
+  <data name="SecretDialog_NewValue" xml:space="preserve"><value>Nuovo valore</value></data>
+  <data name="SettingGroup_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="SettingGroup_Urls" xml:space="preserve"><value>Indirizzi</value></data>
+  <data name="SettingGroup_Uploads" xml:space="preserve"><value>Upload</value></data>
+  <data name="SettingGroup_Processing" xml:space="preserve"><value>Elaborazione</value></data>
+  <data name="SettingGroup_Notifications" xml:space="preserve"><value>Notifiche</value></data>
+  <data name="SettingGroup_Coverage" xml:space="preserve"><value>Copertura</value></data>
+  <data name="SettingGroup_Badges" xml:space="preserve"><value>Badge</value></data>
+  <data name="SettingGroup_Access" xml:space="preserve"><value>Accesso</value></data>
+  <data name="SettingGroup_Retention" xml:space="preserve"><value>Conservazione</value></data>
+  <data name="SignIn_Title" xml:space="preserve"><value>Accesso</value></data>
+  <data name="SignIn_Hint" xml:space="preserve"><value>Vedrai solo i repository che il tuo account GitHub può leggere.</value></data>
+  <data name="SignIn_Failed" xml:space="preserve"><value>L’accesso con GitHub non è stato completato. Riprova.</value></data>
+  <data name="SignIn_SignedInAs" xml:space="preserve"><value>Accesso effettuato come {0}.</value></data>
+  <data name="SignIn_Continue" xml:space="preserve"><value>Continua</value></data>
+  <data name="SignIn_Again" xml:space="preserve"><value>Accedi di nuovo</value></data>
+  <data name="Operations.JobNotFound" xml:space="preserve"><value>Questo job non esiste.</value></data>
+  <data name="Operations.JobNotRetryable" xml:space="preserve"><value>Solo un job non riuscito o morto può essere riprovato, e non mentre lo stesso lavoro è già in attesa.</value></data>
+  <data name="Operations.InvalidPage" xml:space="preserve"><value>La pagina va da 1 a 21474836 e una pagina contiene da 1 a 100 job.</value></data>
+  <data name="Repository.InvalidBadgeToken" xml:space="preserve"><value>Un token del badge contiene da 1 a 64 lettere, cifre, trattini bassi o trattini.</value></data>
+  <data name="Repository.InvalidCodecovToken" xml:space="preserve"><value>Il token API di Codecov è composto da 1 a 256 caratteri stampabili, senza spazi.</value></data>
+  <data name="Repository.CodecovRefused" xml:space="preserve"><value>Codecov ha rifiutato l’importazione: il token non è valido o non è autorizzato, oppure Codecov non ha il repository.</value></data>
+  <data name="Repository.CodecovUnsupportedForge" xml:space="preserve"><value>Codecov non ha un equivalente di questa forge (Azure DevOps): la sua cronologia non può essere importata.</value></data>
+  <data name="Repository.InvalidHistory" xml:space="preserve"><value>Una cronologia richiede commit, giorno o settimana, un inizio precedente alla fine e al massimo 20 flag.</value></data>
+  <data name="Inaccessible_Title" xml:space="preserve"><value>Non trovato o inaccessibile</value></data>
+  <data name="Inaccessible_Description" xml:space="preserve"><value>Questo indirizzo non esiste, oppure il tuo account GitHub non può leggerlo.</value></data>
+  <data name="Repository_DefaultBranch" xml:space="preserve"><value>Branch predefinito: {0}</value></data>
+  <data name="Overview_NoDataTitle" xml:space="preserve"><value>Ancora nessun report di copertura</value></data>
+  <data name="Overview_NoDataText" xml:space="preserve"><value>Questo repository è seguito, ma non è stato ricevuto alcun upload per il suo branch predefinito.</value></data>
+  <data name="Overview_DisabledText" xml:space="preserve"><value>Questo repository è disattivato: la sua copertura non viene più elaborata e i suoi upload vengono rifiutati. Un amministratore lo riattiva dalla sua pagina delle impostazioni.</value></data>
+  <data name="Overview_SetupAction" xml:space="preserve"><value>Configura l’upload</value></data>
+  <data name="UploadSetup_Title" xml:space="preserve"><value>Configura l’upload</value></data>
+  <data name="UploadSetup_GitHubActions" xml:space="preserve"><value>Aggiungi questo job, o il suo ultimo step, a un workflow GitHub Actions del repository. L’action è fissata alla versione di questa istanza.</value></data>
+  <data name="UploadSetup_SnippetLabel" xml:space="preserve"><value>Workflow GitHub Actions che carica la copertura</value></data>
+  <data name="UploadSetup_Oidc" xml:space="preserve"><value>Il permesso id-token: write consente all’upload di autenticarsi con il token OIDC di GitHub Actions: non serve alcun segreto.</value></data>
+  <data name="UploadSetup_NoApiUrl" xml:space="preserve"><value>L’indirizzo pubblico dell’API non è impostato: un amministratore deve impostarlo nelle impostazioni dell’istanza prima che il workflow possa essere scritto.</value></data>
+  <data name="UploadSetup_AzurePipelines" xml:space="preserve"><value>Modello Azure Pipelines</value></data>
+  <data name="UploadSetup_UploadTokens" xml:space="preserve"><value>Token di upload del repository, per una CI senza OIDC</value></data>
+  <data name="Flag_Project" xml:space="preserve"><value>Progetto</value></data>
+  <data name="Card_Change30Days" xml:space="preserve"><value>Variazione su 30 giorni</value></data>
+  <data name="Card_CarriedForwardFrom" xml:space="preserve"><value>Riportato da</value></data>
+  <data name="Delta_Points" xml:space="preserve"><value>{0} pt</value></data>
+  <data name="History_Title" xml:space="preserve"><value>Cronologia della copertura</value></data>
+  <data name="History_Branch" xml:space="preserve"><value>Branch</value></data>
+  <data name="History_Range" xml:space="preserve"><value>Intervallo</value></data>
+  <data name="History_Flags" xml:space="preserve"><value>Serie da tracciare</value></data>
+  <data name="History_Days" xml:space="preserve"><value>{0} g</value></data>
+  <data name="History_EmptyTitle" xml:space="preserve"><value>Nessuna copertura in questo periodo</value></data>
+  <data name="History_EmptyText" xml:space="preserve"><value>Nessun report di questo branch è stato completato nell’intervallo scelto.</value></data>
+  <data name="Column_Date" xml:space="preserve"><value>Data</value></data>
+  <data name="Column_Commit" xml:space="preserve"><value>Commit</value></data>
+  <data name="Column_Author" xml:space="preserve"><value>Autore</value></data>
+  <data name="Column_Coverage" xml:space="preserve"><value>Copertura</value></data>
+  <data name="Column_Sessions" xml:space="preserve"><value>Sessioni</value></data>
+  <data name="Commit_Complete" xml:space="preserve"><value>Completato</value></data>
+  <data name="Commit_Pending" xml:space="preserve"><value>In elaborazione</value></data>
+  <data name="Commit_Error" xml:space="preserve"><value>Errore</value></data>
+  <data name="Commit_CompactedHint" xml:space="preserve"><value>Compattato: di questo commit vengono conservati solo i totali.</value></data>
+  <data name="Commits_EmptyTitle" xml:space="preserve"><value>Nessun commit su questo branch</value></data>
+  <data name="Commits_EmptyText" xml:space="preserve"><value>I commit compaiono qui dopo la ricezione di un upload.</value></data>
+  <data name="Age_JustNow" xml:space="preserve"><value>adesso</value></data>
+  <data name="Age_Minutes" xml:space="preserve"><value>{0} min fa</value></data>
+  <data name="Age_Hours" xml:space="preserve"><value>{0} h fa</value></data>
+  <data name="Age_Days" xml:space="preserve"><value>{0} g fa</value></data>
+  <data name="Until_Soon" xml:space="preserve"><value>meno di 1 min</value></data>
+  <data name="Until_Minutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Until_Hours" xml:space="preserve"><value>{0} h</value></data>
+  <data name="Column_PullRequest" xml:space="preserve"><value>Pull request</value></data>
+  <data name="Column_Patch" xml:space="preserve"><value>Patch</value></data>
+  <data name="Column_ProjectDelta" xml:space="preserve"><value>Δ progetto</value></data>
+  <data name="Pull_Open" xml:space="preserve"><value>Aperta</value></data>
+  <data name="Pull_Merged" xml:space="preserve"><value>Unita</value></data>
+  <data name="Pull_Closed" xml:space="preserve"><value>Chiusa</value></data>
+  <data name="Filter_All" xml:space="preserve"><value>Tutti</value></data>
+  <data name="Pulls_EmptyTitle" xml:space="preserve"><value>Nessuna pull request</value></data>
+  <data name="Pulls_EmptyText" xml:space="preserve"><value>Le pull request compaiono qui quando GitHub le segnala.</value></data>
+  <data name="Commit_Base" xml:space="preserve"><value>Base</value></data>
+  <data name="Commit_NoBase" xml:space="preserve"><value>Ancora nessuna base confrontata</value></data>
+  <data name="Commit_BaseFiles" xml:space="preserve"><value>Base:</value></data>
+  <data name="Commit_CarriedFrom" xml:space="preserve"><value>da</value></data>
+  <data name="Commit_Files" xml:space="preserve"><value>File</value></data>
+  <data name="Column_Lines" xml:space="preserve"><value>Righe</value></data>
+  <data name="Commit_LineCounts" xml:space="preserve"><value>{0} coperte · {1} parziali · {2} mancate</value></data>
+  <data name="Commit_CarriedSessions" xml:space="preserve"><value>{0} riportate</value></data>
+  <data name="Column_Flags" xml:space="preserve"><value>Flag</value></data>
+  <data name="Column_Flag" xml:space="preserve"><value>Flag</value></data>
+  <data name="Column_Origin" xml:space="preserve"><value>Origine</value></data>
+  <data name="Commit_NoFlag" xml:space="preserve"><value>Questo commit non ha flag.</value></data>
+  <data name="Session_CarriedForward" xml:space="preserve"><value>Riportato</value></data>
+  <data name="Commit_UploadOfThisCommit" xml:space="preserve"><value>Upload di questo commit</value></data>
+  <data name="Commit_PublishedStatuses" xml:space="preserve"><value>Stati pubblicati</value></data>
+  <data name="Commit_NoStatus" xml:space="preserve"><value>Ancora nessuno stato pubblicato.</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>Riuscito</value></data>
+  <data name="Status_Failure" xml:space="preserve"><value>Fallito</value></data>
+  <data name="Status_Error" xml:space="preserve"><value>Errore</value></data>
+  <data name="Commit_Configuration" xml:space="preserve"><value>Configurazione</value></data>
+  <data name="Commit_ConfigErrors" xml:space="preserve"><value>Errori: {0}</value></data>
+  <data name="Commit_ConfigWarnings" xml:space="preserve"><value>Avvisi: {0}</value></data>
+  <data name="Commit_ConfigSource" xml:space="preserve"><value>Origine</value></data>
+  <data name="Commit_ConfigErrorTitle" xml:space="preserve"><value>Non è stato possibile leggere la configurazione di questo commit</value></data>
+  <data name="Commit_OnBranch" xml:space="preserve"><value>{0} su {1}</value></data>
+  <data name="ConfigSource_Commit" xml:space="preserve"><value>File del commit</value></data>
+  <data name="ConfigSource_RepositoryDefault" xml:space="preserve"><value>File del branch predefinito</value></data>
+  <data name="ConfigSource_Organization" xml:space="preserve"><value>Configurazione dell’organizzazione</value></data>
+  <data name="ConfigSource_Builtin" xml:space="preserve"><value>Valori predefiniti integrati</value></data>
+  <data name="ConfigSource_CodecovImport" xml:space="preserve"><value>Importata da Codecov</value></data>
+  <data name="Config.InvalidValue" xml:space="preserve"><value>Valore non valido, ignorato:</value></data>
+  <data name="Config.UnsupportedPattern" xml:space="preserve"><value>Pattern non supportato, ignorato:</value></data>
+  <data name="Config.ClampedValue" xml:space="preserve"><value>Valore fuori intervallo, limitato:</value></data>
+  <data name="Config.WithoutEffectKey" xml:space="preserve"><value>Chiave senza effetto, ignorata:</value></data>
+  <data name="Home_Subtitle" xml:space="preserve"><value>I repository che il tuo account GitHub può leggere.</value></data>
+  <data name="Search_Repositories" xml:space="preserve"><value>Cerca repository</value></data>
+  <data name="Filter_Active" xml:space="preserve"><value>Attivi</value></data>
+  <data name="Filter_Inactive" xml:space="preserve"><value>Inattivi</value></data>
+  <data name="Repository_Inactive" xml:space="preserve"><value>Inattivo</value></data>
+  <data name="Tab_RepoSettings" xml:space="preserve"><value>Impostazioni</value></data>
+  <data name="Setup_Title" xml:space="preserve"><value>Primo avvio</value></data>
+  <data name="Setup_Subtitle" xml:space="preserve"><value>Tre passaggi configurano questa istanza: i suoi indirizzi pubblici, la sua GitHub App e i suoi amministratori.</value></data>
+  <data name="Setup_Steps" xml:space="preserve"><value>Passaggi della configurazione</value></data>
+  <data name="Setup_StepUrls" xml:space="preserve"><value>Indirizzi pubblici</value></data>
+  <data name="Setup_StepApp" xml:space="preserve"><value>GitHub App</value></data>
+  <data name="Setup_StepAdmins" xml:space="preserve"><value>Amministratori</value></data>
+  <data name="Setup_InvalidTokenTitle" xml:space="preserve"><value>Token di configurazione richiesto</value></data>
+  <data name="Setup_InvalidTokenText" xml:space="preserve"><value>Apri questa pagina con il token monouso che il server ha scritto nel suo log all’avvio, come /setup?token=…</value></data>
+  <data name="Setup_CompleteTitle" xml:space="preserve"><value>L’istanza è configurata</value></data>
+  <data name="Setup_CompleteText" xml:space="preserve"><value>La App è nota, gli indirizzi sono salvati e gli amministratori sono designati. Accedi con GitHub per proseguire.</value></data>
+  <data name="Setup_UrlsHelp" xml:space="preserve"><value>Sono gli indirizzi usati dai badge, dai link dei commenti e dai webhook. Vengono salvati prima della App, perché il suo manifest li contiene.</value></data>
+  <data name="Setup_WebUrl" xml:space="preserve"><value>Indirizzo pubblico della console</value></data>
+  <data name="Setup_ApiUrl" xml:space="preserve"><value>Indirizzo pubblico dell’Api</value></data>
+  <data name="Setup_AppNeedsUrls" xml:space="preserve"><value>Salva prima gli indirizzi pubblici: il manifest della App li contiene.</value></data>
+  <data name="Setup_AppName" xml:space="preserve"><value>Nome della App</value></data>
+  <data name="Setup_AppNameDefault" xml:space="preserve"><value>CodeCoverage</value></data>
+  <data name="Setup_AppOrganization" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="Setup_AppOrganizationHelp" xml:space="preserve"><value>Lascia vuoto per creare la App sul tuo account personale.</value></data>
+  <data name="Setup_ManifestStart" xml:space="preserve"><value>Prepara la App</value></data>
+  <data name="Setup_ManifestReady" xml:space="preserve"><value>Continua su GitHub, accetta il manifest e tornerai qui.</value></data>
+  <data name="Setup_ManifestContinue" xml:space="preserve"><value>Continua su GitHub</value></data>
+  <data name="Setup_InvalidState" xml:space="preserve"><value>Questo ritorno da GitHub non corrisponde a quello avviato da questo browser: ricomincia la creazione della App.</value></data>
+  <data name="Setup_ManualTitle" xml:space="preserve"><value>Inserisci una App creata a mano</value></data>
+  <data name="Setup_ManualHelp" xml:space="preserve"><value>Leggi questi valori nella pagina della App, sulla forge. Vengono conservati protetti e non vengono mai più mostrati.</value></data>
+  <data name="Setup_AppId" xml:space="preserve"><value>Identificativo della App</value></data>
+  <data name="Setup_ClientId" xml:space="preserve"><value>Identificativo del client</value></data>
+  <data name="Setup_ClientSecret" xml:space="preserve"><value>Segreto del client</value></data>
+  <data name="Setup_WebhookSecret" xml:space="preserve"><value>Segreto del webhook</value></data>
+  <data name="Setup_PrivateKey" xml:space="preserve"><value>Chiave privata (PEM)</value></data>
+  <data name="Setup_AppSlug" xml:space="preserve"><value>Slug della App</value></data>
+  <data name="Setup_AdminsHelp" xml:space="preserve"><value>Gli identificativi GitHub numerici degli amministratori dell’istanza, separati da virgole.</value></data>
+  <data name="Setup_AdminIds" xml:space="preserve"><value>Amministratori</value></data>
+  <data name="Setup_Finish" xml:space="preserve"><value>Completa la configurazione</value></data>
+  <data name="Tab_OrgRepositories" xml:space="preserve"><value>Repository</value></data>
+  <data name="Action_Sync" xml:space="preserve"><value>Sincronizza</value></data>
+  <data name="Column_LastUpload" xml:space="preserve"><value>Ultimo upload</value></data>
+  <data name="Repository_ActiveOf" xml:space="preserve"><value>Attivi: {0}</value></data>
+  <data name="OrganizationRepositories_Title" xml:space="preserve"><value>Repository dell’organizzazione</value></data>
+  <data name="OrganizationRepositories_Subtitle" xml:space="preserve"><value>Tutti i repository serviti dall’installazione di questa organizzazione.</value></data>
+  <data name="OrganizationRepositories_Denied" xml:space="preserve"><value>Solo gli amministratori di questa organizzazione possono vederne i repository.</value></data>
+  <data name="OrganizationRepositories_EmptyTitle" xml:space="preserve"><value>Nessun repository nell’installazione</value></data>
+  <data name="OrganizationRepositories_EmptyText" xml:space="preserve"><value>Aggiungi dei repository all’installazione della App, poi sincronizza.</value></data>
+  <data name="OrganizationRepositories_SyncQueued" xml:space="preserve"><value>Sincronizzazione in coda</value></data>
+  <data name="ApiTokens_Title" xml:space="preserve"><value>I miei token API</value></data>
+  <data name="ApiTokens_Subtitle" xml:space="preserve"><value>Per chiamare l’API /api/v1 con i tuoi permessi.</value></data>
+  <data name="ApiTokens_Scope" xml:space="preserve"><value>Ambito</value></data>
+  <data name="ApiTokens_ScopeHelp" xml:space="preserve"><value>Un token appartiene esattamente a un’organizzazione, scelta alla creazione.</value></data>
+  <data name="ApiTokens_CreateTitle" xml:space="preserve"><value>Crea un token API</value></data>
+  <data name="ApiTokens_EmptyTitle" xml:space="preserve"><value>Nessun token API</value></data>
+  <data name="ApiTokens_EmptyText" xml:space="preserve"><value>Creane uno per chiamare l’API da uno script.</value></data>
+  <data name="Token_Panel" xml:space="preserve"><value>Token</value></data>
+  <data name="Token_EmptyOrganization" xml:space="preserve"><value>Crea un token, oppure importa il token dell’organizzazione di Codecov affinché le pipeline mantengano il loro segreto.</value></data>
+  <data name="OrganizationTokens_Title" xml:space="preserve"><value>Token di upload dell’organizzazione</value></data>
+  <data name="OrganizationTokens_Subtitle" xml:space="preserve"><value>Validi solo per i repository di questa organizzazione.</value></data>
+  <data name="OrganizationTokens_Denied" xml:space="preserve"><value>Solo gli amministratori di questa organizzazione possono vederne i token di upload.</value></data>
+  <data name="OrganizationTokens_RotationTitle" xml:space="preserve"><value>Rotazione del token consigliata</value></data>
+  <data name="OrganizationTokens_RotationText" xml:space="preserve"><value>Un repository ha lasciato questa organizzazione. Un token dell’organizzazione conservato nei suoi segreti CI resta valido finché non lo revochi.</value></data>
+  <data name="Overview_RecentCommits" xml:space="preserve"><value>Commit recenti</value></data>
+  <data name="Overview_AllCommits" xml:space="preserve"><value>Tutti i commit</value></data>
+  <data name="Overview_NoCommitText" xml:space="preserve"><value>Nessun commit di questo branch ha ancora una copertura.</value></data>
+  <data name="Overview_OpenPulls" xml:space="preserve"><value>Pull request aperte</value></data>
+  <data name="Overview_AllPulls" xml:space="preserve"><value>Tutte</value></data>
+  <data name="Overview_NoPullText" xml:space="preserve"><value>Nessuna pull request è aperta su questo repository.</value></data>
+  <data name="Overview_Badge" xml:space="preserve"><value>Badge</value></data>
+  <data name="Overview_BadgeAlt" xml:space="preserve"><value>Badge di copertura del repository</value></data>
+  <data name="Overview_BadgePrivate" xml:space="preserve"><value>Repository privato: lo snippet contiene il token del badge.</value></data>
+  <data name="Overview_BadgePublic" xml:space="preserve"><value>Repository pubblico: lo snippet non richiede alcun token.</value></data>
+  <data name="Overview_BadgeFormat" xml:space="preserve"><value>Formato dello snippet</value></data>
+  <data name="Overview_BadgeMarkdown" xml:space="preserve"><value>Snippet Markdown del badge</value></data>
+  <data name="Overview_BadgeHtml" xml:space="preserve"><value>Snippet HTML del badge</value></data>
+  <data name="Overview_BadgeNoUrls" xml:space="preserve"><value>Gli indirizzi pubblici della console e dell’API non sono impostati: un amministratore deve impostarli nelle impostazioni dell’istanza prima che gli snippet possano essere scritti.</value></data>
+  <data name="Tab_UploadTokens" xml:space="preserve"><value>Token di upload</value></data>
+  <data name="Action_Create" xml:space="preserve"><value>Crea</value></data>
+  <data name="Action_Import" xml:space="preserve"><value>Importa</value></data>
+  <data name="Action_Revoke" xml:space="preserve"><value>Revoca</value></data>
+  <data name="Action_Renew" xml:space="preserve"><value>Rinnova</value></data>
+  <data name="Action_Close" xml:space="preserve"><value>Chiudi</value></data>
+  <data name="Action_Copy" xml:space="preserve"><value>Copia</value></data>
+  <data name="Column_Name" xml:space="preserve"><value>Nome</value></data>
+  <data name="Column_Hint" xml:space="preserve"><value>Indizio</value></data>
+  <data name="Column_Created" xml:space="preserve"><value>Creato</value></data>
+  <data name="Column_LastUsed" xml:space="preserve"><value>Ultimo utilizzo</value></data>
+  <data name="Token_Created" xml:space="preserve"><value>Token creato</value></data>
+  <data name="Token_CopyItNow" xml:space="preserve"><value>Copialo ora: non verrà più mostrato.</value></data>
+  <data name="Token_Value" xml:space="preserve"><value>Valore</value></data>
+  <data name="Token_Copied" xml:space="preserve"><value>Copiato.</value></data>
+  <data name="Token_CopyFailed" xml:space="preserve"><value>Il browser ha rifiutato la copia: seleziona invece il testo.</value></data>
+  <data name="Token_ValueShownOnce" xml:space="preserve"><value>Il valore viene mostrato una sola volta, alla creazione.</value></data>
+  <data name="Token_ShowRevoked" xml:space="preserve"><value>Mostra revocati</value></data>
+  <data name="Token_Revoked" xml:space="preserve"><value>Revocato</value></data>
+  <data name="Token_RevokedToast" xml:space="preserve"><value>Token revocato</value></data>
+  <data name="Token_Imported" xml:space="preserve"><value>Importato da Codecov</value></data>
+  <data name="Token_NeverUsed" xml:space="preserve"><value>Mai</value></data>
+  <data name="Token_EmptyTitle" xml:space="preserve"><value>Nessun token</value></data>
+  <data name="Token_EmptyRepository" xml:space="preserve"><value>Creane uno per questo repository, oppure importa il suo CODECOV_TOKEN affinché le pipeline continuino a funzionare.</value></data>
+  <data name="Token_CreateTitle" xml:space="preserve"><value>Crea un token</value></data>
+  <data name="Token_ImportTitle" xml:space="preserve"><value>Importa un token</value></data>
+  <data name="Token_ImportText" xml:space="preserve"><value>Incolla il valore attuale di CODECOV_TOKEN: le pipeline continuano a funzionare senza alcuna modifica.</value></data>
+  <data name="Token_ImportBadgeTitle" xml:space="preserve"><value>Importa un token del badge</value></data>
+  <data name="Token_ImportBadgeText" xml:space="preserve"><value>Incolla il graphing token di Codecov: i badge dei tuoi README continuano a funzionare.</value></data>
+  <data name="Token_RevokeTitle" xml:space="preserve"><value>Revocare «{0}»?</value></data>
+  <data name="Token_RevokeText" xml:space="preserve"><value>Tutto ciò che usa ancora questo token smetterà di funzionare. L’operazione non può essere annullata.</value></data>
+  <data name="Token_RevokeOf" xml:space="preserve"><value>Revoca {0}</value></data>
+  <data name="BadgeToken_Title" xml:space="preserve"><value>Token del badge</value></data>
+  <data name="BadgeToken_PublicRepository" xml:space="preserve"><value>Questo repository è pubblico: il suo badge viene servito senza token.</value></data>
+  <data name="BadgeToken_Renewed" xml:space="preserve"><value>Token del badge rinnovato</value></data>
+  <data name="BadgeToken_UpdateReadme" xml:space="preserve"><value>Aggiorna l’indirizzo del badge nel tuo README.</value></data>
+  <data name="Repository_Active" xml:space="preserve"><value>Attivo</value></data>
+  <data name="RepositorySettings_Title" xml:space="preserve"><value>Impostazioni del repository</value></data>
+  <data name="RepositorySettings_Denied" xml:space="preserve"><value>Solo gli amministratori di questo repository e gli amministratori della sua organizzazione possono aprirne le impostazioni.</value></data>
+  <data name="RepositorySettings_ActiveHelp" xml:space="preserve"><value>Gli upload vengono accettati; gli stati e il commento vengono pubblicati.</value></data>
+  <data name="RepositorySettings_InactiveHelp" xml:space="preserve"><value>Gli upload vengono rifiutati e non viene pubblicato nulla.</value></data>
+  <data name="RepositorySettings_Activated" xml:space="preserve"><value>Repository attivato</value></data>
+  <data name="RepositorySettings_Deactivated" xml:space="preserve"><value>Repository disattivato</value></data>
+  <data name="RepositorySettings_Config" xml:space="preserve"><value>Configurazione effettiva</value></data>
+  <data name="RepositorySettings_ConfigValid" xml:space="preserve"><value>Valida</value></data>
+  <data name="RepositorySettings_ConfigInvalid" xml:space="preserve"><value>Non valida</value></data>
+  <data name="RepositorySettings_ConfigYaml" xml:space="preserve"><value>Configurazione del repository, in YAML</value></data>
+  <data name="RepositorySettings_ConfigNone" xml:space="preserve"><value>Nessun file di configurazione trovato: si applicano i valori predefiniti integrati.</value></data>
+  <data name="Column_Repository" xml:space="preserve"><value>Repository</value></data>
+  <data name="Column_LastCommit" xml:space="preserve"><value>Ultimo commit</value></data>
+  <data name="Home_Trend" xml:space="preserve"><value>30 giorni</value></data>
+  <data name="Home_TrendLabel" xml:space="preserve"><value>Tendenza su 30 giorni, dal {0} % al {1} %</value></data>
+  <data name="Home_TrendNone" xml:space="preserve"><value>Nessuna copertura negli ultimi 30 giorni</value></data>
+  <data name="Home_RepositoryCount" xml:space="preserve"><value>{0} repository</value></data>
+  <data name="Home_EmptyTitle" xml:space="preserve"><value>Nessun repository</value></data>
+  <data name="Home_EmptyText" xml:space="preserve"><value>Il tuo account GitHub non può leggere alcun repository degli account o delle organizzazioni ammessi su questa istanza.</value></data>
+  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>Nessun account od organizzazione ammessi ti dà accesso ai propri repository. L’amministrazione dell’istanza non mostra i repository di account e organizzazioni.</value></data>
+  <data name="Home_NoMatchTitle" xml:space="preserve"><value>Nessun repository corrispondente</value></data>
+  <data name="Home_NoMatchText" xml:space="preserve"><value>Modifica la ricerca o il filtro.</value></data>
+  <data name="Action_ClearFilters" xml:space="preserve"><value>Cancella i filtri</value></data>
+  <data name="Tabs_Organization" xml:space="preserve"><value>Sezioni dell’organizzazione</value></data>
+  <data name="Tab_OrgSettings" xml:space="preserve"><value>Impostazioni</value></data>
+  <data name="Setting_SourceOrganization" xml:space="preserve"><value>Organizzazione</value></data>
+  <data name="OrganizationSettings_Title" xml:space="preserve"><value>Impostazioni dell’organizzazione</value></data>
+  <data name="OrganizationSettings_Subtitle" xml:space="preserve"><value>Applicate solo a questa organizzazione. Qui non viene conservato alcun segreto.</value></data>
+  <data name="OrganizationSettings_Panel" xml:space="preserve"><value>Copertura e notifiche</value></data>
+  <data name="OrganizationSettings_Denied" xml:space="preserve"><value>Solo gli amministratori di questa organizzazione possono modificarne le impostazioni.</value></data>
+  <data name="Operations.InvalidAuditPage" xml:space="preserve"><value>La pagina va da 1 a 21474836 e una pagina contiene da 1 a 100 voci.</value></data>
+  <data name="Operations.InvalidAuditSearch" xml:space="preserve"><value>Una ricerca contiene al massimo 200 caratteri e la famiglia deve essere una di quelle dell’elenco.</value></data>
+  <data name="AdminAudit_Subtitle" xml:space="preserve"><value>Solo le azioni a livello di istanza.</value></data>
+  <data name="AdminAudit_Events" xml:space="preserve"><value>Eventi</value></data>
+  <data name="AdminAudit_Search" xml:space="preserve"><value>Cerca</value></data>
+  <data name="AdminAudit_User" xml:space="preserve"><value>Utente</value></data>
+  <data name="AdminAudit_Action" xml:space="preserve"><value>Azione</value></data>
+  <data name="AdminAudit_Target" xml:space="preserve"><value>Destinazione</value></data>
+  <data name="AdminAudit_Empty" xml:space="preserve"><value>Nessun evento</value></data>
+  <data name="AdminAudit_Denied" xml:space="preserve"><value>Solo gli amministratori dell’istanza possono leggerne il registro di audit.</value></data>
+  <data name="AuditFamily_All" xml:space="preserve"><value>Tutti i tipi</value></data>
+  <data name="AuditFamily_Secrets" xml:space="preserve"><value>Segreti</value></data>
+  <data name="AuditFamily_Settings" xml:space="preserve"><value>Impostazioni</value></data>
+  <data name="AuditFamily_Organizations" xml:space="preserve"><value>Organizzazioni</value></data>
+  <data name="AuditFamily_Tokens" xml:space="preserve"><value>Token</value></data>
+  <data name="AuditFamily_Retries" xml:space="preserve"><value>Nuovi tentativi</value></data>
+  <data name="AuditAction_Settings_ReplaceSecret" xml:space="preserve"><value>Segreto sostituito</value></data>
+  <data name="AuditAction_Settings_ClearSecret" xml:space="preserve"><value>Segreto cancellato</value></data>
+  <data name="AuditAction_Settings_Reset" xml:space="preserve"><value>Impostazione reimpostata</value></data>
+  <data name="AuditAction_Settings_Update" xml:space="preserve"><value>Impostazione modificata</value></data>
+  <data name="AuditAction_Settings_CompleteSetup" xml:space="preserve"><value>Configurazione completata</value></data>
+  <data name="AuditAction_Settings_CompleteGitHubAppManifest" xml:space="preserve"><value>GitHub App creata</value></data>
+  <data name="AuditAction_Organization_Admit" xml:space="preserve"><value>Organizzazione ammessa</value></data>
+  <data name="AuditAction_Organization_Suspend" xml:space="preserve"><value>Organizzazione sospesa</value></data>
+  <data name="AuditAction_ApiTokens_Create" xml:space="preserve"><value>Token API dell’istanza creato</value></data>
+  <data name="AuditAction_ApiTokens_Revoke" xml:space="preserve"><value>Token API dell’istanza revocato</value></data>
+  <data name="AuditAction_Jobs_Retry" xml:space="preserve"><value>Job riprovato</value></data>
+  <data name="AdminOperations_Subtitle" xml:space="preserve"><value>Coda, worker, webhook e quota GitHub. Solo metadati.</value></data>
+  <data name="AdminOperations_Denied" xml:space="preserve"><value>Solo gli amministratori dell’istanza possono leggerne le operazioni.</value></data>
+  <data name="Action_Refresh" xml:space="preserve"><value>Aggiorna</value></data>
+  <data name="Operations_Oldest" xml:space="preserve"><value>Il più vecchio:</value></data>
+  <data name="Operations_Seconds" xml:space="preserve"><value>{0} s</value></data>
+  <data name="Operations_DeadJobs" xml:space="preserve"><value>Job morti</value></data>
+  <data name="Operations_FailedJobs" xml:space="preserve"><value>{0} falliti definitivamente</value></data>
+  <data name="Operations_GitHubQuota" xml:space="preserve"><value>Quota GitHub</value></data>
+  <data name="Operations_ResetsIn" xml:space="preserve"><value>Si azzera tra</value></data>
+  <data name="Operations_QuotaRefilled" xml:space="preserve"><value>Finestra ricominciata dall’ultima risposta</value></data>
+  <data name="Operations_NoQuota" xml:space="preserve"><value>Ancora nessuna quota segnalata</value></data>
+  <data name="Operations_Workers" xml:space="preserve"><value>Worker</value></data>
+  <data name="Operations_NoHeartbeat" xml:space="preserve"><value>Silenzioso</value></data>
+  <data name="Operations_LastHeartbeat" xml:space="preserve"><value>Ultimo heartbeat:</value></data>
+  <data name="Operations_FailedAndDead" xml:space="preserve"><value>Job falliti e morti</value></data>
+  <data name="Operations_NoFailedJob" xml:space="preserve"><value>Nessun job fallito</value></data>
+  <data name="Operations_Attempts" xml:space="preserve"><value>Tentativi</value></data>
+  <data name="Operations_Dead" xml:space="preserve"><value>Morto</value></data>
+  <data name="Operations_Failed" xml:space="preserve"><value>Fallito</value></data>
+  <data name="Operations_Retried" xml:space="preserve"><value>Job rimesso in coda</value></data>
+  <data name="Operations_RemainingRequests" xml:space="preserve"><value>Richieste rimanenti</value></data>
+  <data name="Operations_Remaining" xml:space="preserve"><value>Rimanenti</value></data>
+  <data name="Operations_Limit" xml:space="preserve"><value>Limite</value></data>
+  <data name="Operations_Webhooks" xml:space="preserve"><value>Webhook GitHub</value></data>
+  <data name="Operations_WebhooksSub" xml:space="preserve"><value>Ultima consegna per evento</value></data>
+  <data name="Operations_NoWebhook" xml:space="preserve"><value>Ancora nessuna consegna ricevuta.</value></data>
+  <data name="Operations_Event" xml:space="preserve"><value>Evento</value></data>
+  <data name="Operations_WorkerHeartbeats" xml:space="preserve"><value>Heartbeat dei worker</value></data>
+  <data name="Operations_NoWorker" xml:space="preserve"><value>Nessun worker ha inviato un heartbeat nelle ultime 24 ore.</value></data>
+  <data name="Commit_UploadsAndSessions" xml:space="preserve"><value>Upload e sessioni</value></data>
+  <data name="Commit_UploadsAndSessionsHint" xml:space="preserve"><value>Registro di elaborazione di ogni upload</value></data>
+  <data name="Commit_NoUploadYet" xml:space="preserve"><value>Ancora nessun upload ricevuto per questo commit.</value></data>
+  <data name="Column_Session" xml:space="preserve"><value>Sessione</value></data>
+  <data name="Column_Ci" xml:space="preserve"><value>CI</value></data>
+  <data name="Column_ProcessingLog" xml:space="preserve"><value>Registro di elaborazione</value></data>
+  <data name="Upload_Number" xml:space="preserve"><value>Upload n. {0}</value></data>
+  <data name="Upload_Failed" xml:space="preserve"><value>Fallito</value></data>
+  <data name="Upload_Origin" xml:space="preserve"><value>Origine:</value></data>
+  <data name="Upload_PathsResolved" xml:space="preserve"><value>Percorsi risolti: {0}</value></data>
+  <data name="Upload_UnresolvedPaths" xml:space="preserve"><value>Percorsi non risolti o ambigui: {0}</value></data>
+  <data name="Upload_MorePaths" xml:space="preserve"><value>Mostra altri {0}</value></data>
+  <data name="Upload_LogTruncated" xml:space="preserve"><value>+{0} non conservati</value></data>
+  <data name="Action_Renotify" xml:space="preserve"><value>Notifica di nuovo</value></data>
+  <data name="Action_Reprocess" xml:space="preserve"><value>Rielabora</value></data>
+  <data name="Filter_AllFlags" xml:space="preserve"><value>Tutti i flag</value></data>
+  <data name="Search_Files" xml:space="preserve"><value>Filtra i file</value></data>
+  <data name="Search_NoMatch" xml:space="preserve"><value>Nessun file corrisponde a questo filtro.</value></data>
+  <data name="Search_Capped" xml:space="preserve"><value>Sono mostrati i primi {0} di {1} file corrispondenti: affina il filtro.</value></data>
+  <data name="Column_File" xml:space="preserve"><value>File</value></data>
+  <data name="Column_Hits" xml:space="preserve"><value>Coperte</value></data>
+  <data name="Column_Partials" xml:space="preserve"><value>Parziali</value></data>
+  <data name="Column_Misses" xml:space="preserve"><value>Mancate</value></data>
+  <data name="Commit_NoFileYet" xml:space="preserve"><value>Ancora nessun file: il commit non è finalizzato.</value></data>
+  <data name="Toast_NotifyQueued" xml:space="preserve"><value>Notifica in coda</value></data>
+  <data name="Toast_NotifyQueuedText" xml:space="preserve"><value>Gli stati e il commento verranno pubblicati di nuovo.</value></data>
+  <data name="Toast_ReprocessQueued" xml:space="preserve"><value>Rielaborazione in coda</value></data>
+  <data name="Toast_RetryQueued" xml:space="preserve"><value>Upload rimesso in coda</value></data>
+  <data name="Toast_ActionRefused" xml:space="preserve"><value>Non esiste più, oppure non sei autorizzato a farlo.</value></data>
+  <data name="Upload_RetryOf" xml:space="preserve"><value>Riprova {0}</value></data>
+  <data name="Pull_ViewComment" xml:space="preserve"><value>Vedi il commento su GitHub</value></data>
+  <data name="Pull_ComparisonPending" xml:space="preserve"><value>Confronto in attesa</value></data>
+  <data name="Pull_ComparisonPendingText" xml:space="preserve"><value>Non è ancora memorizzato alcun confronto per la head di questa pull request. Comparirà una volta elaborati i suoi upload.</value></data>
+  <data name="Comparison_ProjectHead" xml:space="preserve"><value>Progetto (head)</value></data>
+  <data name="Comparison_Project" xml:space="preserve"><value>Progetto</value></data>
+  <data name="Comparison_NoBaseReport" xml:space="preserve"><value>Nessun report di base</value></data>
+  <data name="Comparison_PatchCoverage" xml:space="preserve"><value>Copertura della patch</value></data>
+  <data name="Comparison_PatchLines" xml:space="preserve"><value>{0} di {1} righe modificate</value></data>
+  <data name="Comparison_IndirectChanges" xml:space="preserve"><value>Modifiche indirette</value></data>
+  <data name="Comparison_IndirectChangesHint" xml:space="preserve"><value>File la cui copertura è cambiata al di fuori del diff</value></data>
+  <data name="Comparison_PatchMissed" xml:space="preserve"><value>Righe della patch mancate</value></data>
+  <data name="Comparison_PatchMissedFiles" xml:space="preserve"><value>File: {0}</value></data>
+  <data name="Comparison_WorstFile" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="Comparison_HowBaseChosen" xml:space="preserve"><value>Come è stata scelta la base</value></data>
+  <data name="Comparison_Head" xml:space="preserve"><value>Head</value></data>
+  <data name="Comparison_ForkPoint" xml:space="preserve"><value>Punto di diramazione</value></data>
+  <data name="Comparison_OnBranch" xml:space="preserve"><value>{0} su {1}</value></data>
+  <data name="Comparison_Hops" xml:space="preserve"><value>Report di base trovato {0} commit prima della merge base.</value></data>
+  <data name="Comparison_UploadBase" xml:space="preserve"><value>Carica un report per {0} per confrontare.</value></data>
+  <data name="Comparison_Behind" xml:space="preserve"><value>Ritardo</value></data>
+  <data name="Comparison_BehindBy" xml:space="preserve"><value>{0} è avanti di {1} commit rispetto alla base</value></data>
+  <data name="Comparison_CoverageDiff" xml:space="preserve"><value>Diff di copertura</value></data>
+  <data name="Action_NextUncovered" xml:space="preserve"><value>Prossima riga non coperta</value></data>
+  <data name="Source_Crumb" xml:space="preserve"><value>Sorgente</value></data>
+  <data name="Source_FromPull" xml:space="preserve"><value>dalla pull request</value></data>
+  <data name="Source_CompactedTitle" xml:space="preserve"><value>Commit compattato</value></data>
+  <data name="Source_BackToCommit" xml:space="preserve"><value>Torna al commit</value></data>
+  <data name="Source_UnavailableTitle" xml:space="preserve"><value>Non è stato possibile leggere il sorgente</value></data>
+  <data name="Source_UnavailableText" xml:space="preserve"><value>La forge non ha restituito questo file a questo commit, oppure è troppo grande per essere mostrato. I dati di copertura qui sopra restano validi.</value></data>
+  <data name="Source_ChangedInPull" xml:space="preserve"><value>Modificato nella pull request</value></data>
+  <data name="Source_Covered" xml:space="preserve"><value>Coperta</value></data>
+  <data name="Source_NotCovered" xml:space="preserve"><value>Non coperta</value></data>
+  <data name="Source_Partial" xml:space="preserve"><value>Parziale</value></data>
+  <data name="Source_NoUncovered" xml:space="preserve"><value>Nessuna riga non coperta</value></data>
+  <data name="Comparison_DiffIncompleteTitle" xml:space="preserve"><value>Diff incompleto</value></data>
+  <data name="Comparison_DiffIncompleteText" xml:space="preserve"><value>La forge ha troncato il diff di questo confronto: la copertura della patch riguarda solo una parte delle modifiche.</value></data>
+  <data name="Comparison_BaseMissingTitle" xml:space="preserve"><value>Report di base mancante</value></data>
+  <data name="Comparison_BaseMissingText" xml:space="preserve"><value>Non esiste alcun report per il commit di base {0}: il Δ progetto non è calcolato.</value></data>
+  <data name="Comparison_BaseMissingNoCommit" xml:space="preserve"><value>Nessun report di base: il Δ progetto non è calcolato.</value></data>
+  <data name="Comparison_ImpactedFiles" xml:space="preserve"><value>File interessati</value></data>
+  <data name="Comparison_ImpactedFilesHint" xml:space="preserve"><value>Ordinati per righe della patch non coperte</value></data>
+  <data name="Comparison_NoImpactedFile" xml:space="preserve"><value>Nessun file copribile è stato modificato.</value></data>
+  <data name="Comparison_Missed" xml:space="preserve"><value>Mancate</value></data>
+  <data name="Comparison_New" xml:space="preserve"><value>nuovo</value></data>
+  <data name="Comparison_NoIndirectChange" xml:space="preserve"><value>Nessuna copertura è cambiata al di fuori del diff.</value></data>
+  <data name="Compare_Title" xml:space="preserve"><value>Confronta</value></data>
+  <data name="Compare_Subtitle" xml:space="preserve"><value>Stesso contenuto di una pull request, senza il commento.</value></data>
+  <data name="Compare_Base" xml:space="preserve"><value>Base</value></data>
+  <data name="Compare_Head" xml:space="preserve"><value>Head</value></data>
+  <data name="Compare_Action" xml:space="preserve"><value>Confronta</value></data>
+  <data name="Compare_FullShaExpected" xml:space="preserve"><value>È atteso uno SHA completo di 40 caratteri esadecimali.</value></data>
+  <data name="Compare_NotComputed" xml:space="preserve"><value>Non calcolato</value></data>
+  <data name="Compare_NotComputedText" xml:space="preserve"><value>Non è memorizzato alcun confronto per questi due commit. Un confronto viene calcolato solo quando una notifica li confronta, mai su richiesta.</value></data>
+  <data name="Nav_Docs" xml:space="preserve"><value>Documentazione</value></data>
+  <data name="Docs_Read" xml:space="preserve"><value>Leggi la documentazione</value></data>
+  <data name="Docs_AllPages" xml:space="preserve"><value>Tutte le pagine</value></data>
+  <data name="Docs_Sections" xml:space="preserve"><value>Sezioni della documentazione</value></data>
+  <data name="Docs_DeployedVersion" xml:space="preserve"><value>Documentazione della versione distribuita</value></data>
+  <data name="Docs_OnThisPage" xml:space="preserve"><value>In questa pagina</value></data>
+  <data name="Docs_Previous" xml:space="preserve"><value>Precedente</value></data>
+  <data name="Docs_Next" xml:space="preserve"><value>Successiva</value></data>
+  <data name="Docs_Pager" xml:space="preserve"><value>Pagine precedente e successiva</value></data>
+  <data name="Docs_UnknownTitle" xml:space="preserve"><value>Nessuna pagina di documentazione qui</value></data>
+  <data name="Docs_UnknownText" xml:space="preserve"><value>La versione {0} non ha alcuna pagina in /docs/{1}. Potrebbe essere stata rinominata: scegli una pagina dall’elenco.</value></data>
+  <data name="Docs_AnchorLabel" xml:space="preserve"><value>Link a questa sezione</value></data>
+  <data name="Docs_CalloutNote" xml:space="preserve"><value>Nota</value></data>
+  <data name="Docs_CalloutTip" xml:space="preserve"><value>Suggerimento</value></data>
+  <data name="Docs_CalloutWarning" xml:space="preserve"><value>Attenzione</value></data>
+  <data name="Docs_Section_GettingStarted" xml:space="preserve"><value>Primi passi</value></data>
+  <data name="Docs_Section_GitHubApp" xml:space="preserve"><value>GitHub App e account</value></data>
+  <data name="Docs_Section_ConfigureRepository" xml:space="preserve"><value>Configurare un repository</value></data>
+  <data name="Docs_Section_Operations" xml:space="preserve"><value>Operazioni</value></data>
+  <data name="Docs_Section_Migration" xml:space="preserve"><value>Migrazione da Codecov</value></data>
+  <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Come inviare il primo report</value></data>
+</root>
