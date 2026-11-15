@@ -158,6 +158,51 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # M4.02d: every service of the production compose, with and without the host override, carries
+      # the labels that keep WUD and Watchtower away from its container. Synthetic values only.
+      - name: Image update labels of the production compose
+        shell: pwsh
+        working-directory: deploy/vm
+        env:
+          DB_PASSWORD: synthetic
+          DP_CERT_PASSWORD: synthetic
+          ACME_EMAIL: ops@example.test
+          CC_API_HOST: coverage-api.example.test
+          CC_WEB_HOST: coverage.example.test
+          IMAGE_PREFIX: ghcr.io/owner/code-coverage
+          TAG: 0.0.0
+          PROXY_NETWORK: proxy_default
+          PROXY_NETWORK_CIDR: 172.20.0.0/16
+          DATA_DIR: /tmp/code-coverage-data
+        run: |
+          $expected = [ordered]@{ 'wud.watch' = 'false'; 'com.centurylinklabs.watchtower.enable' = 'false' }
+
+          foreach ($files in @(, @('docker-compose.prod.yml')) + @(, @('docker-compose.prod.yml', 'docker-compose.host.yml'))) {
+            $variant = $files -join ' + '
+            $arguments = @('compose') + @($files | ForEach-Object { '-f', $_ }) + @('config', '--format', 'json')
+            $json = & docker @arguments | Out-String
+
+            if ($LASTEXITCODE -ne 0) { throw "docker compose config of $variant failed." }
+
+            $services = (ConvertFrom-Json -InputObject $json -AsHashtable)['services']
+
+            foreach ($required in 'db', 'api', 'web', 'backup') {
+              if (-not $services.ContainsKey($required)) { throw "The service $required is missing from $variant." }
+            }
+
+            foreach ($name in $services.Keys) {
+              $labels = $services[$name]['labels']
+
+              foreach ($key in $expected.Keys) {
+                if ($null -eq $labels -or -not $labels.ContainsKey($key) -or $labels[$key] -cne $expected[$key]) {
+                  throw "The service $name of $variant does not carry the label $key=$($expected[$key])."
+                }
+              }
+            }
+
+            Write-Host "ok: $($services.Count) services of $variant carry both labels"
+          }
+
       # Builds both images from the working tree, then starts docker-compose.yml on PostgreSQL and
       # with docker-compose.sqlserver.yml on SQL Server: both hosts ready, Swagger served, non-root
       # containers. Throwaway passwords and Data Protection certificate, stack removed afterwards.

@@ -1,5 +1,5 @@
 ---
-source-sha256: fe907655b98f69bcf53dfe42feae09d8de5b086aeb3b4344b6d1f8d93c7d6c1e
+source-sha256: 0524e49244f07e98e06a1af2afbad0aef581becca61efa829d47566ad6d4c7fc
 ---
 # Operaciones
 
@@ -368,6 +368,45 @@ host de la Api.
   Por tanto, una pull request que apunte a la etiqueta se rechaza antes de su primer paso. Sin
   `CC_DEPLOY_REPOSITORY`, se rechaza todo job. `sh deploy/vm/runner/test-job-started.sh` lo prueba
   sin conexión, y la CI ejecuta esa prueba.
+
+### Herramientas de actualización de imágenes del host
+
+Solo un tag `v*` desplegado por el job cambia una imagen de CodeCoverage. Cada imagen de
+[`docker-compose.prod.yml`](../deploy/vm/docker-compose.prod.yml) está fijada, por digest o por el `TAG`
+de una release, y cada servicio lleva dos etiquetas (M4.02d):
+
+- `wud.watch: "false"`: WUD (What’s Up Docker) no vigila el contenedor;
+- `com.centurylinklabs.watchtower.enable: "false"`: Watchtower no lo actualiza.
+
+No cambian nada en un host sin estas herramientas. Sin ellas, una herramienta así recrea por sí misma un
+contenedor sobre una imagen más reciente. El 2026-11-14, WUD recreó el contenedor de la base de datos en
+PostgreSQL 18 un minuto después de que PostgreSQL 17 la inicializara. La nueva versión mayor rechazó los
+datos, y la Api ya no alcanzaba `db`.
+
+Una etiqueta se aplica cuando compose crea el contenedor. Los contenedores creados antes de las etiquetas
+las reciben en su próxima recreación. El despliegue recrea la Api y la Web, y la base de datos mediante
+`up -d api` cuando su configuración cambió. El servicio de copias de seguridad solo se recrea cuando
+`backup/` cambia. **Antes de volver a iniciar WUD o Watchtower** en el host:
+
+1. Recree lo que aún no tiene las etiquetas, desde el directorio de producción (los contenedores cuya
+   configuración cambió se reinician, incluida la base de datos: una breve interrupción):
+
+   ```bash
+   cd /data03/docker/code-coverage
+   docker compose --project-directory . up -d
+   ```
+
+2. Compruebe que cada contenedor del proyecto lleva las dos etiquetas:
+
+   ```bash
+   docker ps --filter label=com.docker.compose.project=code-coverage \
+     --format '{{.Names}} wud={{.Label "wud.watch"}} watchtower={{.Label "com.centurylinklabs.watchtower.enable"}}'
+   ```
+
+   Cada línea debe terminar en `wud=false watchtower=false`.
+
+3. Inicie la herramienta y compruebe que no recrea ningún contenedor de CodeCoverage: `docker ps` conserva
+   sus fechas de creación, y WUD no los lista como vigilados.
 
 ### Configuración de GitHub (propietario)
 

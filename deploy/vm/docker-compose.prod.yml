@@ -16,8 +16,18 @@
 # Caddyfile.example at the root is the variant for a Caddy installed on the VM itself, and
 # docker-compose.host.yml the override for a host whose proxy already runs in a container (M4.02b).
 # SQL Server on a VM has no backup recipe here: production on SQL Server goes through Azure SQL (M4.03).
+#
+# Image update tools (M4.02d): every image is pinned, by digest or by the TAG of a release, and changes
+# only through a release (a v* tag deployed by scripts/Deploy-Production.ps1). Every service carries
+# the labels that tell WUD (What's Up Docker) and Watchtower to leave its container alone; they have no
+# effect on a host without these tools. An updated image recreated by such a tool can break the
+# database (a new PostgreSQL major version refuses the data of the previous one).
 # ------------------------------------------------------------------------------------------------
 name: code-coverage
+
+x-image-update-labels: &image-update-labels
+  wud.watch: "false"
+  com.centurylinklabs.watchtower.enable: "false"
 
 x-bootstrap: &bootstrap
   ConnectionStrings__CodeCoverage: "Host=db;Port=5432;Database=codecoverage;Username=cc;Password=${DB_PASSWORD:?Set DB_PASSWORD}"
@@ -47,6 +57,7 @@ services:
     networks:
       edge:
         ipv4_address: 172.30.0.10
+    labels: *image-update-labels
     restart: unless-stopped
 
   db:
@@ -64,6 +75,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    labels: *image-update-labels
     restart: unless-stopped
 
   api:
@@ -87,6 +99,7 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
+    labels: *image-update-labels
     restart: unless-stopped
 
   web:
@@ -106,6 +119,7 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
+    labels: *image-update-labels
     restart: unless-stopped
 
   # pg_dump -Fc every BACKUP_INTERVAL_HOURS into the backups volume, kept BACKUP_RETENTION_DAYS days,
@@ -138,6 +152,7 @@ services:
       timeout: 10s
       start_period: 10m
       retries: 1
+    labels: *image-update-labels
     restart: unless-stopped
 
 secrets:
