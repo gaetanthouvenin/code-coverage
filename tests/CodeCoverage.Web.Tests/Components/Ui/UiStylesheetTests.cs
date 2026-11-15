@@ -120,6 +120,23 @@ public sealed partial class UiStylesheetTests
             .ShouldBeEmpty("every @media declaration of the top bar in docs/design/ui-mockup.html is in components.css");
   }
 
+  // A stack without explicit column took the min-content width of a long badge snippet and pushed the whole page
+  // into a horizontal scroll (M4.02aa): its single column must never outgrow its container.
+  [Fact]
+  public void Stack_ShouldKeepItsColumnWithinItsContainer()
+  {
+    var mockup = File.ReadAllText(Path.Combine(WebRootFiles.ProjectDirectory, "..", "..", "docs", "design", "ui-mockup.html"));
+    var sources = new[] { WithoutComments(WebRootFiles.Read(Components)), WithoutComments(mockup) };
+
+    foreach (var css in sources)
+    {
+      var rule = StackRule().Match(css);
+
+      rule.Success.ShouldBeTrue("components.css and docs/design/ui-mockup.html declare a .cc-stack rule");
+      Normalize(rule.Groups["body"].Value).ShouldContain("grid-template-columns:minmax(0,1fr)");
+    }
+  }
+
   // M4.02t: every rule of the language picker of the mockup (cc-lang*) is in components.css, media queries included.
   [Fact]
   public void Components_ShouldCarryEveryLanguageRuleOfTheMockup()
@@ -174,6 +191,9 @@ public sealed partial class UiStylesheetTests
   }
 
   private static string WithoutComments(string css) => Comment().Replace(css, string.Empty);
+
+  [GeneratedRegex(@"(^|\})\s*\.cc-stack\s*\{(?<body>[^}]*)\}", RegexOptions.Multiline)]
+  private static partial Regex StackRule();
 
   [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]
   private static partial Regex Comment();
