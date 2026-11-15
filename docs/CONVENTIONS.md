@@ -1086,14 +1086,16 @@ Mécanisme central (exigence utilisateur, voir §16.3 point 4) :
 
 - Aucune chaîne d'interface en dur : `IStringLocalizer<Common>` (injecté sous le nom `L`, langues et
   ce qui reste en anglais : [ADR-015](adr/0015-console-languages.md)),
-  ressources `Web/Resources/Common.resx` (anglais) + `Common.fr.resx` ; les libellés des composants
-  UI maison dans `UiStrings.resx` / `UiStrings.fr.resx`.
+  ressources `Web/Resources/Common.resx` (anglais) et une traduction `Common.{langue}.resx` par
+  langue de `Web/Localization/ConsoleLanguages.cs` (`fr`, `it`, `es`) ; les libellés des composants
+  UI maison dans `UiStrings.resx` et ses traductions `UiStrings.{langue}.resx`.
 - Les codes d'erreur sont traduits sous leur propre nom par
   `src/CodeCoverage.Web/Localization/ErrorCodeLocalizer.cs` ; un code sans traduction retombe sur
   `General.Unexpected` : l'utilisateur ne voit jamais un code brut ni le message technique de
   l'exception.
-- Des tests vérifient que les deux langues ont les mêmes clés (`Web.Tests/Resources/`).
-- Dans ces quatre fichiers, chaque entrée tient sur une seule ligne
+- `ResourceParityTests` vérifie que chaque langue a exactement les clés de l'anglais, sans valeur
+  vide, avec les mêmes paramètres `{0}` (`Web.Tests/Resources/`).
+- Dans ces fichiers, chaque entrée tient sur une seule ligne
   (`<data …><value>…</value></data>`), ce que vérifie un test : ils fusionnent en `merge=union`
   (`.gitattributes`), et des entrées sur plusieurs lignes s'entremêleraient à la fusion. Un retour
   à la ligne dans une valeur s'écrit `&#10;`.
@@ -1105,6 +1107,44 @@ Pas de bibliothèque de composants externe : composants maison dans `Web/Compone
 `Web/Components/Ui/Models`, services dans `Web/Components/Ui/Services` (`IToastService`), icônes
 dans `Web/Components/Ui/Icons`, classes CSS et variables préfixées `cc-` / `--cc-`. La référence
 visuelle est `docs/design/ui-mockup.html` ; polices auto-hébergées.
+
+### 11.7 Traduire un document publié
+
+Les documents publiés par `/docs` (éléments `PublishedDocument` de `CodeCoverage.Web.csproj`) sont
+écrits en anglais, la langue de référence ([ADR-015](adr/0015-console-languages.md)). Une
+traduction (M4.02v) :
+
+- est le fichier `{nom}.{langue}.md` **à côté** du document anglais (`docs/operations.fr.md`,
+  `action/README.it.md`), pour une langue de la propriété `DocumentationLanguages` du projet Web
+  (les langues de `ConsoleLanguages` sauf l'anglais) ; la construction l'embarque d'elle-même et
+  `.dockerignore` la laisse entrer dans l'image ;
+- commence par un en-tête YAML qui donne l'empreinte du document anglais traduit, calculée sur son
+  texte en fins de ligne LF (le message du test donne la valeur attendue) :
+
+  ```markdown
+  ---
+  source-sha256: 3f0c…
+  ---
+  ```
+
+  Modifier un document anglais fait échouer `DocumentationSourceTests` tant que ses traductions
+  n'ont pas suivi : elles se mettent à jour dans la même PR, comme un modèle et ses deux migrations ;
+- garde **le même plan de titres** que l'anglais : mêmes niveaux, même nombre, même ordre. Les
+  titres se traduisent, mais les ancres restent celles de l'anglais (le rendu les recopie dans
+  l'ordre), si bien qu'une aide contextuelle ou un lien partagé ouvre la même section dans toutes
+  les langues ;
+- recopie à l'identique les blocs de code, les commandes, le code en ligne, les clés de réglages,
+  les variables d'environnement, les noms de produits, de forges et d'outils et les adresses ;
+- garde les cibles des liens telles quelles : vers les fichiers anglais et leurs ancres
+  (`migration-from-codecov.md#2-tokens`), y compris dans la page (`#first-deployment`) ; seul le
+  texte du lien se traduit ;
+- garde les marqueurs des encadrés GitHub (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`) tels quels et
+  traduit leur texte ;
+- nomme ce que la console affiche comme la console : les libellés cités suivent
+  `Common.{langue}.resx`.
+
+Une page sans traduction dans la langue de la console s'affiche en anglais, avec un bandeau qui
+l'annonce et le contenu marqué `lang="en"`.
 
 ---
 

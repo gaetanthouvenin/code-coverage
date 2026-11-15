@@ -11,4 +11,11 @@
     <ProjectReference Include="..\..\src\CodeCoverage.Web\CodeCoverage.Web.csproj" />
   </ItemGroup>
 
+  <!-- A sample document and its Italian translation, embedded under the names the Web gives its documents: the tests
+       of the documentation by language (M4.02v) read them through DocumentationLibrary. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Documentation\Samples\operations.md" LogicalName="CodeCoverage.Web.Docs.operations.md" WithCulture="false" Type="Non-Resx" />
+    <EmbeddedResource Include="Documentation\Samples\operations.it.md" LogicalName="CodeCoverage.Web.Docs.operations.it.md" WithCulture="false" Type="Non-Resx" />
+  </ItemGroup>
+
 </Project>

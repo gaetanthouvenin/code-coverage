@@ -46,16 +46,28 @@ tools/
 # The documents the Web embeds for /docs (PublishedDocument items of CodeCoverage.Web.csproj), and their translations.
 !docs/operations.md
 !docs/operations.fr.md
+!docs/operations.it.md
+!docs/operations.es.md
 !docs/operations/organization-onboarding.md
 !docs/operations/organization-onboarding.fr.md
+!docs/operations/organization-onboarding.it.md
+!docs/operations/organization-onboarding.es.md
 !docs/operations/github-verification-checklist.md
 !docs/operations/github-verification-checklist.fr.md
+!docs/operations/github-verification-checklist.it.md
+!docs/operations/github-verification-checklist.es.md
 !docs/deployment-azure.md
 !docs/deployment-azure.fr.md
+!docs/deployment-azure.it.md
+!docs/deployment-azure.es.md
 !docs/migration-from-codecov.md
 !docs/migration-from-codecov.fr.md
+!docs/migration-from-codecov.it.md
+!docs/migration-from-codecov.es.md
 !action/README.md
 !action/README.fr.md
+!action/README.it.md
+!action/README.es.md
 
 # Deployment files and local secrets (the Data Protection certificate never enters an image)
 secrets/
