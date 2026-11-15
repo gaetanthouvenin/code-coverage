@@ -31,7 +31,8 @@ public sealed class FileIndexCodecTests
 
     var index = _codec.DecodeFileIndex(_codec.EncodeFileIndex(report));
 
-    index.ShouldBe(report.FileTotals);
+    // CFI1 keeps the counters of Codecov only: the detail of ADR-016 is stored from M5.11.
+    index.ShouldBe(report.FileTotals.Select(static file => file with { Detail = null }));
     index[1].Totals.Lines.ShouldBe(3);
   }
 

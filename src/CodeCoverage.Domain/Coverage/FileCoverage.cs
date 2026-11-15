@@ -12,6 +12,7 @@ public sealed class FileCoverage
   #region Fields
 
   private readonly LineCoverage[] _lines;
+  private readonly MethodCoverage[]? _methods;
 
   #endregion
 
@@ -20,11 +21,17 @@ public sealed class FileCoverage
   /// <summary>Initializes a new instance of the <see cref="FileCoverage" /> class.</summary>
   /// <param name="path">The path of the file.</param>
   /// <param name="lines">The lines, in ascending order and without duplicates.</param>
-  private FileCoverage(string path, LineCoverage[] lines)
+  /// <param name="methods">
+  ///   The methods, in ascending order and one per line, or <see langword="null" /> when they are not
+  ///   known.
+  /// </param>
+  private FileCoverage(string path, LineCoverage[] lines, MethodCoverage[]? methods)
   {
     Path = path;
     _lines = lines;
+    _methods = methods;
     Totals = Count(lines);
+    Detail = Describe(lines, methods);
   }
 
   #endregion
@@ -37,14 +44,23 @@ public sealed class FileCoverage
   /// <summary>Gets the lines, in ascending order, each number appearing once.</summary>
   public IReadOnlyList<LineCoverage> Lines => _lines;
 
-  /// <summary>Gets the counters of all the lines.</summary>
+  /// <summary>
+  ///   Gets the methods, in ascending order, one per line, or <see langword="null" /> when the source of
+  ///   the file does not know them.
+  /// </summary>
+  public IReadOnlyList<MethodCoverage>? Methods => _methods;
+
+  /// <summary>Gets the counters of all the lines, those of Codecov.</summary>
   public CoverageTotals Totals { get; }
+
+  /// <summary>Gets the lines, branches and methods of the file (ADR-016).</summary>
+  public CoverageDetail Detail { get; }
 
   #endregion
 
   #region Methods
 
-  /// <summary>Creates the coverage of a file.</summary>
+  /// <summary>Creates the coverage of a file whose methods are not known.</summary>
   /// <param name="path">The path of the file.</param>
   /// <param name="lines">The lines, in any order; two values of one line are merged.</param>
   /// <returns>The coverage of the file.</returns>
@@ -54,6 +70,24 @@ public sealed class FileCoverage
   /// <exception cref="ArgumentException"><paramref name="path" /> is blank.</exception>
   /// <exception cref="ArgumentOutOfRangeException">A line number is lower than 1.</exception>
   public static FileCoverage Create(string path, IEnumerable<LineCoverage> lines)
+  {
+    return Create(path, lines, null);
+  }
+
+  /// <summary>Creates the coverage of a file.</summary>
+  /// <param name="path">The path of the file.</param>
+  /// <param name="lines">The lines, in any order; two values of one line are merged.</param>
+  /// <param name="methods">
+  ///   The methods, in any order, or <see langword="null" /> when they are not known; two methods of
+  ///   one line make one, which ran as often as the most run of them.
+  /// </param>
+  /// <returns>The coverage of the file.</returns>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="path" /> or <paramref name="lines" /> is <see langword="null" />.
+  /// </exception>
+  /// <exception cref="ArgumentException"><paramref name="path" /> is blank.</exception>
+  /// <exception cref="ArgumentOutOfRangeException">A line number is lower than 1.</exception>
+  public static FileCoverage Create(string path, IEnumerable<LineCoverage> lines, IEnumerable<MethodCoverage>? methods)
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(path);
     ArgumentNullException.ThrowIfNull(lines);
@@ -69,7 +103,7 @@ public sealed class FileCoverage
         : line;
     }
 
-    return new FileCoverage(path, [.. merged.Values.OrderBy(line => line.Line)]);
+    return new FileCoverage(path, [.. merged.Values.OrderBy(line => line.Line)], methods is null ? null : ReportMerger.MergeMethods(methods));
   }
 
   /// <summary>Counts some lines of the file.</summary>
@@ -80,6 +114,44 @@ public sealed class FileCoverage
     var wanted = lines.ToHashSet();
 
     return Count(_lines.Where(line => wanted.Contains(line.Line)));
+  }
+
+  /// <summary>Describes the lines, branches and methods of a file.</summary>
+  /// <param name="lines">The lines.</param>
+  /// <param name="methods">The methods, or <see langword="null" /> when they are not known.</param>
+  /// <returns>The detail.</returns>
+  /// <remarks>
+  ///   A line runs when its hits are not 0, even when it takes none of its branches. A branch count
+  ///   larger than its total is held to the total, and a sum beyond an integer to the largest one:
+  ///   a malformed report never stops its file from being counted.
+  /// </remarks>
+  private static CoverageDetail Describe(LineCoverage[] lines, MethodCoverage[]? methods)
+  {
+    var executed = 0;
+    var coveredBranches = 0L;
+    var totalBranches = 0L;
+
+    foreach (var line in lines)
+    {
+      if (line.Hits > 0)
+      {
+        executed++;
+      }
+
+      if (line.IsBranch)
+      {
+        coveredBranches += Math.Clamp(line.Covered, 0, line.Total);
+        totalBranches += line.Total;
+      }
+    }
+
+    return new CoverageDetail(
+      executed,
+      lines.Length,
+      CoverageDetail.Saturate(coveredBranches),
+      CoverageDetail.Saturate(totalBranches),
+      methods?.Count(static method => method.IsExecuted),
+      methods?.Length);
   }
 
   /// <summary>Counts lines by state and by kind.</summary>

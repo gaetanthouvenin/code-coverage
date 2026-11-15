@@ -64,8 +64,8 @@ public sealed class CoverageReportTests
 
     report.FileTotals.ShouldBe(
       [
-        new FileTotals("a.cs", new CoverageTotals(1, 0, 0, 0, 0)),
-        new FileTotals("b.cs", new CoverageTotals(0, 1, 0, 0, 0)),
+        new FileTotals("a.cs", new CoverageTotals(1, 0, 0, 0, 0), new CoverageDetail(1, 1, 0, 0, null, null)),
+        new FileTotals("b.cs", new CoverageTotals(0, 1, 0, 0, 0), new CoverageDetail(0, 1, 0, 0, null, null)),
       ]);
   }
 
@@ -106,6 +106,42 @@ public sealed class CoverageReportTests
 
     totals.Lines.ShouldBe(0);
     totals.Coverage.ShouldBeNull();
+  }
+
+  [Fact]
+  public void Create_PartWithoutMethods_ShouldMakeMethodsUnknown()
+  {
+    var report = CoverageReport.Create(
+      [
+        FileCoverage.Create("a.cs", [Plain(1, 1)], [new MethodCoverage(1, 1)]),
+        FileCoverage.Create("a.cs", [Plain(2, 0)]),
+        FileCoverage.Create("b.cs", [Plain(1, 0)], [new MethodCoverage(1, 0)]),
+        FileCoverage.Create("b.cs", [Plain(1, 2)], [new MethodCoverage(1, 4)]),
+      ]);
+
+    report.Files[0].Methods.ShouldBeNull();
+    report.Files[1].Methods.ShouldNotBeNull().ShouldHaveSingleItem().Hits.ShouldBe(4);
+  }
+
+  [Fact]
+  public void Totals_WithMethods_ShouldKeepCodecovCounts()
+  {
+    LineCoverage[] lines = [Plain(1, 1), new LineCoverage(2, 0, 0, 0, true, null), new LineCoverage(3, 1, 1, 2, false, null)];
+
+    var without = CoverageReport.Create([FileCoverage.Create("a.cs", lines)]);
+    var with = CoverageReport.Create(
+      [FileCoverage.Create("a.cs", lines, [new MethodCoverage(1, 1), new MethodCoverage(3, 0), new MethodCoverage(7, 2)])]);
+
+    with.Totals.ShouldBe(without.Totals);
+    with.FileTotals.Select(static file => file.Totals).ShouldBe(without.FileTotals.Select(static file => file.Totals));
+  }
+
+  [Fact]
+  public void FileTotals_ShouldCarryTheDetailOfEachFile()
+  {
+    var report = CoverageReport.Create([FileCoverage.Create("a.cs", [Plain(1, 1), Plain(2, 0)], [new MethodCoverage(1, 1)])]);
+
+    report.FileTotals.ShouldHaveSingleItem().Detail.ShouldBe(new CoverageDetail(1, 2, 0, 0, 1, 1));
   }
 
   private static FileCoverage File(string path, long hits)

@@ -38,6 +38,30 @@ public static class ReportMerger
     return merged with { Hits = Math.Max(a.Hits, b.Hits), IsMethod = a.IsMethod || b.IsMethod };
   }
 
+  /// <summary>Merges the methods of a file: two methods of one line make one.</summary>
+  /// <param name="methods">The methods, in any order.</param>
+  /// <returns>
+  ///   The methods in ascending order, one per line, each having run as often as the most run of the
+  ///   methods of its line.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="methods" /> is <see langword="null" />.</exception>
+  public static MethodCoverage[] MergeMethods(IEnumerable<MethodCoverage> methods)
+  {
+    ArgumentNullException.ThrowIfNull(methods);
+
+    var merged = new Dictionary<int, MethodCoverage>();
+
+    foreach (var method in methods)
+    {
+      if (!merged.TryGetValue(method.Line, out var existing) || method.Hits > existing.Hits)
+      {
+        merged[method.Line] = method;
+      }
+    }
+
+    return [.. merged.Values.OrderBy(static method => method.Line)];
+  }
+
   /// <summary>Merges reports, usually the sessions of a commit.</summary>
   /// <param name="reports">The reports, in any order.</param>
   /// <returns>The merged report; it has no file when there is no report.</returns>

@@ -24,7 +24,7 @@ public sealed class CoverageReport
   private CoverageReport(FileCoverage[] files)
   {
     _files = files;
-    _fileTotals = [.. files.Select(file => new FileTotals(file.Path, file.Totals))];
+    _fileTotals = [.. files.Select(static file => new FileTotals(file.Path, file.Totals, file.Detail))];
     _filesByPath = files.ToDictionary(file => file.Path, StringComparer.Ordinal);
     Totals = new CoverageTotals(
       files.Sum(file => file.Totals.Hits),
@@ -54,7 +54,8 @@ public sealed class CoverageReport
   /// <summary>Creates a report.</summary>
   /// <param name="files">
   ///   The files, in any order. Those of one path are merged, and those without any line are
-  ///   dropped, as in Codecov. Paths are compared exactly.
+  ///   dropped, as in Codecov. Paths are compared exactly. The methods of a path are not known when
+  ///   one of its files does not know them.
   /// </param>
   /// <returns>The report.</returns>
   /// <exception cref="ArgumentNullException">
@@ -69,7 +70,7 @@ public sealed class CoverageReport
       .. files
         .Where(file => file.Lines.Count > 0)
         .GroupBy(file => file.Path, StringComparer.Ordinal)
-        .Select(group => FileCoverage.Create(group.Key, group.SelectMany(file => file.Lines)))
+        .Select(static group => FileCoverage.Create(group.Key, group.SelectMany(static file => file.Lines), MethodsOf(group)))
         .OrderBy(file => file.Path, StringComparer.Ordinal),
     ];
 
@@ -89,6 +90,26 @@ public sealed class CoverageReport
     ArgumentNullException.ThrowIfNull(lines);
 
     return _filesByPath.TryGetValue(path, out var file) ? file.TotalsOf(lines) : default;
+  }
+
+  /// <summary>Gathers the methods of the files of one path.</summary>
+  /// <param name="files">The files of the path.</param>
+  /// <returns>Their methods, or <see langword="null" /> when one of them does not know its methods.</returns>
+  private static IEnumerable<MethodCoverage>? MethodsOf(IEnumerable<FileCoverage> files)
+  {
+    List<MethodCoverage> methods = [];
+
+    foreach (var file in files)
+    {
+      if (file.Methods is null)
+      {
+        return null;
+      }
+
+      methods.AddRange(file.Methods);
+    }
+
+    return methods;
   }
 
   #endregion

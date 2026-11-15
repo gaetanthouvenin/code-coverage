@@ -153,6 +153,26 @@ public sealed class LineShifterTests
     Should.Throw<ArgumentNullException>(() => LineShifter.Shift(Diff("@@ -1 +1 @@", "-a", "+b"), null!));
   }
 
+  [Fact]
+  public void ShiftMethods_MethodOnModifiedLine_ShouldDropIt()
+  {
+    var diff = Diff("@@ -1,3 +1,3 @@", " a", "-b", "+B", " c");
+
+    LineShifter.ShiftMethods(diff, [new MethodCoverage(3, 1), new MethodCoverage(2, 5), new MethodCoverage(1, 0)])
+               .Select(static method => (method.Line, method.Hits))
+               .ShouldBe([(1, 0L), (3, 1L)]);
+  }
+
+  [Fact]
+  public void ShiftMethods_AfterInsertions_ShouldMoveThemWithTheirHits()
+  {
+    var diff = Diff("@@ -1,2 +1,4 @@", " a", "+b", "+c", " d");
+
+    LineShifter.ShiftMethods(diff, [new MethodCoverage(2, 7)])
+               .ShouldHaveSingleItem()
+               .ShouldBe(new MethodCoverage(4, 7));
+  }
+
   private static FileDiff Diff(params string[] lines)
   {
     return FileDiff.Create("a.cs", null, FileDiffStatus.Modified, string.Join('\n', lines));

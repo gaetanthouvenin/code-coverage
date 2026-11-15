@@ -172,7 +172,10 @@ public static class CarryforwardBuilder
 
     if (change is { Status: FileDiffStatus.Modified or FileDiffStatus.Renamed, HasPatch: true })
     {
-      return FileCoverage.Create(change.Path, LineShifter.Shift(change, file.Lines));
+      return FileCoverage.Create(
+        change.Path,
+        LineShifter.Shift(change, file.Lines),
+        file.Methods is null ? null : LineShifter.ShiftMethods(change, file.Methods));
     }
 
     var isFollowable = change is null or { Status: FileDiffStatus.Modified or FileDiffStatus.Renamed };
@@ -183,7 +186,7 @@ public static class CarryforwardBuilder
         && commitBlobs.TryGetValue(newPath, out var commitBlob)
         && ancestorBlob == commitBlob)
     {
-      return string.Equals(newPath, file.Path, StringComparison.Ordinal) ? file : FileCoverage.Create(newPath, file.Lines);
+      return string.Equals(newPath, file.Path, StringComparison.Ordinal) ? file : FileCoverage.Create(newPath, file.Lines, file.Methods);
     }
 
     dropped.Add(file.Path);
