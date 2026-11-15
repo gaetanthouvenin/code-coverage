@@ -19,3 +19,4 @@ Chaque ADR suit le format **Contexte / Décision / Conséquences** et porte un s
 | [ADR-013](0013-organization-isolation.md) | Isolation entre organisations sur une instance partagée | accepté |
 | [ADR-014](0014-multi-forge.md) | Préparation à plusieurs forges | accepté |
 | [ADR-015](0015-console-languages.md) | Langues de la console et ce qui reste en anglais | proposé |
+| [ADR-016](0016-detailed-coverage.md) | Couverture détaillée des lignes, branches et méthodes | proposé (M5.08) |

@@ -99,6 +99,7 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 | Vue d’ensemble | `/{forge}/{owner}/{repo}` | M3.21, M3.22, M3.23 | lecture du dépôt | Nominal, Sans rapport, Chargement, Introuvable ou inaccessible |
 | Commits | `/{forge}/{owner}/{repo}/commits` | M3.24 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
 | Détail d’un commit | `/{forge}/{owner}/{repo}/commit/{sha}` | M3.25, M3.26, M3.27 | lecture du dépôt | Nominal, Erreur de configuration, Compacté, Chargement, Introuvable ou inaccessible |
+| Rapport de couverture détaillé | `/{forge}/{owner}/{repo}/commit/{sha}/report` | M5.08, M5.15 | lecture du dépôt | Nominal, Traité avant le détail, Compacté, Chargement, Introuvable ou inaccessible |
 | Source annotée | `/{forge}/{owner}/{repo}/commit/{sha}/blob/{**path}` | M3.29 | lecture du dépôt | Nominal, Depuis une PR, Source indisponible, Compacté, Chargement, Introuvable ou inaccessible |
 | Pull requests | `/{forge}/{owner}/{repo}/pulls` | M3.30 | lecture du dépôt | Nominal, Vide, Chargement, Introuvable ou inaccessible |
 | Comparaison de pull request | `/{forge}/{owner}/{repo}/pull/{n}` | M3.31, M3.32 | lecture du dépôt | Nominal, Diff incomplet, Base manquante, Comparaison en attente, Chargement, Introuvable ou inaccessible |
@@ -164,6 +165,7 @@ Les routes de `/orgs/{forge}/{org}` et `/admin/organizations` suivent `docs/PLAN
 | M3.41a | Organisations | `#admin-organizations` |
 | M3.43 | Premier démarrage | `#setup` |
 | M4.02n, M4.02o | Documentation | `#docs` |
+| M5.08, M5.15 | Rapport de couverture détaillé | `#commitreport` |
 
 M3.28 et M3.42 sont des micro-features sans écran (backend de la source annotée et de `/setup`), et M3.43a ne contient que des tests.
 
@@ -270,6 +272,20 @@ Sans `{nom}.{langue}.md` pour la langue de la console, la page anglaise s'affich
 ### Formats
 
 Nombres, pourcentages et dates suivent la culture : `74,2 %` en français et en espagnol, `74,2%` en italien, `74.2%` en anglais. Les attributs numériques des SVG restent en culture invariante (M4.02h).
+
+## Rapport de couverture détaillé
+
+Maquette **M5.08**, à valider avant M5.15 ; décision et stockage dans [ADR-016](adr/0016-detailed-coverage.md).
+
+- **Entrée** : bouton `pill` « Rapport détaillé » (icône `chart`) dans les outils du panneau Fichiers du détail d'un commit, avant la recherche ; l'arbre Codecov du panneau ne change pas.
+- **Tête** : fil d'Ariane jusqu'au commit, liste des flags dans les actions (même vue par flag que le panneau Fichiers, ADR-008).
+- **Quatre `CcStatCard`** : Couverture (Codecov), en accent, toujours le chiffre de tête ; Lignes (exécutées au moins une fois, partielles comprises) ; Branches ; Méthodes. Chaque carte donne couvert et couvrable dans son pied.
+- **Tableau plat** (pas d'arbre, comme ReportGenerator), toutes les lignes sans pagination : Fichier, Codecov, puis trois groupes Lignes, Branches et Méthodes de deux colonnes (« Couv. / total » et `%` avec une `CcCoverageBar` couvert/non couvert). Une ligne Total de tous les fichiers de la vue (flag compris) reste en tête, sans tri ni filtre.
+- **Tri** : un clic sur un en-tête (Fichier, Codecov, chaque `%`) trie, un second inverse ; `aria-sort` sur l'en-tête. Tri par défaut : Codecov croissant. Les valeurs `—` restent en fin de liste dans les deux sens.
+- **Filtre** : recherche sur le chemin et liste « Afficher » : tous les fichiers, sous l'objectif du statut projet (80 % dans la maquette), avec des branches non couvertes, avec des méthodes non exécutées. Sans résultat : état vide « Aucun fichier ne correspond ».
+- **`—`** : rien à couvrir, ou le format ne donne pas la donnée (branches d'un fichier `.js` en LCOV, avec une infobulle) ; jamais 0 pour une donnée inconnue.
+- **Traité avant le détail** : index `CFI1`, bandeau d'information avec « Retraiter » pour un admin du dépôt, `—` dans les cartes et les colonnes de détail ; seul Codecov est rempli.
+- **Mobile (≤ 640 px)** : le tableau devient une liste de cartes (chemin, puis Codecov, Lignes, Branches, Méthodes, chacun avec sa barre) ; une liste « Trier » remplace les en-têtes.
 
 ## Libellés clés
 
