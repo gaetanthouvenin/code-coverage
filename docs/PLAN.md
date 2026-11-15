@@ -3091,7 +3091,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02n, M4.02i, M4.02k
 
 #### M4.02p — Logger Serilog de démarrage gelé deux fois dans les tests d'hôte
-- **Issue :** à créer
+- **Issue :** [#403](https://github.com/gaetanthouvenin/code-coverage/issues/403)
 - **Objectif :** supprimer l'échec intermittent `System.InvalidOperationException: The logger is already frozen.` des tests d'hôte. Constaté sur la CI : develop (run 43687214281, commit 8fa7bf3, `CrossOrganizationRouteTests.GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`) et les PR #400 et #401 (runs 43690256399 et 43690260089, `UploaderControllerTests.Get_UnknownRid_ShouldReturn404`) ; un seul test d'`Api.Tests` échoue à chaque fois, la pile part de `ReloadableLogger.Freeze()` sous `AddSerilog`, et les mêmes commits passent en local. Cause prouvée par un test de reproduction : `Program` met son logger de démarrage (`ReloadableLogger`) dans le statique `Log.Logger`, puis `UseSerilog` appelle `AddSerilog`, qui lit `Log.Logger` à ce moment-là et le recharge puis le gèle au `Build()`. Deux hôtes `WebApplicationFactory` construits en parallèle dans le même processus (collections de tests en parallèle) : le second remplace `Log.Logger` entre l'affectation et `UseSerilog` du premier, les deux capturent le même logger, et le second gel lève l'exception.
 - **Couches :** Api, Web.
 - **Fichiers :**
