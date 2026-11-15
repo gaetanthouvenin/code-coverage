@@ -18,7 +18,7 @@ La version 4 ajoute la forge à `/admin/organizations` et retire les logins rés
 
 La documentation dans l'application (**M4.02n**, construite par M4.02o) ajoute l'écran `#docs`, l'entrée « Documentation » de la barre du haut et les boutons d'aide contextuelle ; elle est **en attente de validation** par le propriétaire (section « Documentation dans l'application »).
 
-Le choix de la langue (**M4.02q**, construit par M4.02t et M4.02v) ajoute le sélecteur de langue au menu utilisateur, au menu mobile, à la barre publique, à la connexion et à `/setup`, et l'état « Page pas encore traduite » de `#docs` ; il est **en attente de validation** par le propriétaire (section « Langues de la console »).
+Le choix de la langue (**M4.02q**, construit par M4.02t et M4.02v) ajoute le sélecteur de langue au menu utilisateur, au menu mobile, à la barre publique, à la connexion et à `/setup`, et l'état « Page pas encore traduite » de `#docs` ; il est **validé** par le propriétaire le 2026-11-15 (section « Langues de la console »).
 
 Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son état, le rôle, la langue, le thème et la largeur ; l'ancre `#{écran}--{état}` désigne un état précis, par exemple `#admin-organizations--dlg-suspend`.
 
@@ -239,7 +239,7 @@ Décision du propriétaire du 2026-11-15 (option A) :
 
 ## Langues de la console
 
-Maquette **M4.02q**, à valider avant M4.02t et M4.02v. La décision et ce qui reste en anglais sont dans l'ADR de M4.02r.
+Maquette **M4.02q**, validée par le propriétaire le 2026-11-15. La décision et ce qui reste en anglais sont dans l'ADR de M4.02r.
 
 ### Langues
 
