@@ -115,14 +115,15 @@ jobs:
             --results-directory TestResults
 
       # The coverage goes to the CodeCoverage instance named by the repository variable COVERAGE_URL (the
-      # address of its Api), with the action of this commit and a published uploader; without the
-      # variable, nothing is sent. A pull request from a fork gets no OIDC token: it is skipped. The step
-      # never fails the build (fail-on-error stays false).
+      # address of its Api), with the published action and uploader of a release, as any other repository
+      # (a local ./action has no action repository to download the uploader from); without the variable,
+      # nothing is sent. A pull request from a fork gets no OIDC token: it is skipped. The step never
+      # fails the build (fail-on-error stays false).
       - name: Upload coverage
         if: >-
           !cancelled() && vars.COVERAGE_URL != ''
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: ./action
+        uses: gaetanthouvenin/code-coverage/action@v0.1.0-beta.3
         with:
           version: 0.1.0-beta.3
           url: ${{ vars.COVERAGE_URL }}
