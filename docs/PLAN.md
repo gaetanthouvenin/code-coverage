@@ -474,6 +474,7 @@ graph TD
   M4_02v --> M4_02x["M4.02x Documentation en italien"]
   M4_02v --> M4_02y["M4.02y Documentation en espagnol"]
   M4_02g --> M4_02z["M4.02z Version de l'uploader refusée par le serveur"]
+  M4_02aa["M4.02aa Snippet du badge hors de sa carte"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -3260,6 +3261,17 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - `Api.Tests` : un upload dont `uploaderVersion` vaut la chaîne de 72 caractères ci-dessus est accepté (202) et l'upload enregistré porte `0.1.0-beta.2` ; une version de plus de 64 caractères sans `+` est toujours refusée (400, `Upload.InvalidMetadata`).
 - **Acceptation :** après le déploiement, le job Upload coverage de Capto, toujours en `0.1.0-beta.2`, envoie son rapport (propriétaire) ; un tag `v0.1.0-beta.3` publie ensuite l'uploader qui envoie sa version courte et détaille les refus.
 - **Dépend de :** M4.02g
+
+#### M4.02aa — Snippet du badge hors de sa carte
+- **Issue :** à créer
+- **Objectif :** que la carte « Badge » de la vue d'ensemble d'un dépôt garde son snippet dans sa largeur. Constaté le 2026-11-15 en production sur Capto (`/github/gaetanthouvenin/Capto`, fenêtre de 1 240 px) : les onglets Markdown / HTML, le bloc de code et le bouton Copier débordent à droite de la carte, et toute la page défile horizontalement (`scrollWidth` 2 657 px). Cause prouvée dans le navigateur : `.cc-stack` est une grille sans `grid-template-columns` ; sa colonne implicite (`auto`) prend la largeur minimale de contenu de ses enfants, et `.cc-copy` (largeur minimale `auto`) y apporte la ligne entière du snippet d'un dépôt privé, qui porte le jeton de badge (1 808 px pour une carte de 379 px). Le `overflow-x: auto` de `.cc-code` ne joue donc jamais. Ajouter `grid-template-columns: minmax(0, 1fr)` à `.cc-stack` ramène la page à 1 240 px et le bloc de code à 323 px, qui défile à l'intérieur (vérifié en injectant la règle). La maquette a la même règle `.cc-stack`.
+- **Couches :** Web, maquette.
+- **Fichiers :**
+  - **`Web/wwwroot/css/components.css`** : `.cc-stack` reçoit `grid-template-columns: minmax(0, 1fr)`, pour toutes les piles (une seule colonne, qui ne dépasse plus son conteneur).
+  - **`docs/design/ui-mockup.html`** : la même règle sur `.cc-stack`, et le snippet de la carte « Badge » de la maquette porte un jeton aussi long qu'en production, pour que le cas reste visible.
+- **Tests :** `Web.Tests` (`UiStylesheetTests`) : la règle `.cc-stack` de `components.css` et de la maquette déclare `grid-template-columns: minmax(0, 1fr)`. **Propriétaire** : vue d'ensemble de Capto en largeur desktop et mobile, carte « Badge » en Markdown et en HTML, sans défilement horizontal de la page.
+- **Acceptation :** aucune page de la console ne défile horizontalement à cause d'un bloc de code ; un snippet long défile dans son propre bloc.
+- **Dépend de :** —
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
