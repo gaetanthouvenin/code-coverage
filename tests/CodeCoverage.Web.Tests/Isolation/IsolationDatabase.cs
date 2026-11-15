@@ -10,7 +10,7 @@ using Testcontainers.PostgreSql;
 
 namespace CodeCoverage.Web.Tests.Isolation;
 
-// One PostgreSQL 17 container for the isolation suite, started on first use, holding the one database the host
+// One PostgreSQL 18 container for the isolation suite, started on first use, holding the one database the host
 // migrates. Without Docker, the tests are skipped (with the reason) instead of failing the run.
 public sealed class IsolationDatabase : IAsyncLifetime
 {
@@ -62,7 +62,7 @@ public sealed class IsolationDatabase : IAsyncLifetime
 
   private async Task<PostgreSqlContainer> StartAsync(CancellationToken cancellationToken)
   {
-    var container = new PostgreSqlBuilder("postgres:17-alpine").WithDatabase("codecoverage").Build();
+    var container = new PostgreSqlBuilder("postgres:18-alpine").WithDatabase("codecoverage").Build();
 
     try
     {

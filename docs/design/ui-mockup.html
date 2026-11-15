@@ -2742,7 +2742,7 @@ const c_=s=>`<code>${s}</code>`;
 const DOC_SECTIONS=[
   ['Getting started',[
     {id:'getting-started',title:'First-run setup',src:'docs/operations.md',lead:'Start an instance on one Docker host, open the setup page, create the GitHub App and admit the first organization.',
-     body:()=>md.p(`An instance is two hosts behind TLS: the Api (REST API, job worker, migrations) and the Web console. ${c_('deploy/vm')} runs both, with PostgreSQL 17, Caddy and a backup container, on one Docker host.`)
+     body:()=>md.p(`An instance is two hosts behind TLS: the Api (REST API, job worker, migrations) and the Web console. ${c_('deploy/vm')} runs both, with PostgreSQL 18, Caddy and a backup container, on one Docker host.`)
       +md.h2('before-you-start','Before you start')
       +md.ul([`A VM with Docker (Compose 2.24 or later) and ports 80 and 443 open to the Internet.`,`Two DNS names pointing to it: one for the Api, reached by GitHub, the CI agents and the badge proxies; one for the Web console.`,`A Data Protection certificate (PKCS#12). ${c_('scripts/new-dp-certificate.ps1')} makes a self-signed one.`])
       +md.callout('warning',md.p(`Back up the Data Protection certificate apart from the database. Without it the stored secrets (GitHub App key, webhook secret, OAuth secret, protected tokens) are unreadable and must be typed again; the coverage data survives.`))

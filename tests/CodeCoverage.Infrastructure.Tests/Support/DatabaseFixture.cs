@@ -21,14 +21,14 @@ using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Tests.Support;
 
-// One PostgreSQL 17 and one SQL Server 2022 container for the whole collection, each started on
+// One PostgreSQL 18 and one SQL Server 2022 container for the whole collection, each started on
 // first use; every test gets its own empty database on them. Without Docker, the tests that need a
 // server are skipped (with the reason) instead of failing the run.
 public sealed class DatabaseFixture : IAsyncLifetime
 {
   #region Fields
 
-  private const string PostgreSqlImage = "postgres:17-alpine";
+  private const string PostgreSqlImage = "postgres:18-alpine";
 
   private const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-latest";
 

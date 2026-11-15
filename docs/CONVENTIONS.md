@@ -1287,7 +1287,7 @@ chaque RID de `UploaderFileCatalog` dans `/app/uploader`, avec sa somme `.sha256
 
 `docker-compose.yml` : `name: code-coverage` ; ports publiés sur la boucle locale seulement
 (`"127.0.0.1:${API_PORT:-8081}:8080"`, `"127.0.0.1:${WEB_PORT:-8080}:8080"`, reverse proxy TLS devant, voir `Caddyfile.example`) ;
-`postgres:17-alpine` avec healthcheck `pg_isready`, `depends_on: condition: service_healthy`,
+`postgres:18-alpine` avec healthcheck `pg_isready`, `depends_on: condition: service_healthy`,
 `restart: unless-stopped`. Variante SQL Server par surcouche `docker-compose.sqlserver.yml`.
 
 ---

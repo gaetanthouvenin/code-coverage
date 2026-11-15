@@ -108,6 +108,8 @@ function Get-DefaultRules {
     (New-Rule docker 'compose .* ps -q caddy$'),
     (New-Rule docker '^docker inspect .* id-' 'running healthy'),
     (New-Rule docker '^docker image inspect ' $revision),
+    # The PG_VERSION files of DATA_DIR/db, read through the db image: none, an empty data directory.
+    (New-Rule docker '^docker run --rm --entrypoint /bin/sh -v .*:/data:ro '),
     (New-Rule docker 'compose .* run --rm -e BACKUP_ONCE=true backup$' "backup: /backups/codecoverage-20261114T000000Z.dump written (10 bytes)"),
     (New-Rule docker '^docker image ls .*-api$' "1.2.3`n1.2.2`n1.2.1`n<none>"),
     (New-Rule docker '^docker image ls .*-web$' "1.2.3`n1.2.2`n1.2.1"),
@@ -135,6 +137,8 @@ function Invoke-Case {
     # default, the path separator of the platform.
     [ValidateSet('Relative', 'Absolute', 'Missing')]
     [string] $ComposeFile = 'Relative',
+    # Files of DATA_DIR/db, relative path => content: the PG_VERSION a dry run reads directly.
+    [hashtable] $DbFiles = @{},
     # The health timeout of the deployment: short for the timeout case, long where a slow sequence of
     # states must end healthy (each fake docker call starts a pwsh, slower on a CI runner).
     [int] $HealthTimeoutSeconds = 2,
@@ -164,6 +168,12 @@ function Invoke-Case {
   if (-not $keep) {
     if (-not $NoDataDirectories) {
       foreach ($name in 'db', 'backups', 'api', 'web') { New-Item -ItemType Directory -Path (Join-Path $data $name) -Force | Out-Null }
+    }
+
+    foreach ($file in $DbFiles.Keys) {
+      $path = Join-Path (Join-Path $data 'db') $file
+      New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
+      [System.IO.File]::WriteAllText($path, "$($DbFiles[$file])`n")
     }
 
     # The files of a previous deployment: identical to deploy/vm unless the case changes them.
@@ -317,6 +327,26 @@ try {
   $r = Invoke-Case -Name 'compose file missing' -ComposeFile Missing
   Assert-True 'a COMPOSE_FILE naming a missing file fails like compose' ($r.ExitCode -ne 0 -and $r.Output -match 'docker-compose\.missing\.yml: no such file or directory') $r.Output
   Assert-True 'a failed compose command leaves .env' ((Get-Tag $r.Directory) -eq 'TAG=1.2.2')
+
+  Write-Host 'PostgreSQL major version of DATA_DIR/db'
+  $r = Invoke-Case -Name 'pg upgrade order'
+  $pull = Find-Call $r.Calls 'compose .* pull api web'
+  $guard = Find-Call $r.Calls '^docker run --rm --entrypoint /bin/sh -v .*[\\/]data[\\/]db:/data:ro postgres:18-alpine@sha256:[0-9a-f]{64} -c '
+  Assert-True 'the version of the data is read through the db image before anything changes' ($guard -ge 0 -and $guard -lt $pull) ($r.Calls -join "`n")
+  Assert-True 'an empty data directory is accepted' ($r.ExitCode -eq 0 -and $r.Output -match 'no database yet') $r.Output
+
+  $r = Invoke-Case -Name 'pg 18 layout' -Rules @(New-Rule docker '^docker run .*:/data:ro ' '18/docker/PG_VERSION 18')
+  Assert-True 'a PostgreSQL 18 database in 18/docker is accepted' ($r.ExitCode -eq 0 -and $r.Output -match 'holds a PostgreSQL 18 database') $r.Output
+
+  foreach ($found in 'PG_VERSION 17', '17/docker/PG_VERSION 17', 'PG_VERSION 18') {
+    $r = Invoke-Case -Name "pg refused $found" -Rules @(New-Rule docker '^docker run .*:/data:ro ' $found)
+    Assert-True "$found is refused before anything changes" ($r.ExitCode -ne 0 -and $r.Output -match 'Migrate-PostgreSqlMajor\.ps1' -and $r.Output -match 'PostgreSQL major upgrade' -and (Get-Tag $r.Directory) -eq 'TAG=1.2.2' -and (Find-Call $r.Calls ' pull ') -lt 0 -and (Find-Call $r.Calls '^docker network inspect') -lt 0 -and -not (Test-Path -LiteralPath (Join-Path $r.Directory 'docker-compose.prod.yml'))) $r.Output
+  }
+
+  $r = Invoke-Case -Name 'pg dry run 17' -Arguments @() -DbFiles @{ 'PG_VERSION' = '17' }
+  Assert-True 'a dry run reads PG_VERSION directly and refuses the layout up to 17' ($r.ExitCode -ne 0 -and $r.Calls.Count -eq 0 -and $r.Output -match 'layout up to 17') $r.Output
+  $r = Invoke-Case -Name 'pg dry run 18' -Arguments @() -DbFiles @{ '18/docker/PG_VERSION' = '18' }
+  Assert-True 'a dry run accepts 18/docker/PG_VERSION' ($r.ExitCode -eq 0 -and $r.Calls.Count -eq 0) $r.Output
 
   Write-Host 'Dry run'
   $r = Invoke-Case -Name 'dry run' -Arguments @()

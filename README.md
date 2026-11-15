@@ -16,7 +16,7 @@ serves SVG badges and shows the coverage history. A repository that works with C
 | `CodeCoverage.Api` | REST API `/api/v1`, uploads, GitHub webhooks, badges, uploader downloads, Swagger and Scalar; hosts the job worker and applies the migrations |
 | `CodeCoverage.Web` | Blazor Server console: GitHub sign-in, repositories, commits, pull requests, annotated source, administration and settings |
 | `CodeCoverage.Uploader` | `coverage-upload`, the CLI that detects the CI context and sends the reports (`dotnet tool` and standalone binaries) |
-| Database | PostgreSQL 17 (default) or SQL Server 2022 / Azure SQL; it holds the whole state |
+| Database | PostgreSQL 18 (default) or SQL Server 2022 / Azure SQL; it holds the whole state |
 
 The Web and the Api are published on two host names (for example `coverage.example.com` and
 `coverage-api.example.com`).
