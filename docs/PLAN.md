@@ -3082,7 +3082,12 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Rendu** : Markdown converti en HTML côté serveur, avec un HTML brut neutralisé, des ancres de titres, des liens entre documents réécrits vers `/docs/…` et les autres liens du dépôt vers GitHub à la version déployée.
   - **Pages** : `Web/Components/Pages/Docs.razor(.cs)`, accessibles sans connexion et pendant le premier démarrage (chemin ouvert de `SetupRedirectMiddleware`) ; entrée de navigation ; boutons d'aide contextuelle des écrans de la maquette.
   - **Langue** : documents en anglais. Une traduction `*.fr.md` à côté d'un document est servie en culture française quand elle existe (traductions dans une micro-feature suivante).
-  - **Paquet** : une bibliothèque Markdown (par exemple Markdig) ajoutée à `Directory.Packages.props`, si la maquette n'impose pas mieux.
+  - **Paquet** : une bibliothèque Markdown (par exemple Markdig) ajoutée à `Directory.Packages.props`, si la maquette n'impose pas mieux. Le dépôt n'a pas de gestion centrale des paquets : Markdig est référencé dans `CodeCoverage.Web.csproj`, comme les autres paquets.
+  - **Écarts avec la maquette** (décision du propriétaire du 2026-11-15, option A) :
+    - une page par document de la liste blanche, avec ses vrais titres, au lieu des treize pages de la maquette taillées dans ces documents avec des titres inventés. Les adresses sont `operations`, `organization-onboarding`, `github-checklist`, `github-actions` (`action/README.md`), `deployment-azure` et `migration-from-codecov`, rangées sous les rubriques de la maquette (la rubrique Paramètres, sans document, n'apparaît pas) ;
+    - les aides visent les titres réels : `/setup` → `operations#first-deployment`, `/admin/organizations` → `organization-onboarding#2-admit-it`, paramètres de l'organisation → `organization-onboarding#3-configure-it`, jetons d'upload → `migration-from-codecov#2-tokens`, dépôt sans rapport → `github-actions` ;
+    - pas de « ? » sur `/admin/settings` tant qu'aucun document ne décrit les paramètres de l'instance ; pas de page du template Azure Pipelines (`pipelines/templates/README.md` n'existe pas, `migration-from-codecov#azure-pipelines` le couvre). Ces deux documents restent à écrire ;
+    - signé ou non, `/docs` garde la barre du haut de la console ; non connecté, elle ne montre que la marque, Documentation, le thème et Se connecter.
 - **Tests :**
   - **Web.Tests** : chaque document de la liste blanche est servi ; un document hors liste répond 404 ; `/docs` répond sans connexion et avant la fin du setup ; un HTML brut du Markdown est neutralisé ; les liens entre documents sont réécrits.
   - **bUnit** : navigation et liens d'aide contextuelle.

@@ -120,6 +120,21 @@
   text-decoration: none;
 }
 
+.cc-signin__docs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--cc-fg-2);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.cc-signin__docs .cc-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .cc-signin__hint {
   color: var(--cc-fg-3);
   font-size: 12.5px;

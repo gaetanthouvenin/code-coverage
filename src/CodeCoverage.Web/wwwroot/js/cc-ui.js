@@ -111,6 +111,34 @@
     }
   });
 
+  // The code blocks of the documentation are markup rendered from Markdown, not components: their « Copy » button
+  // (data-cc-copy) copies the code of its block and announces the result in the live region of the block.
+  document.addEventListener("click", function (e) {
+    var button = e.target instanceof Element ? e.target.closest("[data-cc-copy]") : null;
+    var block = button ? button.closest(".cc-copy") : null;
+    var code = block ? block.querySelector("pre") : null;
+
+    if (!code) {
+      return;
+    }
+
+    var status = block.querySelector("[role='status']");
+    var announce = function (text) {
+      if (status) {
+        status.textContent = text || "";
+      }
+    };
+
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      announce(button.getAttribute("data-cc-copy-failed"));
+      return;
+    }
+
+    navigator.clipboard.writeText(code.textContent).then(
+      function () { announce(button.getAttribute("data-cc-copied")); },
+      function () { announce(button.getAttribute("data-cc-copy-failed")); });
+  });
+
   var stored = read();
 
   if (stored === "light" || stored === "dark") {

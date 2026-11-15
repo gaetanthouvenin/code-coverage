@@ -41,6 +41,13 @@ public partial class CcHeader
   [Parameter]
   public RenderFragment? SubtitleContent { get; set; }
 
+  /// <summary>
+  ///   Gets or sets the address of the documentation that explains the page, e.g. <c>docs/operations#first-deployment</c>:
+  ///   a discreet « ? » after the title opens it. <see langword="null" /> shows no help.
+  /// </summary>
+  [Parameter]
+  public string? HelpHref { get; set; }
+
   /// <summary>Gets or sets the steps of the breadcrumb, the current page last.</summary>
   [Parameter]
   public IReadOnlyList<CcBreadcrumbItem>? Breadcrumb { get; set; }
@@ -70,6 +77,9 @@ public partial class CcHeader
 
   /// <summary>Gets the CSS classes of the header.</summary>
   private string CssClass => "cc-header" + CcCss.Extra(Class);
+
+  /// <summary>Gets the accessible name of the help link, which names the page.</summary>
+  private string HelpLabel => L["HelpOnPage", Title];
 
   #endregion
 }

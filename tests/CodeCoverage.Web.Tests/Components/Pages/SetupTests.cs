@@ -78,6 +78,15 @@ public sealed class SetupTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetSetupStateQuery>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // M4.02o: the « ? » of the wizard opens the first deployment, which the documentation serves before the setup too.
+  [Fact]
+  public void Render_ShouldLinkTheDocumentationOfTheFirstDeployment()
+  {
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("h1 a.cc-help").GetAttribute("href").ShouldBe("docs/operations#first-deployment");
+  }
+
   // A threat case: a token the instance no longer knows is refused, and the cookie that held it is dropped.
   [Fact]
   public void Render_RefusedToken_ShouldAskForItAgainAndDropTheCookie()

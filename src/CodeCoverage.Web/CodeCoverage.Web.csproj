@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="AspNet.Security.OAuth.GitHub" Version="10.*" />
+    <PackageReference Include="Markdig" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.*" />
@@ -24,6 +25,27 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.*" />
   </ItemGroup>
+
+  <!-- The documentation served by /docs (M4.02o): the whitelist of published documents, embedded at build. The slug is
+       the address of the page; it must match DocumentationCatalog. Nothing else of docs/ is ever embedded. -->
+  <ItemGroup>
+    <PublishedDocument Include="..\..\docs\operations.md" Slug="operations" />
+    <PublishedDocument Include="..\..\docs\operations\organization-onboarding.md" Slug="organization-onboarding" />
+    <PublishedDocument Include="..\..\docs\operations\github-verification-checklist.md" Slug="github-checklist" />
+    <PublishedDocument Include="..\..\action\README.md" Slug="github-actions" />
+    <PublishedDocument Include="..\..\docs\deployment-azure.md" Slug="deployment-azure" />
+    <PublishedDocument Include="..\..\docs\migration-from-codecov.md" Slug="migration-from-codecov" />
+  </ItemGroup>
+
+  <!-- Each document, and its French translation (name.fr.md next to it) when it exists. WithCulture=false keeps a
+       .fr.md out of the satellite assemblies: the documentation picks the translation itself. -->
+  <Target Name="EmbedPublishedDocuments" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <_PublishedTranslation Include="@(PublishedDocument->'%(RootDir)%(Directory)%(Filename).fr%(Extension)')" />
+      <EmbeddedResource Include="@(PublishedDocument)" LogicalName="CodeCoverage.Web.Docs.%(PublishedDocument.Slug).md" WithCulture="false" Type="Non-Resx" />
+      <EmbeddedResource Include="@(_PublishedTranslation)" Condition="Exists('%(FullPath)')" LogicalName="CodeCoverage.Web.Docs.%(_PublishedTranslation.Slug).fr.md" WithCulture="false" Type="Non-Resx" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\CodeCoverage.Application\CodeCoverage.Application.csproj" />

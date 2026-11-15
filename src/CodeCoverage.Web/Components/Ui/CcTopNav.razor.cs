@@ -65,6 +65,10 @@ public partial class CcTopNav : IDisposable
   [Parameter]
   public RenderFragment? Actions { get; set; }
 
+  /// <summary>Gets or sets the last lines of the mobile menu, under its entries (the documentation…).</summary>
+  [Parameter]
+  public RenderFragment? MobileEnd { get; set; }
+
   /// <summary>Gets or sets the user menu shown at the right end of the bar.</summary>
   [Parameter]
   public RenderFragment? UserMenu { get; set; }

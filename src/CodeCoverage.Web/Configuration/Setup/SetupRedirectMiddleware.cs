@@ -35,8 +35,11 @@ internal sealed class SetupRedirectMiddleware(RequestDelegate next, IConfigurati
   /// <summary>The name of the query parameter that carries the token on the first visit.</summary>
   private const string TokenParameter = "token";
 
-  /// <summary>The addresses that work before the setup: the wizard, the probes, the error pages and the framework.</summary>
-  private static readonly string[] OpenPaths = [SetupPath, "/health", "/error", "/not-found", "/_framework", "/_blazor", "/_content"];
+  /// <summary>
+  ///   The addresses that work before the setup: the wizard, the documentation that explains it, the probes, the error
+  ///   pages and the framework.
+  /// </summary>
+  private static readonly string[] OpenPaths = [SetupPath, "/docs", "/health", "/error", "/not-found", "/_framework", "/_blazor", "/_content"];
 
   /// <summary>The settings the setup fills: while one is missing, a token is kept available.</summary>
   private static readonly string[] SetupKeys =

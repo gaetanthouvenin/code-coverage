@@ -579,4 +579,25 @@
   <data name="Compare_FullShaExpected" xml:space="preserve"><value>Expected a full SHA of 40 hexadecimal characters.</value></data>
   <data name="Compare_NotComputed" xml:space="preserve"><value>Not computed</value></data>
   <data name="Compare_NotComputedText" xml:space="preserve"><value>No comparison is stored for these two commits. A comparison is computed only when a notification compares them, never on request.</value></data>
+  <data name="Nav_Docs" xml:space="preserve"><value>Documentation</value></data>
+  <data name="Docs_Read" xml:space="preserve"><value>Read the documentation</value></data>
+  <data name="Docs_AllPages" xml:space="preserve"><value>All pages</value></data>
+  <data name="Docs_Sections" xml:space="preserve"><value>Documentation sections</value></data>
+  <data name="Docs_DeployedVersion" xml:space="preserve"><value>Documentation of the deployed version</value></data>
+  <data name="Docs_OnThisPage" xml:space="preserve"><value>On this page</value></data>
+  <data name="Docs_Previous" xml:space="preserve"><value>Previous</value></data>
+  <data name="Docs_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Docs_Pager" xml:space="preserve"><value>Previous and next pages</value></data>
+  <data name="Docs_UnknownTitle" xml:space="preserve"><value>No documentation page here</value></data>
+  <data name="Docs_UnknownText" xml:space="preserve"><value>Version {0} has no page at /docs/{1}. It may have been renamed: pick a page in the list.</value></data>
+  <data name="Docs_AnchorLabel" xml:space="preserve"><value>Link to this section</value></data>
+  <data name="Docs_CalloutNote" xml:space="preserve"><value>Note</value></data>
+  <data name="Docs_CalloutTip" xml:space="preserve"><value>Tip</value></data>
+  <data name="Docs_CalloutWarning" xml:space="preserve"><value>Warning</value></data>
+  <data name="Docs_Section_GettingStarted" xml:space="preserve"><value>Getting started</value></data>
+  <data name="Docs_Section_GitHubApp" xml:space="preserve"><value>GitHub App and accounts</value></data>
+  <data name="Docs_Section_ConfigureRepository" xml:space="preserve"><value>Configure a repository</value></data>
+  <data name="Docs_Section_Operations" xml:space="preserve"><value>Operations</value></data>
+  <data name="Docs_Section_Migration" xml:space="preserve"><value>Migration from Codecov</value></data>
+  <data name="Overview_FirstReportHelp" xml:space="preserve"><value>How to send the first report</value></data>
 </root>

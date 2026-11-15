@@ -34,6 +34,26 @@ public sealed class CcHeaderTests : UiTestContext
   }
 
   [Fact]
+  public void Render_WithoutHelp_ShouldShowNoHelpLink()
+  {
+    var cut = Render<CcHeader>(p => p.Add(h => h.Title, "Repositories"));
+
+    cut.FindAll(".cc-help").ShouldBeEmpty();
+  }
+
+  // M4.02o: a discreet « ? » after the title opens the documentation of the page, named after it.
+  [Fact]
+  public void Render_WithHelp_ShouldLinkTheDocumentationAfterTheTitle()
+  {
+    var cut = Render<CcHeader>(p => p.Add(h => h.Title, "Organizations").Add(h => h.HelpHref, "docs/organization-onboarding#2-admit-it"));
+
+    var help = cut.Find("h1.cc-header__title > a.cc-help");
+    help.GetAttribute("href").ShouldBe("docs/organization-onboarding#2-admit-it");
+    help.GetAttribute("aria-label").ShouldBe(Text("HelpOnPage").Replace("{0}", "Organizations", StringComparison.Ordinal));
+    help.TextContent.ShouldBe("?");
+  }
+
+  [Fact]
   public void Render_WithBreadcrumb_ShouldLinkThePreviousStepsAndMarkTheLastCurrent()
   {
     CcBreadcrumbItem[] steps = [new("my-org", "repositories"), new("sample-repo", "org/sample-repo"), new("Commits", "ignored")];

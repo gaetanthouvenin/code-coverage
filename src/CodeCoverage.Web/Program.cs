@@ -17,6 +17,7 @@ using CodeCoverage.Web.Configuration;
 using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Configuration.Security;
 using CodeCoverage.Web.Configuration.Setup;
+using CodeCoverage.Web.Documentation;
 using CodeCoverage.Web.Extensions;
 
 // Each host reloads and freezes its own bootstrap logger, even next to another host of the same process.
@@ -56,6 +57,8 @@ try
   // The address that installs the GitHub App, shown by the wizard, the organizations of the instance and the home page.
   builder.Services.AddSingleton<AppInstallationLink>();
   builder.Services.AddCoverageUi();
+  // The in-app documentation: the published documents embedded in the Web, rendered once per language.
+  builder.Services.AddSingleton<DocumentationLibrary>();
   builder.Services.AddUiMessaging();
   builder.Services.AddHealthProbes();
   builder.Services.AddRazorComponents()
