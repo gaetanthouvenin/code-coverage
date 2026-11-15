@@ -3121,7 +3121,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 > M4.02q à M4.02y viennent de la demande du propriétaire du 2026-11-15, après M4.02o : la console et sa documentation existent au moins en français, en anglais, en italien et en espagnol, car une console en français qui affiche une documentation en anglais n'est pas acceptable. L'anglais reste la langue de référence et de repli. État au 2026-11-15, prouvé sur le code : `Program` du Web n'accepte que `en` et `fr` (`UseRequestLocalization`, culture par défaut `en`), choisies par l'en-tête `Accept-Language` seulement, car rien n'écrit le cookie de culture ; `Common.resx` et `UiStrings.resx` n'ont qu'une traduction `.fr.resx`, et seuls des tests en français (`CommonTests`, `UiStringsTests`, `ErrorCodeLocalizerTests`, `ResourceEntryFormatTests`) vérifient leurs clés ; `DocumentationLibrary` sert `{slug}.fr.md` en culture française quand il est embarqué, aucune traduction n'existe, et les ancres viennent du texte des titres (`UseAutoIdentifiers(GitHub)`), si bien qu'un titre traduit casserait les cibles de `DocumentationLinks` ; les formats SVG en culture française sont corrigés par M4.02h.
 
 #### M4.02q — Maquette du choix de la langue
-- **Issue :** à créer
+- **Issue :** [#409](https://github.com/gaetanthouvenin/code-coverage/issues/409)
 - **Objectif :** décider, puis faire valider par le propriétaire, où l'utilisateur choisit la langue de la console, comment la langue courante se voit, et comment une page de documentation non traduite l'annonce.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html` (livré avec ce découpage), en mode clair, sombre et largeur mobile :
@@ -3136,7 +3136,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02o
 
 #### M4.02r — Langues de la console : décision et ce qui reste en anglais
-- **Issue :** à créer
+- **Issue :** [#410](https://github.com/gaetanthouvenin/code-coverage/issues/410)
 - **Objectif :** écrire la décision avant le code : quelles langues, où elles s'appliquent, et ce qui reste en anglais.
 - **Couches :** docs, Architecture.Tests.
 - **Fichiers :**
@@ -3151,7 +3151,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** —
 
 #### M4.02s — Italien et espagnol dans les ressources de la console
-- **Issue :** à créer
+- **Issue :** [#411](https://github.com/gaetanthouvenin/code-coverage/issues/411)
 - **Objectif :** la console parle italien et espagnol, choisis par `Accept-Language` en attendant le sélecteur de M4.02t, et un test prouve que chaque fichier de ressources a les mêmes clés que l'anglais.
 - **Couches :** Web.
 - **Fichiers :**
@@ -3169,7 +3169,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02r, M4.02m
 
 #### M4.02t — Choix et mémorisation de la langue
-- **Issue :** à créer
+- **Issue :** [#412](https://github.com/gaetanthouvenin/code-coverage/issues/412)
 - **Objectif :** l'utilisateur choisit la langue de la console, connecté ou non, et la retrouve à sa prochaine visite sur ce navigateur, selon la maquette de M4.02q.
 - **Couches :** Web.
 - **Fichiers :**
@@ -3186,7 +3186,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02q, M4.02s
 
 #### M4.02u — Langue retenue par le compte (option)
-- **Issue :** à créer
+- **Issue :** [#413](https://github.com/gaetanthouvenin/code-coverage/issues/413)
 - **Objectif :** un utilisateur connecté retrouve sa langue sur un autre navigateur ou après avoir effacé ses cookies.
 - **Couches :** Domain, Application, Infrastructure (deux fournisseurs), Web.
 - **Fichiers :**
@@ -3199,7 +3199,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02t
 
 #### M4.02v — Documentation par langue avec repli sur l'anglais
-- **Issue :** à créer
+- **Issue :** [#414](https://github.com/gaetanthouvenin/code-coverage/issues/414)
 - **Objectif :** servir chaque document publié dans la langue de la console quand sa traduction existe, sinon en anglais avec l'avis de la maquette, avec les mêmes ancres dans toutes les langues. Cette micro-feature livre le mécanisme ; les traductions viennent ensuite (M4.02w à M4.02y).
 - **Couches :** Web, docs.
 - **Fichiers :**
@@ -3220,7 +3220,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02q, M4.02s
 
 #### M4.02w — Documentation en français
-- **Issue :** à créer
+- **Issue :** [#415](https://github.com/gaetanthouvenin/code-coverage/issues/415)
 - **Objectif :** traduire en français les six documents publiés, pour qu'une console en français n'affiche plus de documentation en anglais.
 - **Couches :** docs.
 - **Fichiers :** `docs/operations.fr.md`, `docs/operations/organization-onboarding.fr.md`, `docs/operations/github-verification-checklist.fr.md`, `action/README.fr.md`, `docs/deployment-azure.fr.md`, `docs/migration-from-codecov.fr.md`, selon la section « Traduire un document publié » de `docs/CONVENTIONS.md`. Les termes suivent `Common.fr.resx` (ce que la console affiche, la documentation le nomme de même).
@@ -3229,7 +3229,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02v
 
 #### M4.02x — Documentation en italien
-- **Issue :** à créer
+- **Issue :** [#416](https://github.com/gaetanthouvenin/code-coverage/issues/416)
 - **Objectif :** traduire en italien les six documents publiés.
 - **Couches :** docs.
 - **Fichiers :** les six fichiers `{nom}.it.md` à côté des documents anglais, selon `docs/CONVENTIONS.md` ; termes de `Common.it.resx`.
@@ -3238,7 +3238,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02v
 
 #### M4.02y — Documentation en espagnol
-- **Issue :** à créer
+- **Issue :** [#417](https://github.com/gaetanthouvenin/code-coverage/issues/417)
 - **Objectif :** traduire en espagnol les six documents publiés.
 - **Couches :** docs.
 - **Fichiers :** les six fichiers `{nom}.es.md` à côté des documents anglais, selon `docs/CONVENTIONS.md` ; termes de `Common.es.resx`.
