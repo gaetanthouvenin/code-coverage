@@ -1597,6 +1597,55 @@ code {
   }
 }
 
+/* Top bar of the in-app documentation (mockup of M4.02n, markup by M4.02o). The documentation icon takes room in the
+   end of the bar, so the user name is hidden up to 1399px; below 1181px the entry moves to the user menu. */
+@media (min-width: 1321px) and (max-width: 1399px) {
+  .cc-topnav__bar {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .cc-topnav__tabs {
+    justify-self: center;
+  }
+
+  .cc-user-menu__who {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .cc-topnav__icons .cc-topnav__docs:not(.cc-topnav__docs--public) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .cc-docs-public > .cc-topnav {
+    margin-bottom: 16px;
+  }
+
+  .cc-topnav__public .cc-button {
+    padding-inline: 12px;
+  }
+
+  .cc-topnav__public .cc-topnav__docs--public {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .cc-topnav__signin-label {
+    display: none;
+  }
+
+  .cc-topnav__public .cc-button {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
 /* ---- dialog (CcDialog, M3.37) ---- */
 .cc-dialog__scrim {
   position: fixed;
