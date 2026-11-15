@@ -275,7 +275,7 @@ Nombres, pourcentages et dates suivent la culture : `74,2 %` en français et en 
 
 ## Rapport de couverture détaillé
 
-Maquette **M5.08**, à valider avant M5.15 ; décision et stockage dans [ADR-016](adr/0016-detailed-coverage.md).
+Maquette **M5.08**, validée par le propriétaire le 2026-11-15 ; décision et stockage dans [ADR-016](adr/0016-detailed-coverage.md).
 
 - **Entrée** : bouton `pill` « Rapport détaillé » (icône `chart`) dans les outils du panneau Fichiers du détail d'un commit, avant la recherche ; l'arbre Codecov du panneau ne change pas.
 - **Tête** : fil d'Ariane jusqu'au commit, liste des flags dans les actions (même vue par flag que le panneau Fichiers, ADR-008).

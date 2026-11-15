@@ -3420,16 +3420,16 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **États** : Nominal, Traité avant le détail (index `CFI1` : bandeau, « Retraiter » pour un admin du dépôt, `—` partout sauf Codecov), Compacté, Chargement, Introuvable ou inaccessible. En mobile, des cartes par fichier et une liste « Trier ».
   - `docs/ui-design.md` : inventaire, correspondance et section « Rapport de couverture détaillé » (livrés).
 - **Tests :** validation de la maquette par le propriétaire.
-- **Acceptation :** le propriétaire valide la maquette avant M5.15.
+- **Acceptation :** le propriétaire valide la maquette avant M5.15 (validée le 2026-11-15).
 - **Dépend de :** —
 
 #### M5.09 — ADR-016 : couverture détaillée et formats de blob en version 2
 - **Issue :** à créer
 - **Objectif :** écrire la décision avant le code : définitions des trois chiffres de plus, canal des méthodes, formats de blob, écarts nommés avec ReportGenerator.
 - **Couches :** docs.
-- **Fichiers :** `docs/adr/0016-detailed-coverage.md` (livré avec ce découpage, statut « proposé ») et sa ligne dans `docs/adr/README.md`. Le numéro 015 est celui de l'ADR des langues de M4.02r.
+- **Fichiers :** `docs/adr/0016-detailed-coverage.md` (livré avec ce découpage, accepté le 2026-11-15) et sa ligne dans `docs/adr/README.md`. Le numéro 015 est celui de l'ADR des langues de M4.02r.
 - **Tests :** —
-- **Acceptation :** le propriétaire accepte l'ADR ; son statut devient « accepté » avant M5.10.
+- **Acceptation :** le propriétaire accepte l'ADR avant M5.10 (accepté le 2026-11-15).
 - **Dépend de :** —
 
 #### M5.10 — Méthodes et détail de couverture dans le Domain

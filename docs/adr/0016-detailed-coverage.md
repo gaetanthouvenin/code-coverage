@@ -1,6 +1,6 @@
 # ADR-016 : Couverture détaillée des lignes, branches et méthodes
 
-- **Statut :** proposé (M5.08, à accepter par le propriétaire avant M5.10)
+- **Statut :** accepté le 2026-11-15 par le propriétaire, avec la maquette de M5.08
 - **Date :** 2026-11-15
 - **Références :** `docs/PLAN.md` M5.08 à M5.15 ; `docs/ARCHITECTURE.md` §4.2 (`CommitReports`), §4.3 (`CCR1`), §7 et §10bis ; [ADR-008](0008-flag-views-from-sessions.md), [ADR-009](0009-codecov-parity-defaults.md) ; `docs/design/ui-mockup.html`, écran « Rapport détaillé »
 
