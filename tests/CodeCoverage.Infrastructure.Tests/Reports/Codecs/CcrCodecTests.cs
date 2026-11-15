@@ -24,11 +24,22 @@ public sealed class CcrCodecTests
 
   // The body of ReferenceReport, written by hand from section 4.3 of the architecture. It freezes
   // the layout of version 1, together with tests/fixtures/ccr/v1-sample.bin.
-  private const string ReferenceBody =
-    "04" + "08" + "7372632F612E6373" + "09" + "7372632FC3A92E6373" + "02" + "6230" + "02" + "6231"
-    + "02"
-    + "0004" + "010003" + "010000" + "08050101020102" + "A2020205"
-    + "0103" + "0100FFFFFFFF0F" + "0107AC02020200" + "0105000002020203";
+  private const string ReferenceStrings = "04" + "08" + "7372632F612E6373" + "09" + "7372632FC3A92E6373" + "02" + "6230" + "02" + "6231";
+  private const string ReferenceFirstFile = "0004" + "010003" + "010000" + "08050101020102" + "A2020205";
+  private const string ReferenceSecondFile = "0103" + "0100FFFFFFFF0F" + "0107AC02020200" + "0105000002020203";
+  private const string ReferenceBody = ReferenceStrings + "02" + ReferenceFirstFile + ReferenceSecondFile;
+
+  // Version 2 (ADR-016): after the lines of each file, its flags, then its methods when they are known.
+  // Methods (1, 3) and (300, 0) for the first file, none known to exist for the second. It freezes
+  // the layout of version 2, together with tests/fixtures/ccr/v2-sample.bin.
+  private const string ReferenceBodyV2 =
+    ReferenceStrings + "02" + ReferenceFirstFile + "01" + "02" + "0103" + "AB0200" + ReferenceSecondFile + "01" + "00";
+
+  // The reference report written again: its methods are not known, so each file has only its flags.
+  private const string ReferenceBodyV2WithoutMethods = ReferenceStrings + "02" + ReferenceFirstFile + "00" + ReferenceSecondFile + "00";
+
+  // The valid base of the crafted bodies of version 2: the file knows that it has no method.
+  private const string ValidBodyV2 = ValidBody + "0100";
 
   private readonly CcrCodec _codec = new();
 
@@ -110,16 +121,78 @@ public sealed class CcrCodecTests
   }
 
   [Fact]
-  public void Encode_ReferenceReport_ShouldWriteTheFrozenHeaderAndBody()
+  public void Encode_ReferenceReport_ShouldWriteVersion2WithUnknownMethods()
   {
     var blob = _codec.Encode(ReferenceReport());
 
-    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'C', (byte)'R', (byte)'1', 1, 0]);
-    Convert.ToHexString(DecompressBody(blob)).ShouldBe(ReferenceBody);
+    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'C', (byte)'R', (byte)'1', 2, 0]);
+    Convert.ToHexString(DecompressBody(blob)).ShouldBe(ReferenceBodyV2WithoutMethods);
   }
 
   [Fact]
-  public void ReferenceFile_ShouldHoldTheFrozenHeaderAndBody()
+  public void Encode_ReferenceReportWithMethods_ShouldWriteTheFrozenHeaderAndBody()
+  {
+    var blob = _codec.Encode(ReferenceReportWithMethods());
+
+    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'C', (byte)'R', (byte)'1', 2, 0]);
+    Convert.ToHexString(DecompressBody(blob)).ShouldBe(ReferenceBodyV2);
+  }
+
+  [Fact]
+  public void ReferenceFileV2_ShouldHoldTheFrozenHeaderAndBody()
+  {
+    var blob = ReadReferenceFile("v2-sample.bin");
+
+    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'C', (byte)'R', (byte)'1', 2, 0]);
+    Convert.ToHexString(DecompressBody(blob)).ShouldBe(ReferenceBodyV2);
+  }
+
+  [Fact]
+  public void Decode_ReferenceFileV2_ShouldGiveTheReportWithMethods()
+  {
+    AssertSameReport(_codec.Decode(ReadReferenceFile("v2-sample.bin")), ReferenceReportWithMethods());
+  }
+
+  [Fact]
+  public void Decode_V1Fixture_ShouldReadLinesWithoutMethods()
+  {
+    var report = _codec.Decode(ReadReferenceFile());
+
+    report.Files.ShouldAllBe(static file => file.Methods == null);
+    report.FileTotals.ShouldAllBe(static file => file.Detail != null && !file.Detail.Value.HasMethods);
+  }
+
+  [Fact]
+  public void RoundTrip_WithMethods_ShouldKeepThem()
+  {
+    var report = ReferenceReportWithMethods();
+
+    var decoded = _codec.Decode(_codec.Encode(report));
+
+    decoded.Files[0].Methods.ShouldBe([new MethodCoverage(1, 3), new MethodCoverage(300, 0)]);
+    decoded.Files[1].Methods.ShouldNotBeNull().ShouldBeEmpty();
+    decoded.FileTotals.ShouldBe(report.FileTotals);
+  }
+
+  [Fact]
+  public void RoundTrip_UnknownMethods_ShouldStayUnknown()
+  {
+    var decoded = _codec.Decode(_codec.Encode(ReferenceReport()));
+
+    decoded.Files.ShouldAllBe(static file => file.Methods == null);
+  }
+
+  [Fact]
+  public void Encode_MethodHitsBeyond32Bits_ShouldBeClamped()
+  {
+    var report = CoverageReport.Create(
+      [FileCoverage.Create("a.cs", [new LineCoverage(1, 1, 0, 0, false, null)], [new MethodCoverage(1, uint.MaxValue + 1L)])]);
+
+    _codec.Decode(_codec.Encode(report)).Files[0].Methods.ShouldBe([new MethodCoverage(1, uint.MaxValue)]);
+  }
+
+  [Fact]
+  public void ReferenceFileV1_ShouldHoldTheFrozenHeaderAndBody()
   {
     var blob = ReadReferenceFile();
 
@@ -135,7 +208,7 @@ public sealed class CcrCodecTests
 
   [Theory]
   [InlineData(0)]
-  [InlineData(2)]
+  [InlineData(3)]
   [InlineData(255)]
   public void Decode_UnknownVersion_ShouldThrow(byte version)
   {
@@ -252,6 +325,29 @@ public sealed class CcrCodecTests
   }
 
   [Fact]
+  public void Decode_ValidCraftedBodyV2_ShouldGiveTheMethods()
+  {
+    var report = _codec.Decode(CraftedV2(ValidBody + "01" + "02" + "0105" + "0200"));
+
+    report.Files.Single().Methods.ShouldBe([new MethodCoverage(1, 5), new MethodCoverage(3, 0)]);
+  }
+
+  [Theory]
+  [InlineData(ValidBody, "ends too early")] // no flags after the lines
+  [InlineData(ValidBody + "02", "unknown flags")]
+  [InlineData(ValidBody + "01", "ends too early")] // no method count
+  [InlineData(ValidBody + "01" + "FFFFFFFF07", "count exceeds")] // method count far beyond the data
+  [InlineData(ValidBody + "01" + "02" + "0100" + "0000", "method lines do not increase")]
+  [InlineData(ValidBody + "01" + "01" + "0000", "method lines do not increase")] // a method at line 0
+  [InlineData(ValidBody + "01" + "02" + "FFFFFFFF0700" + "0100", "method line is out of range")]
+  [InlineData(ValidBody + "01" + "01" + "01" + "FFFFFFFFFF", "exceeds 32 bits")]
+  [InlineData(ValidBodyV2 + "00", "unexpected bytes")]
+  public void Decode_CorruptedBodyV2_ShouldThrowAClearError(string body, string reason)
+  {
+    Should.Throw<InvalidDataException>(() => _codec.Decode(CraftedV2(body))).Message.ShouldContain(reason);
+  }
+
+  [Fact]
   public void Open_BodyBeyondTheLimit_ShouldThrow()
   {
     var bomb = CcrCodec.Seal("CCR1"u8, new byte[1024 * 1024]);
@@ -271,8 +367,10 @@ public sealed class CcrCodecTests
 
   private static byte[] Crafted(string hexBody) => CcrCodec.Seal("CCR1"u8, Convert.FromHexString(hexBody));
 
-  private static byte[] ReadReferenceFile() =>
-    File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "fixtures", "ccr", "v1-sample.bin"));
+  private static byte[] CraftedV2(string hexBody) => CcrCodec.Seal("CCR1"u8, Convert.FromHexString(hexBody), 2);
+
+  private static byte[] ReadReferenceFile(string name = "v1-sample.bin") =>
+    File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "fixtures", "ccr", name));
 
   private static byte[] DecompressBody(byte[] blob)
   {
@@ -308,13 +406,40 @@ public sealed class CcrCodecTests
         ]),
     ]);
 
+  private static CoverageReport ReferenceReportWithMethods()
+  {
+    var report = ReferenceReport();
+
+    return CoverageReport.Create(
+    [
+      FileCoverage.Create(report.Files[0].Path, report.Files[0].Lines, [new MethodCoverage(1, 3), new MethodCoverage(300, 0)]),
+      FileCoverage.Create(report.Files[1].Path, report.Files[1].Lines, []),
+    ]);
+  }
+
   private static CoverageReport RandomReport(int seed)
   {
     var random = new Random(seed);
     var files = Enumerable.Range(0, random.Next(0, 12))
-      .Select(i => FileCoverage.Create($"src/é{random.Next(1000)}/{i}.cs", RandomLines(random)));
+      .Select(i => FileCoverage.Create($"src/é{random.Next(1000)}/{i}.cs", RandomLines(random), RandomMethods(random)));
 
     return CoverageReport.Create([.. files]);
+  }
+
+  private static MethodCoverage[]? RandomMethods(Random random)
+  {
+    if (random.Next(3) == 0)
+    {
+      return null;
+    }
+
+    long[] hits = [0, 1, random.Next(), uint.MaxValue];
+
+    return
+    [
+      .. Enumerable.Range(0, random.Next(0, 12))
+                   .Select(_ => new MethodCoverage(random.Next(4) == 0 ? random.Next(1, int.MaxValue) : random.Next(1, 500), hits[random.Next(hits.Length)])),
+    ];
   }
 
   private static LineCoverage[] RandomLines(Random random)
@@ -385,7 +510,10 @@ public sealed class CcrCodecTests
     for (var i = 0; i < expected.Files.Count; i++)
     {
       actual.Files[i].Lines.ShouldBe(expected.Files[i].Lines);
+      actual.Files[i].Methods.ShouldBe(expected.Files[i].Methods);
     }
+
+    actual.FileTotals.ShouldBe(expected.FileTotals);
   }
 
   #endregion

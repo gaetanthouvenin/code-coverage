@@ -25,11 +25,15 @@ namespace CodeCoverage.Infrastructure.Reports.Codecs;
 ///     per file: varint pathIndex, varint lineCount
 ///     per line: varint deltaLine, u8 shape (bit0 branches, bit1 method, bit2 missing ids),
 ///               varint hits, [varint covered, varint total], [varint missingCount, varint index...]
+///     version 2, after the lines of each file: u8 flags (bit0 methods known),
+///               [varint methodCount, then per method: varint deltaLine, varint hits]
 ///   </code>
 ///   <para>
-///     The string table holds the paths, then the identifiers of the missing branches. Version 1 is
-///     frozen by <c>tests/fixtures/ccr/v1-sample.bin</c>: blobs of that version stay readable
-///     forever, and a change of layout takes a new version byte.
+///     The string table holds the paths, then the identifiers of the missing branches. Only version 2
+///     is written (ADR-016). Version 1, without methods, is frozen by
+///     <c>tests/fixtures/ccr/v1-sample.bin</c> and version 2 by <c>tests/fixtures/ccr/v2-sample.bin</c>:
+///     blobs of both versions stay readable forever, and a change of layout takes a new version byte.
+///     A file read from a version 1 blob does not know its methods.
 ///   </para>
 /// </remarks>
 internal sealed class CcrCodec : ICoverageReportCodec
@@ -41,7 +45,8 @@ internal sealed class CcrCodec : ICoverageReportCodec
 
   private const int MagicLength = 4;
   private const int HeaderLength = 6;
-  private const byte FormatVersion = 1;
+  private const byte FirstVersion = 1;
+  private const byte MethodsVersion = 2;
   private const byte NoFlags = 0;
   private const int BrotliQuality = 5;
   private const int BrotliWindow = 22;
@@ -52,10 +57,14 @@ internal sealed class CcrCodec : ICoverageReportCodec
   private const byte ShapeMissingIds = 4;
   private const int KnownShapeBits = ShapeBranches | ShapeMethod | ShapeMissingIds;
 
+  private const byte FileMethodsKnown = 1;
+  private const int KnownFileFlagBits = FileMethodsKnown;
+
   private const int MinimumStringBytes = 1;
   private const int MinimumLineBytes = 3;
   private const int MinimumFileBytes = 5;
   private const int MinimumIndexBytes = 1;
+  private const int MinimumMethodBytes = 2;
 
   #endregion
 
@@ -70,12 +79,13 @@ internal sealed class CcrCodec : ICoverageReportCodec
   /// <summary>Adds the header to a body and compresses the body.</summary>
   /// <param name="magic">The four bytes that name the format.</param>
   /// <param name="body">The body.</param>
+  /// <param name="version">The version of the layout of the body.</param>
   /// <returns>The blob.</returns>
   /// <exception cref="InvalidOperationException">
   ///   The body exceeds <see cref="MaxBodyBytes" />, so the blob could never be read back, or it
   ///   cannot be compressed.
   /// </exception>
-  public static byte[] Seal(ReadOnlySpan<byte> magic, ReadOnlySpan<byte> body)
+  public static byte[] Seal(ReadOnlySpan<byte> magic, ReadOnlySpan<byte> body, byte version = FirstVersion)
   {
     if (body.Length > MaxBodyBytes)
     {
@@ -85,7 +95,7 @@ internal sealed class CcrCodec : ICoverageReportCodec
     var blob = new byte[HeaderLength + BrotliEncoder.GetMaxCompressedLength(body.Length)];
 
     magic.CopyTo(blob);
-    blob[MagicLength] = FormatVersion;
+    blob[MagicLength] = version;
     blob[MagicLength + 1] = NoFlags;
 
     if (!BrotliEncoder.TryCompress(body, blob.AsSpan(HeaderLength), out var written, BrotliQuality, BrotliWindow))
@@ -96,7 +106,7 @@ internal sealed class CcrCodec : ICoverageReportCodec
     return blob[..(HeaderLength + written)];
   }
 
-  /// <summary>Checks the header of a blob and decompresses its body.</summary>
+  /// <summary>Checks the header of a blob of version 1 and decompresses its body.</summary>
   /// <param name="magic">The four bytes that name the expected format.</param>
   /// <param name="blob">The blob.</param>
   /// <param name="maxBodyBytes">The largest accepted body.</param>
@@ -108,6 +118,27 @@ internal sealed class CcrCodec : ICoverageReportCodec
   public static ReadOnlyMemory<byte> Open(
     ReadOnlySpan<byte> magic,
     ReadOnlySpan<byte> blob,
+    int maxBodyBytes = MaxBodyBytes)
+  {
+    return Open(magic, blob, FirstVersion, out _, maxBodyBytes);
+  }
+
+  /// <summary>Checks the header of a blob and decompresses its body.</summary>
+  /// <param name="magic">The four bytes that name the expected format.</param>
+  /// <param name="blob">The blob.</param>
+  /// <param name="lastVersion">The last version this build reads, from version 1.</param>
+  /// <param name="version">Receives the version of the blob.</param>
+  /// <param name="maxBodyBytes">The largest accepted body.</param>
+  /// <returns>The body.</returns>
+  /// <exception cref="InvalidDataException">
+  ///   The header is not the expected one, the version or the flags are not supported, or the
+  ///   compressed stream is invalid, truncated, followed by other bytes or too large.
+  /// </exception>
+  public static ReadOnlyMemory<byte> Open(
+    ReadOnlySpan<byte> magic,
+    ReadOnlySpan<byte> blob,
+    byte lastVersion,
+    out byte version,
     int maxBodyBytes = MaxBodyBytes)
   {
     var format = Encoding.ASCII.GetString(magic);
@@ -122,11 +153,14 @@ internal sealed class CcrCodec : ICoverageReportCodec
       throw new InvalidDataException($"The data is not a {format} blob: its magic does not match.");
     }
 
-    var version = blob[MagicLength];
+    version = blob[MagicLength];
 
-    if (version != FormatVersion)
+    if (version is < FirstVersion || version > lastVersion)
     {
-      throw new InvalidDataException($"Version {version} of the {format} blob is not supported: this build reads version {FormatVersion}.");
+      throw new InvalidDataException(
+        lastVersion == FirstVersion
+          ? $"Version {version} of the {format} blob is not supported: this build reads version {FirstVersion}."
+          : $"Version {version} of the {format} blob is not supported: this build reads versions {FirstVersion} to {lastVersion}.");
     }
 
     var flags = blob[MagicLength + 1];
@@ -296,6 +330,76 @@ internal sealed class CcrCodec : ICoverageReportCodec
     }
   }
 
+  /// <summary>Writes the methods of a file, after its lines (version 2).</summary>
+  /// <param name="writer">The writer.</param>
+  /// <param name="methods">The methods, in ascending order, or <see langword="null" /> when they are not known.</param>
+  private static void WriteMethods(VarIntWriter writer, IReadOnlyList<MethodCoverage>? methods)
+  {
+    if (methods is null)
+    {
+      writer.WriteByte(0);
+
+      return;
+    }
+
+    writer.WriteByte(FileMethodsKnown);
+    writer.WriteInt32(methods.Count);
+
+    var previous = 0;
+
+    foreach (var method in methods)
+    {
+      writer.WriteInt32(method.Line - previous);
+      previous = method.Line;
+      writer.WriteUInt32((uint)Math.Clamp(method.Hits, 0, uint.MaxValue));
+    }
+  }
+
+  /// <summary>Reads the methods of a file, after its lines (version 2).</summary>
+  /// <param name="reader">The reader.</param>
+  /// <returns>
+  ///   The methods, strictly ascending and possibly none, or <see langword="null" /> when the file does
+  ///   not know them.
+  /// </returns>
+  private static MethodCoverage[]? ReadMethods(ref VarIntReader reader)
+  {
+    var flags = reader.ReadByte();
+
+    if ((flags & ~KnownFileFlagBits) != 0)
+    {
+      throw reader.Corrupted("a file has unknown flags");
+    }
+
+    if ((flags & FileMethodsKnown) == 0)
+    {
+      return null;
+    }
+
+    var methods = new MethodCoverage[reader.ReadCount(MinimumMethodBytes)];
+    var number = 0L;
+
+    for (var i = 0; i < methods.Length; i++)
+    {
+      var delta = reader.ReadUInt32();
+
+      if (delta == 0)
+      {
+        throw reader.Corrupted("the method lines do not increase");
+      }
+
+      number += delta;
+
+      if (number > int.MaxValue)
+      {
+        throw reader.Corrupted("a method line is out of range");
+      }
+
+      methods[i] = new MethodCoverage((int)number, reader.ReadUInt32());
+    }
+
+    return methods;
+  }
+
   /// <summary>Reads the string table.</summary>
   /// <param name="reader">The reader.</param>
   /// <returns>The strings.</returns>
@@ -431,15 +535,16 @@ internal sealed class CcrCodec : ICoverageReportCodec
     {
       writer.WriteInt32(indexes[file.Path]);
       WriteLines(writer, file.Lines, indexes);
+      WriteMethods(writer, file.Methods);
     }
 
-    return Seal(Magic, writer.WrittenSpan);
+    return Seal(Magic, writer.WrittenSpan, MethodsVersion);
   }
 
   /// <inheritdoc />
   public CoverageReport Decode(ReadOnlyMemory<byte> blob)
   {
-    var reader = new VarIntReader(Open(Magic, blob.Span).Span);
+    var reader = new VarIntReader(Open(Magic, blob.Span, MethodsVersion, out var version).Span);
     var strings = ReadStrings(ref reader);
     var files = new FileCoverage[reader.ReadCount(MinimumFileBytes)];
     string? previous = null;
@@ -449,7 +554,9 @@ internal sealed class CcrCodec : ICoverageReportCodec
       var path = ReadReference(ref reader, strings);
 
       ThrowIfInvalidPath(ref reader, path, previous);
-      files[i] = FileCoverage.Create(path, ReadLines(ref reader, strings));
+      var lines = ReadLines(ref reader, strings);
+
+      files[i] = FileCoverage.Create(path, lines, version >= MethodsVersion ? ReadMethods(ref reader) : null);
       previous = path;
     }
 
