@@ -366,6 +366,45 @@ Api host.
   `CC_DEPLOY_REPOSITORY`, every job is refused. `sh deploy/vm/runner/test-job-started.sh` tests it
   offline, and the CI runs that test.
 
+### Image update tools of the host
+
+Only a `v*` tag deployed by the job changes an image of CodeCoverage. Every image of
+[`docker-compose.prod.yml`](../deploy/vm/docker-compose.prod.yml) is pinned, by digest or by the `TAG`
+of a release, and every service carries two labels (M4.02d):
+
+- `wud.watch: "false"`: WUD (What's Up Docker) does not watch the container;
+- `com.centurylinklabs.watchtower.enable: "false"`: Watchtower does not update it.
+
+They change nothing on a host without these tools. Without them, such a tool recreates a container
+on a newer image by itself. On 2026-11-14, WUD recreated the database container on PostgreSQL 18 one
+minute after PostgreSQL 17 had initialized it. The new major version refused the data, and the Api
+could no longer reach `db`.
+
+A label is set when compose creates the container. The containers created before the labels get
+them at their next recreation. The deployment recreates the Api and the Web, and the database through
+`up -d api` when its configuration changed. The backup service is recreated only when `backup/`
+changes. **Before starting WUD or Watchtower again** on the host:
+
+1. Recreate whatever still lacks the labels, from the production directory (the containers whose
+   configuration changed restart, the database included: a short interruption):
+
+   ```bash
+   cd /data03/docker/code-coverage
+   docker compose --project-directory . up -d
+   ```
+
+2. Check that every container of the project carries both labels:
+
+   ```bash
+   docker ps --filter label=com.docker.compose.project=code-coverage \
+     --format '{{.Names}} wud={{.Label "wud.watch"}} watchtower={{.Label "com.centurylinklabs.watchtower.enable"}}'
+   ```
+
+   Each line must end with `wud=false watchtower=false`.
+
+3. Start the tool, then check that it does not recreate any CodeCoverage container: `docker ps` keeps
+   their creation times, and WUD does not list them as watched.
+
 ### GitHub settings (owner)
 
 - **Environment `production`:**
