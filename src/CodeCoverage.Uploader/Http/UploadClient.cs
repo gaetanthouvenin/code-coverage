@@ -29,8 +29,9 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
 
   #region Properties
 
-  /// <summary>Gets the version of the uploader, sent with each upload.</summary>
-  public static string? Version => typeof(UploadClient).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+  /// <summary>Gets the version of the uploader, sent with each upload, without its build metadata.</summary>
+  public static string? Version =>
+    WithoutBuildMetadata(typeof(UploadClient).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
 
   #endregion
 
@@ -109,6 +110,11 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
 
     reporter.Error($"The server refused the upload: {(int)response.StatusCode}{(code is null ? string.Empty : $" ({code})")}.");
 
+    foreach (var (field, message) in ReadErrors(body))
+    {
+      reporter.Error($"{field}: {message}");
+    }
+
     if (!string.IsNullOrWhiteSpace(detail))
     {
       reporter.Error(detail);
@@ -120,6 +126,59 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
     }
 
     return null;
+  }
+
+  /// <summary>Removes the build metadata of a version, the part after <c>+</c>, which SemVer ignores for the precedence.</summary>
+  /// <param name="version">The version, such as <c>0.1.0-beta.2+Branch.develop.Sha.c37d8a3</c>, or <see langword="null" />.</param>
+  /// <returns>The version without its build metadata, such as <c>0.1.0-beta.2</c>, or <see langword="null" />.</returns>
+  internal static string? WithoutBuildMetadata(string? version)
+  {
+    var plus = version?.IndexOf('+', StringComparison.Ordinal) ?? -1;
+
+    return plus < 0 ? version : version![..plus];
+  }
+
+  /// <summary>Reads the refused fields of a validation refusal, from the <c>errors</c> extension of its problem details.</summary>
+  /// <param name="body">The answer of the server.</param>
+  /// <returns>Each refused field with one of its messages; none when the body has no <c>errors</c> object.</returns>
+  private static List<(string Field, string Message)> ReadErrors(string body)
+  {
+    var errors = new List<(string Field, string Message)>();
+
+    try
+    {
+      var json = JsonSerializer.Deserialize(body, UploaderJsonContext.Default.JsonElement);
+
+      if (json.ValueKind is not JsonValueKind.Object || !json.TryGetProperty("errors", out var fields) || fields.ValueKind is not JsonValueKind.Object)
+      {
+        return errors;
+      }
+
+      foreach (var field in fields.EnumerateObject())
+      {
+        if (field.Value.ValueKind is JsonValueKind.String)
+        {
+          errors.Add((field.Name, field.Value.GetString()!));
+
+          continue;
+        }
+
+        if (field.Value.ValueKind is not JsonValueKind.Array)
+        {
+          continue;
+        }
+
+        errors.AddRange(
+          field.Value.EnumerateArray().Where(static m => m.ValueKind is JsonValueKind.String).Select(m => (field.Name, m.GetString()!))
+        );
+      }
+    }
+    catch (JsonException)
+    {
+      // A body that is not JSON has no refused fields to print.
+    }
+
+    return errors;
   }
 
   /// <summary>Gives what to do about a refusal, from its error code alone.</summary>

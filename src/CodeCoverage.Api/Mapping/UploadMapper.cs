@@ -248,7 +248,7 @@ internal static partial class UploadMapper
       ReadFlags(fields),
       Optional(fields, NameField),
       Optional(fields, RootField),
-      Optional(fields, UploaderVersionField),
+      ReadUploaderVersion(fields),
       new CiContext(Optional(fields, CiServiceField), Optional(fields, BuildUrlField), Optional(fields, BuildIdField), Optional(fields, JobIdField)),
       ReadForge(fields)
     );
@@ -307,6 +307,22 @@ internal static partial class UploadMapper
 
   private static string? Optional(IReadOnlyDictionary<string, string> fields, string name) =>
     fields.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
+
+  // The build metadata, after '+', is dropped: the published uploaders up to 0.1.0-beta.2 send it, beyond the length limit.
+  private static string? ReadUploaderVersion(IReadOnlyDictionary<string, string> fields)
+  {
+    var version = Optional(fields, UploaderVersionField);
+    var plus = version?.IndexOf('+', StringComparison.Ordinal) ?? -1;
+
+    if (plus < 0)
+    {
+      return version;
+    }
+
+    var withoutMetadata = version![..plus].TrimEnd();
+
+    return withoutMetadata.Length == 0 ? null : withoutMetadata;
+  }
 
   private static string? ReadBranch(IReadOnlyDictionary<string, string> fields)
   {
