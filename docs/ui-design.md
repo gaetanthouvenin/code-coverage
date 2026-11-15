@@ -18,6 +18,8 @@ La version 4 ajoute la forge à `/admin/organizations` et retire les logins rés
 
 La documentation dans l'application (**M4.02n**, construite par M4.02o) ajoute l'écran `#docs`, l'entrée « Documentation » de la barre du haut et les boutons d'aide contextuelle ; elle est **en attente de validation** par le propriétaire (section « Documentation dans l'application »).
 
+Le choix de la langue (**M4.02q**, construit par M4.02t et M4.02v) ajoute le sélecteur de langue au menu utilisateur, au menu mobile, à la barre publique, à la connexion et à `/setup`, et l'état « Page pas encore traduite » de `#docs` ; il est **en attente de validation** par le propriétaire (section « Langues de la console »).
+
 Ouvrir la page donne l'index des écrans. La barre du bas change l'écran, son état, le rôle, la langue, le thème et la largeur ; l'ancre `#{écran}--{état}` désigne un état précis, par exemple `#admin-organizations--dlg-suspend`.
 
 ### Décisions prises à la validation
@@ -187,7 +189,7 @@ Maquette **M4.02n**, à valider avant M4.02o : écran `#docs` et ses états, ent
 
 - La documentation est le Markdown de `docs/` embarqué dans le Web et rendu côté serveur : celle de la **version déployée**, affichée dans la navigation (`v0.1.0-beta.2`) et sous le titre de chaque page avec son fichier source.
 - Seule la liste blanche de M4.02o est publiée ; le plan, les ADR, `ARCHITECTURE.md` et `CONVENTIONS.md` jamais.
-- Le contenu est en **anglais**. L'habillage (« Sur cette page », « Précédent », « Suivant », la version, les états) suit la langue de la console. Une traduction `*.fr.md` viendra dans une micro-feature suivante.
+- Le contenu est en **anglais** tant qu'aucune traduction n'existe. L'habillage (« Sur cette page », « Précédent », « Suivant », la version, les états) suit la langue de la console. Les traductions `{nom}.{langue}.md` et le repli sur l'anglais sont décrits dans « Langues de la console » (M4.02v à M4.02y).
 
 ### Accès et entrée
 
@@ -232,6 +234,42 @@ Décision du propriétaire du 2026-11-15 (option A) :
 - **Aides** sur les titres réels, comme dans la troisième colonne du tableau ci-dessus ; pas de « ? » sur `/admin/settings`.
 - **Documents manquants**, à écrire dans une micro-feature suivante : les paramètres de l'instance, et la page du template Azure Pipelines (`pipelines/templates/README.md`).
 - **Barre publique** : `/docs` garde la barre de la console ; non connecté, elle ne montre que la marque, Documentation (`cc-topnav__docs--public`), le thème et Se connecter.
+
+## Langues de la console
+
+Maquette **M4.02q**, à valider avant M4.02t et M4.02v. La décision et ce qui reste en anglais sont dans l'ADR de M4.02r.
+
+### Langues
+
+| Code | Nom affiché | Rôle |
+|---|---|---|
+| `en` | English | Référence, langue par défaut et de repli |
+| `fr` | Français | Traduction |
+| `it` | Italiano | Traduction |
+| `es` | Español | Traduction |
+
+Chaque langue est nommée dans sa propre langue, quel que soit l'affichage courant, avec `lang` et `hreflang` sur son lien. La langue vient du cookie de culture posé par le sélecteur, sinon de `Accept-Language`, sinon de l'anglais ; une variante régionale du navigateur (`it-CH`, `es-MX`) retombe sur sa langue.
+
+### Sélecteur `CcLanguagePicker`
+
+| Situation | Emplacement |
+|---|---|
+| Connecté, à partir de 1041 px | En bas du menu utilisateur, sous un filet : libellé « Langue » avec l'icône `globe`, puis les quatre langues en deux colonnes |
+| Connecté, jusqu'à 1040 px | Dernière ligne du menu mobile, sous Documentation et un filet, sur quatre colonnes (deux sous 400 px) |
+| Non connecté, `/docs` | Bouton rond `globe` dans `cc-topnav__icons` de la barre publique, entre Documentation et le thème, avec le code de la langue en pastille (`cc-lang-menu__code`) ; il ouvre le même groupe |
+| Connexion et `/setup` | Ligne `cc-lang--inline` en bas de la carte de connexion et sous les panneaux de `/setup` |
+
+- La langue courante est en évidence (`aria-current="true"`, fond `--cc-accent-soft`).
+- Aucun bouton n'entre dans la barre du haut connectée : sa largeur est réglée au pixel près depuis M4.02h.
+- Un choix est un lien vers `/culture?lang={code}&returnUrl={page courante}`, qui pose le cookie et revient sur la page, rechargée (un circuit Blazor garde sa culture de départ) ; aucun dialogue ni confirmation.
+
+### Documentation non traduite
+
+Sans `{nom}.{langue}.md` pour la langue de la console, la page anglaise s'affiche avec un bandeau `CcBanner` d'information au-dessus du contenu, par exemple « Cette page n'est pas encore traduite en français : elle s'affiche en anglais, la langue de référence de la documentation. », et le contenu porte `lang="en"`. En anglais, jamais de bandeau. Les ancres sont celles de la page anglaise dans toutes les langues : une aide contextuelle ou un lien partagé ouvre la même section quelle que soit la langue.
+
+### Formats
+
+Nombres, pourcentages et dates suivent la culture : `74,2 %` en français et en espagnol, `74,2%` en italien, `74.2%` en anglais. Les attributs numériques des SVG restent en culture invariante (M4.02h).
 
 ## Libellés clés
 
