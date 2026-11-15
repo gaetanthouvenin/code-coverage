@@ -70,6 +70,10 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     needs: gitversion
+    # id-token: write lets the uploader authenticate to the CodeCoverage instance by OIDC, without secret.
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v6
@@ -97,14 +101,32 @@ jobs:
 
       # The database tests start PostgreSQL and SQL Server through Testcontainers: the Docker engine
       # preinstalled on the ubuntu runners is enough, no service container is declared. They are
-      # skipped (never failed) only where Docker is missing, which is not the case here.
+      # skipped (never failed) only where Docker is missing, which is not the case here. The coverage of
+      # the shipped assemblies is measured by Microsoft Code Coverage (tests/coverage.runsettings), in
+      # Cobertura, one report per test project.
       - name: Test
         run: |
           dotnet test ${{ env.SOLUTION }} \
             --no-build \
             --configuration Release \
             --logger "trx" \
+            --settings tests/coverage.runsettings \
+            --collect "Code Coverage" \
             --results-directory TestResults
+
+      # The coverage goes to the CodeCoverage instance named by the repository variable COVERAGE_URL (the
+      # address of its Api), with the action of this commit and a published uploader; without the
+      # variable, nothing is sent. A pull request from a fork gets no OIDC token: it is skipped. The step
+      # never fails the build (fail-on-error stays false).
+      - name: Upload coverage
+        if: >-
+          !cancelled() && vars.COVERAGE_URL != ''
+          && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: ./action
+        with:
+          version: 0.1.0-beta.3
+          url: ${{ vars.COVERAGE_URL }}
+          files: TestResults/**/*.cobertura.xml
 
       # The parity tool (tools/parity, M4.06), on its synthetic answers of both APIs: no network, and
       # neither the Codecov API nor an instance is ever called.
