@@ -138,8 +138,9 @@ public sealed partial class DocumentationSourceTests
   public void Screen_OfTheMockup_ShouldCarryItsContextualHelp(string page, string link) =>
     WebRootFiles.Read(page).ShouldContain($"DocumentationLinks.{link}");
 
+  // MSBuild writes the Include with backslashes, which are no separator on Linux: they are made slashes first.
   private static string RepositoryPath(string include) =>
-    Path.GetRelativePath(RepositoryRoot, Path.GetFullPath(Path.Combine(WebRootFiles.ProjectDirectory, include))).Replace('\\', '/');
+    Path.GetRelativePath(RepositoryRoot, Path.GetFullPath(Path.Combine(WebRootFiles.ProjectDirectory, include.Replace('\\', '/')))).Replace('\\', '/');
 
   private async Task<List<string>> BrokenAsync(IEnumerable<string> links)
   {
