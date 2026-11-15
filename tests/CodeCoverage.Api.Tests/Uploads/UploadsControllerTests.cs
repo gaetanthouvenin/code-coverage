@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using CodeCoverage.Api.Tests.Support;
 using CodeCoverage.Application.Configuration;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -227,6 +228,51 @@ public sealed class UploadsControllerTests
 
     response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     await ShouldHaveErrorCode(response, UploadErrors.InvalidMetadata);
+  }
+
+  // The published uploaders up to 0.1.0-beta.2 send their version with its build metadata, 72 characters long.
+  [Fact]
+  public async Task Post_UploaderVersionWithBuildMetadata_ShouldReturn202AndKeepTheVersionWithoutIt()
+  {
+    Upload? received = null;
+    A.CallTo(() => _reports.TryAddReceivedUploadAsync(A<Upload>._, A<JobRequest>._, A<CancellationToken>._))
+     .Invokes((Upload upload, JobRequest _, CancellationToken _) => received = upload)
+     .Returns(true);
+    await using var host = Host();
+    using var client = host.CreateClient();
+
+    using var response = await SendAsync(
+                           client,
+                           Multipart(
+                             ("slug", "octo-org/app"),
+                             ("sha", Sha),
+                             ("uploaderVersion", "0.1.0-beta.2+Branch.develop.Sha.c37d8a367310aa9b967b5213753f378d8c5679af"),
+                             ("file:coverage.xml", "<coverage/>")
+                           )
+                         );
+
+    response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+    received.ShouldNotBeNull().UploaderVersion.ShouldBe("0.1.0-beta.2");
+  }
+
+  // The 64 characters limit is unchanged: only the build metadata is dropped.
+  [Fact]
+  public async Task Post_UploaderVersionTooLongWithoutBuildMetadata_ShouldReturn400()
+  {
+    await using var host = Host();
+    using var client = host.CreateClient();
+
+    using var response = await SendAsync(
+                           client,
+                           Multipart(("slug", "octo-org/app"), ("sha", Sha), ("uploaderVersion", new string('1', Upload.UploaderVersionMaxLength + 1)), ("file:coverage.xml", "<coverage/>"))
+                         );
+
+    response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+
+    json.RootElement.GetProperty("errorCode").GetString().ShouldBe(GeneralErrors.ValidationFailed);
+    json.RootElement.GetProperty("errors").TryGetProperty("Metadata.UploaderVersion", out _).ShouldBeTrue();
   }
 
   [Fact]

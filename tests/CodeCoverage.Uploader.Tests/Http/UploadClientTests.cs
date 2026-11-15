@@ -213,6 +213,56 @@ public sealed class UploadClientTests : IDisposable
   }
 
   [Fact]
+  public async Task Send_RefusedWithErrors_ShouldPrintEachFieldAndItsMessageAfterTheCode()
+  {
+    _handler.Then(
+      HttpStatusCode.BadRequest,
+      """{"title":"Bad request","status":400,"detail":"One or more validation errors occurred.","errorCode":"General.ValidationFailed","errors":{"Metadata.UploaderVersion":["The value is not empty and holds at most 64 characters."],"Metadata.Branch":["Too long."]}}"""
+    );
+
+    (await SendAsync(Request())).ShouldBeFalse();
+
+    var output = _output.ToString();
+    var code = output.IndexOf("(General.ValidationFailed)", StringComparison.Ordinal);
+    var field = output.IndexOf("error: Metadata.UploaderVersion: The value is not empty and holds at most 64 characters.", StringComparison.Ordinal);
+
+    code.ShouldBeGreaterThanOrEqualTo(0);
+    field.ShouldBeGreaterThan(code);
+    output.ShouldContain("error: Metadata.Branch: Too long.");
+  }
+
+  [Theory]
+  [InlineData("""{"errorCode":"Upload.InvalidSlug","detail":"The repository is written owner/name."}""")]
+  [InlineData("""{"errorCode":"Upload.InvalidSlug","detail":"The repository is written owner/name.","errors":null}""")]
+  [InlineData("not json")]
+  public async Task Send_RefusedWithoutErrors_ShouldPrintAsBefore(string body)
+  {
+    _handler.Then(HttpStatusCode.BadRequest, body);
+
+    (await SendAsync(Request())).ShouldBeFalse();
+
+    var errors = _output.ToString().Split('\n').Where(static line => line.Contains("error: ", StringComparison.Ordinal)).ToList();
+
+    errors[0].ShouldContain("The server refused the upload: 400");
+    errors.Count.ShouldBe(body.StartsWith('{') ? 2 : 1);
+  }
+
+  [Theory]
+  [InlineData("0.1.0-beta.2+Branch.develop.Sha.c37d8a367310aa9b967b5213753f378d8c5679af", "0.1.0-beta.2")]
+  [InlineData("0.1.0-beta.3", "0.1.0-beta.3")]
+  [InlineData(null, null)]
+  public void WithoutBuildMetadata_ShouldDropWhatFollowsThePlus(string? version, string? expected)
+  {
+    UploadClient.WithoutBuildMetadata(version).ShouldBe(expected);
+  }
+
+  [Fact]
+  public void Version_ShouldHaveNoBuildMetadata()
+  {
+    UploadClient.Version.ShouldNotBeNull().ShouldNotContain('+');
+  }
+
+  [Fact]
   public async Task Send_NoToken_WithActionsOidc_ShouldFetchJwt()
   {
     _environment["ACTIONS_ID_TOKEN_REQUEST_URL"] = "https://token.actions.example/req?api-version=2";
