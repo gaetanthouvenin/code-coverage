@@ -16,7 +16,7 @@ La version 3 aligne la maquette validée sur [ADR-014](adr/0014-multi-forge.md),
 
 La version 4 ajoute la forge à `/admin/organizations` et retire les logins réservés de cet écran, validés par le propriétaire le 2026-11-08.
 
-La documentation dans l'application (**M4.02n**, construite par M4.02o) ajoute l'écran `#docs`, l'entrée « Documentation » de la barre du haut et les boutons d'aide contextuelle ; elle est **en attente de validation** par le propriétaire (section « Documentation dans l'application »).
+La documentation dans l'application (**M4.02n**, construite par M4.02o) ajoute l'écran `#docs`, l'entrée « Documentation » de la barre du haut et les boutons d'aide contextuelle ; elle est **validée** par le propriétaire le 2026-11-15 (section « Documentation dans l'application »).
 
 Le choix de la langue (**M4.02q**, construit par M4.02t et M4.02v) ajoute le sélecteur de langue au menu utilisateur, au menu mobile, à la barre publique, à la connexion et à `/setup`, et l'état « Page pas encore traduite » de `#docs` ; il est **validé** par le propriétaire le 2026-11-15 (section « Langues de la console »).
 
@@ -185,7 +185,7 @@ Le CSS de la maquette reprend `tokens.css`, `components.css` et `app.css`, avec 
 
 ## Documentation dans l'application
 
-Maquette **M4.02n**, à valider avant M4.02o : écran `#docs` et ses états, entrée de la barre du haut, boutons « ? » des écrans listés ci-dessous.
+Maquette **M4.02n**, validée par le propriétaire le 2026-11-15 : écran `#docs` et ses états, entrée de la barre du haut, boutons « ? » des écrans listés ci-dessous.
 
 ### Source et langue
 
