@@ -1,0 +1,22 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcLanguagePicker.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@using CodeCoverage.Web.Localization
+
+<div class="@CssClass" role="group" aria-label="@L["Language_Label"]">
+  <span class="cc-lang__label"><CcIcon Name="CcIconName.Globe" />@L["Language_Label"]</span>
+  <span class="cc-lang__options">
+    @foreach (var language in ConsoleLanguages.All)
+    {
+      @* A full reload: a Blazor circuit keeps the culture it started with. *@
+      <a href="@HrefOf(language)"
+         lang="@language.Code"
+         hreflang="@language.Code"
+         aria-current="@(language == Current ? "true" : null)"
+         data-enhance-nav="false">@language.NativeName</a>
+    }
+  </span>
+</div>

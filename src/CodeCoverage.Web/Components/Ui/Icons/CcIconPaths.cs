@@ -56,6 +56,7 @@ internal static class CcIconPaths
       [CcIconName.Layers] = """<path d="m12 4-8 4 8 4 8-4-8-4"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>""",
       [CcIconName.Target] = """<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>""",
       [CcIconName.Book] = """<path d="M3 19a9 9 0 0 1 9 0 9 9 0 0 1 9 0M3 6a9 9 0 0 1 9 0 9 9 0 0 1 9 0M3 6v13M12 6v13M21 6v13"/>""",
+      [CcIconName.Globe] = """<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>""",
       [CcIconName.Lines] = """<path d="M4 6h16M4 10h10M4 14h16M4 18h7"/>""",
       [CcIconName.Sort] = """<path d="m3 9 4-4 4 4M7 5v14M21 15l-4 4-4-4M17 19V5"/>""",
       [CcIconName.Sun] = """<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>""",

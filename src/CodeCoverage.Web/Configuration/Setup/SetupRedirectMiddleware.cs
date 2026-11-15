@@ -39,7 +39,7 @@ internal sealed class SetupRedirectMiddleware(RequestDelegate next, IConfigurati
   ///   The addresses that work before the setup: the wizard, the documentation that explains it, the probes, the error
   ///   pages and the framework.
   /// </summary>
-  private static readonly string[] OpenPaths = [SetupPath, "/docs", "/health", "/error", "/not-found", "/_framework", "/_blazor", "/_content"];
+  private static readonly string[] OpenPaths = [SetupPath, "/docs", "/culture", "/health", "/error", "/not-found", "/_framework", "/_blazor", "/_content"];
 
   /// <summary>The settings the setup fills: while one is missing, a token is kept available.</summary>
   private static readonly string[] SetupKeys =

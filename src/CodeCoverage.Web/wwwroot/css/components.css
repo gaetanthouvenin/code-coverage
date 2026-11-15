@@ -473,6 +473,141 @@ code {
   text-decoration: none;
 }
 
+/* ---- language picker (CcLanguagePicker, CcLanguageMenu; mockup M4.02q, ADR-015) ---- */
+.cc-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cc-lang__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cc-fg-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cc-lang__label .cc-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.cc-lang__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.cc-lang__options a,
+.cc-user-menu__panel .cc-lang__options a {
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: var(--cc-fg);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cc-lang__options a:hover {
+  background: var(--cc-card-2);
+  text-decoration: none;
+}
+
+.cc-lang__options a[aria-current="true"] {
+  background: var(--cc-accent-soft);
+  color: var(--cc-accent-fg);
+  font-weight: 600;
+}
+
+.cc-user-menu__panel .cc-lang {
+  margin-top: 6px;
+  padding: 12px 4px 2px;
+  border-top: 1px solid var(--cc-line);
+}
+
+.cc-lang--row {
+  margin-top: 6px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid var(--cc-line);
+}
+
+.cc-lang--row .cc-lang__options {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cc-lang--row .cc-lang__options a {
+  padding-inline: 4px;
+  text-align: center;
+}
+
+.cc-lang--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+}
+
+.cc-lang--inline .cc-lang__options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.cc-lang--inline .cc-lang__options a {
+  padding: 4px 10px;
+}
+
+.cc-signin__body .cc-lang--inline {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cc-line);
+}
+
+.cc-lang-foot {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 8px;
+}
+
+.cc-lang-menu {
+  position: relative;
+}
+
+.cc-lang-menu__code {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: var(--cc-ink);
+  color: var(--cc-on-ink);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.cc-lang-menu__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 42;
+  width: 250px;
+  padding: 12px;
+  border-radius: var(--cc-r-lg);
+  background: var(--cc-card);
+  box-shadow: var(--cc-pop-shadow);
+}
+
+@media (max-width: 400px) {
+  .cc-lang--row .cc-lang__options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ---- page container and header (CcPageContainer, CcHeader) ---- */
 .cc-page {
   display: flex;

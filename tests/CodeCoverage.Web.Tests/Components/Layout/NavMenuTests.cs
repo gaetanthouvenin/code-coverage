@@ -99,6 +99,29 @@ public sealed class NavMenuTests : UiTestContext
     cut.FindAll(".cc-user-menu").ShouldHaveSingleItem();
   }
 
+  // M4.02t: signed in, the languages close the user menu and the mobile menu; no button more in the top bar.
+  [Fact]
+  public void Render_SignedIn_ShouldOfferTheLanguagesInTheUserMenuAndTheMobileMenu()
+  {
+    var cut = Render<NavMenu>(p => p.Add(n => n.Model, new NavigationViewModel("octocat", false, [])).Add(n => n.SignedIn, true));
+
+    cut.Find(".cc-topnav__mobile .cc-lang.cc-lang--row").ShouldNotBeNull();
+    cut.FindAll(".cc-lang-menu").ShouldBeEmpty();
+
+    cut.Find("button.cc-user-menu__trigger").Click();
+
+    cut.Find(".cc-user-menu__panel .cc-lang").ClassName.ShouldBe("cc-lang");
+  }
+
+  // M4.02t: signed out, the public bar opens the languages from a round globe button.
+  [Fact]
+  public void Render_SignedOut_ShouldOfferTheLanguagesFromTheRoundButton()
+  {
+    var cut = Render<NavMenu>();
+
+    cut.Find(".cc-topnav__icons .cc-lang-menu button.cc-lang-menu__trigger").ShouldNotBeNull();
+  }
+
   // The switcher: hidden without organization, « All organizations » on the home page only, a login of two forges
   // told apart by its forge.
   [Fact]
@@ -198,7 +221,7 @@ public sealed class NavMenuTests : UiTestContext
 
     cut.Find(".cc-user-menu__trigger").Click();
 
-    var menu = cut.FindAll(".cc-user-menu__panel a").Select(static a => a.GetAttribute("href")).ToList();
+    var menu = cut.FindAll(".cc-user-menu__panel > a").Select(static a => a.GetAttribute("href")).ToList();
     menu.ShouldBe(["account/tokens", "docs"]);
   }
 

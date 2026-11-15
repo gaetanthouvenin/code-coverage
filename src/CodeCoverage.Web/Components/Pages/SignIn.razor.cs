@@ -75,6 +75,9 @@ public partial class SignIn
   /// <summary>Gets the address to return to, kept on this site.</summary>
   private string ReturnHref => AuthenticationEndpoints.LocalOrHome(ReturnUrl);
 
+  /// <summary>Gets the sign-in page to come back to after a choice of language, with its return address checked.</summary>
+  private string LanguageReturnUrl => "/" + AuthenticationEndpoints.SignInUri(ReturnHref, Expired);
+
   #endregion
 
   #region Lifecycle

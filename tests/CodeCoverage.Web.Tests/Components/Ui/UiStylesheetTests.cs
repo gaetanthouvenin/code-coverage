@@ -120,6 +120,59 @@ public sealed partial class UiStylesheetTests
             .ShouldBeEmpty("every @media declaration of the top bar in docs/design/ui-mockup.html is in components.css");
   }
 
+  // M4.02t: every rule of the language picker of the mockup (cc-lang*) is in components.css, media queries included.
+  [Fact]
+  public void Components_ShouldCarryEveryLanguageRuleOfTheMockup()
+  {
+    var mockup = string.Concat(StyleElement().Matches(File.ReadAllText(Path.Combine(WebRootFiles.ProjectDirectory, "..", "..", "docs", "design", "ui-mockup.html"))).Select(static m => m.Groups["css"].Value));
+    var components = LanguageDeclarations(WebRootFiles.Read(Components)).ToHashSet(StringComparer.Ordinal);
+    var expected = LanguageDeclarations(mockup);
+
+    expected.ShouldNotBeEmpty();
+    expected.Where(d => !components.Contains(d)).ShouldBeEmpty("every cc-lang rule of docs/design/ui-mockup.html is in components.css");
+  }
+
+  // The declarations of the rules whose selector names a cc-lang class, written "media selector property: value".
+  private static List<string> LanguageDeclarations(string css)
+  {
+    var text = WithoutComments(css);
+    var declarations = new List<string>();
+    string? media = null;
+    var depth = 0;
+
+    foreach (Match block in Block().Matches(text))
+    {
+      if (block.Value == "}")
+      {
+        depth--;
+        media = depth == 0 ? null : media;
+        continue;
+      }
+
+      depth++;
+      var head = block.Groups["head"].Value.Trim();
+
+      if (head.StartsWith("@media", StringComparison.Ordinal))
+      {
+        media = Normalize(head["@media".Length..]);
+        continue;
+      }
+
+      var start = block.Index + block.Length;
+      var body = text[start..text.IndexOf('}', start)];
+      var selectors = head.Split(',').Select(Normalize).Where(static s => s.Contains("cc-lang", StringComparison.Ordinal));
+
+      foreach (var selector in selectors)
+      {
+        declarations.AddRange(body.Split(';')
+                                  .Where(static d => d.Contains(':', StringComparison.Ordinal))
+                                  .Select(d => $"{media} {selector} {d[..d.IndexOf(':', StringComparison.Ordinal)].Trim()}: {Normalize(d[(d.IndexOf(':', StringComparison.Ordinal) + 1)..])}"));
+      }
+    }
+
+    return declarations;
+  }
+
   private static string WithoutComments(string css) => Comment().Replace(css, string.Empty);
 
   [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]

@@ -1,0 +1,24 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CcLanguageMenu.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<div class="cc-lang-menu" @onkeydown="OnKeyDown">
+  <button type="button"
+          class="cc-round-button cc-lang-menu__trigger"
+          aria-label="@Label"
+          title="@Label"
+          aria-expanded="@(_open ? "true" : "false")"
+          aria-controls="@_panelId"
+          @onclick="Toggle">
+    <CcIcon Name="CcIconName.Globe" />
+    <span class="cc-lang-menu__code" aria-hidden="true">@Current.Code.ToUpperInvariant()</span>
+  </button>
+  @if (_open)
+  {
+    <div id="@_panelId" class="cc-lang-menu__panel">
+      <CcLanguagePicker />
+    </div>
+  }
+</div>
