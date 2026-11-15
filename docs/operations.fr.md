@@ -1,5 +1,5 @@
 ---
-source-sha256: 42896000cd089e40af399044d62a735b21641e19e3270b61ff650300edd42ec4
+source-sha256: fe907655b98f69bcf53dfe42feae09d8de5b086aeb3b4344b6d1f8d93c7d6c1e
 ---
 # Exploitation
 
@@ -85,7 +85,8 @@ par Azure SQL et ses sauvegardes automatiques ([deployment-azure.md](deployment-
 
 **Un hôte avec `COMPOSE_FILE` dans son `.env`** (l’hôte de « Déploiement continu », dont le proxy tourne dans un
 conteneur) : chaque commande de cette section s’exécute sous la forme `docker compose --project-directory <directory> …`
-**sans `-f`**. Un `-f docker-compose.prod.yml` remplacerait `COMPOSE_FILE` et écarterait
+**sans `-f`**, depuis ce répertoire (`cd <directory>` d’abord : un `COMPOSE_FILE` relatif est résolu depuis le
+répertoire courant). Un `-f docker-compose.prod.yml` remplacerait `COMPOSE_FILE` et écarterait
 `docker-compose.host.yml` : Caddy reviendrait, et les volumes et le réseau de l’hôte seraient
 perdus. « Restauration » donne les commandes complètes de cet hôte.
 
@@ -285,7 +286,13 @@ chmod 600 /data03/docker/code-coverage/.env
 [`.env.example`](../deploy/vm/.env.example) :
 
 - `COMPOSE_FILE=docker-compose.prod.yml:docker-compose.host.yml` : compose le lit dans `.env`, si bien que
-  chaque commande est un simple `docker compose --project-directory /data03/docker/code-coverage …`.
+  chaque commande est un simple `docker compose --project-directory /data03/docker/code-coverage …`, lancé
+  **depuis ce répertoire** (`cd /data03/docker/code-coverage` d’abord). Compose résout un chemin relatif de
+  `COMPOSE_FILE` depuis son répertoire courant, pas depuis `--project-directory` : lancé d’ailleurs, il échoue avec
+  `stat <répertoire courant>/docker-compose.prod.yml: no such file or directory`. La forme absolue
+  (`/data03/docker/code-coverage/docker-compose.prod.yml:/data03/docker/code-coverage/docker-compose.host.yml`)
+  fonctionne de partout. Le script de déploiement accepte les deux : il lance chaque commande compose depuis
+  `DEPLOY_DIR` et revient ensuite à son propre répertoire, échec compris (M4.02c).
 - `PROXY_NETWORK` : le réseau Docker existant de NPX.
 - `PROXY_NETWORK_CIDR` : son sous-réseau, obtenu par
   `docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'`.
@@ -310,7 +317,8 @@ fichiers.
 1. Connectez-vous une fois avec un personal access token classique limité à `read:packages`
    (`docker login ghcr.io`).
 2. Copiez `deploy/vm` dans `DEPLOY_DIR`.
-3. Lancez `docker compose --project-directory /data03/docker/code-coverage pull`, puis `up -d`.
+3. Lancez `cd /data03/docker/code-coverage`, puis `docker compose --project-directory . pull`, puis
+   `docker compose --project-directory . up -d`.
 4. Supprimez le jeton ensuite (`docker logout ghcr.io`).
 
 Les déploiements suivants se connectent avec le jeton du job. Les volumes montés en bind doivent exister
@@ -402,7 +410,8 @@ proxy host de l’Api.
   avait remplacés ; les conteneurs en marche n’ont pas été touchés. Un dump fait par l’exécution en échec reste dans les
   sauvegardes.
 - **Un échec après le démarrage de l’Api** n’est pas annulé automatiquement, car le schéma a pu
-  migrer. Le job échoue et indique le répertoire de données, le dump et les étapes :
+  migrer. Le job échoue et indique le répertoire de données, le dump et les étapes, dont les commandes compose
+  commencent par `cd <DEPLOY_DIR>` (un `COMPOSE_FILE` relatif) :
   1. arrêtez l’Api et le Web ;
   2. lancez `pg_restore` du dump ;
   3. réglez `TAG` sur le contenu de `.env.previous-tag` (un redéploiement de la même version laisse ce

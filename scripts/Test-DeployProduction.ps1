@@ -6,11 +6,12 @@
 .DESCRIPTION
   No Docker, no network: docker and curl are replaced by a pwsh script placed first in the PATH
   (`docker` and `curl` with a shebang on Linux and macOS, `docker.ps1` and `curl.ps1` on Windows). The
-  fake records each call with the TAG of the .env and the IMAGE_PREFIX of its environment at that
-  moment, and answers from the rules of the
-  case: the first rule whose regular expression matches the command line gives its output and its
+  fake records each call with the TAG of the .env, its current directory and the IMAGE_PREFIX of its
+  environment at that moment. Like compose, a fake `docker compose` resolves each relative path of
+  COMPOSE_FILE (environment, else .env) from its current directory and fails when one is missing
+  (M4.02c). Then it answers from the rules of the case: the first rule whose regular expression matches the command line gives its output and its
   exit code, a list of outputs being consumed one call at a time. Each case runs the deployment
-  script in a child pwsh on a throwaway production directory. Exits with 1 when a check fails.
+  script in a child pwsh on a throwaway production directory, from another directory. Exits with 1 when a check fails.
 
   Run by the build-and-test job of ci-cd.yml, next to tools/rollout/Test-Rollout.ps1.
 
@@ -37,8 +38,26 @@ $ErrorActionPreference = 'Stop'
 # The name of the tool is written into each copy: $PSCommandPath is empty in a script run by its shebang on Linux.
 $tool = '__TOOL__'
 $line = "$tool " + ($args -join ' ')
-$tag = Get-Content -LiteralPath $env:FAKE_DOTENV | Where-Object { $_ -like 'TAG=*' } | Select-Object -First 1
-Add-Content -LiteralPath (Join-Path $env:FAKE_DIR 'calls.log') -Value "$line | $tag | IMAGE_PREFIX=$env:IMAGE_PREFIX"
+$dotEnv = @(Get-Content -LiteralPath $env:FAKE_DOTENV)
+$tag = $dotEnv | Where-Object { $_ -like 'TAG=*' } | Select-Object -First 1
+$cwd = (Get-Location -PSProvider FileSystem).ProviderPath
+Add-Content -LiteralPath (Join-Path $env:FAKE_DIR 'calls.log') -Value "$line | $tag | cwd=$cwd | IMAGE_PREFIX=$env:IMAGE_PREFIX"
+
+# Compose resolves a relative path of COMPOSE_FILE from its current directory, not from --project-directory.
+if ($tool -eq 'docker' -and $args.Count -gt 0 -and $args[0] -eq 'compose') {
+  $composeFile = if ($env:COMPOSE_FILE) { $env:COMPOSE_FILE }
+                 else { ($dotEnv | Where-Object { $_ -like 'COMPOSE_FILE=*' } | Select-Object -First 1) -replace '^COMPOSE_FILE=', '' }
+  $separator = if ($env:COMPOSE_PATH_SEPARATOR) { $env:COMPOSE_PATH_SEPARATOR } else { [System.IO.Path]::PathSeparator }
+
+  foreach ($file in @("$composeFile".Split($separator) | Where-Object { $_ })) {
+    $path = [System.IO.Path]::GetFullPath($file, $cwd)
+
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+      Write-Output "stat ${path}: no such file or directory"
+      exit 14
+    }
+  }
+}
 $rules = @(Get-Content -Raw -LiteralPath (Join-Path $env:FAKE_DIR 'rules.json') | ConvertFrom-Json)
 
 for ($i = 0; $i -lt $rules.Count; $i++) {
@@ -111,6 +130,11 @@ function Invoke-Case {
     [switch] $NoDataDirectories,
     [string] $RecordedPreviousTag = '',
     [string] $ImageTags = '',
+    # The COMPOSE_FILE of .env: the two files of the directory, relative (the form of .env.example) or
+    # absolute, or a relative list naming a missing file. Joined with the separator compose uses by
+    # default, the path separator of the platform.
+    [ValidateSet('Relative', 'Absolute', 'Missing')]
+    [string] $ComposeFile = 'Relative',
     # The health timeout of the deployment: short for the timeout case, long where a slow sequence of
     # states must end healthy (each fake docker call starts a pwsh, slower on a CI runner).
     [int] $HealthTimeoutSeconds = 2,
@@ -151,8 +175,13 @@ function Invoke-Case {
     if ($ChangedBackup) { Add-Content -LiteralPath (Join-Path $directory 'backup/backup.sh') -Value '# older' }
 
     $tagLine = if ($null -eq $CurrentTag) { '' } else { "TAG=$CurrentTag" }
+    $composeFiles = switch ($ComposeFile) {
+      'Relative' { 'docker-compose.prod.yml', 'docker-compose.host.yml' }
+      'Absolute' { (Join-Path $directory 'docker-compose.prod.yml'), (Join-Path $directory 'docker-compose.host.yml') }
+      'Missing' { 'docker-compose.prod.yml', 'docker-compose.missing.yml' }
+    }
     $dotEnv = @(
-      'COMPOSE_FILE=docker-compose.prod.yml:docker-compose.host.yml',
+      "COMPOSE_FILE=$($composeFiles -join [System.IO.Path]::PathSeparator)",
       'IMAGE_PREFIX=ghcr.io/owner/code-coverage',
       $tagLine,
       'CC_API_HOST=coverage-api.example.test',
@@ -182,9 +211,14 @@ function Invoke-Case {
   New-Item -ItemType File -Path (Join-Path $case 'calls.log') -Force | Out-Null
   $summary = Join-Path $case 'summary.md'
 
-  $saved = @{ PATH = $env:PATH; FAKE_DIR = $env:FAKE_DIR; FAKE_DOTENV = $env:FAKE_DOTENV; GITHUB_STEP_SUMMARY = $env:GITHUB_STEP_SUMMARY; IMAGE_PREFIX = $env:IMAGE_PREFIX }
+  $saved = @{ PATH = $env:PATH; FAKE_DIR = $env:FAKE_DIR; FAKE_DOTENV = $env:FAKE_DOTENV; GITHUB_STEP_SUMMARY = $env:GITHUB_STEP_SUMMARY; IMAGE_PREFIX = $env:IMAGE_PREFIX; COMPOSE_FILE = $env:COMPOSE_FILE; COMPOSE_PATH_SEPARATOR = $env:COMPOSE_PATH_SEPARATOR }
+  # The deployment runs from the directory of the case, never from the production directory: a compose
+  # command that depends on the current directory of the runner fails on a relative COMPOSE_FILE.
+  Push-Location -LiteralPath $case
 
   try {
+    $env:COMPOSE_FILE = $null
+    $env:COMPOSE_PATH_SEPARATOR = $null
     $env:PATH = $bin + [System.IO.Path]::PathSeparator + $env:PATH
     $env:FAKE_DIR = $case
     $env:FAKE_DOTENV = Join-Path $directory '.env'
@@ -196,10 +230,12 @@ function Invoke-Case {
     $exitCode = $LASTEXITCODE
   }
   finally {
+    Pop-Location
     foreach ($key in $saved.Keys) { Set-Item -Path "env:$key" -Value $saved[$key] }
   }
 
   return [pscustomobject]@{
+    Case      = (Get-Item -LiteralPath $case).FullName
     ExitCode  = $exitCode
     # One line: the error view of pwsh wraps a long message at the width of the console, behind "| ".
     Output    = ($output -join "`n") -replace '\x1b\[[0-9;]*m', '' -replace '\s*\n\s*(\|\s*)?', ' '
@@ -207,6 +243,20 @@ function Invoke-Case {
     Directory = $directory
     Summary   = if (Test-Path -LiteralPath $summary) { Get-Content -Raw -LiteralPath $summary } else { '' }
   }
+}
+
+function Get-CallDirectory {
+  # The current directories of the calls matching a pattern, as the fake recorded them.
+  param([object[]] $Calls, [string] $Pattern)
+
+  return @($Calls | Where-Object { $_ -match $Pattern } | ForEach-Object { ($_ -split ' \| cwd=', 2)[1] -replace ' \| IMAGE_PREFIX=.*$', '' })
+}
+
+function Test-SamePath {
+  param([string] $Left, [string] $Right)
+
+  $comparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+  return [string]::Equals([System.IO.Path]::TrimEndingDirectorySeparator($Left), [System.IO.Path]::TrimEndingDirectorySeparator($Right), $comparison)
 }
 
 function Get-Tag {
@@ -251,6 +301,22 @@ try {
   Assert-True 'compose sees the IMAGE_PREFIX of .env, not the one of the job' (@($r.Calls | Where-Object { $_ -match '^docker compose ' -and $_ -notmatch 'IMAGE_PREFIX=ghcr\.io/owner/code-coverage$' }).Count -eq 0)
   Assert-True 'no Caddy reload nor backup recreation when nothing changed' ((Find-Call $r.Calls 'caddy reload|--force-recreate') -lt 0)
   Assert-True 'the summary names both versions and the dump' ($r.Summary -match '1\.2\.3' -and $r.Summary -match '1\.2\.2' -and $r.Summary -match 'codecoverage-20261114T000000Z\.dump' -and $r.Summary -notmatch 'DRY RUN')
+
+  Write-Host 'COMPOSE_FILE relative or absolute, run from another directory'
+
+  foreach ($form in 'Relative', 'Absolute') {
+    $r = Invoke-Case -Name "compose file $form" -ComposeFile $form
+    $production = (Get-Item -LiteralPath $r.Directory).FullName
+    $composeDirectories = Get-CallDirectory $r.Calls '^docker compose '
+    $otherDirectories = Get-CallDirectory $r.Calls '^docker (?!compose )'
+    Assert-True "a $($form.ToLowerInvariant()) COMPOSE_FILE deploys" ($r.ExitCode -eq 0) $r.Output
+    Assert-True "every compose command runs from the production directory ($form)" ($composeDirectories.Count -gt 0 -and @($composeDirectories | Where-Object { -not (Test-SamePath $_ $production) }).Count -eq 0) ($r.Calls -join "`n")
+    Assert-True "the other docker commands run from the original directory ($form)" ($otherDirectories.Count -gt 0 -and @($otherDirectories | Where-Object { -not (Test-SamePath $_ $r.Case) }).Count -eq 0) ($r.Calls -join "`n")
+  }
+
+  $r = Invoke-Case -Name 'compose file missing' -ComposeFile Missing
+  Assert-True 'a COMPOSE_FILE naming a missing file fails like compose' ($r.ExitCode -ne 0 -and $r.Output -match 'docker-compose\.missing\.yml: no such file or directory') $r.Output
+  Assert-True 'a failed compose command leaves .env' ((Get-Tag $r.Directory) -eq 'TAG=1.2.2')
 
   Write-Host 'Dry run'
   $r = Invoke-Case -Name 'dry run' -Arguments @()
@@ -330,6 +396,7 @@ try {
   Assert-True 'after the start of the Api, the copied files stay' (Test-Path -LiteralPath (Join-Path $r.Directory 'docker-compose.prod.yml'))
   Assert-True 'after the start of the Api, nothing is rolled back' ((Get-Tag $r.Directory) -eq 'TAG=1.2.3')
   Assert-True 'the error names the dump and the restore procedure' ($r.Output -match 'codecoverage-20261114T000000Z\.dump' -and $r.Output -match 'pg_restore' -and $r.Output -match 'TAG=1\.2\.2')
+  Assert-True 'the manual return starts in the production directory' ($r.Output -match ('cd ' + [regex]::Escape((Get-Item -LiteralPath $r.Directory).FullName) + ' && docker compose --project-directory \. stop web api'))
   Assert-True 'the Web is not started after an unhealthy Api' ((Find-Call $r.Calls 'up -d --pull never web') -lt 0)
 
   $r = Invoke-Case -Name 'exited' -Rules @(New-Rule docker '^docker inspect .* id-web' 'exited ')
