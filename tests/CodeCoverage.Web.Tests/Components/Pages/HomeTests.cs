@@ -22,7 +22,9 @@ using CodeCoverage.Domain.History;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Users;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Web.Components.Pages;
+using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
 
@@ -37,6 +39,8 @@ public sealed class HomeTests : UiTestContext
 
   private readonly ISender _sender = A.Fake<ISender>();
 
+  private readonly GitHubOptions _github = new();
+
   private readonly List<ListRepositorySummariesQuery> _queries = [];
 
   #endregion
@@ -47,6 +51,7 @@ public sealed class HomeTests : UiTestContext
   {
     Services.AddFakeSenderRunner(_sender);
     Services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
+    Services.AddSingleton(new AppInstallationLink(new TestOptionsMonitor<GitHubOptions>(_github)));
 
     User(isInstanceAdministrator: false, Member("acme-labs"), Member("blue-harbor"));
     A.CallTo(() => _sender.Send(A<ListRepositorySummariesQuery>._, A<CancellationToken>._))
@@ -141,6 +146,33 @@ public sealed class HomeTests : UiTestContext
     var empty = cut.Find("[data-state=empty]");
     empty.TextContent.ShouldContain(L("Home_EmptyInstanceAdmin"));
     empty.QuerySelector("a")!.GetAttribute("href").ShouldBe("admin/organizations");
+  }
+
+  // M4.02i: an administrator of the instance with nothing to read is offered the installation of the App.
+  [Fact]
+  public void Render_EmptyForAnInstanceAdmin_ShouldLinkToTheInstallationOfTheApp()
+  {
+    _github.AppSlug = "codecoverage-acme";
+    User(isInstanceAdministrator: true);
+
+    var cut = Render<Home>();
+
+    var install = cut.Find("[data-state=empty] a[data-action=install]");
+    install.GetAttribute("href").ShouldBe("https://github.com/apps/codecoverage-acme/installations/new");
+    install.GetAttribute("target").ShouldBe("_blank");
+  }
+
+  [Theory]
+  [InlineData(false, "codecoverage-acme")]
+  [InlineData(true, null)]
+  public void Render_EmptyForAMemberOrWithoutSlug_ShouldNotLinkToTheInstallation(bool instanceAdmin, string? slug)
+  {
+    _github.AppSlug = slug;
+    User(isInstanceAdministrator: instanceAdmin);
+
+    var cut = Render<Home>();
+
+    cut.Find("[data-state=empty]").QuerySelector("a[data-action=install]").ShouldBeNull();
   }
 
   // The coverage of the head is drawn as a bar, its value kept as text; a repository without coverage has no bar.

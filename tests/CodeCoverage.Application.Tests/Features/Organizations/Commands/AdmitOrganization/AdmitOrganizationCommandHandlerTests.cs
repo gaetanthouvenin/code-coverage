@@ -86,6 +86,40 @@ public sealed class AdmitOrganizationCommandHandlerTests
   }
 
   [Fact]
+  public async Task Handle_SignedInAdministrator_ShouldQueueBothTheInstallationsAndItsMemberships()
+  {
+    A.CallTo(() => _user.IsSystem).Returns(false);
+    A.CallTo(() => _user.UserId).Returns(42L);
+    A.CallTo(() => _user.Login).Returns("root-admin");
+    Knows(Pending());
+
+    await Handler().Handle(Command(), Ct);
+
+    var refresh = RefreshUserMembershipsJobs.Create(42);
+
+    A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>.That.Matches(j => j.Type == JobTypes.SyncInstallations), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+    A.CallTo(
+       () => _jobQueue.EnqueueAsync(
+         A<JobRequest>.That.Matches(j => j.Type == JobTypes.RefreshUserMemberships && j.DedupKey == refresh.DedupKey && j.PayloadJson == refresh.PayloadJson),
+         A<CancellationToken>._
+       )
+     )
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_System_ShouldQueueNoRefreshOfMemberships()
+  {
+    Knows(Pending());
+
+    await Handler().Handle(Command(), Ct);
+
+    A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>.That.Matches(j => j.Type == JobTypes.RefreshUserMemberships), A<CancellationToken>._))
+     .MustNotHaveHappened();
+  }
+
+  [Fact]
   public async Task Handle_AccountOfAnotherForge_ShouldQueueNoListingOfGitHubInstallations()
   {
     var pending = Organization.CreatePending(Forge.Bitbucket, AccountId, Login, OrganizationAccountType.Organization, Now);

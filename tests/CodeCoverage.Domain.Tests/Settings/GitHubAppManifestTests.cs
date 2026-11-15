@@ -35,6 +35,17 @@ public sealed class GitHubAppManifestTests
     root.GetProperty("callback_urls")[0].GetString().ShouldBe("https://coverage.example.com/signin-github");
   }
 
+  // M4.02i: the account that installs the App comes back to the console, not to a page of GitHub.
+  [Fact]
+  public void ToJson_ShouldBringTheInstallerBackToTheConsole()
+  {
+    using var manifest = JsonDocument.Parse(GitHubAppManifest.ToJson("CodeCoverage", Web, Api));
+    var root = manifest.RootElement;
+
+    root.GetProperty("setup_url").GetString().ShouldBe("https://coverage.example.com/");
+    root.GetProperty("setup_on_update").GetBoolean().ShouldBeFalse();
+  }
+
   [Fact]
   public void ToJson_ShouldAskTheMembersOfTheOrganizationsAndNothingToWriteTheCode()
   {

@@ -12,6 +12,8 @@ namespace CodeCoverage.Domain.Settings;
 /// <remarks>
 ///   The App is public, shared by every organization (ADR-013). <c>installation</c> and
 ///   <c>installation_repositories</c> are not listed: GitHub delivers them to every App without a subscription.
+///   <c>setup_url</c> brings the account that installed the App back to the console, where an administrator of the
+///   instance admits it.
 /// </remarks>
 public static class GitHubAppManifest
 {
@@ -56,6 +58,8 @@ public static class GitHubAppManifest
       ["public"] = true,
       ["hook_attributes"] = new JsonObject { ["url"] = $"{api}/api/v1/github/webhooks", ["active"] = true },
       ["redirect_url"] = $"{web}/setup",
+      ["setup_url"] = $"{web}/",
+      ["setup_on_update"] = false,
       ["callback_urls"] = new JsonArray($"{web}/signin-github"),
       ["request_oauth_on_install"] = false,
       ["default_permissions"] = new JsonObject

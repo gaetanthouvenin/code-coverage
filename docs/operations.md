@@ -101,8 +101,22 @@ be lost. "Restore" gives the commands of that host in full.
    survives.
 4. `docker compose -f docker-compose.prod.yml pull`, then `docker compose -f docker-compose.prod.yml up -d`.
    The Api migrates the schema at start; the Web stays not ready until the schema is current.
-5. Open `https://<web host>/setup` to create the GitHub App from its manifest, then admit the first
-   organization from `/admin/organizations`.
+5. Open `https://<web host>/setup` to create the GitHub App from its manifest.
+6. Install the App: the end of `/setup`, the header of `/admin/organizations` and the empty home page of
+   an instance administrator link to `https://github.com/apps/<slug>/installations/new`. GitHub asks
+   which account installs it and on which repositories, then sends the browser back to the console
+   (`setup_url` of the manifest; an App created before M4.02i has none, set it in its settings on
+   GitHub if you want the return). The installation shows up as a **pending** organization.
+7. Admit it from `/admin/organizations`, by its login: the console reads the account id from GitHub and
+   shows « login → id » before you confirm. Your own account sees the organization at once, without
+   signing in again. If an installation does not show up (a webhook lost while the Api was down),
+   **Check installations** lists the installations of the App now instead of at the nightly run
+   (midnight UTC).
+
+The memberships of a signed-in user are refreshed by the worker whenever they are read older than
+`Access:CacheMinutes`, so the organizations stay listed for the whole life of the session cookie; past
+`Access:HardExpiryMinutes` without a successful refresh (GitHub down, refresh token revoked) they grant
+nothing until the next refresh succeeds.
 
 Caddy runs at the fixed address `172.30.0.10` of the `edge` network (subnet `172.30.0.0/24`), the only
 proxy the Api and the Web trust for `X-Forwarded-For` and `X-Forwarded-Proto` (the Web builds the https

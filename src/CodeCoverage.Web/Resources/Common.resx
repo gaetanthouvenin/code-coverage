@@ -72,6 +72,7 @@
   <data name="Organization.InvalidLogin" xml:space="preserve"><value>This login is not one a forge can give.</value></data>
   <data name="Organization.NotFound" xml:space="preserve"><value>This organization does not exist, or you do not have access to it.</value></data>
   <data name="Organization.NotPending" xml:space="preserve"><value>This organization was already admitted or is suspended.</value></data>
+  <data name="Organization.UnknownGitHubLogin" xml:space="preserve"><value>GitHub knows no account with this login.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>This repository is known and its coverage is not tracked.</value></data>
@@ -134,6 +135,14 @@
   <data name="AdminOrganizations_Suspended" xml:space="preserve"><value>Organization suspended</value></data>
   <data name="AdminOrganizations_SuspendTitle" xml:space="preserve"><value>Suspend « {0} »?</value></data>
   <data name="AdminOrganizations_SuspendText" xml:space="preserve"><value>Its members lose access at their next request, and uploads and notifications stop. Its data is kept.</value></data>
+  <data name="Action_InstallApp" xml:space="preserve"><value>Install the GitHub App</value></data>
+  <data name="Action_CheckInstallations" xml:space="preserve"><value>Check installations</value></data>
+  <data name="Action_FindAccount" xml:space="preserve"><value>Find the account</value></data>
+  <data name="AdminOrganizations_InstallationsQueued" xml:space="preserve"><value>Installations are being checked</value></data>
+  <data name="AdminOrganizations_LoginHelp" xml:space="preserve"><value>The login of the GitHub account, a user or an organization.</value></data>
+  <data name="AdminOrganizations_Resolved" xml:space="preserve"><value>{0} → account {1}</value></data>
+  <data name="AdminOrganizations_ResolvedHint" xml:space="preserve"><value>Check that this is the account to admit before you confirm.</value></data>
+  <data name="AdminOrganizations_InstallText" xml:space="preserve"><value>An account installs the GitHub App on GitHub, then appears here as Pending.</value></data>
   <data name="Action_Admit" xml:space="preserve"><value>Admit</value></data>
   <data name="Action_AdmitAccount" xml:space="preserve"><value>Admit an account</value></data>
   <data name="Action_Suspend" xml:space="preserve"><value>Suspend</value></data>

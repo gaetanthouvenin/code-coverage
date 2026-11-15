@@ -11,6 +11,7 @@ using Microsoft.Extensions.Localization;
 using CodeCoverage.Web.Components.Organizations;
 using CodeCoverage.Web.Components.Ui.Models;
 using CodeCoverage.Web.Components.Ui.Services;
+using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -22,6 +23,10 @@ namespace CodeCoverage.Web.Components.Pages;
 ///   The organizations of the instance and their lifecycle (admit, suspend): reserved to the administrators of the
 ///   instance. It shows the rows of the organizations and the depth of their queue, never their data.
 /// </summary>
+/// <remarks>
+///   It links to the installation of the GitHub App, queues a check of the installations at once, and admits an account
+///   by its login: the login is turned into the identifier of the account, shown for confirmation, before the admission.
+/// </remarks>
 public partial class AdminOrganizations
 {
   #region Fields
@@ -49,6 +54,9 @@ public partial class AdminOrganizations
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private AppInstallationLink InstallLink { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -60,6 +68,10 @@ public partial class AdminOrganizations
   private string? Filter { get; set; }
 
   private OrganizationRowViewModel? Suspended { get; set; }
+
+  private GitHubAccountViewModel? Resolved { get; set; }
+
+  private string? InstallUrl => InstallLink.Current?.AbsoluteUri;
 
   private int PendingCount => Rows?.Count(static r => r.State is OrganizationLifecycle.Pending) ?? 0;
 
@@ -110,16 +122,71 @@ public partial class AdminOrganizations
   private Task AdmitAsync(OrganizationRowViewModel row) =>
     SendAsync(L["AdminOrganizations_Admitted"], row.Login, (sender, ct) => sender.AdmitOrganizationAsync(row.Forge, row.Login, row.ExternalAccountId, ct), null);
 
+  private async Task FindAccountAsync()
+  {
+    var login = _admit.Login?.Trim() ?? string.Empty;
+
+    _busy = true;
+
+    try
+    {
+      var result = await Runner.RunAsync((sender, ct) => sender.GetGitHubAccountViewModelAsync(login, ct), _admitContext).ConfigureAwait(true);
+
+      if (result.Succeeded)
+      {
+        Resolved = result.Value;
+        _admit.ExternalAccountId = result.Value.ExternalAccountId;
+      }
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+
+  // The admission sends the login and the identifier GitHub gave, never a login that changed since the confirmation.
   private async Task AdmitTypedAsync()
   {
-    var login = _admit.Login ?? string.Empty;
-    var account = _admit.ExternalAccountId ?? string.Empty;
+    if (Resolved is not { } resolved)
+    {
+      return;
+    }
+
+    var login = resolved.Login;
+    var account = resolved.ExternalAccountId;
     var forge = _admit.Forge;
 
     if (await SendAsync(L["AdminOrganizations_Admitted"], login, (sender, ct) => sender.AdmitOrganizationAsync(forge, login, account, ct), _admitContext).ConfigureAwait(true))
     {
       CloseAdmit();
     }
+  }
+
+  private async Task CheckInstallationsAsync()
+  {
+    _busy = true;
+
+    try
+    {
+      var result = await Runner.RunAsync(static (sender, ct) => sender.CheckInstallationsAsync(ct)).ConfigureAwait(true);
+
+      if (result.Succeeded)
+      {
+        Toasts.Show(CcTone.Info, L["AdminOrganizations_InstallationsQueued"], L["AdminOrganizations_InstallText"]);
+      }
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+
+  // Another login asks for another confirmation.
+  private void ChangeLogin(string? login)
+  {
+    _admit.Login = login;
+    _admit.ExternalAccountId = null;
+    Resolved = null;
   }
 
   private async Task SuspendAsync()
@@ -165,6 +232,7 @@ public partial class AdminOrganizations
   {
     _admit = new AdmitAccountForm();
     _admitContext = new EditContext(_admit);
+    Resolved = null;
     _admitOpen = true;
   }
 

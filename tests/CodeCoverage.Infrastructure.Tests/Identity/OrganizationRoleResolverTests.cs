@@ -7,6 +7,7 @@
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Configuration;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
@@ -30,6 +31,8 @@ public sealed class OrganizationRoleResolverTests
 
   private readonly IUserRepository _users = A.Fake<IUserRepository>();
 
+  private readonly IJobQueue _jobQueue = A.Fake<IJobQueue>();
+
   private readonly AccessOptions _options = new();
 
   private readonly IClock _clock = A.Fake<IClock>();
@@ -50,7 +53,7 @@ public sealed class OrganizationRoleResolverTests
     A.CallTo(() => _directory.FindAsync(A<long>._, A<CancellationToken>._)).Returns((Organization?)null);
     A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._)).Returns((AppUser?)null);
 
-    _resolver = new OrganizationRoleResolver(_memberships, _directory, _users, monitor, _clock);
+    _resolver = new OrganizationRoleResolver(_memberships, _directory, _users, _jobQueue, monitor, _clock);
   }
 
   #endregion
@@ -180,6 +183,43 @@ public sealed class OrganizationRoleResolverTests
     A.CallTo(() => _memberships.FindAsync(UserId, OrganizationId, A<CancellationToken>._)).Returns(OrganizationMembership.Create(UserId, OrganizationId, OrganizationRole.Admin, Now));
 
     (await ResolveAsync()).ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task Resolve_MembershipYoungerThanTheCache_ShouldQueueNoRefresh()
+  {
+    Given(Active("1001", OrganizationAccountType.Organization), OrganizationRole.Admin, Now.AddMinutes(-9));
+
+    (await ResolveAsync()).ShouldBe(OrganizationRole.Admin);
+
+    A.CallTo(() => _jobQueue.TryEnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // A stale membership still answers until the hard expiry, and queues the refresh of its user once per scope.
+  [Theory]
+  [InlineData(10, true)]
+  [InlineData(59, true)]
+  [InlineData(60, false)]
+  [InlineData(100_000, false)]
+  public async Task Resolve_StaleMembership_ShouldQueueTheRefreshOnce(int minutes, bool granted)
+  {
+    Given(Active("1001", OrganizationAccountType.Organization), OrganizationRole.Admin, Now.AddMinutes(-minutes));
+
+    (await ResolveAsync()).ShouldBe(granted ? OrganizationRole.Admin : null);
+    (await ResolveAsync()).ShouldBe(granted ? OrganizationRole.Admin : null);
+
+    var expected = RefreshUserMembershipsJobs.Create(UserId);
+
+    A.CallTo(() => _jobQueue.TryEnqueueAsync(A<JobRequest>.That.Matches(r => r.Type == expected.Type && r.DedupKey == expected.DedupKey), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Resolve_NoMembership_ShouldQueueNoRefresh()
+  {
+    (await ResolveAsync()).ShouldBeNull();
+
+    A.CallTo(() => _jobQueue.TryEnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   private static Organization Active(string accountId, OrganizationAccountType accountType)

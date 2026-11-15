@@ -61,6 +61,18 @@ public interface IGitHubAppGateway
     string userLogin,
     CancellationToken cancellationToken);
 
+  /// <summary>Reads a GitHub account, a user or an organization, by its login (<c>GET /users/{login}</c>).</summary>
+  /// <param name="login">The login of the account, whatever its case.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The account, or <see langword="null" /> when GitHub knows no account of this login.</returns>
+  /// <remarks>
+  ///   The account is public, so the reading needs no installation: it works before the App is installed anywhere,
+  ///   and before it exists at all. It turns a login an administrator types into the identifier the instance stores
+  ///   (the admission of an account, M4.02i; the administrators of the instance, M4.02f).
+  /// </remarks>
+  /// <exception cref="ArgumentException"><paramref name="login" /> is <see langword="null" />, empty or white space.</exception>
+  Task<GitHubAccountInfo?> GetAccountByLoginAsync(string login, CancellationToken cancellationToken);
+
   /// <summary>Creates a completed check run on a commit, in place of a commit status (M5.05).</summary>
   /// <param name="repository">The repository, on GitHub.</param>
   /// <param name="run">The check run, with its first annotations (50 at most).</param>

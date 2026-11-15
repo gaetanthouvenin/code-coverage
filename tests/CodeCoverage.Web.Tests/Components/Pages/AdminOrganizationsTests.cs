@@ -12,12 +12,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Organizations.Commands.AdmitOrganization;
+using CodeCoverage.Application.Features.Organizations.Commands.CheckInstallations;
 using CodeCoverage.Application.Features.Organizations.Commands.SuspendOrganization;
 using CodeCoverage.Application.Features.Organizations.Queries.ListOrganizations;
+using CodeCoverage.Application.Features.Organizations.Queries.ResolveGitHubAccount;
 using CodeCoverage.Application.Security;
+using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Web.Components.Pages;
+using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
 
@@ -32,6 +38,8 @@ public sealed class AdminOrganizationsTests : UiTestContext
 
   private readonly ISender _sender = A.Fake<ISender>();
 
+  private readonly GitHubOptions _github = new() { AppSlug = "codecoverage-acme" };
+
   #endregion
 
   #region Ctors
@@ -39,6 +47,7 @@ public sealed class AdminOrganizationsTests : UiTestContext
   public AdminOrganizationsTests()
   {
     Services.AddFakeSenderRunner(_sender);
+    Services.AddSingleton(new AppInstallationLink(new TestOptionsMonitor<GitHubOptions>(_github)));
 
     var active = Organization.CreatePending(Forge.GitHub, "1001", "zeta-org", OrganizationAccountType.Organization, Now);
     active.Admit("octocat", Now);
@@ -95,19 +104,99 @@ public sealed class AdminOrganizationsTests : UiTestContext
     cut.FindAll("[role=dialog]").ShouldBeEmpty();
   }
 
+  // M4.02i: the login is turned into the identifier GitHub gives, shown for confirmation, then admitted.
   [Fact]
-  public void AdmitAnAccount_ShouldSendWhatTheDialogAsks()
+  public void AdmitAnAccount_ByLogin_ShouldConfirmTheIdentifierThenAdmit()
   {
+    A.CallTo(() => _sender.Send(A<ResolveGitHubAccountQuery>.That.Matches(q => q.Login == "Northwind-Dev"), A<CancellationToken>._))
+     .Returns(new ValueTask<GitHubAccountInfo>(new GitHubAccountInfo("88120441", "northwind-dev", OrganizationAccountType.Organization)));
     var cut = Render<AdminOrganizations>();
 
-    cut.FindAll(".cc-header button").Single(b => b.TextContent.Contains(L("Action_AdmitAccount"), StringComparison.Ordinal)).Click();
-    var inputs = cut.FindAll("[role=dialog] input");
-    inputs[0].Input("northwind-dev");
-    cut.FindAll("[role=dialog] input")[1].Input("88120441");
-    cut.FindAll("[role=dialog] .cc-dialog__actions button").Last().Click();
+    cut.Find(".cc-header [data-action=admit]").Click();
+    cut.Find("[role=dialog] input").Input(" Northwind-Dev ");
+    cut.Find("[role=dialog] [data-action=find]").Click();
+
+    cut.Find("[role=dialog] [data-state=resolved]").TextContent.ShouldContain(L("AdminOrganizations_Resolved", "northwind-dev", "88120441"));
+    A.CallTo(() => _sender.Send(A<AdmitOrganizationCommand>._, A<CancellationToken>._)).MustNotHaveHappened();
+
+    cut.Find("[role=dialog] [data-action=confirm]").Click();
 
     A.CallTo(() => _sender.Send(A<AdmitOrganizationCommand>.That.Matches(c => c.Login == "northwind-dev" && c.ExternalAccountId == "88120441"), A<CancellationToken>._))
      .MustHaveHappenedOnceExactly();
+    cut.FindAll("[role=dialog]").ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void AdmitAnAccount_UnknownLogin_ShouldAdmitNothing()
+  {
+    A.CallTo(() => _sender.Send(A<ResolveGitHubAccountQuery>._, A<CancellationToken>._))
+     .ThrowsAsync(new UnprocessableEntityException(OrganizationErrors.UnknownGitHubLogin, "Unknown."));
+    var cut = Render<AdminOrganizations>();
+
+    cut.Find(".cc-header [data-action=admit]").Click();
+    cut.Find("[role=dialog] input").Input("nobody-here");
+    cut.Find("[role=dialog] [data-action=find]").Click();
+
+    cut.FindAll("[role=dialog] [data-state=resolved]").ShouldBeEmpty();
+    cut.FindAll("[role=dialog] [data-action=confirm]").ShouldBeEmpty();
+    A.CallTo(() => _sender.Send(A<AdmitOrganizationCommand>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // Another login typed after the confirmation asks for another one.
+  [Fact]
+  public void AdmitAnAccount_LoginChangedAfterTheConfirmation_ShouldAskAgain()
+  {
+    A.CallTo(() => _sender.Send(A<ResolveGitHubAccountQuery>._, A<CancellationToken>._))
+     .Returns(new ValueTask<GitHubAccountInfo>(new GitHubAccountInfo("88120441", "northwind-dev", OrganizationAccountType.Organization)));
+    var cut = Render<AdminOrganizations>();
+
+    cut.Find(".cc-header [data-action=admit]").Click();
+    cut.Find("[role=dialog] input").Input("northwind-dev");
+    cut.Find("[role=dialog] [data-action=find]").Click();
+    cut.Find("[role=dialog] input").Input("someone-else");
+
+    cut.FindAll("[role=dialog] [data-state=resolved]").ShouldBeEmpty();
+    cut.Find("[role=dialog] [data-action=find]").ShouldNotBeNull();
+  }
+
+  [Fact]
+  public void Render_ShouldLinkToTheInstallationOfTheApp()
+  {
+    var cut = Render<AdminOrganizations>();
+
+    var install = cut.Find(".cc-header a[data-action=install]");
+    install.GetAttribute("href").ShouldBe("https://github.com/apps/codecoverage-acme/installations/new");
+    install.GetAttribute("rel").ShouldBe("noopener noreferrer");
+  }
+
+  [Fact]
+  public void Render_NoOrganization_ShouldLinkToTheInstallationOfTheApp()
+  {
+    List();
+
+    var cut = Render<AdminOrganizations>();
+
+    cut.Find(".cc-status-page a[data-action=install]").GetAttribute("href").ShouldBe("https://github.com/apps/codecoverage-acme/installations/new");
+  }
+
+  [Fact]
+  public void Render_AppWithoutSlug_ShouldShowNoInstallationLink()
+  {
+    _github.AppSlug = null;
+
+    var cut = Render<AdminOrganizations>();
+
+    cut.FindAll("a[data-action=install]").ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Click_CheckInstallations_ShouldQueueTheListingAtOnce()
+  {
+    var cut = Render<AdminOrganizations>();
+
+    cut.Find(".cc-header [data-action=check-installations]").Click();
+
+    A.CallTo(() => _sender.Send(A<CheckInstallationsCommand>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -147,6 +236,8 @@ public sealed class AdminOrganizationsTests : UiTestContext
   private static AngleSharp.Dom.IElement Row(IRenderedComponent<AdminOrganizations> cut, string login) => cut.Find($"tr[data-login='{login}']");
 
   private string L(string key) => Services.GetRequiredService<IStringLocalizer<Common>>()[key];
+
+  private string L(string key, params object[] arguments) => Services.GetRequiredService<IStringLocalizer<Common>>()[key, arguments];
 
   #endregion
 }

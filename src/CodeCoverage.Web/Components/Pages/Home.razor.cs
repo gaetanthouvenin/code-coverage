@@ -12,6 +12,7 @@ using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Components.Layout;
 using CodeCoverage.Web.Components.Ui.Models;
+using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Messaging;
 using CodeCoverage.Web.Resources;
@@ -62,6 +63,9 @@ public partial class Home
   [Inject]
   private IStringLocalizer<Common> L { get; set; } = null!;
 
+  [Inject]
+  private AppInstallationLink InstallLink { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -70,7 +74,12 @@ public partial class Home
 
   private IReadOnlyList<HomeOrganizationViewModel>? Organizations { get; set; }
 
+  private bool IsInstanceAdmin { get; set; }
+
   private bool IsInstanceAdminWithoutOrganization { get; set; }
+
+  // An administrator of the instance with nothing to read is offered the installation of the App.
+  private string? InstallUrl => InstallLink.Current?.AbsoluteUri;
 
   private string? Filter { get; set; }
 
@@ -166,6 +175,7 @@ public partial class Home
       return;
     }
 
+    IsInstanceAdmin = navigation.Value.IsInstanceAdmin;
     IsInstanceAdminWithoutOrganization = navigation.Value.IsInstanceAdmin && navigation.Value.Organizations.Count == 0;
 
     // ?org= is matched against the organizations of the user only: another value narrows to nothing, as no organization.

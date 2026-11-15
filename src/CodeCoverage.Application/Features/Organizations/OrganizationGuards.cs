@@ -7,6 +7,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Application.Features.Organizations;
@@ -68,6 +69,21 @@ internal static class OrganizationGuards
       if (existing is { State: not OrganizationState.Pending })
       {
         throw new ConflictException(OrganizationErrors.NotPending, $"The organization is {existing.State}: only a pending one can be admitted.");
+      }
+    }
+  }
+
+  extension(UnprocessableEntityException)
+  {
+    /// <summary>Throws when GitHub knows no account of the login an administrator typed.</summary>
+    /// <param name="account">The account GitHub described, or <see langword="null" />.</param>
+    /// <param name="login">The login that was typed.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="account" /> is <see langword="null" />.</exception>
+    public static void ThrowIfUnknownGitHubLogin([NotNull] GitHubAccountInfo? account, string login)
+    {
+      if (account is null)
+      {
+        throw new UnprocessableEntityException(OrganizationErrors.UnknownGitHubLogin, $"GitHub knows no account '{login}'.");
       }
     }
   }

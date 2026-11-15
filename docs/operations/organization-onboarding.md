@@ -6,8 +6,10 @@ then configures it. Nothing of one organization is visible from another.
 
 ## 1. Install the App
 
-An owner of the GitHub account installs the GitHub App of the instance (`https://github.com/apps/<slug>`)
-on all its repositories or on a selection. The App asks for:
+An owner of the GitHub account installs the GitHub App of the instance from
+`https://github.com/apps/<slug>/installations/new`, on all its repositories or on a selection. The
+instance administrator finds that link in the header of `/admin/organizations` (and at the end of
+`/setup`), and sends it to the owner. The App asks for:
 
 | Permission | Why |
 |---|---|
@@ -19,10 +21,17 @@ on all its repositories or on a selection. The App asks for:
 
 The installation creates a **pending** organization: it tracks nothing yet, and every upload is refused
 (401 `Upload.TokenInvalid` with a token, `Repository.NotFound` with OIDC; the uploader still exits 0).
+GitHub then sends the owner back to the console. If the pending organization does not appear (its
+webhook was lost), the instance administrator clicks **Check installations** in `/admin/organizations`:
+the worker lists the installations of the App at once, instead of waiting for the nightly run.
 
 ## 2. Admit it
 
-The instance administrator admits the pending organization in `/admin/organizations`. Break-glass,
+The instance administrator admits the pending organization in `/admin/organizations` (**Admit** on its
+row), or admits an account before its installation with **Admit an account**: type the login, the
+console reads the account id from GitHub (`GET /users/{login}`) and shows « login → id » for
+confirmation. An unknown login is refused (`Organization.UnknownGitHubLogin`) and nothing is saved.
+The administrator who admits sees the organization at once, without signing in again. Break-glass,
 without the console (docs/operations.md, "The administration command line"):
 
 ```bash

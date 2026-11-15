@@ -50,6 +50,8 @@ try
   builder.Services.AddCodeCoverageAuthentication();
   // The cookie of the first-start wizard, protected by the same key ring.
   builder.Services.AddSingleton<SetupCookie>();
+  // The address that installs the GitHub App, shown by the wizard, the organizations of the instance and the home page.
+  builder.Services.AddSingleton<AppInstallationLink>();
   builder.Services.AddCoverageUi();
   builder.Services.AddUiMessaging();
   builder.Services.AddHealthProbes();
