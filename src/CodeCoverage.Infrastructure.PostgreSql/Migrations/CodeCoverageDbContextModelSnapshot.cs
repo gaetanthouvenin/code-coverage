@@ -1147,6 +1147,11 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("PreferredLanguage")
+                        .HasMaxLength(8)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(8)");
+
                     b.Property<DateTimeOffset?>("RefreshTokenExpiresAt")
                         .HasColumnType("timestamp with time zone");
 

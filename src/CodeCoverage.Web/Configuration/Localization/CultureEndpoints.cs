@@ -4,7 +4,11 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Mediator;
+
 using Microsoft.AspNetCore.Localization;
+
+using CodeCoverage.Application.Features.Access.Commands.SetPreferredLanguage;
 
 using CodeCoverage.Web.Configuration.Authentication;
 using CodeCoverage.Web.Localization;
@@ -41,7 +45,7 @@ internal static class CultureEndpoints
   {
     ArgumentNullException.ThrowIfNull(endpoints);
 
-    endpoints.MapGet(CulturePath, SetCulture).ExcludeFromDescription();
+    endpoints.MapGet(CulturePath, SetCultureAsync).ExcludeFromDescription();
 
     return endpoints;
   }
@@ -72,16 +76,22 @@ internal static class CultureEndpoints
       });
   }
 
-  /// <summary>Remembers a language, then comes back to the page.</summary>
+  /// <summary>Remembers a language, in the account of a signed-in user too (M4.02u), then comes back to the page.</summary>
   /// <param name="context">The HTTP context.</param>
+  /// <param name="sender">The sender of the messages of the Application.</param>
   /// <param name="lang">The code of the language; one the console does not speak sets nothing.</param>
   /// <param name="returnUrl">The page to come back to; an address that is not a local path goes home.</param>
   /// <returns>The redirection.</returns>
-  private static IResult SetCulture(HttpContext context, string? lang, string? returnUrl)
+  private static async Task<IResult> SetCultureAsync(HttpContext context, ISender sender, string? lang, string? returnUrl)
   {
     if (ConsoleLanguages.Find(lang) is { } language)
     {
       AppendCookie(context.Response, language);
+
+      if (context.User.Identity is { IsAuthenticated: true })
+      {
+        await sender.Send(new SetPreferredLanguageCommand(language.Code), context.RequestAborted).ConfigureAwait(false);
+      }
     }
 
     return Results.Redirect(AuthenticationEndpoints.LocalOrHome(returnUrl));

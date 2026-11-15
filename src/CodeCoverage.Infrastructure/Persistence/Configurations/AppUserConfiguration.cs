@@ -42,6 +42,7 @@ internal sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
     builder.Property(static u => u.RefreshTokenExpiresAt);
     builder.Property(static u => u.IsAdmin).IsRequired();
     builder.Property(static u => u.LastLoginAt);
+    builder.Property(static u => u.PreferredLanguage).HasMaxLength(AppUser.PreferredLanguageMaxLength).IsUnicode(false);
     builder.Property(static u => u.Version).IsRequired().IsConcurrencyToken();
 
     builder.HasIndex(static u => new { u.Forge, u.ExternalId }).IsUnique().HasDatabaseName(AccountIndexName);

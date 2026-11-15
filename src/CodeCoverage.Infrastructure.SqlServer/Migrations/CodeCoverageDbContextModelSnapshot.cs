@@ -1149,6 +1149,11 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("PreferredLanguage")
+                        .HasMaxLength(8)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(8)");
+
                     b.Property<DateTimeOffset?>("RefreshTokenExpiresAt")
                         .HasColumnType("datetimeoffset");
 
