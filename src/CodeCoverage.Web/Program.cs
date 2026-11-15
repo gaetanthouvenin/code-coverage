@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Microsoft.AspNetCore.Localization;
+
 using Serilog;
 
 using CodeCoverage.Application;
@@ -19,6 +21,7 @@ using CodeCoverage.Web.Configuration.Security;
 using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Documentation;
 using CodeCoverage.Web.Extensions;
+using CodeCoverage.Web.Localization;
 
 // Each host reloads and freezes its own bootstrap logger, even next to another host of the same process.
 var bootstrapLogger = SerilogConfiguration.CreateBootstrapLogger();
@@ -92,10 +95,15 @@ try
   app.UseAuthentication();
   app.UseAuthorization();
 
-  // The interface speaks English and French, from the language of the browser.
-  app.UseRequestLocalization(o => o.AddSupportedCultures("en", "fr")
-                                   .AddSupportedUICultures("en", "fr")
-                                   .SetDefaultCulture("en"));
+  // The interface speaks the languages of ConsoleLanguages (ADR-015): the culture cookie, then the language of the
+  // browser, then English. No ?culture= parameter: a shared address never changes the language of who opens it.
+  app.UseRequestLocalization(o =>
+  {
+    string[] languages = [.. ConsoleLanguages.Codes];
+
+    o.AddSupportedCultures(languages).AddSupportedUICultures(languages).SetDefaultCulture(ConsoleLanguages.DefaultCode);
+    o.RequestCultureProviders = [new CookieRequestCultureProvider(), new AcceptLanguageHeaderRequestCultureProvider()];
+  });
 
   app.UseAntiforgery();
 

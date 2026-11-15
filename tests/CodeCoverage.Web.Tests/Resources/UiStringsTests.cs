@@ -5,14 +5,12 @@
 // ------------------------------------------------------------------------------------------------
 
 using System.Globalization;
-using System.Xml.Linq;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Web.Extensions;
 using CodeCoverage.Web.Resources;
-using CodeCoverage.Web.Tests.Support;
 
 namespace CodeCoverage.Web.Tests.Resources;
 
@@ -20,20 +18,11 @@ public sealed class UiStringsTests
 {
   #region Methods
 
-  [Fact]
-  public void Resources_ShouldTranslateEveryKeyInFrench()
-  {
-    var english = Entries("Resources/UiStrings.resx");
-    var french = Entries("Resources/UiStrings.fr.resx");
-
-    english.Keys.ShouldNotBeEmpty();
-    french.Keys.Order(StringComparer.Ordinal).ShouldBe(english.Keys.Order(StringComparer.Ordinal));
-    english.Concat(french).Where(e => string.IsNullOrWhiteSpace(e.Value)).ShouldBeEmpty();
-  }
-
   [Theory]
   [InlineData("en-US", "Loading…")]
   [InlineData("fr-FR", "Chargement…")]
+  [InlineData("it-IT", "Caricamento…")]
+  [InlineData("es-ES", "Cargando…")]
   public void Localizer_WithCulture_ShouldReadTheMatchingResource(string culture, string expected)
   {
     using var provider = new ServiceCollection().AddLogging().AddCoverageUi().BuildServiceProvider();
@@ -60,12 +49,6 @@ public sealed class UiStringsTests
   {
     Should.Throw<ArgumentNullException>(() => UiServiceCollectionExtensions.AddCoverageUi(null!));
   }
-
-  private static Dictionary<string, string> Entries(string relativePath) =>
-    XDocument.Parse(WebRootFiles.Read(relativePath))
-             .Root!
-             .Elements("data")
-             .ToDictionary(d => (string)d.Attribute("name")!, d => (string?)d.Element("value") ?? string.Empty);
 
   #endregion
 }

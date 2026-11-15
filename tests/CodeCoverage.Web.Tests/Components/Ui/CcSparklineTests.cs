@@ -17,12 +17,15 @@ public sealed class CcSparklineTests : UiTestContext
 {
   #region Methods
 
-  // The coordinates go through the invariant culture: a French comma would break the path.
-  [Fact]
-  public void Render_FrenchCulture_ShouldWriteTheCoordinatesWithADot()
+  // The coordinates go through the invariant culture: a decimal comma (French, Italian, Spanish) would break the path.
+  [Theory]
+  [InlineData("fr-FR")]
+  [InlineData("it-IT")]
+  [InlineData("es-ES")]
+  public void Render_CultureWithADecimalComma_ShouldWriteTheCoordinatesWithADot(string culture)
   {
     var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+    CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
 
     try
     {

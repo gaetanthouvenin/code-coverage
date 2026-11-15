@@ -273,130 +273,130 @@ Nombres, pourcentages et dates suivent la culture : `74,2 %` en français et en 
 
 ## Libellés clés
 
-Les clés suivent `Common.resx` (anglais) et `Common.fr.resx` (français). Le nom du produit vient de `UiStrings.resx`.
+Les clés suivent `Common.resx` (anglais) et ses traductions `Common.fr.resx`, `Common.it.resx` et `Common.es.resx`. Le nom du produit vient de `UiStrings.resx`.
 
-| Clé | Anglais | Français |
-|---|---|---|
-| `ProductName` | Coverage | Coverage |
-| `Nav_Repositories` | Repositories | Dépôts |
-| `Nav_Organization` | Organization | Organisation |
-| `Nav_Instance` | Instance | Instance |
-| `Nav_Account` | My account | Mon compte |
-| `Nav_SignOut` | Sign out | Se déconnecter |
-| `Nav_Breadcrumb` | Breadcrumb | Fil d’Ariane |
-| `Nav_Main` | Main navigation | Navigation principale |
-| `Nav_Docs` | Documentation | Documentation |
-| `Action_Help` | Help on this page | Aide sur cette page |
-| `Org_Switcher` | Organization | Organisation |
-| `Org_All` | All organizations | Toutes les organisations |
-| `Forge_GitHub` | GitHub | GitHub |
-| `Forge_AzureDevOps` | Azure DevOps | Azure DevOps |
-| `Forge_Bitbucket` | Bitbucket | Bitbucket |
-| `Forge_GitLab` | GitLab | GitLab |
-| `Tab_Overview` | Overview | Vue d’ensemble |
-| `Tab_Commits` | Commits | Commits |
-| `Tab_Pulls` | Pull requests | Pull requests |
-| `Tab_RepoSettings` | Settings | Réglages |
-| `Tab_OrgRepositories` | Repositories | Dépôts |
-| `Tab_UploadTokens` | Upload tokens | Jetons d’upload |
-| `Tab_OrgSettings` | Settings | Paramètres |
-| `Tab_Organizations` | Organizations | Organisations |
-| `Tab_InstanceSettings` | Settings | Paramètres |
-| `Tab_Operations` | Operations | Opérations |
-| `Tab_Audit` | Audit log | Journal d’audit |
-| `Role_Participant` | Participant | Participant |
-| `Role_OrganizationAdmin` | Organization admin | Administrateur d’organisation |
-| `Role_InstanceAdmin` | Instance admin | Administrateur d’instance |
-| `OrganizationState_Pending` | Pending | En attente |
-| `OrganizationState_Active` | Active | Active |
-| `OrganizationState_Suspended` | Suspended | Suspendue |
-| `SuspensionReason_Administrator` | By an instance admin | Par un administrateur d’instance |
-| `SuspensionReason_AppUninstalled` | GitHub App uninstalled | GitHub App désinstallée |
-| `AccountType_Organization` | Organization | Organisation |
-| `AccountType_User` | Personal account | Compte personnel |
-| `Repository_Active` | Active | Actif |
-| `Repository_Inactive` | Inactive | Inactif |
-| `Commit_Complete` | Complete | Terminé |
-| `Commit_Pending` | Processing | En cours |
-| `Commit_Error` | Error | Erreur |
-| `Session_CarriedForward` | Carried forward | Reporté |
-| `Upload_Failed` | Failed | Échoué |
-| `Pull_Open` | Open | Ouverte |
-| `Pull_Merged` | Merged | Fusionnée |
-| `Pull_Closed` | Closed | Fermée |
-| `Status_Success` | Success | Succès |
-| `Status_Failure` | Failure | Échec |
-| `Setting_SourceDatabase` | Database | Base |
-| `Setting_SourceEnvironment` | Environment | Environnement |
-| `Setting_SourceDefault` | Default | Défaut |
-| `Setting_SourceOrganization` | Organization | Organisation |
-| `Setting_RequiresRestart` | Restart required | Redémarrage requis |
-| `Setting_Defined` | Set | Défini |
-| `Setting_NotDefined` | Not set | Non défini |
-| `Action_Save` | Save | Enregistrer |
-| `Action_Cancel` | Cancel | Annuler |
-| `Action_Close` | Close | Fermer |
-| `Action_Copy` | Copy | Copier |
-| `Action_Create` | Create a token | Créer un jeton |
-| `Action_Import` | Import a CODECOV_TOKEN | Importer un CODECOV_TOKEN |
-| `Action_Revoke` | Revoke | Révoquer |
-| `Action_Renew` | Renew | Renouveler |
-| `Action_Replace` | Replace | Remplacer |
-| `Action_Reset` | Reset | Réinitialiser |
-| `Action_Retry` | Retry | Relancer |
-| `Action_Renotify` | Notify again | Re-notifier |
-| `Action_Reprocess` | Reprocess | Retraiter |
-| `Action_Sync` | Sync with GitHub | Synchroniser avec GitHub |
-| `Action_Admit` | Admit | Admettre |
-| `Action_AdmitAccount` | Admit an account | Admettre un compte |
-| `Action_Suspend` | Suspend | Suspendre |
-| `Action_NextUncovered` | Next uncovered line | Prochaine ligne non couverte |
-| `Action_SignIn` | Sign in with GitHub | Se connecter avec GitHub |
-| `Action_Previous` | Previous | Précédent |
-| `Action_Next` | Next | Suivant |
-| `Filter_All` | All | Tous |
-| `Filter_Active` | Active | Actifs |
-| `Filter_Inactive` | Inactive | Inactifs |
-| `Filter_AllFlags` | All flags | Tous les flags |
-| `Search_Repositories` | Search repositories | Rechercher un dépôt |
-| `Search_Files` | Filter files | Filtrer les fichiers |
-| `Column_Repository` | Repository | Dépôt |
-| `Column_Coverage` | Coverage | Couverture |
-| `Column_LastCommit` | Last commit | Dernier commit |
-| `Column_LastUpload` | Last upload | Dernier upload |
-| `Column_Flags` | Flags | Flags |
-| `Column_Commit` | Commit | Commit |
-| `Column_Author` | Author | Auteur |
-| `Column_Date` | Date | Date |
-| `Column_State` | State | État |
-| `Column_Sessions` | Sessions | Sessions |
-| `Column_Patch` | Patch | Patch |
-| `Column_File` | File | Fichier |
-| `Column_Lines` | Lines | Lignes |
-| `Column_Hits` | Hits | Couvertes |
-| `Column_Partials` | Partials | Partielles |
-| `Column_Misses` | Misses | Manquées |
-| `Column_ProjectDelta` | Project Δ | Δ projet |
-| `Column_Name` | Name | Nom |
-| `Column_Hint` | Hint | Indice |
-| `Column_Created` | Created | Créé |
-| `Column_LastUsed` | Last used | Dernière utilisation |
-| `Column_Organization` | Organization | Organisation |
-| `Column_Forge` | Forge | Forge |
-| `Column_Type` | Type | Type |
-| `Column_Reason` | Reason | Motif |
-| `Column_AdmittedBy` | Admitted by | Admise par |
-| `Column_QueueDepth` | Jobs in queue | Jobs en file |
-| `Inaccessible_Title` | Not found or inaccessible | Introuvable ou inaccessible |
-| `Inaccessible_Description` | This address does not exist, or your GitHub account cannot read it. | Cette adresse n’existe pas, ou votre compte GitHub ne peut pas la lire. |
-| `Loading` | Loading | Chargement |
-| `Retry` | Try again | Réessayer |
-| `AccessDenied_Title` | Access denied | Accès refusé |
-| `AccessDenied_Description` | You do not have the permission to open this page. Ask an administrator if you need it. | Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin. |
-| `NotFound_Title` | Page not found | Page introuvable |
-| `NotFound_Description` | The address matches no page. Check the link, or start again from the repositories. | Cette adresse ne correspond à aucune page. Vérifiez le lien, ou repartez de la liste des dépôts. |
-| `Error_Title` | An error occurred | Une erreur est survenue |
-| `Error_Description` | The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator. | La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur. |
-| `Error_RequestId` | Request identifier | Identifiant de requête |
-| `BackHome` | Back to the repositories | Retour aux dépôts |
-| `Access.NoRepository` | Your GitHub account has access to no repository of an admitted organization. | Votre compte GitHub n’a accès à aucun dépôt d’une organisation admise. |
+| Clé | Anglais | Français | Italien | Espagnol |
+|---|---|---|---|---|
+| `ProductName` | Coverage | Coverage | Coverage | Coverage |
+| `Nav_Repositories` | Repositories | Dépôts | Repository | Repositorios |
+| `Nav_Organization` | Organization | Organisation | Organizzazione | Organización |
+| `Nav_Instance` | Instance | Instance | Istanza | Instancia |
+| `Nav_Account` | My account | Mon compte | Il mio account | Mi cuenta |
+| `Nav_SignOut` | Sign out | Se déconnecter | Esci | Cerrar sesión |
+| `Nav_Breadcrumb` | Breadcrumb | Fil d’Ariane | Percorso di navigazione | Ruta de navegación |
+| `Nav_Main` | Main navigation | Navigation principale | Navigazione principale | Navegación principal |
+| `Nav_Docs` | Documentation | Documentation | Documentazione | Documentación |
+| `Action_Help` | Help on this page | Aide sur cette page | Aiuto su questa pagina | Ayuda sobre esta página |
+| `Org_Switcher` | Organization | Organisation | Organizzazione | Organización |
+| `Org_All` | All organizations | Toutes les organisations | Tutte le organizzazioni | Todas las organizaciones |
+| `Forge_GitHub` | GitHub | GitHub | GitHub | GitHub |
+| `Forge_AzureDevOps` | Azure DevOps | Azure DevOps | Azure DevOps | Azure DevOps |
+| `Forge_Bitbucket` | Bitbucket | Bitbucket | Bitbucket | Bitbucket |
+| `Forge_GitLab` | GitLab | GitLab | GitLab | GitLab |
+| `Tab_Overview` | Overview | Vue d’ensemble | Panoramica | Resumen |
+| `Tab_Commits` | Commits | Commits | Commit | Commits |
+| `Tab_Pulls` | Pull requests | Pull requests | Pull request | Pull requests |
+| `Tab_RepoSettings` | Settings | Réglages | Impostazioni | Configuración |
+| `Tab_OrgRepositories` | Repositories | Dépôts | Repository | Repositorios |
+| `Tab_UploadTokens` | Upload tokens | Jetons d’upload | Token di upload | Tokens de upload |
+| `Tab_OrgSettings` | Settings | Paramètres | Impostazioni | Configuración |
+| `Tab_Organizations` | Organizations | Organisations | Organizzazioni | Organizaciones |
+| `Tab_InstanceSettings` | Settings | Paramètres | Impostazioni | Configuración |
+| `Tab_Operations` | Operations | Opérations | Operazioni | Operaciones |
+| `Tab_Audit` | Audit log | Journal d’audit | Registro di audit | Registro de auditoría |
+| `Role_Participant` | Participant | Participant | Partecipante | Participante |
+| `Role_OrganizationAdmin` | Organization admin | Administrateur d’organisation | Amministratore dell’organizzazione | Administrador de la organización |
+| `Role_InstanceAdmin` | Instance admin | Administrateur d’instance | Amministratore dell’istanza | Administrador de la instancia |
+| `OrganizationState_Pending` | Pending | En attente | In attesa | Pendiente |
+| `OrganizationState_Active` | Active | Active | Attiva | Activa |
+| `OrganizationState_Suspended` | Suspended | Suspendue | Sospesa | Suspendida |
+| `SuspensionReason_Administrator` | By an instance admin | Par un administrateur d’instance | Da un amministratore dell’istanza | Por un administrador de la instancia |
+| `SuspensionReason_AppUninstalled` | GitHub App uninstalled | GitHub App désinstallée | GitHub App disinstallata | GitHub App desinstalada |
+| `AccountType_Organization` | Organization | Organisation | Organizzazione | Organización |
+| `AccountType_User` | Personal account | Compte personnel | Account personale | Cuenta personal |
+| `Repository_Active` | Active | Actif | Attivo | Activo |
+| `Repository_Inactive` | Inactive | Inactif | Inattivo | Inactivo |
+| `Commit_Complete` | Complete | Terminé | Completato | Completado |
+| `Commit_Pending` | Processing | En cours | In elaborazione | En curso |
+| `Commit_Error` | Error | Erreur | Errore | Error |
+| `Session_CarriedForward` | Carried forward | Reporté | Riportato | Arrastrado |
+| `Upload_Failed` | Failed | Échoué | Fallito | Fallido |
+| `Pull_Open` | Open | Ouverte | Aperta | Abierta |
+| `Pull_Merged` | Merged | Fusionnée | Unita | Fusionada |
+| `Pull_Closed` | Closed | Fermée | Chiusa | Cerrada |
+| `Status_Success` | Success | Succès | Riuscito | Éxito |
+| `Status_Failure` | Failure | Échec | Fallito | Fallo |
+| `Setting_SourceDatabase` | Database | Base | Database | Base de datos |
+| `Setting_SourceEnvironment` | Environment | Environnement | Ambiente | Entorno |
+| `Setting_SourceDefault` | Default | Défaut | Predefinito | Predeterminado |
+| `Setting_SourceOrganization` | Organization | Organisation | Organizzazione | Organización |
+| `Setting_RequiresRestart` | Restart required | Redémarrage requis | Riavvio necessario | Requiere reinicio |
+| `Setting_Defined` | Set | Défini | Definita | Definido |
+| `Setting_NotDefined` | Not set | Non défini | Non definita | No definido |
+| `Action_Save` | Save | Enregistrer | Salva | Guardar |
+| `Action_Cancel` | Cancel | Annuler | Annulla | Cancelar |
+| `Action_Close` | Close | Fermer | Chiudi | Cerrar |
+| `Action_Copy` | Copy | Copier | Copia | Copiar |
+| `Action_Create` | Create a token | Créer un jeton | Crea un token | Crear un token |
+| `Action_Import` | Import a CODECOV_TOKEN | Importer un CODECOV_TOKEN | Importa un CODECOV_TOKEN | Importar un CODECOV_TOKEN |
+| `Action_Revoke` | Revoke | Révoquer | Revoca | Revocar |
+| `Action_Renew` | Renew | Renouveler | Rinnova | Renovar |
+| `Action_Replace` | Replace | Remplacer | Sostituisci | Reemplazar |
+| `Action_Reset` | Reset | Réinitialiser | Reimposta | Restablecer |
+| `Action_Retry` | Retry | Relancer | Riprova | Reintentar |
+| `Action_Renotify` | Notify again | Re-notifier | Notifica di nuovo | Volver a notificar |
+| `Action_Reprocess` | Reprocess | Retraiter | Rielabora | Volver a procesar |
+| `Action_Sync` | Sync with GitHub | Synchroniser avec GitHub | Sincronizza con GitHub | Sincronizar con GitHub |
+| `Action_Admit` | Admit | Admettre | Ammetti | Admitir |
+| `Action_AdmitAccount` | Admit an account | Admettre un compte | Ammetti un account | Admitir una cuenta |
+| `Action_Suspend` | Suspend | Suspendre | Sospendi | Suspender |
+| `Action_NextUncovered` | Next uncovered line | Prochaine ligne non couverte | Prossima riga non coperta | Siguiente línea no cubierta |
+| `Action_SignIn` | Sign in with GitHub | Se connecter avec GitHub | Accedi con GitHub | Iniciar sesión con GitHub |
+| `Action_Previous` | Previous | Précédent | Precedente | Anterior |
+| `Action_Next` | Next | Suivant | Successivo | Siguiente |
+| `Filter_All` | All | Tous | Tutti | Todos |
+| `Filter_Active` | Active | Actifs | Attivi | Activos |
+| `Filter_Inactive` | Inactive | Inactifs | Inattivi | Inactivos |
+| `Filter_AllFlags` | All flags | Tous les flags | Tutti i flag | Todos los flags |
+| `Search_Repositories` | Search repositories | Rechercher un dépôt | Cerca repository | Buscar repositorios |
+| `Search_Files` | Filter files | Filtrer les fichiers | Filtra i file | Filtrar archivos |
+| `Column_Repository` | Repository | Dépôt | Repository | Repositorio |
+| `Column_Coverage` | Coverage | Couverture | Copertura | Cobertura |
+| `Column_LastCommit` | Last commit | Dernier commit | Ultimo commit | Último commit |
+| `Column_LastUpload` | Last upload | Dernier upload | Ultimo upload | Último upload |
+| `Column_Flags` | Flags | Flags | Flag | Flags |
+| `Column_Commit` | Commit | Commit | Commit | Commit |
+| `Column_Author` | Author | Auteur | Autore | Autor |
+| `Column_Date` | Date | Date | Data | Fecha |
+| `Column_State` | State | État | Stato | Estado |
+| `Column_Sessions` | Sessions | Sessions | Sessioni | Sesiones |
+| `Column_Patch` | Patch | Patch | Patch | Patch |
+| `Column_File` | File | Fichier | File | Archivo |
+| `Column_Lines` | Lines | Lignes | Righe | Líneas |
+| `Column_Hits` | Hits | Couvertes | Coperte | Cubiertas |
+| `Column_Partials` | Partials | Partielles | Parziali | Parciales |
+| `Column_Misses` | Misses | Manquées | Mancate | No cubiertas |
+| `Column_ProjectDelta` | Project Δ | Δ projet | Δ progetto | Δ proyecto |
+| `Column_Name` | Name | Nom | Nome | Nombre |
+| `Column_Hint` | Hint | Indice | Indizio | Pista |
+| `Column_Created` | Created | Créé | Creato | Creado |
+| `Column_LastUsed` | Last used | Dernière utilisation | Ultimo utilizzo | Último uso |
+| `Column_Organization` | Organization | Organisation | Organizzazione | Organización |
+| `Column_Forge` | Forge | Forge | Forge | Forja |
+| `Column_Type` | Type | Type | Tipo | Tipo |
+| `Column_Reason` | Reason | Motif | Motivo | Motivo |
+| `Column_AdmittedBy` | Admitted by | Admise par | Ammessa da | Admitida por |
+| `Column_QueueDepth` | Jobs in queue | Jobs en file | Job in coda | Jobs en cola |
+| `Inaccessible_Title` | Not found or inaccessible | Introuvable ou inaccessible | Non trovato o inaccessibile | No encontrado o inaccesible |
+| `Inaccessible_Description` | This address does not exist, or your GitHub account cannot read it. | Cette adresse n’existe pas, ou votre compte GitHub ne peut pas la lire. | Questo indirizzo non esiste, oppure il tuo account GitHub non può leggerlo. | Esta dirección no existe o su cuenta de GitHub no puede leerla. |
+| `Loading` | Loading | Chargement | Caricamento | Cargando |
+| `Retry` | Try again | Réessayer | Riprova | Volver a intentarlo |
+| `AccessDenied_Title` | Access denied | Accès refusé | Accesso negato | Acceso denegado |
+| `AccessDenied_Description` | You do not have the permission to open this page. Ask an administrator if you need it. | Vous n’avez pas la permission d’ouvrir cette page. Demandez-la à un administrateur si vous en avez besoin. | Non hai il permesso di aprire questa pagina. Chiedilo a un amministratore se ti serve. | No tiene permiso para abrir esta página. Solicítelo a un administrador si lo necesita. |
+| `NotFound_Title` | Page not found | Page introuvable | Pagina non trovata | Página no encontrada |
+| `NotFound_Description` | The address matches no page. Check the link, or start again from the repositories. | Cette adresse ne correspond à aucune page. Vérifiez le lien, ou repartez de la liste des dépôts. | L’indirizzo non corrisponde ad alcuna pagina. Controlla il link, oppure riparti dall’elenco dei repository. | La dirección no corresponde a ninguna página. Compruebe el enlace o vuelva a empezar desde los repositorios. |
+| `Error_Title` | An error occurred | Une erreur est survenue | Si è verificato un errore | Se ha producido un error |
+| `Error_Description` | The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator. | La page n’a pas pu être affichée. Réessayez dans un instant ; si le problème persiste, transmettez l’identifiant de requête ci-dessous à un administrateur. | Non è stato possibile visualizzare la pagina. Riprova tra un momento; se il problema persiste, comunica a un amministratore l’identificativo della richiesta riportato qui sotto. | No se pudo mostrar la página. Inténtelo de nuevo en un momento; si el problema persiste, facilite a un administrador el identificador de solicitud que aparece abajo. |
+| `Error_RequestId` | Request identifier | Identifiant de requête | Identificativo della richiesta | Identificador de solicitud |
+| `BackHome` | Back to the repositories | Retour aux dépôts | Torna ai repository | Volver a los repositorios |
+| `Access.NoRepository` | Your GitHub account has access to no repository of an admitted organization. | Votre compte GitHub n’a accès à aucun dépôt d’une organisation admise. | Il tuo account GitHub non ha accesso ad alcun repository di un’organizzazione ammessa. | Su cuenta de GitHub no tiene acceso a ningún repositorio de una organización admitida. |

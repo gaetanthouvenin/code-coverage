@@ -6,6 +6,7 @@
 
 using System.Text.RegularExpressions;
 
+using CodeCoverage.Web.Localization;
 using CodeCoverage.Web.Tests.Support;
 
 namespace CodeCoverage.Web.Tests.Resources;
@@ -21,13 +22,17 @@ public sealed class ResourceEntryFormatTests
 
   #endregion
 
+  #region Properties
+
+  public static TheoryData<string> ResourceFiles =>
+    [.. new[] { "Common", "UiStrings" }.SelectMany(static r => ConsoleLanguages.Codes.Select(c => c == ConsoleLanguages.DefaultCode ? $"Resources/{r}.resx" : $"Resources/{r}.{c}.resx"))];
+
+  #endregion
+
   #region Methods
 
   [Theory]
-  [InlineData("Resources/Common.resx")]
-  [InlineData("Resources/Common.fr.resx")]
-  [InlineData("Resources/UiStrings.resx")]
-  [InlineData("Resources/UiStrings.fr.resx")]
+  [MemberData(nameof(ResourceFiles))]
   public void Entries_InResourceFile_ShouldEachFitOnOneLine(string relativePath)
   {
     var resx = WebRootFiles.Read(relativePath);
