@@ -164,6 +164,42 @@ public sealed class AppUserTests
     user.Version.ShouldBe(1);
   }
 
+  [Fact]
+  public void SetPreferredLanguage_ShouldOnlyCountAChange()
+  {
+    var user = New();
+
+    user.PreferredLanguage.ShouldBeNull();
+
+    user.SetPreferredLanguage("it");
+    user.PreferredLanguage.ShouldBe("it");
+    user.Version.ShouldBe(1);
+
+    user.SetPreferredLanguage("it");
+    user.Version.ShouldBe(1);
+  }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("i")]
+  [InlineData("IT")]
+  [InlineData("ita")]
+  [InlineData("it-CH")]
+  [InlineData("é1")]
+  public void SetPreferredLanguage_NotTwoLowerCaseLetters_ShouldThrow(string language)
+  {
+    var user = New();
+
+    Should.Throw<ArgumentException>(() => user.SetPreferredLanguage(language));
+    user.PreferredLanguage.ShouldBeNull();
+  }
+
+  [Fact]
+  public void SetPreferredLanguage_Null_ShouldThrow()
+  {
+    Should.Throw<ArgumentNullException>(() => New().SetPreferredLanguage(null!));
+  }
+
   private static AppUser New() => AppUser.Create(Forge.GitHub, "583231", "octocat", "https://avatars.example/u/1");
 
   #endregion

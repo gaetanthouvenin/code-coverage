@@ -28,6 +28,9 @@ public sealed class AppUser
   /// <summary>The maximum length of <see cref="AvatarUrl" />.</summary>
   public const int AvatarUrlMaxLength = 512;
 
+  /// <summary>The maximum length of the column of <see cref="PreferredLanguage" />, wider than the two letters it holds today.</summary>
+  public const int PreferredLanguageMaxLength = 8;
+
   #endregion
 
   #region Ctors
@@ -79,6 +82,12 @@ public sealed class AppUser
 
   /// <summary>Gets when the user last signed in, in UTC, or <see langword="null" />.</summary>
   public DateTimeOffset? LastLoginAt { get; private set; }
+
+  /// <summary>
+  ///   Gets the language of the console the user chose, a code of two lower-case letters, or <see langword="null" /> when
+  ///   the user never chose one. The Web checks it against the languages of the console, which the Domain does not know.
+  /// </summary>
+  public string? PreferredLanguage { get; private set; }
 
   /// <summary>Gets the version of the row, incremented by each change to detect concurrent writes.</summary>
   public int Version { get; private set; }
@@ -168,6 +177,29 @@ public sealed class AppUser
     if (isAdmin != IsAdmin)
     {
       IsAdmin = isAdmin;
+      Version++;
+    }
+  }
+
+  /// <summary>Tells whether a value is a language code: two lower-case ASCII letters, such as <c>it</c>.</summary>
+  /// <param name="value">The value, or <see langword="null" />.</param>
+  /// <returns><see langword="true" /> when it is one.</returns>
+  public static bool IsLanguageCode(string? value) =>
+    value is { Length: 2 } && char.IsAsciiLetterLower(value[0]) && char.IsAsciiLetterLower(value[1]);
+
+  /// <summary>Records the language of the console the user chose.</summary>
+  /// <param name="language">The two-letter code of the language, in lower case.</param>
+  /// <exception cref="ArgumentNullException"><paramref name="language" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException"><paramref name="language" /> is not two lower-case letters.</exception>
+  /// <remarks>The same language again changes nothing.</remarks>
+  public void SetPreferredLanguage(string language)
+  {
+    ArgumentNullException.ThrowIfNull(language);
+    ArgumentException.ThrowIf(!IsLanguageCode(language), "The language is a code of two lower-case letters.", nameof(language));
+
+    if (language != PreferredLanguage)
+    {
+      PreferredLanguage = language;
       Version++;
     }
   }

@@ -16,6 +16,7 @@
   <data name="Access.InvalidApiTokenName" xml:space="preserve"><value>Assegna al token un nome da 1 a 128 caratteri.</value></data>
   <data name="Access.InvalidApiTokenOrganization" xml:space="preserve"><value>Scegli un’organizzazione per il token, oppure nessuna per un token dell’istanza.</value></data>
   <data name="Access.InvalidApiTokenExpiry" xml:space="preserve"><value>La scadenza deve essere nel futuro.</value></data>
+  <data name="Access.InvalidPreferredLanguage" xml:space="preserve"><value>Questa lingua non è una lingua della console.</value></data>
   <data name="Access.Forbidden" xml:space="preserve"><value>Non hai il permesso di eseguire questa operazione.</value></data>
   <data name="Access.NoRepository" xml:space="preserve"><value>Non puoi accedere: il tuo account GitHub non raggiunge alcun repository in cui CodeCoverage è installato. Chiedi a un amministratore della tua organizzazione di installare la GitHub App.</value></data>
   <data name="Access.PendingAdmission" xml:space="preserve"><value>Il tuo account GitHub raggiunge un’organizzazione in cui CodeCoverage è installato, ma l’amministratore di questa istanza non l’ha ancora ammessa. Accedi di nuovo quando sarà ammessa.</value></data>

@@ -39,5 +39,8 @@ public static class AccessErrors
   /// <summary>The expiry of a personal token is not in the future. Maps to HTTP 400 Bad Request.</summary>
   public const string InvalidApiTokenExpiry = "Access.InvalidApiTokenExpiry";
 
+  /// <summary>The language chosen for the console is not a code of two lower-case letters. Maps to HTTP 400 Bad Request.</summary>
+  public const string InvalidPreferredLanguage = "Access.InvalidPreferredLanguage";
+
   #endregion
 }

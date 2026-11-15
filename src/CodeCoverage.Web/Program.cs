@@ -96,14 +96,15 @@ try
   app.UseAuthentication();
   app.UseAuthorization();
 
-  // The interface speaks the languages of ConsoleLanguages (ADR-015): the culture cookie, then the language of the
-  // browser, then English. No ?culture= parameter: a shared address never changes the language of who opens it.
+  // The interface speaks the languages of ConsoleLanguages (ADR-015): the language of the account of a signed-in user,
+  // the culture cookie, then the language of the browser, then English. No ?culture= parameter: a shared address never
+  // changes the language of who opens it.
   app.UseRequestLocalization(o =>
   {
     string[] languages = [.. ConsoleLanguages.Codes];
 
     o.AddSupportedCultures(languages).AddSupportedUICultures(languages).SetDefaultCulture(ConsoleLanguages.DefaultCode);
-    o.RequestCultureProviders = [new CookieRequestCultureProvider(), new AcceptLanguageHeaderRequestCultureProvider()];
+    o.RequestCultureProviders = [new AccountRequestCultureProvider(), new CookieRequestCultureProvider(), new AcceptLanguageHeaderRequestCultureProvider()];
   });
 
   app.UseAntiforgery();

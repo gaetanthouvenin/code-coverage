@@ -6,9 +6,12 @@
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Localization;
 
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Identity;
+using CodeCoverage.Web.Configuration.Localization;
+using CodeCoverage.Web.Localization;
 
 namespace CodeCoverage.Web.Configuration.Authentication;
 
@@ -42,6 +45,34 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
 
   #endregion
 
+  #region Methods
+
+  /// <summary>
+  ///   Serves a signed-in user in the language the account keeps (M4.02u), and writes it in the culture cookie of this
+  ///   browser when the cookie says another one or nothing.
+  /// </summary>
+  /// <param name="context">The HTTP context.</param>
+  /// <param name="code">The language of the account, or <see langword="null" /> when the user never chose one.</param>
+  private static void KeepLanguageOfTheAccount(HttpContext context, string? code)
+  {
+    if (ConsoleLanguages.Find(code) is not { } language)
+    {
+      return;
+    }
+
+    AccountRequestCultureProvider.SetLanguage(context, language);
+
+    var cookie = context.Request.Cookies[CookieRequestCultureProvider.DefaultCookieName];
+    var current = cookie is null ? null : CookieRequestCultureProvider.ParseCookieValue(cookie)?.UICultures.FirstOrDefault().Value;
+
+    if (!string.Equals(current, language.Code, StringComparison.OrdinalIgnoreCase))
+    {
+      CultureEndpoints.AppendCookie(context.Response, language);
+    }
+  }
+
+  #endregion
+
   #region Overrides of CookieAuthenticationEvents
 
   /// <inheritdoc />
@@ -70,6 +101,7 @@ internal sealed class SessionCookieEvents(IUserRepository users, CurrentUserCont
     }
 
     currentUser.SetUser(user.Id, user.Login, user.Forge, user.ExternalId);
+    KeepLanguageOfTheAccount(context.HttpContext, user.PreferredLanguage);
   }
 
   #endregion

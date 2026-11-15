@@ -87,6 +87,26 @@ public sealed class UserRepositoryTests(DatabaseFixture database)
 
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
+  public async Task Update_PreferredLanguage_ShouldBeReadBack(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    var user = await AddAsync(organizations);
+
+    await using (var writer = organizations.ContextWithoutOrganization())
+    {
+      var repository = new UserRepository(writer);
+      var read = (await repository.FindAsync(user.Id, Ct)).ShouldNotBeNull();
+      read.SetPreferredLanguage("it");
+      await repository.UpdateAsync(read, Ct);
+    }
+
+    await using var reader = organizations.ContextWithoutOrganization();
+
+    (await new UserRepository(reader).FindAsync(user.Id, Ct)).ShouldNotBeNull().PreferredLanguage.ShouldBe("it");
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
   public async Task Update_StaleVersion_ShouldThrowConflict(DatabaseProvider provider)
   {
     var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
