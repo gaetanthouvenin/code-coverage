@@ -19,9 +19,12 @@ namespace CodeCoverage.Infrastructure.Reports.Parsers;
 ///   file without identifier, a sequence point without valid numbers or starting before line 1, and
 ///   a branch point without offset make the parsing fail with a <see cref="FormatException" />, and
 ///   malformed XML with an <see cref="XmlException" />. As in Codecov, the file table covers the
-///   whole report, the last file declaring an identifier winning, and <c>skippedDueTo</c> is not
-///   read. Unlike Codecov, the branch counts of a sequence point must be numbers, and the lines
-///   added by multi-line sequence points are bounded by <see cref="MaxSpannedLines" />.
+///   whole report, the last file declaring an identifier winning, and <c>skippedDueTo</c> does not
+///   change the lines. Unlike Codecov, the branch counts of a sequence point must be numbers, and the
+///   lines added by multi-line sequence points are bounded by <see cref="MaxSpannedLines" />. Each
+///   <c>Method</c> with a sequence point and without <c>skippedDueTo</c> is also a method of its file
+///   (ADR-016): it starts on the smallest line of its sequence points and is executed as many times
+///   as its <c>MethodPoint</c> says, or else as its most executed sequence point.
 /// </remarks>
 internal sealed class OpenCoverParser : IReportParser
 {
@@ -52,15 +55,17 @@ internal sealed class OpenCoverParser : IReportParser
     }
   }
 
-  /// <summary>Adds the lines of a method to its file.</summary>
+  /// <summary>Adds the lines of a method to its file, and the method itself.</summary>
   /// <param name="method">The method.</param>
   /// <param name="files">The lines read so far, by identifier of file.</param>
+  /// <param name="methods">The methods read so far, by identifier of file.</param>
   /// <param name="spannedLines">The lines the previous sequence points added beyond their first.</param>
   /// <returns>The lines added beyond their first, this method included.</returns>
   /// <exception cref="FormatException">A point of the method is not valid.</exception>
   private static long AddMethod(
     XElement method,
     Dictionary<string, Dictionary<int, LineCoverage>> files,
+    Dictionary<string, List<MethodCoverage>> methods,
     long spannedLines)
   {
     // The methods without code have no file: they carry no sequence point either.
@@ -77,11 +82,34 @@ internal sealed class OpenCoverParser : IReportParser
       files[uid] = lines;
     }
 
+    if (!methods.TryGetValue(uid, out var fileMethods))
+    {
+      fileMethods = [];
+      methods[uid] = fileMethods;
+    }
+
     var missingBranches = ReadMissingBranches(method);
+    var first = int.MaxValue;
+    var hits = 0L;
 
     foreach (var point in method.Descendants("SequencePoint"))
     {
       spannedLines = AddSequencePoint(point, lines, missingBranches, spannedLines);
+
+      // The same points as those of the lines: the ones without start or end are not read.
+      if (point.Attribute("sl")?.Value is { Length: > 0 } start && !string.IsNullOrEmpty(point.Attribute("el")?.Value))
+      {
+        first = Math.Min(first, ReadNumber(start, NumberStyles.Integer, "sl"));
+        hits = Math.Max(hits, ReadHits(point.Attribute("vc")?.Value));
+      }
+    }
+
+    // A method the tool did not instrument (an attribute, a filter) is not a method of the report.
+    if (first is not int.MaxValue && method.Attribute("skippedDueTo") is null)
+    {
+      var methodPoint = method.Element("MethodPoint")?.Attribute("vc")?.Value;
+
+      fileMethods.Add(new MethodCoverage(first, methodPoint is null ? hits : ReadHits(methodPoint)));
     }
 
     return spannedLines;
@@ -219,15 +247,21 @@ internal sealed class OpenCoverParser : IReportParser
   private static string ReadRequired(XElement element, string name) =>
     element.Attribute(name)?.Value ?? throw new FormatException($"A {element.Name.LocalName} of the report has no {name}.");
 
-  /// <summary>Gives each file its lines, those of several identifiers of one path being merged.</summary>
+  /// <summary>
+  ///   Gives each file its lines and its methods, those of several identifiers of one path being
+  ///   merged.
+  /// </summary>
   /// <param name="paths">The paths, by identifier.</param>
   /// <param name="linesByFile">The lines, by identifier of file.</param>
+  /// <param name="methodsByFile">The methods, by identifier of file.</param>
   /// <returns>The files, by path; an identifier without file is dropped.</returns>
   private static ParsedFile[] ResolveFiles(
     Dictionary<string, string> paths,
-    Dictionary<string, Dictionary<int, LineCoverage>> linesByFile)
+    Dictionary<string, Dictionary<int, LineCoverage>> linesByFile,
+    Dictionary<string, List<MethodCoverage>> methodsByFile)
   {
     Dictionary<string, Dictionary<int, LineCoverage>> files = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methods = new(StringComparer.Ordinal);
 
     foreach (var (uid, lines) in linesByFile)
     {
@@ -235,6 +269,14 @@ internal sealed class OpenCoverParser : IReportParser
       {
         continue;
       }
+
+      if (!methods.TryGetValue(path, out var pathMethods))
+      {
+        pathMethods = [];
+        methods[path] = pathMethods;
+      }
+
+      pathMethods.AddRange(methodsByFile[uid]);
 
       if (!files.TryGetValue(path, out var merged))
       {
@@ -252,7 +294,11 @@ internal sealed class OpenCoverParser : IReportParser
     return
     [
       .. files.OrderBy(file => file.Key, StringComparer.Ordinal)
-              .Select(file => new ParsedFile(file.Key, [.. file.Value.Values.OrderBy(line => line.Line)])),
+              .Select(
+                file => new ParsedFile(
+                  file.Key,
+                  [.. file.Value.Values.OrderBy(line => line.Line)],
+                  [.. methods[file.Key].OrderBy(method => method.Line)])),
     ];
   }
 
@@ -271,6 +317,7 @@ internal sealed class OpenCoverParser : IReportParser
     using var reader = SafeXmlReaderFactory.Create(report);
     Dictionary<string, string> paths = new(StringComparer.Ordinal);
     Dictionary<string, Dictionary<int, LineCoverage>> linesByFile = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methodsByFile = new(StringComparer.Ordinal);
     var spannedLines = 0L;
 
     // Reading a method moves past its end: the next node must not be consumed by another read.
@@ -282,7 +329,7 @@ internal sealed class OpenCoverParser : IReportParser
       {
         var method = (XElement)await XNode.ReadFromAsync(reader, cancellationToken).ConfigureAwait(false);
 
-        spannedLines = AddMethod(method, linesByFile, spannedLines);
+        spannedLines = AddMethod(method, linesByFile, methodsByFile, spannedLines);
       }
       else
       {
@@ -295,7 +342,7 @@ internal sealed class OpenCoverParser : IReportParser
       }
     }
 
-    return new ParsedReport(ReportFormat.OpenCover, [], ResolveFiles(paths, linesByFile));
+    return new ParsedReport(ReportFormat.OpenCover, [], ResolveFiles(paths, linesByFile, methodsByFile));
   }
 
   #endregion

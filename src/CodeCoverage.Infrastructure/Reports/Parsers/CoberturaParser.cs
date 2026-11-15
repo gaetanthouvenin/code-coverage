@@ -21,7 +21,10 @@ namespace CodeCoverage.Infrastructure.Reports.Parsers;
 ///   The <c>max_report_age</c> rule and the <c>parsers.cobertura</c> options are not applied here,
 ///   the parser receiving only the content of the report. As in Codecov, every line of a class
 ///   counts, those of its <c>methods</c> element included: coverlet repeats them in the class, which
-///   the merge absorbs, and Istanbul writes its function declarations nowhere else.
+///   the merge absorbs, and Istanbul writes its function declarations nowhere else. Each
+///   <c>method</c> with at least one line is also a method of the file (ADR-016): it starts on the
+///   smallest of its lines and is executed as many times as the most executed of them, the format
+///   having no counter of its own for a method.
 /// </remarks>
 internal sealed partial class CoberturaParser : IReportParser
 {
@@ -45,12 +48,14 @@ internal sealed partial class CoberturaParser : IReportParser
   /// <summary>Reads a class, whose coverage is added to the one of its file.</summary>
   /// <param name="reader">The reader, on the class; on return, on the node after it.</param>
   /// <param name="files">The lines read so far, by path.</param>
+  /// <param name="methods">The methods read so far, by path.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task that completes when the class is read.</returns>
   /// <exception cref="FormatException">The class has no file name, or a line is not valid.</exception>
   private static async Task ReadClassAsync(
     XmlReader reader,
     Dictionary<string, Dictionary<int, LineCoverage>> files,
+    Dictionary<string, List<MethodCoverage>> methods,
     CancellationToken cancellationToken)
   {
     var path = reader.GetAttribute("filename") ?? throw new FormatException("A class of the report has no filename.");
@@ -62,6 +67,12 @@ internal sealed partial class CoberturaParser : IReportParser
       return;
     }
 
+    if (!methods.TryGetValue(path, out var classMethods))
+    {
+      classMethods = [];
+      methods[path] = classMethods;
+    }
+
     var depth = reader.Depth;
 
     await reader.ReadAsync().ConfigureAwait(false);
@@ -70,7 +81,14 @@ internal sealed partial class CoberturaParser : IReportParser
     {
       cancellationToken.ThrowIfCancellationRequested();
 
-      if (reader is { NodeType: XmlNodeType.Element, LocalName: "line" })
+      if (reader is { NodeType: XmlNodeType.Element, LocalName: "method" })
+      {
+        if (await ReadMethodAsync(reader, files, path, cancellationToken).ConfigureAwait(false) is { } method)
+        {
+          classMethods.Add(method);
+        }
+      }
+      else if (reader is { NodeType: XmlNodeType.Element, LocalName: "line" })
       {
         if (await ReadLineAsync(reader).ConfigureAwait(false) is { } line)
         {
@@ -84,6 +102,59 @@ internal sealed partial class CoberturaParser : IReportParser
     }
 
     await reader.ReadAsync().ConfigureAwait(false);
+  }
+
+  /// <summary>Reads a method, whose lines are added to its file like those of its class.</summary>
+  /// <param name="reader">The reader, on the method; on return, on the node after it.</param>
+  /// <param name="files">The lines read so far, by path.</param>
+  /// <param name="path">The path of the file of the class.</param>
+  /// <param name="cancellationToken">The cancellation token.</param>
+  /// <returns>
+  ///   The method, on its smallest line and with the hits of its most executed line, or
+  ///   <see langword="null" /> when it has no coverable line.
+  /// </returns>
+  /// <exception cref="FormatException">A line is not valid.</exception>
+  private static async Task<MethodCoverage?> ReadMethodAsync(
+    XmlReader reader,
+    Dictionary<string, Dictionary<int, LineCoverage>> files,
+    string path,
+    CancellationToken cancellationToken)
+  {
+    if (reader.IsEmptyElement)
+    {
+      await reader.ReadAsync().ConfigureAwait(false);
+
+      return null;
+    }
+
+    var depth = reader.Depth;
+    var first = int.MaxValue;
+    var hits = 0L;
+
+    await reader.ReadAsync().ConfigureAwait(false);
+
+    while (reader.Depth > depth)
+    {
+      cancellationToken.ThrowIfCancellationRequested();
+
+      if (reader is { NodeType: XmlNodeType.Element, LocalName: "line" })
+      {
+        if (await ReadLineAsync(reader).ConfigureAwait(false) is { } line)
+        {
+          AddLine(files, path, line);
+          first = Math.Min(first, line.Line);
+          hits = Math.Max(hits, line.Hits);
+        }
+      }
+      else
+      {
+        await reader.ReadAsync().ConfigureAwait(false);
+      }
+    }
+
+    await reader.ReadAsync().ConfigureAwait(false);
+
+    return first is int.MaxValue ? null : new MethodCoverage(first, hits);
   }
 
   /// <summary>Adds a line to its file, merging it with the value the file already has.</summary>
@@ -258,6 +329,7 @@ internal sealed partial class CoberturaParser : IReportParser
     using var reader = SafeXmlReaderFactory.Create(report);
     List<string> sourceRoots = [];
     Dictionary<string, Dictionary<int, LineCoverage>> files = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methods = new(StringComparer.Ordinal);
 
     // Reading an element moves past its end: the next node must not be consumed by another read.
     while (!reader.EOF)
@@ -275,7 +347,7 @@ internal sealed partial class CoberturaParser : IReportParser
       }
       else if (reader is { NodeType: XmlNodeType.Element, LocalName: "class" })
       {
-        await ReadClassAsync(reader, files, cancellationToken).ConfigureAwait(false);
+        await ReadClassAsync(reader, files, methods, cancellationToken).ConfigureAwait(false);
       }
       else
       {
@@ -286,7 +358,11 @@ internal sealed partial class CoberturaParser : IReportParser
     ParsedFile[] parsed =
     [
       .. files.OrderBy(file => file.Key, StringComparer.Ordinal)
-              .Select(file => new ParsedFile(file.Key, [.. file.Value.Values.OrderBy(line => line.Line)])),
+              .Select(
+                file => new ParsedFile(
+                  file.Key,
+                  [.. file.Value.Values.OrderBy(line => line.Line)],
+                  [.. methods[file.Key].OrderBy(method => method.Line)])),
     ];
 
     return new ParsedReport(ReportFormat.Cobertura, sourceRoots, parsed);

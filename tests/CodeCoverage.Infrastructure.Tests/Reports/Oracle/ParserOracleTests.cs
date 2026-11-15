@@ -35,11 +35,20 @@ public sealed class ParserOracleTests
   private static readonly JsonNode Expected =
     JsonNode.Parse(File.ReadAllText(Path.Combine(ReportsDirectory, "expected-totals.json")))!;
 
+  // The formats whose parsers read the methods (ADR-016); the branches and the methods of their fixtures
+  // are compared with those of ReportGenerator, and each difference is listed in expected-detail.json.
+  private static readonly HashSet<string> DetailFormats = new(StringComparer.Ordinal) { "cobertura", "opencover" };
+
+  private static readonly JsonNode ExpectedDetail =
+    JsonNode.Parse(File.ReadAllText(Path.Combine(ReportsDirectory, "expected-detail.json")))!;
+
   #endregion
 
   #region Methods
 
   public static TheoryData<string> Fixtures() => [.. FixtureNames()];
+
+  public static TheoryData<string> DetailFixtures() => [.. DetailFixtureNames()];
 
   [Theory]
   [MemberData(nameof(Fixtures))]
@@ -53,6 +62,48 @@ public sealed class ParserOracleTests
     TotalsOf(parsed).ShouldBe(ReadParserTotals(expected["parser"]!));
     TotalsOf(oracle).ShouldBe(ReadOracleTotals(expected["oracle"]!));
     Compare(parsed, oracle).ShouldBe(ReadDifferences(expected));
+  }
+
+  [Theory]
+  [MemberData(nameof(DetailFixtures))]
+  public async Task Parse_EachFixture_ShouldMatchOracleBranchAndMethodCounts(string fixture)
+  {
+    var path = Path.Combine(ReportsDirectory, fixture);
+    var parsed = await ParseAsync(fixture, path);
+    var expected = ExpectedDetail["fixtures"]![fixture]!;
+
+    DetailOf(parsed).ShouldBe(ReadDetail(expected["parser"]!));
+    ReportGeneratorOracle.ReadDetail(path).ShouldBe(ReadDetail(expected["oracle"]!));
+    CompareMethods(parsed, ReportGeneratorOracle.ReadMethods(path)).ShouldBe(ReadDifferences(expected));
+  }
+
+  [Fact]
+  public void ExpectedDetail_Fixtures_ShouldBeThoseOnDisk()
+  {
+    var listed = ExpectedDetail["fixtures"]!.AsObject().Select(entry => entry.Key).Order(StringComparer.Ordinal);
+
+    listed.ShouldBe(DetailFixtureNames().Order(StringComparer.Ordinal));
+  }
+
+  [Fact]
+  public void ExpectedDetail_EachDifference_ShouldNameAnExplainedRule()
+  {
+    var rules = ExpectedDetail["rules"]!.AsObject();
+    var used = ExpectedDetail["fixtures"]!
+      .AsObject()
+      .SelectMany(entry => entry.Value!["differences"]!.AsArray())
+      .Select(difference => difference!["rule"]!.GetValue<string>())
+      .Distinct(StringComparer.Ordinal)
+      .ToList();
+
+    used.ShouldBe(rules.Select(rule => rule.Key), ignoreOrder: true);
+
+    foreach (var (_, rule) in rules)
+    {
+      rule!["parser"]!.GetValue<string>().ShouldNotBeNullOrWhiteSpace();
+      rule["reportGenerator"]!.GetValue<string>().ShouldNotBeNullOrWhiteSpace();
+      rule["decision"]!.GetValue<string>().ShouldNotBeNullOrWhiteSpace();
+    }
   }
 
   [Fact]
@@ -90,6 +141,9 @@ public sealed class ParserOracleTests
         .EnumerateFiles(Path.Combine(ReportsDirectory, folder))
         .Select(file => $"{folder}/{Path.GetFileName(file)}"));
 
+  private static IEnumerable<string> DetailFixtureNames() =>
+    FixtureNames().Where(fixture => DetailFormats.Contains(fixture.Split('/')[0]));
+
   private static async Task<ParsedReport> ParseAsync(string fixture, string path)
   {
     await using var report = File.OpenRead(path);
@@ -99,10 +153,62 @@ public sealed class ParserOracleTests
 
   private static (int Lines, int Hits, int Misses, int Partials, int Branches, int Methods) TotalsOf(ParsedReport report)
   {
-    var totals = CoverageReport.Create(report.Files.Select(file => FileCoverage.Create(file.RawPath, file.Lines))).Totals;
+    var totals = CreateReport(report).Totals;
 
     return (totals.Lines, totals.Hits, totals.Misses, totals.Partials, totals.Branches, totals.Methods);
   }
+
+  // The methods do not change any counter of Codecov: the totals are those of the report with its methods.
+  private static CoverageReport CreateReport(ParsedReport report) =>
+    CoverageReport.Create(report.Files.Select(file => FileCoverage.Create(file.RawPath, file.Lines, file.Methods)));
+
+  private static (int CoveredBranches, int TotalBranches, int CoveredMethods, int TotalMethods) DetailOf(ParsedReport report)
+  {
+    var detail = CreateReport(report)
+      .FileTotals.Select(file => file.Detail!.Value)
+      .Aggregate(new CoverageDetail(0, 0, 0, 0, 0, 0), (total, file) => total.Add(file));
+
+    // These formats know their methods: unknown ones would be a defect, and -1 fails the comparison.
+    return (detail.CoveredBranches, detail.TotalBranches, detail.CoveredMethods ?? -1, detail.TotalMethods ?? -1);
+  }
+
+  private static (int CoveredBranches, int TotalBranches, int CoveredMethods, int TotalMethods) ReadDetail(JsonNode node) =>
+    (Int(node, "coveredBranches"), Int(node, "totalBranches"), Int(node, "coveredMethods"), Int(node, "totalMethods"));
+
+  private static List<string> CompareMethods(
+    ParsedReport parsed,
+    IReadOnlyDictionary<string, IReadOnlyList<OracleMethod>> oracle)
+  {
+    var differences = new List<string>();
+
+    foreach (var file in parsed.Files.OrderBy(file => file.RawPath, StringComparer.Ordinal))
+    {
+      var path = oracle.Keys.Single(candidate => IsSameFile(file.RawPath, candidate));
+      var ours = (file.Methods ?? [])
+        .GroupBy(method => method.Line)
+        .ToDictionary(group => group.Key, group => group.Select(method => method.IsExecuted).ToList());
+      var theirs = oracle[path]
+        .GroupBy(method => method.FirstLine)
+        .ToDictionary(group => group.Key, group => group.Select(method => method.IsCovered).ToList());
+
+      foreach (var number in ours.Keys.Union(theirs.Keys).Order())
+      {
+        var parser = DescribeMethods(ours.GetValueOrDefault(number));
+        var reportGenerator = DescribeMethods(theirs.GetValueOrDefault(number));
+
+        if (!string.Equals(parser, reportGenerator, StringComparison.Ordinal))
+        {
+          differences.Add(Difference(file.RawPath, number, parser, reportGenerator));
+        }
+      }
+    }
+
+    return differences;
+  }
+
+  // The executed methods that start on a line, out of the methods that start on it.
+  private static string DescribeMethods(List<bool>? executed) =>
+    executed is null ? Absent : $"{executed.Count(isExecuted => isExecuted)}/{executed.Count} methods";
 
   private static (int Lines, int Hits, int Misses, int Partials) TotalsOf(
     IReadOnlyDictionary<string, IReadOnlyDictionary<int, OracleLine>> oracle)

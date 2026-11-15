@@ -20,24 +20,63 @@ internal static class ReportGeneratorOracle
 {
   #region Methods
 
-  public static IReadOnlyDictionary<string, IReadOnlyDictionary<int, OracleLine>> Read(string reportPath)
-  {
-    LoggerFactory.VerbosityLevel = VerbosityLevel.Off;
-
-    var all = new DefaultFilter(["+*"]);
-    var parser = new CoverageReportParser(1, 1, [], all, all, all);
-    var files = parser
-      .ParseFiles([reportPath])
-      .Assemblies.SelectMany(assembly => assembly.Classes)
-      .SelectMany(@class => @class.Files);
-
-    return files
+  public static IReadOnlyDictionary<string, IReadOnlyDictionary<int, OracleLine>> Read(string reportPath) =>
+    ParseFiles(reportPath)
       .GroupBy(file => file.Path, StringComparer.Ordinal)
       .ToDictionary(
         group => group.Key,
         group => (IReadOnlyDictionary<int, OracleLine>)ReadLines(group),
         StringComparer.Ordinal);
+
+  // A code element of ReportGenerator, a method or a property, is covered when one of the lines from its
+  // first to its last is covered in its file, all the classes of the file together.
+  public static IReadOnlyDictionary<string, IReadOnlyList<OracleMethod>> ReadMethods(string reportPath) =>
+    ParseFiles(reportPath)
+      .GroupBy(file => file.Path, StringComparer.Ordinal)
+      .ToDictionary(
+        group => group.Key,
+        group =>
+        {
+          var views = group.ToList();
+
+          return (IReadOnlyList<OracleMethod>)
+          [
+            .. views.SelectMany(view => view.CodeElements)
+                    .Select(element => new OracleMethod(element.FirstLine, IsCovered(views, element)))
+                    .OrderBy(method => method.FirstLine),
+          ];
+        },
+        StringComparer.Ordinal);
+
+  public static (int CoveredBranches, int TotalBranches, int CoveredMethods, int TotalMethods) ReadDetail(string reportPath)
+  {
+    var files = ParseFiles(reportPath).ToList();
+
+    return (
+      files.Sum(file => file.CoveredBranches ?? 0),
+      files.Sum(file => file.TotalBranches ?? 0),
+      files.Sum(file => file.CoveredCodeElements),
+      files.Sum(file => file.TotalCodeElements));
   }
+
+  private static IEnumerable<CodeFile> ParseFiles(string reportPath)
+  {
+    LoggerFactory.VerbosityLevel = VerbosityLevel.Off;
+
+    var all = new DefaultFilter(["+*"]);
+    var parser = new CoverageReportParser(1, 1, [], all, all, all);
+
+    return parser
+      .ParseFiles([reportPath])
+      .Assemblies.SelectMany(assembly => assembly.Classes)
+      .SelectMany(@class => @class.Files);
+  }
+
+  private static bool IsCovered(List<CodeFile> views, CodeElement element) =>
+    views.Any(
+      view => Enumerable
+        .Range(element.FirstLine, element.LastLine - element.FirstLine + 1)
+        .Any(line => line < view.LineCoverage.Length && view.LineCoverage[line] > 0));
 
   private static Dictionary<int, OracleLine> ReadLines(IEnumerable<CodeFile> views)
   {

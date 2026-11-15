@@ -378,6 +378,64 @@ public sealed class CoberturaParserTests
   }
 
   [Fact]
+  public async Task Parse_Methods_ShouldReadFirstLineAndHits()
+  {
+    var file = await ParseFileAsync(
+      """
+      <methods>
+        <method name="M" signature="()">
+          <lines>
+            <line number="5" hits="0" />
+            <line number="3" hits="2" />
+            <line number="4" hits="7" branch="true" condition-coverage="50% (1/2)" />
+          </lines>
+        </method>
+        <method name="N" signature="()">
+          <lines><line number="9" hits="0" /></lines>
+        </method>
+      </methods>
+      <lines>
+        <line number="3" hits="2" />
+      </lines>
+      """);
+
+    file.Methods.ShouldBe([new MethodCoverage(3, 7), new MethodCoverage(9, 0)]);
+    file.Lines.Select(line => line.Line).ShouldBe([3, 4, 5, 9]);
+  }
+
+  [Fact]
+  public async Task Parse_MethodWithoutLine_ShouldIgnoreIt()
+  {
+    var file = await ParseFileAsync(
+      """
+      <methods>
+        <method name="Empty" signature="()" />
+        <method name="NoLines" signature="()"><lines /></method>
+        <method name="Uncoverable" signature="()"><lines><line number="0" hits="1" /></lines></method>
+      </methods>
+      <lines>
+        <line number="1" hits="1" />
+      </lines>
+      """);
+
+    file.Methods.ShouldBe([]);
+  }
+
+  [Fact]
+  public async Task Parse_ClassesOfOneFile_ShouldKeepTheMethodsOfEach()
+  {
+    var report = await ParseAsync(
+      $"""
+      <coverage line-rate="1"><packages><package><classes>
+        <class filename="{FileName}"><methods><method name="M"><lines><line number="8" hits="1" /></lines></method></methods></class>
+        <class filename="{FileName}"><methods><method name="N"><lines><line number="2" hits="0" /></lines></method></methods></class>
+      </classes></package></packages></coverage>
+      """);
+
+    report.Files.ShouldHaveSingleItem().Methods.ShouldBe([new MethodCoverage(2, 0), new MethodCoverage(8, 1)]);
+  }
+
+  [Fact]
   public async Task Parse_CancelledToken_ShouldThrowOperationCanceledException()
   {
     using var report = new MemoryStream(Encoding.UTF8.GetBytes("""<coverage line-rate="1" />"""));
@@ -402,6 +460,13 @@ public sealed class CoberturaParserTests
     var report = await ParseAsync($"""<coverage line-rate="1"><packages><package><classes><class filename="{FileName}">{content}</class></classes></package></packages></coverage>""");
 
     return report.Files.Count == 0 ? [] : report.Files.ShouldHaveSingleItem().Lines;
+  }
+
+  private async Task<ParsedFile> ParseFileAsync(string content)
+  {
+    var report = await ParseAsync($"""<coverage line-rate="1"><packages><package><classes><class filename="{FileName}">{content}</class></classes></package></packages></coverage>""");
+
+    return report.Files.ShouldHaveSingleItem();
   }
 
   private async Task<ParsedReport> ParseAsync(string xml)
