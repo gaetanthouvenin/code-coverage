@@ -10,6 +10,9 @@
 
   Every compose command is `docker compose --project-directory <Directory>`, without -f: the .env of
   the directory names the files in COMPOSE_FILE (docker-compose.prod.yml:docker-compose.host.yml).
+  Compose resolves a relative path of COMPOSE_FILE from its current directory, not from the project
+  directory (M4.02c): every compose command runs with <Directory> as its current directory, put back
+  after the command, failure included. A relative and an absolute COMPOSE_FILE both work.
 
    1. Checks: .env writable, secrets/dp.pfx present, the data directories of DATA_DIR present, the
       current TAG read from .env and compared with -Version by SemVer 2.0 precedence. The same
@@ -220,9 +223,18 @@ function Invoke-Docker {
 }
 
 function Invoke-Compose {
+  # Runs from the production directory: a relative path of COMPOSE_FILE is resolved from the current
+  # directory of compose. The previous directory is put back even when the command fails.
   param([string[]] $Arguments, [switch] $AllowFailure)
 
-  return Invoke-Docker -Arguments (@('compose', '--project-directory', $Directory) + $Arguments) -AllowFailure:$AllowFailure
+  Push-Location -LiteralPath $Directory
+
+  try {
+    return Invoke-Docker -Arguments (@('compose', '--project-directory', $Directory) + $Arguments) -AllowFailure:$AllowFailure
+  }
+  finally {
+    Pop-Location
+  }
 }
 
 function Invoke-Change {
@@ -289,6 +301,9 @@ function Invoke-Curl {
 }
 
 #endregion
+
+# An absolute directory: compose runs from it, and the .NET file calls do not follow the location of pwsh.
+$Directory = [System.IO.Path]::GetFullPath($Directory, (Get-Location -PSProvider FileSystem).ProviderPath)
 
 $mode = if ($Execute) { 'EXECUTE' } else { 'DRY RUN' }
 Write-Step "$mode of $Version ($Revision) to $Directory"
@@ -577,9 +592,9 @@ catch {
     Write-Host @"
 ::error::The deployment of $Version failed after the start of the Api: nothing is rolled back, the schema may have migrated.
 deploy: database: $volume; dump taken before the change: $dumpText (in the backups directory of DATA_DIR).
-deploy: to return to ${returnTag}: stop the Api and the Web (docker compose --project-directory $Directory stop web api),
+deploy: to return to ${returnTag}: stop the Api and the Web (cd $Directory && docker compose --project-directory . stop web api),
 deploy: restore the dump with pg_restore (docs/operations.md, Restore), set TAG=$returnTag in .env,
-deploy: then docker compose --project-directory $Directory up -d api, then up -d web.
+deploy: then cd $Directory && docker compose --project-directory . up -d api, then up -d web.
 "@
   }
 

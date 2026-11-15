@@ -82,7 +82,8 @@ through Azure SQL and its automatic backups ([deployment-azure.md](deployment-az
 
 **A host with `COMPOSE_FILE` in its `.env`** (the host of "Continuous deployment", whose proxy runs in a
 container): every command of this section runs as `docker compose --project-directory <directory> …`
-**without `-f`**. A `-f docker-compose.prod.yml` would override `COMPOSE_FILE` and drop
+**without `-f`**, from that directory (`cd <directory>` first: a relative `COMPOSE_FILE` is resolved
+from the current directory). A `-f docker-compose.prod.yml` would override `COMPOSE_FILE` and drop
 `docker-compose.host.yml`: Caddy would come back, and the volumes and the network of the host would
 be lost. "Restore" gives the commands of that host in full.
 
@@ -282,7 +283,13 @@ chmod 600 /data03/docker/code-coverage/.env
 [`.env.example`](../deploy/vm/.env.example):
 
 - `COMPOSE_FILE=docker-compose.prod.yml:docker-compose.host.yml`: compose reads it from `.env`, so
-  every command is a plain `docker compose --project-directory /data03/docker/code-coverage …`.
+  every command is a plain `docker compose --project-directory /data03/docker/code-coverage …`, run
+  **from that directory** (`cd /data03/docker/code-coverage` first). Compose resolves a relative path
+  of `COMPOSE_FILE` from its current directory, not from `--project-directory`: run from elsewhere, it
+  fails with `stat <current directory>/docker-compose.prod.yml: no such file or directory`. The
+  absolute form (`/data03/docker/code-coverage/docker-compose.prod.yml:/data03/docker/code-coverage/docker-compose.host.yml`)
+  works from anywhere. The deployment script accepts both: it runs every compose command from
+  `DEPLOY_DIR` and goes back to its own directory afterwards, failure included (M4.02c).
 - `PROXY_NETWORK`: the existing Docker network of NPX.
 - `PROXY_NETWORK_CIDR`: its subnet, from
   `docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'`.
@@ -307,7 +314,8 @@ files.
 1. Log in once with a classic personal access token limited to `read:packages`
    (`docker login ghcr.io`).
 2. Copy `deploy/vm` to `DEPLOY_DIR`.
-3. Run `docker compose --project-directory /data03/docker/code-coverage pull`, then `up -d`.
+3. Run `cd /data03/docker/code-coverage`, then `docker compose --project-directory . pull`, then
+   `docker compose --project-directory . up -d`.
 4. Remove the token afterwards (`docker logout ghcr.io`).
 
 The deployments that follow log in with the token of the job. The bind-mounted volumes must exist
@@ -399,7 +407,8 @@ Api host.
   had replaced; the running containers were not touched. A dump taken by the failed run stays in the
   backups.
 - **A failure after the start of the Api** is not rolled back automatically, because the schema may
-  have migrated. The job fails and names the data directory, the dump and the steps:
+  have migrated. The job fails and names the data directory, the dump and the steps, whose compose
+  commands start with `cd <DEPLOY_DIR>` (a relative `COMPOSE_FILE`):
   1. stop the Api and the Web;
   2. run `pg_restore` of the dump;
   3. set `TAG` to the content of `.env.previous-tag` (a redeployment of the same version leaves that
