@@ -11,7 +11,7 @@ du dépôt.
 
 **Règle générale** : tout ce qui est du code est en **anglais** (types, membres, tables, colonnes,
 codes d'erreur, paramètres, messages de commit, documentation XML). Seuls les libellés affichés
-sont traduits (`Web/Resources/Common.resx` et `Common.fr.resx`).
+sont traduits (`Web/Resources/Common.resx` et ses traductions, [ADR-015](adr/0015-console-languages.md)).
 
 Les règles vérifiables sont gardées par `tests/CodeCoverage.Architecture.Tests` (voir §13.4) ; les
 autres sont tenues par la revue et par le profil de nettoyage ReSharper (§3.7).
@@ -1084,7 +1084,8 @@ Mécanisme central (exigence utilisateur, voir §16.3 point 4) :
 
 ### 11.5 Localisation
 
-- Aucune chaîne d'interface en dur : `IStringLocalizer<Common>` (injecté sous le nom `L`),
+- Aucune chaîne d'interface en dur : `IStringLocalizer<Common>` (injecté sous le nom `L`, langues et
+  ce qui reste en anglais : [ADR-015](adr/0015-console-languages.md)),
   ressources `Web/Resources/Common.resx` (anglais) + `Common.fr.resx` ; les libellés des composants
   UI maison dans `UiStrings.resx` / `UiStrings.fr.resx`.
 - Les codes d'erreur sont traduits sous leur propre nom par
