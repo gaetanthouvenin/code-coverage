@@ -3263,7 +3263,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02g
 
 #### M4.02aa — Snippet du badge hors de sa carte
-- **Issue :** à créer
+- **Issue :** [#440](https://github.com/gaetanthouvenin/code-coverage/issues/440)
 - **Objectif :** que la carte « Badge » de la vue d'ensemble d'un dépôt garde son snippet dans sa largeur. Constaté le 2026-11-15 en production sur Capto (`/github/gaetanthouvenin/Capto`, fenêtre de 1 240 px) : les onglets Markdown / HTML, le bloc de code et le bouton Copier débordent à droite de la carte, et toute la page défile horizontalement (`scrollWidth` 2 657 px). Cause prouvée dans le navigateur : `.cc-stack` est une grille sans `grid-template-columns` ; sa colonne implicite (`auto`) prend la largeur minimale de contenu de ses enfants, et `.cc-copy` (largeur minimale `auto`) y apporte la ligne entière du snippet d'un dépôt privé, qui porte le jeton de badge (1 808 px pour une carte de 379 px). Le `overflow-x: auto` de `.cc-code` ne joue donc jamais. Ajouter `grid-template-columns: minmax(0, 1fr)` à `.cc-stack` ramène la page à 1 240 px et le bloc de code à 323 px, qui défile à l'intérieur (vérifié en injectant la règle). La maquette a la même règle `.cc-stack`.
 - **Couches :** Web, maquette.
 - **Fichiers :**
