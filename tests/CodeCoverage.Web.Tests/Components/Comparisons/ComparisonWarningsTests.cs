@@ -62,7 +62,7 @@ public sealed class ComparisonWarningsTests : UiTestContext
       "Send.cs",
       11,
       0,
-      new BaseExplanationViewModel("e4f5a6b", "a1b2c3d", "main", comparedTo, comparedTo is null ? "a1b2c3d" : null, null, null),
+      new BaseExplanationViewModel("e4f5a6b", "a1b2c3d", "main", comparedTo, comparedTo is null ? "a1b2c3d" : null, null, null, "head", "fork", null, null),
       [],
       false,
       new string('e', 40),

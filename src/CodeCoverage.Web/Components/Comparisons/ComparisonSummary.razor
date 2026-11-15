@@ -19,7 +19,7 @@
     <Footer>
       @if (Comparison.Base.ComparedTo is { } comparedTo)
       {
-        @L["Commit_Base"] <code>@comparedTo</code> <b>@Comparison.BaseCoverage</b>
+        @L["Commit_Base"] <a href="@Comparison.Base.ComparedToHref" data-link="base"><code>@comparedTo</code></a> <b>@Comparison.BaseCoverage</b>
       }
       else
       {

@@ -116,8 +116,7 @@ public partial class Home
 
   #region Methods
 
-  private static string HrefOf(RepositorySummaryViewModel repository) =>
-    $"{Uri.EscapeDataString(repository.Forge)}/{Uri.EscapeDataString(repository.Owner)}/{Uri.EscapeDataString(repository.Name)}";
+  private static string HrefOf(RepositorySummaryViewModel repository) => RepositoryLinks.HrefOf(repository.Forge, repository.Owner, repository.Name);
 
   // The bar of the home page knows the coverage only: hits and misses in percent, no partial.
   private static double CoverageOf(RepositorySummaryViewModel repository) => (double)(repository.CoverageValue ?? 0);

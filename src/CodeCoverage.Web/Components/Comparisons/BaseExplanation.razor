@@ -5,22 +5,29 @@
    ---------------------------------------------------------------------------------------------- *@
 
 <section class="cc-panel" data-panel="base">
-  <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Comparison_HowBaseChosen"]</h2></div>
+  <div class="cc-panel__head">
+    <h2 class="cc-panel__title">@L["Comparison_HowBaseChosen"]</h2>
+    @if (Base.CompareHref is { } compareHref)
+    {
+      <div class="cc-panel__tools"><CcButton Size="CcButtonSize.Small" Icon="CcIconName.Layers" Href="@compareHref" data-link="compare">@L["Compare_Action"]</CcButton></div>
+    }
+  </div>
   <div class="cc-panel__body">
     <dl class="cc-kv">
       <dt>@L["Comparison_Head"]</dt>
-      <dd data-base="head"><code>@Base.Head</code></dd>
+      <dd data-base="head"><a href="@Base.HeadHref" data-link="head"><code>@Base.Head</code></a></dd>
       @if (Base.ForkPoint is { } forkPoint)
       {
         <dt>@L["Comparison_ForkPoint"]</dt>
         <dd data-base="fork">
           @if (Base.BaseBranch is { } branch)
           {
-            @L["Comparison_OnBranch", forkPoint, branch]
+            var (before, after) = AroundForkPoint(branch);
+            @before<a href="@Base.ForkPointHref" data-link="fork"><code>@forkPoint</code></a>@after
           }
           else
           {
-            <code>@forkPoint</code>
+            <a href="@Base.ForkPointHref" data-link="fork"><code>@forkPoint</code></a>
           }
         </dd>
       }
@@ -28,7 +35,7 @@
       <dd data-base="compared">
         @if (Base.ComparedTo is { } comparedTo)
         {
-          <code>@comparedTo</code>
+          <a href="@Base.ComparedToHref" data-link="compared"><code>@comparedTo</code></a>
           @if (Base.Hops is > 0 and var hops)
           {
             <div class="cc-dim cc-small" data-base="hops">@L["Comparison_Hops", hops]</div>
