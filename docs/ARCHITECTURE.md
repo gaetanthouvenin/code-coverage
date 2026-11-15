@@ -1643,7 +1643,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 ### 10bis.1 Socle
 
 - Blazor Server, `<Routes @rendermode="InteractiveServer"/>`, bibliothèque de composants **maison** dans `Web/Components/Ui` (préfixe `Cc`, CSS à tokens dans `wwwroot/css/tokens.css`, thèmes clair et sombre, identité visuelle propre au produit ; enregistrée par `AddCoverageUi()`). Référence visuelle : `docs/design/ui-mockup.html`. Style : fond gris clair, cartes blanches très arrondies, barre de navigation du haut en pilule (pas de sidebar), cartes KPI (la première en dégradé bleu), jauge segmentée, graphiques à barres arrondies, polices Plus Jakarta Sans et JetBrains Mono (SHA, chemins, code). Composants : `CcAppShell`, `CcTopNav`, `CcPillTabs`, `CcKpiCard`, `CcGauge`, `CcBarChart`, `CcHeader`, `CcUserMenu`, `CcPageContainer`, `CcStatCard`, `CcLineChart`, `CcBadge`, `CcFolderTabs`, `CcSearchBar`, `CcSelectField`, `CcTextField`, `CcEmptyState`, `CcLoadingSpinner`, `CcBanner`, `CcToast`, `CcErrorBoundary`.
-- Préfixe CSS `cc-`. Libellés via `IStringLocalizer<Common>` (`Common.resx` et `Common.fr.resx`), y compris les traductions des codes d'erreur.
+- Préfixe CSS `cc-`. Libellés via `IStringLocalizer<Common>` (`Common.resx` et ses traductions `Common.{langue}.resx`), y compris les traductions des codes d'erreur. Langues de la console et ce qui reste en anglais : [ADR-015](adr/0015-console-languages.md).
 - Chaque page se compose de `Components/Pages/{Name}.razor` et `{Name}.razor.cs`. **Elle ne manipule que des ViewModels**, obtenus par `Web/Mapping/{Feature}Mapper.ToViewModel`, et envoie ses commandes via `UiRequestRunner`.
 
 ### 10bis.2 Authentification et accès
@@ -1898,6 +1898,7 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | [ADR-012](adr/0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api avec SHA-256 épinglé ; outil dotnet en complément. |
 | [ADR-013](adr/0013-organization-isolation.md) | Plusieurs organisations isolées sur une instance : filtre EF, estampille, garde et jeton de concurrence à l'écriture, une seule porte, App publique partagée, admission fermée. |
 | [ADR-014](adr/0014-multi-forge.md) | Préparation à plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway`, GitHub seul implémenté avant la bascule. |
+| [ADR-015](adr/0015-console-languages.md) | Langues de la console : anglais (référence et repli), français, italien, espagnol ; cookie de culture, puis `Accept-Language` ; Api, uploader, journaux, forges et identifiants stockés restent en anglais. |
 
 ### 13.2 Décisions encore ouvertes
 

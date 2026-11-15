@@ -91,7 +91,8 @@ messages.
 - `ConfigureAwait(false)` everywhere, `ConfigureAwait(true)` in `.razor.cs`;
   `ArgumentNullException.ThrowIfNull` at the start of every public method.
 - **Razor**: markup and directives in `.razor`, all C# in the `.razor.cs` partial class — never an
-  `@code` block. No hard-coded interface string: `IStringLocalizer<Common>`. The UI follows
+  `@code` block. No hard-coded interface string: `IStringLocalizer<Common>`, four languages
+  (ADR-015). The UI follows
   `docs/design/ui-mockup.html` (in-house components in `Web/Components/Ui`, no external UI component package).
 - **Mediator**: martinothamar `Mediator` 3.x (source generator), **not MediatR**; pipeline
   `LoggingBehavior`, `AuthorizationBehavior`, `ValidationBehavior`; FluentValidation 12; EF Core 10.
