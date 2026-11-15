@@ -33,6 +33,8 @@ public static class PageProbes
     PageProbe.NotAddressed("/docs", "The documentation embedded in the Web, the same for everyone."),
     PageProbe.NotAddressed("/docs/{Slug}", "A page of the documentation embedded in the Web, the same for everyone."),
     PageProbe.NotAddressed("/error", "The error page of the console, the same for everyone."),
+    PageProbe.NotAddressed("/error/404", "The not-found page the status code pages re-execute, the same for everyone."),
+    PageProbe.NotAddressed("/error/{StatusCode:int}", "The error page the status code pages re-execute, the same for everyone."),
     PageProbe.NotAddressed("/", "The repositories the signed-in user reads, which name no organization in the address."),
     PageProbe.NotAddressed("/not-found", "The not-found page of the console, the same for everyone."),
     PageProbe.Addressed("/orgs/{Forge}/{Login}/repositories", "/orgs/github/{owner}/repositories"),

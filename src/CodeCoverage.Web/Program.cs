@@ -74,10 +74,16 @@ try
 
   app.UseMiddleware<SecurityHeadersMiddleware>();
 
-  // An unhandled error re-executes /error and a body-less 404 re-executes /not-found, both in a fresh scope
-  // so scoped state (renderer, services) from the failed request cannot leak into the error page.
+  // An unhandled error re-executes /error, and a body-less error status re-executes /error/{code}: the not-found page
+  // answers /error/404, the error page every other code. Both run in a fresh scope so scoped state (renderer,
+  // services) from the failed request cannot leak into the error page.
   app.UseExceptionHandler("/error", true);
-  app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+  app.UseStatusCodePagesWithReExecute("/error/{0}", createScopeForStatusCodePages: true);
+
+  // A status page is read with GET whatever the method of the refused request, then routed again: the routing comes
+  // after it, never before.
+  app.UseMiddleware<StatusPageRequestMiddleware>();
+  app.UseRouting();
 
   // Until the GitHub App exists, every page leads to the first-start wizard.
   app.UseMiddleware<SetupRedirectMiddleware>();

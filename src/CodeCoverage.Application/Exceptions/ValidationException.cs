@@ -12,7 +12,7 @@ namespace CodeCoverage.Application.Exceptions;
 
 /// <summary>
 ///   Exception thrown when one or more FluentValidation rules fail.
-///   Contains the error messages grouped by property name.
+///   Contains the error messages and the error codes grouped by property name.
 ///   Maps to HTTP 400 Bad Request.
 /// </summary>
 public sealed class ValidationException : ApplicationException
@@ -31,9 +31,12 @@ public sealed class ValidationException : ApplicationException
   {
     ArgumentNullException.ThrowIfNull(failures);
 
-    Errors = failures.GroupBy(f => f.PropertyName, StringComparer.Ordinal)
-                     .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).ToArray(), StringComparer.Ordinal)
-                     .AsReadOnly();
+    var groups = failures.GroupBy(f => f.PropertyName, StringComparer.Ordinal).ToArray();
+
+    Errors = groups.ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).ToArray(), StringComparer.Ordinal)
+                   .AsReadOnly();
+    ErrorCodes = groups.ToDictionary(g => g.Key, g => g.Select(f => f.ErrorCode ?? string.Empty).ToArray(), StringComparer.Ordinal)
+                       .AsReadOnly();
   }
 
   #endregion
@@ -42,6 +45,14 @@ public sealed class ValidationException : ApplicationException
 
   /// <summary>Gets the validation error messages grouped by property name.</summary>
   public IReadOnlyDictionary<string, string[]> Errors { get; }
+
+  /// <summary>Gets the error codes of the failures, grouped by property name.</summary>
+  /// <remarks>
+  ///   Each array is parallel to the one of <see cref="Errors" /> for the same property: the code at an index is the
+  ///   one of the message at that index, e.g. <c>Setting.InvalidValue</c>, or an empty string when the rule gave none.
+  ///   The interface translates the code, and falls back on the message when the code has no translation.
+  /// </remarks>
+  public IReadOnlyDictionary<string, string[]> ErrorCodes { get; }
 
   #endregion
 }

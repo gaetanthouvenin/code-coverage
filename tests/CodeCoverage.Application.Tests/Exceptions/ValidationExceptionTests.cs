@@ -38,11 +38,30 @@ public sealed class ValidationExceptionTests
   }
 
   [Fact]
+  public void Ctor_WithFailures_ShouldKeepTheErrorCodeOfEachMessage()
+  {
+    ValidationFailure[] failures =
+    [
+      new("WebPublicUrl", "The address must be an absolute HTTP or HTTPS URL.") { ErrorCode = "Setting.InvalidValue" },
+      new("WebPublicUrl", "Without code."),
+      new("AdminUserIds", "Give at least one identifier.") { ErrorCode = "Setting.InvalidAdministrators" },
+    ];
+
+    var exception = new ValidationException(failures);
+
+    exception.ErrorCodes.Count.ShouldBe(2);
+    exception.ErrorCodes["WebPublicUrl"].ShouldBe(["Setting.InvalidValue", string.Empty]);
+    exception.ErrorCodes["AdminUserIds"].ShouldBe(["Setting.InvalidAdministrators"]);
+    exception.Errors["WebPublicUrl"].ShouldBe(["The address must be an absolute HTTP or HTTPS URL.", "Without code."]);
+  }
+
+  [Fact]
   public void Ctor_WithoutFailures_ShouldHaveNoError()
   {
     var exception = new ValidationException([]);
 
     exception.Errors.ShouldBeEmpty();
+    exception.ErrorCodes.ShouldBeEmpty();
   }
 
   [Fact]

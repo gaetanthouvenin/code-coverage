@@ -428,8 +428,8 @@
   <data name="Home_TrendNone" xml:space="preserve"><value>No coverage over 30 days</value></data>
   <data name="Home_RepositoryCount" xml:space="preserve"><value>{0} repositories</value></data>
   <data name="Home_EmptyTitle" xml:space="preserve"><value>No repository</value></data>
-  <data name="Home_EmptyText" xml:space="preserve"><value>Your GitHub account can read no repository of the organizations admitted on this instance.</value></data>
-  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>Your account belongs to no organization. Instance administration does not show the repositories of organizations.</value></data>
+  <data name="Home_EmptyText" xml:space="preserve"><value>Your GitHub account can read no repository of the accounts or organizations admitted on this instance.</value></data>
+  <data name="Home_EmptyInstanceAdmin" xml:space="preserve"><value>No admitted account or organization gives you access to its repositories. Instance administration does not show the repositories of accounts and organizations.</value></data>
   <data name="Home_NoMatchTitle" xml:space="preserve"><value>No repository matches</value></data>
   <data name="Home_NoMatchText" xml:space="preserve"><value>Change the search or the filter.</value></data>
   <data name="Action_ClearFilters" xml:space="preserve"><value>Clear the filters</value></data>
