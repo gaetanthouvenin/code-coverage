@@ -461,6 +461,7 @@ graph TD
   M4_02n["M4.02n Maquette de la documentation"] --> M4_02o["M4.02o Documentation dans l'application"]
   M4_02i --> M4_02o
   M4_02k --> M4_02o
+  M4_02p["M4.02p Logger Serilog gelé deux fois dans les tests d'hôte"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -3088,6 +3089,18 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Contrôle de source** : chaque lien d'aide vise une ancre qui existe.
 - **Acceptation :** un administrateur installe l'instance, l'App et un premier dépôt en lisant seulement la documentation de l'application.
 - **Dépend de :** M4.02n, M4.02i, M4.02k
+
+#### M4.02p — Logger Serilog de démarrage gelé deux fois dans les tests d'hôte
+- **Issue :** à créer
+- **Objectif :** supprimer l'échec intermittent `System.InvalidOperationException: The logger is already frozen.` des tests d'hôte. Constaté sur la CI : develop (run 43687214281, commit 8fa7bf3, `CrossOrganizationRouteTests.GetUpload_ApiTokenOnRealUploadOfOtherOrganization_ShouldMatchUnknownOwner`) et les PR #400 et #401 (runs 43690256399 et 43690260089, `UploaderControllerTests.Get_UnknownRid_ShouldReturn404`) ; un seul test d'`Api.Tests` échoue à chaque fois, la pile part de `ReloadableLogger.Freeze()` sous `AddSerilog`, et les mêmes commits passent en local. Cause prouvée par un test de reproduction : `Program` met son logger de démarrage (`ReloadableLogger`) dans le statique `Log.Logger`, puis `UseSerilog` appelle `AddSerilog`, qui lit `Log.Logger` à ce moment-là et le recharge puis le gèle au `Build()`. Deux hôtes `WebApplicationFactory` construits en parallèle dans le même processus (collections de tests en parallèle) : le second remplace `Log.Logger` entre l'affectation et `UseSerilog` du premier, les deux capturent le même logger, et le second gel lève l'exception.
+- **Couches :** Api, Web.
+- **Fichiers :**
+  - **`Api/Configuration/SerilogConfiguration.cs`** et **`Web/Configuration/SerilogConfiguration.cs`** : `CreateBootstrapLogger` rend un `ReloadableLogger` ; `UseSerilog(WebApplicationBuilder, ReloadableLogger)` remet le logger de démarrage de l'hôte dans `Log.Logger`, appelle `AddSerilog` sur une collection de services temporaire, et recommence si `Log.Logger` n'est plus ce logger après l'appel. Seule cette méthode y écrit ce logger, sous un verrou : le retrouver inchangé prouve qu'`AddSerilog` l'a lu. Les enregistrements sont ensuite copiés dans `builder.Services`, avec le même contexte que `UseSerilog` passe à `ConfigureLogger`.
+  - **`Api/Program.cs`** et **`Web/Program.cs`** : le logger de démarrage est gardé dans une variable locale et passé à `SerilogConfiguration.UseSerilog`.
+- **Choix :** un logger de démarrage par hôte. `preserveStaticLogger: true` aurait changé les journaux d'un hôte réel (les événements de `Log` de `Program`, dont le `Fatal` d'un échec de démarrage, seraient restés sur la console du logger de démarrage, sans fichier ni enrichissements). Créer le logger de démarrage seulement si `Log.Logger` n'est pas déjà un `ReloadableLogger` partagerait un même logger entre les hôtes et rendrait le double gel certain. Un hôte seul enregistre exactement ce que `UseSerilog` enregistrait.
+- **Tests :** `Api.Tests` et `Web.Tests` : `SerilogBootstrapTests.Start_HostsInParallel_ShouldStartEveryHost` construit huit hôtes en même temps, trois fois. Il échoue à chaque exécution sans la correction (3 sur 3 pour chaque hôte) et passe avec.
+- **Acceptation :** les tests d'hôte ne lèvent plus « The logger is already frozen. » ; les journaux d'un hôte réel (console, fichier, enrichissements, événements de `Program`) ne changent pas.
+- **Dépend de :** —
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
