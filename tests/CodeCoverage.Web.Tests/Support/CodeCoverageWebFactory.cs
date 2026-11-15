@@ -92,7 +92,21 @@ public sealed class CodeCoverageWebFactory : WebApplicationFactory<Program>
 
       // The one user of the host tests, since the database is unreachable.
       services.AddScoped(_ => KnownUsers());
+
+      // The bar of a signed-in page lists the organizations of the user: read from the unreachable database, its
+      // refusal came before or after the first render, and the page either showed a bar without the user or sent to
+      // the sign-in (M4.02ab).
+      services.AddScoped(_ => NoMemberships());
     });
+  }
+
+  private static IOrganizationMembershipRepository NoMemberships()
+  {
+    var memberships = A.Fake<IOrganizationMembershipRepository>();
+
+    A.CallTo(() => memberships.ListOfUserAsync(A<long>._, A<CancellationToken>._)).Returns([]);
+
+    return memberships;
   }
 
   private static IUserRepository KnownUsers()

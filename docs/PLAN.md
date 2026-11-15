@@ -475,6 +475,7 @@ graph TD
   M4_02v --> M4_02y["M4.02y Documentation en espagnol"]
   M4_02g --> M4_02z["M4.02z Version de l'uploader refusée par le serveur"]
   M4_02aa["M4.02aa Snippet du badge hors de sa carte"]
+  M4_02ab["M4.02ab Barre d'un utilisateur connecté lue dans la base injoignable des tests d'hôte"]
   M4_02m --> M4_02ac["M4.02ac Page d'erreur d'un utilisateur connecté"]
   M4_02a --> M4_08
   M4_04 --> M4_08
@@ -3281,6 +3282,22 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **`docs/design/ui-mockup.html`** : la même règle sur `.cc-stack`, et le snippet de la carte « Badge » de la maquette porte un jeton aussi long qu'en production, pour que le cas reste visible.
 - **Tests :** `Web.Tests` (`UiStylesheetTests`) : la règle `.cc-stack` de `components.css` et de la maquette déclare `grid-template-columns: minmax(0, 1fr)`. **Propriétaire** : vue d'ensemble de Capto en largeur desktop et mobile, carte « Badge » en Markdown et en HTML, sans défilement horizontal de la page.
 - **Acceptation :** aucune page de la console ne défile horizontalement à cause d'un bloc de code ; un snippet long défile dans son propre bloc.
+- **Dépend de :** —
+
+- **Issue :** [#451](https://github.com/gaetanthouvenin/code-coverage/issues/451)
+
+#### M4.02ab — Barre d'un utilisateur connecté lue dans la base injoignable des tests d'hôte
+- **Issue :** à créer
+- **Objectif :** supprimer l'échec intermittent de `CultureEndpointsTests.Get_Culture_SignedIn_ShouldKeepTheLanguageInTheAccountForTheNextBrowser`. Constaté sur la CI de la PR #442 (run 43760512409, tentative 1, changement de documentation seulement) : la seconde requête du test, `GET /no/such/page/here` avec le cookie de session, rend un corps vide. Non reproduit en local (28 exécutions complètes de `Web.Tests`, dont 12 à quatre processus en parallèle, et 150 répétitions du scénario sur un seul cœur). Cause prouvée par instrumentation et par un faux qui choisit le moment de l'échec : `CodeCoverageWebFactory` remplace la table des utilisateurs, pas celle des appartenances. Sur une page d'un utilisateur connecté, `MainLayout` lit sa barre (`GetNavigationViewModelAsync`, puis `ListMyOrganizationsQuery`) dans la base injoignable, et EF lève `InvalidOperationException` (« transient failure »), que `UiRequestRunner` ne traite pas (ce n'est pas une `ApplicationException`). L'issue dépend du moment de ce refus :
+  - **rendu après une attente** (refus asynchrone, le cas habituel) : la page 404 s'affiche, sans menu de l'utilisateur, et le test passe ;
+  - **déjà en échec au premier rendu** (refus synchrone, possible sous Linux où la connexion à `127.0.0.1:1` est refusée aussitôt) : l'exception sort de `/error/404`, le gestionnaire d'exceptions rejoue `/error`, où `SessionCookieEvents` rend la requête anonyme sans effacer le `HttpContext.User` du premier passage. `MainLayout` croit donc l'utilisateur connecté, envoie `GetCurrentUserAccessQuery`, reçoit `UnauthorizedException`, et `UiRequestRunner` renvoie vers la connexion : `302` vers `/signin?returnUrl=%2Ferror`, sans corps. Un faux `IOrganizationMembershipRepository` qui échoue de façon synchrone (`Throws`, ou `Task.FromException`) donne ce `302` à chaque exécution (3 sur 3) ; un faux qui échoue après `Task.Yield()` ou `Task.Delay` donne la page (3 sur 3).
+  - Que la CI ait pris la branche synchrone est probable (le `302` est le seul corps vide que ce scénario produise, mais la réponse de la CI n'a pas été conservée).
+- **Couches :** tests.
+- **Fichiers :**
+  - **`tests/CodeCoverage.Web.Tests/Support/CodeCoverageWebFactory.cs`** : un faux `IOrganizationMembershipRepository` sans appartenance, comme celui des utilisateurs ; la barre d'une page connectée ne touche plus la base.
+- **Choix :** la cause est un test qui dépend du moment où une base injoignable refuse la connexion, pas l'assertion : ni nouvelle tentative, ni assertion assouplie. Le renvoi vers la connexion depuis `/error` d'un utilisateur connecté dont la page a levé une exception est un défaut du produit, distinct : il relève d'un micro-lot à part, hors de celui-ci.
+- **Tests :** `Web.Tests` : `WebHostTests.Get_UnknownPage_SignedIn_ShouldShowTheMenuOfTheUser` (page 404 d'un utilisateur connecté par l'en-tête de test, qui montre son menu). Il échoue sans la correction, par les deux branches (barre sans utilisateur, ou `302`), et passe avec ; après la correction, aucune exception n'atteint plus `UiRequestRunner` dans `CultureEndpointsTests`.
+- **Acceptation :** `CultureEndpointsTests` ne dépend plus de la base injoignable ; `Web.Tests` complet passe à plusieurs reprises.
 - **Dépend de :** —
 
 #### M4.02ac — Page d'erreur d'un utilisateur connecté
