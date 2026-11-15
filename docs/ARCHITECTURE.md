@@ -442,7 +442,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **UploadRawChunks** | **RawFileId, ChunkIndex**, Data (gzip, ≤ 1 Mo) | Upload brut écrit en flux, morceau par morceau. Pas de matérialisation de 200 Mo, et la limite `bytea` de 1 Go n'est jamais approchée. |
 | **UploadCoverages** | **UploadId** PK/FK, Codec tinyint, Data (blob CCR1 de l'upload, chemins corrigés, `ignore` appliqué) | Écrit uniquement par le `ProcessUpload` de cet upload : parallélisme sans conflit. |
 | **CommitSessions** | **Id**, CommitId, Kind (`Uploaded`, `CarriedForward`), Number int, UploadId?, CarriedForwardFromSha?, SourceSessionId?, DataUploadId?, Data? (blob CCR1 si la session reportée a été décalée), Flags (json), Name?, CiService?, BuildUrl?, Lines, Hits, Misses, Partials, Coverage? | IX(CommitId). Supprimées et réécrites à chaque finalisation. Une session reportée **non décalée** référence le blob d'origine via `DataUploadId` : pas de copie. |
-| **CommitReports** | **CommitId** PK/FK, Revision, Codec tinyint, Data (rapport fusionné toutes sessions, sans détail par session), FileIndex (blob : chemin vers lignes, hits, misses, partials) | `FileIndex` permet de lister les fichiers sans décoder les lignes. |
+| **CommitReports** | **CommitId** PK/FK, Revision, Codec tinyint, Data (rapport fusionné toutes sessions, sans détail par session), FileIndex (blob `CFI2` : par fichier, les compteurs Codecov et le détail d'ADR-016 : lignes exécutées, branches couvertes et totales, méthodes exécutées et totales si elles sont connues) | `FileIndex` permet de lister les fichiers sans décoder les lignes. Un index `CFI1` écrit avant M5.11 reste lisible, sans détail. |
 | **CommitFlagTotals** | **CommitId, Flag** (`''` = projet), RepositoryId, Branch, CompletedAt (dénormalisés), Lines, Hits, Misses, Partials, Coverage?, IsCarriedForward, CarriedForwardFromSha? | IX(RepositoryId, Branch, Flag, CompletedAt) : historique et badges par flag. `Flag` est limité à 446 caractères (Codecov : 1024), plafond d'une clé cluster SQL Server de 900 octets ; écart non configurable. `Flag` est sensible à la casse comme sur Codecov : collation `Latin1_General_100_BIN2` sur SQL Server ; sur PostgreSQL, la collation par défaut est déterministe, donc l'égalité y est exacte, mais son `ORDER BY` suit la locale. |
 | **PullRequests** | **Id**, RepositoryId, Number, State (`Open`, `Closed`, `Merged`), Title, AuthorLogin, HeadSha, HeadBranch, BaseBranch, BaseShaGitHub, ForkPointSha?, ComparedToSha?, CommentId bigint?, CommentBodyHash binary(32)?, CommentedHeadSha?, UpdatedAt, Version | UX(RepositoryId, Number) ; IX(RepositoryId, HeadSha) ; IX(RepositoryId, ForkPointSha) |
 | **Comparisons** | **Id**, CommitId, PullNumber (0 pour un build de push : les deux moteurs ne traitent pas un null de la même façon dans un index unique), ForkPointSha?, ComparedToSha?, HeadRevision, BaseRevision?, BehindBy?, Hops? (nuls pour une comparaison antérieure à M3.31), HeadCoverage?, BaseCoverage?, PatchLines, PatchHits, PatchMisses, PatchPartials, IndirectChangeCount, DiffSource (`PullFiles`, `Compare`), DiffIncomplete, Data (blob : fichiers impactés, flags, changements indirects ; sérialiseur Infrastructure versionné), ComputedAt | UX(CommitId, PullNumber). Cache pour la page PR et pour éviter les re-notifications identiques. |
@@ -469,17 +469,21 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 ### 4.3 Format de blob `CCR1` (`CcrCodec : ICoverageReportCodec`, Infrastructure)
 
 ```text
-magic "CCR1", u8 formatVersion (=1), u8 flags
+magic "CCR1", u8 formatVersion (=2 ; 1 reste lisible), u8 flags
 corps compressé Brotli (qualité 5) :
   varint stringCount ; strings UTF-8 (varint longueur + octets)        -- chemins
   varint fileCount
   par fichier : varint pathIndex, varint lineCount
     par ligne : varint deltaLine, u8 shape (bit0 branches, bit1 method, bit2 missing-ids), varint hits (borné à uint32),
                 [varint covered, varint total], [varint missingCount, varint missingIdx…]
+    version 2, après les lignes : u8 flags (bit0 méthodes connues),
+                [varint methodCount, puis par méthode : varint deltaLine, varint hits (borné à uint32)]
 ```
 
 - Le même format sert à `UploadCoverages.Data`, à `CommitSessions.Data` et à `CommitReports.Data`.
-- L'octet de version garantit que les anciens blobs restent lisibles indéfiniment.
+- L'octet de version garantit que les anciens blobs restent lisibles indéfiniment. Seule la version 2 est écrite (ADR-016) ; un fichier lu d'un blob de version 1 ne connaît pas ses méthodes. Les deux versions sont figées par `tests/fixtures/ccr/v1-sample.bin` et `v2-sample.bin`.
+- **Retour arrière :** une image qui ne lit que la version 1 refuse les blobs écrits par une version plus récente. Revenir à une telle image après avoir écrit la version 2 n'est pas pris en charge ; `ReprocessCommit` reconstruit les rapports depuis le brut après la remontée.
+- L'index de fichiers suit le même en-tête (version 1) avec le magic `CFI2`, et `CFI1`, sans détail, reste lisible.
 - `ReprocessCommit` reconstruit tout depuis les uploads bruts tant qu'ils sont conservés.
 - Taille attendue : quelques centaines d'octets par fichier, de 200 à 500 Ko pour un commit de monorepo de 5 000 fichiers.
 

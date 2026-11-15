@@ -31,8 +31,7 @@ public sealed class FileIndexCodecTests
 
     var index = _codec.DecodeFileIndex(_codec.EncodeFileIndex(report));
 
-    // CFI1 keeps the counters of Codecov only: the detail of ADR-016 is stored from M5.11.
-    index.ShouldBe(report.FileTotals.Select(static file => file with { Detail = null }));
+    index.ShouldBe(report.FileTotals);
     index[1].Totals.Lines.ShouldBe(3);
   }
 
@@ -47,13 +46,41 @@ public sealed class FileIndexCodecTests
   {
     var report = CoverageReport.Create(
     [
-      FileCoverage.Create("a.cs", [new LineCoverage(1, 1, 0, 0, false, null), new LineCoverage(2, 0, 0, 0, false, null)]),
+      FileCoverage.Create("a.cs", [new LineCoverage(1, 1, 0, 0, false, null), new LineCoverage(2, 0, 1, 2, false, null)]),
+      FileCoverage.Create("b.cs", [new LineCoverage(1, 0, 0, 0, false, null)], [new MethodCoverage(1, 0), new MethodCoverage(4, 2)]),
     ]);
 
     var blob = _codec.EncodeFileIndex(report);
 
-    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'F', (byte)'I', (byte)'1', 1, 0]);
-    Convert.ToHexString(DecompressBody(blob)).ShouldBe("01" + "04612E6373" + "0101000000");
+    blob[..HeaderLength].ShouldBe([(byte)'C', (byte)'F', (byte)'I', (byte)'2', 1, 0]);
+    Convert.ToHexString(DecompressBody(blob))
+           .ShouldBe("02" + "04612E6373" + "0100010100" + "010102" + "00" + "04622E6373" + "0001000000" + "000000" + "01" + "0102");
+  }
+
+  [Fact]
+  public void Decode_Cfi1_ShouldHaveNoDetail()
+  {
+    var blob = CcrCodec.Seal("CFI1"u8, Convert.FromHexString("01" + "04612E6373" + "0101000000"));
+
+    var file = _codec.DecodeFileIndex(blob).ShouldHaveSingleItem();
+
+    file.ShouldBe(new FileTotals("a.cs", new CoverageTotals(1, 1, 0, 0, 0)));
+    file.Detail.ShouldBeNull();
+  }
+
+  [Fact]
+  public void RoundTrip_Cfi2_ShouldKeepTheDetail()
+  {
+    var report = CoverageReport.Create(
+    [
+      FileCoverage.Create("a.cs", [new LineCoverage(1, 1, 0, 0, false, null)], [new MethodCoverage(1, 1)]),
+      FileCoverage.Create("b.cs", [new LineCoverage(1, 2, 0, 2, false, null)]),
+    ]);
+
+    var index = _codec.DecodeFileIndex(_codec.EncodeFileIndex(report));
+
+    index[0].Detail.ShouldBe(new CoverageDetail(1, 1, 0, 0, 1, 1));
+    index[1].Detail.ShouldBe(new CoverageDetail(1, 1, 0, 2, null, null));
   }
 
   [Fact]
@@ -103,6 +130,20 @@ public sealed class FileIndexCodecTests
   public void Decode_CorruptedBody_ShouldThrowAClearError(string body, string reason)
   {
     var blob = CcrCodec.Seal("CFI1"u8, Convert.FromHexString(body));
+
+    Should.Throw<InvalidDataException>(() => _codec.DecodeFileIndex(blob)).Message.ShouldContain(reason);
+  }
+
+  [Theory]
+  [InlineData("01" + "0161" + "0100000000" + "02" + "0000" + "00", "more executed lines")]
+  [InlineData("01" + "0161" + "0100000000" + "01" + "0302" + "00", "more covered branches")]
+  [InlineData("01" + "0161" + "0100000000" + "01" + "0000" + "02", "unknown flags")]
+  [InlineData("01" + "0161" + "0100000000" + "01" + "0000" + "01" + "0302", "more executed methods")]
+  [InlineData("01" + "0161" + "0100000000" + "01" + "0000" + "01" + "00", "ends too early")]
+  [InlineData("01" + "0161" + "0100000000" + "01" + "0000" + "00" + "00", "unexpected bytes")]
+  public void Decode_CorruptedCfi2Body_ShouldThrowAClearError(string body, string reason)
+  {
+    var blob = CcrCodec.Seal("CFI2"u8, Convert.FromHexString(body));
 
     Should.Throw<InvalidDataException>(() => _codec.DecodeFileIndex(blob)).Message.ShouldContain(reason);
   }
