@@ -75,6 +75,84 @@ public sealed class FileCoverageTests
     file.Totals.Methods.ShouldBe(2);
   }
 
+  [Fact]
+  public void Create_MethodsOnSameLine_ShouldKeepOneWithMostHits()
+  {
+    var file = FileCoverage.Create(
+      "a.cs",
+      [Plain(1, 1)],
+      [new MethodCoverage(3, 0), new MethodCoverage(1, 2), new MethodCoverage(3, 5), new MethodCoverage(3, 1)]);
+
+    file.Methods.ShouldNotBeNull().Select(method => (method.Line, method.Hits)).ShouldBe([(1, 2L), (3, 5L)]);
+  }
+
+  [Fact]
+  public void Create_WithoutMethods_ShouldLeaveThemUnknown()
+  {
+    var file = FileCoverage.Create("a.cs", [Plain(1, 1)]);
+
+    file.Methods.ShouldBeNull();
+    file.Detail.HasMethods.ShouldBeFalse();
+    file.Detail.MethodRatio.ShouldBeNull();
+  }
+
+  [Fact]
+  public void Create_NoMethod_ShouldKnowThereIsNone()
+  {
+    var file = FileCoverage.Create("a.cs", [Plain(1, 1)], []);
+
+    file.Methods.ShouldNotBeNull().ShouldBeEmpty();
+    file.Detail.TotalMethods.ShouldBe(0);
+    file.Detail.MethodRatio.ShouldBeNull();
+  }
+
+  [Fact]
+  public void Detail_ShouldCountExecutedLinesBranchesAndMethods()
+  {
+    var file = FileCoverage.Create(
+      "a.cs",
+      [
+        Plain(1, 3),
+        Plain(2, 0),
+        new LineCoverage(3, 4, 1, 2, false, null),
+        new LineCoverage(4, 1, 4, 4, false, null),
+        Branch(5, 0, 2),
+      ],
+      [new MethodCoverage(1, 3), new MethodCoverage(5, 0)]);
+
+    file.Detail.ShouldBe(new CoverageDetail(3, 5, 5, 8, 1, 2));
+  }
+
+  // A line that runs without taking any of its branches is a miss for Codecov, and executed for ReportGenerator.
+  [Fact]
+  public void Detail_BranchLineExecutedWithoutBranch_ShouldCountAsExecuted()
+  {
+    var file = FileCoverage.Create("a.cs", [new LineCoverage(1, 2, 0, 2, false, null)]);
+
+    file.Totals.Misses.ShouldBe(1);
+    file.Detail.ExecutedLines.ShouldBe(1);
+    file.Detail.CoveredBranches.ShouldBe(0);
+    file.Detail.TotalBranches.ShouldBe(2);
+  }
+
+  [Fact]
+  public void Detail_PartialLine_ShouldCountAsExecuted()
+  {
+    var file = FileCoverage.Create("a.cs", [new LineCoverage(1, 1, 1, 2, false, null)]);
+
+    file.Totals.Partials.ShouldBe(1);
+    file.Detail.ExecutedLines.ShouldBe(1);
+  }
+
+  [Fact]
+  public void Detail_BranchSumsBeyondAnInteger_ShouldHoldToTheLargest()
+  {
+    var file = FileCoverage.Create("a.cs", [Branch(1, int.MaxValue, int.MaxValue), Branch(2, 1, int.MaxValue)]);
+
+    file.Detail.CoveredBranches.ShouldBe(int.MaxValue);
+    file.Detail.TotalBranches.ShouldBe(int.MaxValue);
+  }
+
   private static LineCoverage Plain(int line, long hits)
   {
     return new LineCoverage(line, hits, 0, 0, false, null);

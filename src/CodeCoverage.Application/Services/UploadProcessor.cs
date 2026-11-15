@@ -229,7 +229,7 @@ internal sealed class UploadProcessor(
         }
 
         resolved++;
-        files.Add(FileCoverage.Create(result.Path!, file.Lines));
+        files.Add(FileCoverage.Create(result.Path!, file.Lines, file.Methods));
       }
     }
 
