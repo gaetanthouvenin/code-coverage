@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -98,6 +99,21 @@ public sealed class WebHostTests(CodeCoverageWebFactory factory)
     html.ShouldContain($"lang=\"{language}\"");
     html.ShouldContain(title);
     html.ShouldContain("class=\"cc-shell\"");
+  }
+
+  // M4.02ab: the bar of a signed-in user is read from the fakes of the factory, never from the unreachable database, whose
+  // refusal may come before or after the first render and lead to the page or to the sign-in.
+  [Fact]
+  public async Task Get_UnknownPage_SignedIn_ShouldShowTheMenuOfTheUser()
+  {
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, CodeCoverageWebFactory.KnownUserId.ToString(CultureInfo.InvariantCulture));
+
+    using var response = await client.GetAsync(new Uri("/no/such/page/here", UriKind.Relative), Ct);
+    var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(Ct));
+
+    response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    html.ShouldContain($"<span class=\"cc-user-menu__name\">{TestAuthenticationHandler.Login}</span>");
   }
 
   // M4.02s: a regional variant of the browser falls back on its language; a language the console does not speak, on English.
