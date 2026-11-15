@@ -19,7 +19,10 @@ using CodeCoverage.Web.Configuration.Security;
 using CodeCoverage.Web.Configuration.Setup;
 using CodeCoverage.Web.Extensions;
 
-Log.Logger = SerilogConfiguration.CreateBootstrapLogger();
+// Each host reloads and freezes its own bootstrap logger, even next to another host of the same process.
+var bootstrapLogger = SerilogConfiguration.CreateBootstrapLogger();
+
+Log.Logger = bootstrapLogger;
 
 try
 {
@@ -29,7 +32,7 @@ try
   // appsettings.json. Secrets stay in their protected form in the configuration.
   builder.Configuration.AddCodeCoverageSettingsStore();
 
-  builder.Host.UseSerilog(SerilogConfiguration.ConfigureLogger);
+  SerilogConfiguration.UseSerilog(builder, bootstrapLogger);
 
   // The scheme and the client address the TLS proxy received, from the known proxies only (ARCHITECTURE §4bis.2).
   builder.Services.AddForwardedHeaders(builder.Configuration);
