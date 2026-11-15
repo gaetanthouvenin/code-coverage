@@ -473,6 +473,7 @@ graph TD
   M4_02v --> M4_02w["M4.02w Documentation en français"]
   M4_02v --> M4_02x["M4.02x Documentation en italien"]
   M4_02v --> M4_02y["M4.02y Documentation en espagnol"]
+  M4_02g --> M4_02z["M4.02z Version de l'uploader refusée par le serveur"]
   M4_02a --> M4_08
   M4_04 --> M4_08
   M4_01 --> M5_01["M5.01 Action composite"]
@@ -3245,6 +3246,20 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** ceux de M4.02v sur les six traductions ; **propriétaire** : relecture par un locuteur si possible, sinon marquée à relire dans la PR.
 - **Acceptation :** console en espagnol, les six pages de `/docs` sont en espagnol, sans bandeau.
 - **Dépend de :** M4.02v
+
+#### M4.02z — Version de l'uploader refusée par le serveur
+- **Issue :** à créer
+- **Objectif :** que les uploads d'un uploader publié soient acceptés. Constaté le 2026-11-15 sur Capto (PR Capto#65, run 43737404584, `windows-latest`, uploader `0.1.0-beta.2`) : l'installation et la somme SHA-256 passent (M4.02g), l'uploader trouve les quatre rapports, puis le serveur répond « 400 (General.ValidationFailed) » et l'uploader n'affiche que « One or more validation errors occurred. ». Cause prouvée : `UploadClient.Version` envoie l'`AssemblyInformationalVersion` complète, que GitVersion écrit `0.1.0-beta.2+Branch.develop.Sha.c37d8a367310aa9b967b5213753f378d8c5679af` (72 caractères, lue dans le binaire `coverage-upload-win-x64.exe` de la release) ; `ReceiveUploadCommandValidator` limite `Metadata.UploaderVersion` à `Upload.UploaderVersionMaxLength` (64) et refuse tout l'upload. Les autres champs d'une PR GitHub restent dans leurs limites. Toute release `v*` construite de cette façon est touchée, `v0.1.0-beta.1` comprise.
+- **Couches :** Uploader, Api.
+- **Fichiers :**
+  - **`Uploader/Http/UploadClient.cs`** : `Version` rend la version sans ses métadonnées de build (ce qui suit `+`, ignoré par SemVer pour la précédence) ; c'est elle qui part dans `uploaderVersion` et dans `--version` s'il la lit.
+  - **`Uploader/Http/UploadClient.cs`** (`ReportAsync`) : sur un refus, l'uploader lit l'extension `errors` du `ProblemDetails` (`ApiExceptionHandler.ErrorsExtension`) et affiche chaque champ refusé avec son message, après la ligne du code d'erreur ; un corps sans `errors` garde l'affichage actuel.
+  - **`Api/Mapping/UploadMapper.cs`** : le champ `uploaderVersion` est lu sans ses métadonnées de build avant de former `UploadMetadata`, pour que les uploaders déjà publiés (`v0.1.0-beta.1`, `v0.1.0-beta.2`) soient acceptés ; la limite de 64 caractères et le validateur ne changent pas (aucune migration).
+- **Tests :**
+  - `Uploader.Tests` : `Version` ne contient pas de `+` ; un refus 400 avec `errors` affiche le champ et son message ; un refus sans `errors` affiche comme avant.
+  - `Api.Tests` : un upload dont `uploaderVersion` vaut la chaîne de 72 caractères ci-dessus est accepté (202) et l'upload enregistré porte `0.1.0-beta.2` ; une version de plus de 64 caractères sans `+` est toujours refusée (400, `Upload.InvalidMetadata`).
+- **Acceptation :** après le déploiement, le job Upload coverage de Capto, toujours en `0.1.0-beta.2`, envoie son rapport (propriétaire) ; un tag `v0.1.0-beta.3` publie ensuite l'uploader qui envoie sa version courte et détaille les refus.
+- **Dépend de :** M4.02g
 
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
