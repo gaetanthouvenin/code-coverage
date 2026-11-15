@@ -3096,7 +3096,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Cadrage**
 
 #### M7.01 — Calcul du diff sur Azure DevOps (spike)
-- **Issue :** à créer
+- **Issue :** [#277](https://github.com/gaetanthouvenin/code-coverage/issues/277)
 - **Objectif :** établir comment obtenir les lignes modifiées d'une pull request Azure DevOps, et fixer la voie retenue avec ses preuves. C'est le risque principal d'ADR-014 : l'API ne renvoie que des changements par fichier. Le spike tranche aussi quatre questions annexes dont dépendent M7.40, M7.47, M7.48 et M7.54.
 - **Couches :** docs.
 - **Fichiers :**
@@ -3118,7 +3118,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M4.02a
 
 #### M7.02 — Amendement d'ADR-014 et ADR-015 (connexions de forge)
-- **Issue :** à créer
+- **Issue :** [#278](https://github.com/gaetanthouvenin/code-coverage/issues/278)
 - **Objectif :** remplacer « préparer maintenant, implémenter GitHub seul » par la décision du propriétaire d'implémenter Azure DevOps, Bitbucket puis GitLab.com ; trancher les choix d'Azure DevOps établis par le spike et la recherche ; consigner la place des connexions de forge dans l'isolation (ADR-013).
 - **Couches :** docs.
 - **Fichiers :**
@@ -3146,7 +3146,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres (partagés avec M8 et M9) : socle des forges**
 
 #### M7.03 — Limitation de débit et indisponibilité neutres
-- **Issue :** à créer
+- **Issue :** [#279](https://github.com/gaetanthouvenin/code-coverage/issues/279)
 - **Objectif :** que le worker et le cache de contenu reconnaissent la limitation de débit de n'importe quelle forge, et que les refus de statut et l'indisponibilité ne portent plus de code GitHub. Bitbucket et GitLab réutilisent ces codes, sans en créer d'autres.
 - **Couches :** Infrastructure, Web.
 - **Fichiers :**
@@ -3164,7 +3164,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.04 — Résolution des passerelles par forge
-- **Issue :** à créer
+- **Issue :** [#280](https://github.com/gaetanthouvenin/code-coverage/issues/280)
 - **Objectif :** que `ForgeGatewayProvider` choisisse l'adaptateur par la forge, au lieu de recevoir `GitHubAppGateway` dans son constructeur, pour qu'un adaptateur s'ajoute sans toucher au fournisseur. Les ports neutres suivants (annuaire, utilisateur, jeton, liens, vérification, webhooks, événements, hooks) sont enregistrés de la même façon, en services à clé `Forge`.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3175,7 +3175,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.05 — Disponibilité des forges : admission et connexion
-- **Issue :** à créer
+- **Issue :** [#281](https://github.com/gaetanthouvenin/code-coverage/issues/281)
 - **Objectif :** savoir, par forge, si une organisation peut être admise (adaptateur enregistré et réglages de connexion remplis) et si un utilisateur peut se connecter (client OAuth ou OpenID Connect configuré). Ce sont deux notions distinctes : un adaptateur enregistré avant sa connexion Web ne doit pas afficher de bouton de connexion.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3193,7 +3193,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : connexions**
 
 #### M7.06 — Table `ForgeConnections` et son port
-- **Issue :** à créer
+- **Issue :** [#282](https://github.com/gaetanthouvenin/code-coverage/issues/282)
 - **Objectif :** donner à chaque organisation d'une forge à connexion (Azure DevOps, Bitbucket, GitLab) une connexion qui porte ses identifiants chiffrés, avec ses colonnes définitives pour M8 et M9 : aucune migration conditionnelle plus tard. La table est globale (ADR-015).
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3222,7 +3222,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.07 — `TrackedRepository.ConnectionId` en texte
-- **Issue :** à créer
+- **Issue :** [#283](https://github.com/gaetanthouvenin/code-coverage/issues/283)
 - **Objectif :** rattacher un dépôt suivi à sa connexion de forge par un identifiant texte, `InstallationId` ne restant que pour GitHub.
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3236,7 +3236,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.06
 
 #### M7.08 — Appelants sans `long.Parse` de la connexion
-- **Issue :** à créer
+- **Issue :** [#284](https://github.com/gaetanthouvenin/code-coverage/issues/284)
 - **Objectif :** que l'upload, la réconciliation et leurs jobs ne supposent plus qu'une connexion est une installation GitHub numérique.
 - **Couches :** Domain, Application.
 - **Fichiers :**
@@ -3253,7 +3253,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : annuaire, synchronisation et admission**
 
 #### M7.09 — Port neutre de l'annuaire et synchronisation des dépôts d'une connexion
-- **Issue :** à créer
+- **Issue :** [#285](https://github.com/gaetanthouvenin/code-coverage/issues/285)
 - **Objectif :** lister le compte et les dépôts d'une connexion par un port neutre, faire de la synchronisation des dépôts un job valable pour toute forge, et appliquer au même endroit le renommage du compte.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3270,7 +3270,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.04, M7.08
 
 #### M7.10 — Coordinateur `SyncConnections`
-- **Issue :** à créer
+- **Issue :** [#286](https://github.com/gaetanthouvenin/code-coverage/issues/286)
 - **Objectif :** rattraper chaque jour les dépôts des forges à connexion, par un coordinateur qui met en file un enfant par organisation. `SyncInstallations` reste le coordinateur de GitHub seul, ce qui évite deux coordinateurs quotidiens pour GitHub (`ForgeConnections` n'a pas de ligne GitHub).
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3285,7 +3285,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.09
 
 #### M7.11 — Synchronisation manuelle, transfert et réécriture d'owner neutres
-- **Issue :** à créer
+- **Issue :** [#287](https://github.com/gaetanthouvenin/code-coverage/issues/287)
 - **Objectif :** que le bouton « synchroniser » de l'écran des dépôts, la réconciliation d'un transfert et la réécriture d'owner marchent pour toute forge, et pas seulement pour une installation GitHub.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -3301,7 +3301,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.09, M4.02i
 
 #### M7.12 — Admission d'une organisation par connexion
-- **Issue :** à créer
+- **Issue :** [#288](https://github.com/gaetanthouvenin/code-coverage/issues/288)
 - **Objectif :** admettre une organisation d'une forge à connexion, par une seule voie que M8 et M9 réutilisent :
   1. vérifier l'accès par un port propre à chaque forge ;
   2. créer l'organisation et sa connexion dans une même transaction ;
@@ -3323,7 +3323,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.05, M7.09, M7.12a, M4.02i
 
 #### M7.12a — Enregistrement d'une organisation et de sa connexion dans une même transaction
-- **Issue :** à créer
+- **Issue :** [#289](https://github.com/gaetanthouvenin/code-coverage/issues/289)
 - **Objectif :** donner à `ConnectOrganization` une méthode de dépôt qui crée l'organisation et sa connexion et met en file leurs jobs dans une seule transaction, sans unité de travail : les jobs sont mis en file par la méthode de dépôt du changement, comme le veut la règle des jobs. L'admission GitHub garde `IOrganizationDirectory.UpsertFromForgeAsync`.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -3334,7 +3334,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.06, M7.09, M4.02i
 
 #### M7.13 — Rotation des secrets d'une connexion
-- **Issue :** à créer
+- **Issue :** [#290](https://github.com/gaetanthouvenin/code-coverage/issues/290)
 - **Objectif :** remplacer l'identifiant ou le secret de webhook d'une connexion sans interrompre les livraisons : l'ancien secret de webhook reste accepté jusqu'à la rotation suivante.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -3347,7 +3347,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.12
 
 #### M7.14 — Santé des connexions (`CheckConnections`)
-- **Issue :** à créer
+- **Issue :** [#291](https://github.com/gaetanthouvenin/code-coverage/issues/291)
 - **Objectif :** vérifier chaque jour chaque connexion par `IForgeConnectionVerifier`, enregistrer son état et signaler une échéance proche. M9 n'y ajoute que la règle d'expiration de GitLab.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3364,7 +3364,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : accès des utilisateurs**
 
 #### M7.15 — Port neutre de l'utilisateur et forge de `SignInUserCommand`
-- **Issue :** à créer
+- **Issue :** [#292](https://github.com/gaetanthouvenin/code-coverage/issues/292)
 - **Objectif :** que la connexion d'un utilisateur passe par un port neutre, et que `SignInUserCommand` porte la forge.
 - **Couches :** Domain, Application, Infrastructure, Web.
 - **Fichiers :**
@@ -3379,7 +3379,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.04
 
 #### M7.16 — Port neutre du jeton de l'utilisateur
-- **Issue :** à créer
+- **Issue :** [#293](https://github.com/gaetanthouvenin/code-coverage/issues/293)
 - **Objectif :** que le renouvellement du jeton délégué d'un utilisateur passe par un port neutre.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3393,7 +3393,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.15
 
 #### M7.17 — Adhésions et droits neutres
-- **Issue :** à créer
+- **Issue :** [#294](https://github.com/gaetanthouvenin/code-coverage/issues/294)
 - **Objectif :** calculer le rôle d'un utilisateur et ses droits sur les dépôts à partir de contrats neutres, l'adhésion étant lue avec l'identifiant de la connexion.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3412,7 +3412,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : webhooks, événements et hooks**
 
 #### M7.18 — Livraisons de webhooks par forge
-- **Issue :** à créer
+- **Issue :** [#295](https://github.com/gaetanthouvenin/code-coverage/issues/295)
 - **Objectif :** stocker une livraison avec sa forge et des identifiants neutres, pour que toute réception rejoigne la même file.
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3427,7 +3427,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.19 — Événements neutres de push, de pull request et de dépôt
-- **Issue :** à créer
+- **Issue :** [#296](https://github.com/gaetanthouvenin/code-coverage/issues/296)
 - **Objectif :** que `PushProcessor`, la synchronisation des PR et la réconciliation des dépôts reçoivent des événements neutres, GitHub traduisant les siens.
 - **Couches :** Domain, Application.
 - **Fichiers :**
@@ -3441,7 +3441,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.18
 
 #### M7.20 — Traduction par forge et traitement neutre des livraisons
-- **Issue :** à créer
+- **Issue :** [#297](https://github.com/gaetanthouvenin/code-coverage/issues/297)
 - **Objectif :** traiter les livraisons de toute forge à connexion par un seul cas d'usage. Chaque adaptateur n'écrit que son traducteur, placé dans `Infrastructure/{Forge}/Events/`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3459,7 +3459,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.11, M7.19
 
 #### M7.21 — Réception neutre des webhooks par connexion
-- **Issue :** à créer
+- **Issue :** [#298](https://github.com/gaetanthouvenin/code-coverage/issues/298)
 - **Objectif :** recevoir le webhook d'une forge à connexion en quelques millisecondes, sans appel à la forge pendant la requête (règle critique 3) :
   1. trouver la connexion par l'identifiant de la route, avant d'entrer dans une organisation ;
   2. l'authentifier par un validateur propre à la forge, avec le secret courant ou précédent de la connexion ;
@@ -3483,7 +3483,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.06, M7.18, M7.20
 
 #### M7.22 — Table `ForgeHooks`
-- **Issue :** à créer
+- **Issue :** [#299](https://github.com/gaetanthouvenin/code-coverage/issues/299)
 - **Objectif :** garder l'état des hooks qu'une connexion a créés chez sa forge (par connexion, projet ou dépôt), pour les vérifier et pour afficher un hook manquant ou interdit dans l'écran de l'organisation. Une seule table sert les trois forges.
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3499,7 +3499,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.06
 
 #### M7.23 — Gestion neutre des hooks : `EnsureForgeHooks` et `CheckForgeHooks`
-- **Issue :** à créer
+- **Issue :** [#300](https://github.com/gaetanthouvenin/code-coverage/issues/300)
 - **Objectif :** créer et vérifier par l'API les hooks de chaque connexion, avec son secret de webhook, pour que l'onboarding n'exige pas de les créer à la main. M8 et M9 n'écrivent que leur adaptateur.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3519,7 +3519,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : liens, commentaires et pull requests**
 
 #### M7.24 — Liens par forge
-- **Issue :** à créer
+- **Issue :** [#301](https://github.com/gaetanthouvenin/code-coverage/issues/301)
 - **Objectif :** que le lien « voir le commentaire » (et ceux d'une PR ou d'un commit) vienne de la forge, et non de `https://github.com` en dur.
 - **Couches :** Domain, Infrastructure, Web.
 - **Fichiers :**
@@ -3533,7 +3533,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.04
 
 #### M7.25 — Capacités de commentaire par forge
-- **Issue :** à créer
+- **Issue :** [#302](https://github.com/gaetanthouvenin/code-coverage/issues/302)
 - **Objectif :** que le plafond de longueur du commentaire vienne de la forge et non d'une constante GitHub. M8 étend ces capacités au HTML et à `<details>`.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -3544,7 +3544,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.04
 
 #### M7.26 — `PullRequests.BaseShaGitHub` renommé `BaseShaForge`
-- **Issue :** à créer
+- **Issue :** [#303](https://github.com/gaetanthouvenin/code-coverage/issues/303)
 - **Objectif :** donner un nom neutre à la base de la PR rapportée par la forge. C'est un renommage mécanique, sans autre changement.
 - **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3559,7 +3559,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : uploader, quotas et badges**
 
 #### M7.27 — Forge et slug à plusieurs niveaux dans l'uploader
-- **Issue :** à créer
+- **Issue :** [#304](https://github.com/gaetanthouvenin/code-coverage/issues/304)
 - **Objectif :** que l'uploader envoie la forge du dépôt au lieu que l'adresse de finalisation suppose `github`, et qu'il sache adresser un owner à plusieurs niveaux (`org:project`, `group:sub`).
 - **Couches :** Uploader.
 - **Fichiers :**
@@ -3584,7 +3584,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.28 — Quotas par forge : stockage et suivi
-- **Issue :** à créer
+- **Issue :** [#306](https://github.com/gaetanthouvenin/code-coverage/issues/306)
 - **Objectif :** suivre le débit restant de chaque forge et de chaque connexion, et non des seules installations GitHub.
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
@@ -3602,7 +3602,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.03
 
 #### M7.29 — Quotas par forge : métriques et alertes
-- **Issue :** à créer
+- **Issue :** [#307](https://github.com/gaetanthouvenin/code-coverage/issues/307)
 - **Objectif :** une seule métrique et une seule alerte de quota, étiquetées par forge et par connexion, que M8 et M9 réutilisent sans en créer d'autres.
 - **Couches :** Infrastructure, exploitation.
 - **Fichiers :**
@@ -3613,7 +3613,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.28
 
 #### M7.30 — Table des segments Codecov par forge
-- **Issue :** à créer
+- **Issue :** [#308](https://github.com/gaetanthouvenin/code-coverage/issues/308)
 - **Objectif :** tirer d'une seule table « forge → segments Codecov » les routes compatibles Codecov de `BadgesController` et les extraits de badge. M8 et M9 n'y ajoutent qu'une ligne ; une forge sans ligne (Azure DevOps) n'a que la route neutre.
 - **Couches :** Domain, Api, Web.
 - **Fichiers :**
@@ -3630,7 +3630,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Maquettes (avant tout changement d'interface)**
 
 #### M7.31 — Maquette : connexion par forge, listes de forges et opérations
-- **Issue :** à créer
+- **Issue :** [#309](https://github.com/gaetanthouvenin/code-coverage/issues/309)
 - **Objectif :** valider avant tout code les écrans neutres qui changent :
   - la page de connexion avec un bouton par forge disponible ;
   - le choix de la forge dans le dialogue d'admission de `/admin/organizations` ;
@@ -3643,7 +3643,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02
 
 #### M7.32 — Maquette : `/setup` multi-forge et administrateurs par forge
-- **Issue :** à créer
+- **Issue :** [#310](https://github.com/gaetanthouvenin/code-coverage/issues/310)
 - **Objectif :** valider l'assistant de premier démarrage avec une étape « forges » (GitHub, Azure DevOps, puis Bitbucket et GitLab), l'App GitHub devenant facultative, et une saisie des administrateurs qualifiés par forge.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html` (section `/setup`).
@@ -3652,7 +3652,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.02, M4.02f
 
 #### M7.33 — Maquette : page de connexion d'une organisation
-- **Issue :** à créer
+- **Issue :** [#311](https://github.com/gaetanthouvenin/code-coverage/issues/311)
 - **Objectif :** valider une page générique, valable pour toutes les forges à connexion. M8 et M9 n'y ajoutent que leurs champs.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html`, avec deux sections :
@@ -3665,7 +3665,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Refactors neutres : interface**
 
 #### M7.34 — Page de connexion à choix de forge
-- **Issue :** à créer
+- **Issue :** [#312](https://github.com/gaetanthouvenin/code-coverage/issues/312)
 - **Objectif :** proposer un bouton par forge de `SignInForges` sur la page de connexion, avec un chemin de défi par forge.
 - **Couches :** Web.
 - **Fichiers :**
@@ -3682,7 +3682,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.05, M7.31
 
 #### M7.35 — Libellés et listes de forges neutres dans l'interface
-- **Issue :** à créer
+- **Issue :** [#313](https://github.com/gaetanthouvenin/code-coverage/issues/313)
 - **Objectif :** retirer « GitHub » et « installation » des textes qui valent pour toute forge, et tirer les listes de forges de `AdmissionForges`.
 - **Couches :** Web.
 - **Fichiers :**
@@ -3696,7 +3696,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.24, M7.34
 
 #### M7.36 — Opérations : forge des livraisons et quotas par forge
-- **Issue :** à créer
+- **Issue :** [#314](https://github.com/gaetanthouvenin/code-coverage/issues/314)
 - **Objectif :** afficher la forge de chaque livraison et un quota par forge et par connexion dans `/admin/operations`.
 - **Couches :** Application, Api, Web.
 - **Fichiers :**
@@ -3711,7 +3711,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.18, M7.28, M7.31
 
 #### M7.37 — Administrateurs de l'instance sur toute forge
-- **Issue :** à créer
+- **Issue :** [#315](https://github.com/gaetanthouvenin/code-coverage/issues/315)
 - **Objectif :** qu'un utilisateur Azure DevOps, Bitbucket ou GitLab puisse être administrateur de l'instance. Aujourd'hui, `AdministratorList.Contains` renvoie `false` hors de GitHub.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -3725,7 +3725,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M4.02f, M7.32
 
 #### M7.38 — Page de connexion d'une organisation
-- **Issue :** à créer
+- **Issue :** [#316](https://github.com/gaetanthouvenin/code-coverage/issues/316)
 - **Objectif :** donner à l'administrateur d'une organisation une page générique : état de la connexion, échéance, rotation des secrets, état des hooks et synchronisation manuelle.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -3742,7 +3742,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Connexion d'une organisation Azure DevOps**
 
 #### M7.39 — Réglages `AzureDevOps:*` et jetons Entra ID
-- **Issue :** à créer
+- **Issue :** [#317](https://github.com/gaetanthouvenin/code-coverage/issues/317)
 - **Objectif :** obtenir un jeton d'application pour une organisation Azure DevOps, avec client HTTP typé, limitation de débit et cache, sans jamais persister le jeton.
 - **Couches :** Domain, Infrastructure, Web.
 - **Fichiers :**
@@ -3769,7 +3769,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.03, M7.05, M7.06
 
 #### M7.40 — Vérification d'une connexion Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#318](https://github.com/gaetanthouvenin/code-coverage/issues/318)
 - **Objectif :** vérifier qu'une organisation Azure DevOps est accessible avec l'application Entra de l'instance, et lire son identifiant et son nom.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3783,7 +3783,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.12, M7.39
 
 #### M7.41 — Formulaire d'admission Azure DevOps et ligne de commande
-- **Issue :** à créer
+- **Issue :** [#319](https://github.com/gaetanthouvenin/code-coverage/issues/319)
 - **Objectif :** admettre une organisation Azure DevOps par son nom et son tenant, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization`.
 - **Couches :** Api, Web.
 - **Fichiers :**
@@ -3796,7 +3796,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.35, M7.40, M7.33
 
 #### M7.42 — Assistant `/setup` indépendant de la forge
-- **Issue :** à créer
+- **Issue :** [#320](https://github.com/gaetanthouvenin/code-coverage/issues/320)
 - **Objectif :** considérer une instance comme configurée dès qu'au moins une forge l'est, l'App GitHub devenant une étape facultative.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -3813,7 +3813,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.05, M7.32, M7.39, M4.02f
 
 #### M7.43 — Synchronisation des projets et des dépôts Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#321](https://github.com/gaetanthouvenin/code-coverage/issues/321)
 - **Objectif :** suivre les dépôts de chaque projet d'une organisation Azure DevOps, le projet allant dans `Namespace` et l'owner s'écrivant `org:project`.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3826,7 +3826,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Passerelle Azure DevOps**
 
 #### M7.44 — `AzureDevOpsGateway` : dépôts, commits et pull requests
-- **Issue :** à créer
+- **Issue :** [#322](https://github.com/gaetanthouvenin/code-coverage/issues/322)
 - **Objectif :** lire dépôt, commits, branches et pull requests d'Azure DevOps par `IForgeGateway`. La tête de PR vient de `lastMergeSourceCommit`, jamais du commit de fusion (règle critique 2).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3839,7 +3839,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.04, M7.39
 
 #### M7.45 — `AzureDevOpsGateway` : arbres et contenus
-- **Issue :** à créer
+- **Issue :** [#323](https://github.com/gaetanthouvenin/code-coverage/issues/323)
 - **Objectif :** lire `codecov.yml`, l'arbre du dépôt et le contenu borné des sources sur Azure DevOps.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3851,7 +3851,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.44
 
 #### M7.46 — `AzureDevOpsGateway` : comparaison et fichiers de PR
-- **Issue :** à créer
+- **Issue :** [#324](https://github.com/gaetanthouvenin/code-coverage/issues/324)
 - **Objectif :** produire, selon la voie retenue par M7.01, les fichiers modifiés et un patch unifié par fichier entre la base de fusion et la tête de la PR, pour que `UnifiedDiffParser` et la couverture du patch restent inchangés.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -3866,7 +3866,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.01, M7.44
 
 #### M7.47 — `AzureDevOpsGateway` : statuts
-- **Issue :** à créer
+- **Issue :** [#325](https://github.com/gaetanthouvenin/code-coverage/issues/325)
 - **Objectif :** publier comme statuts Azure DevOps (`genre=codecov`) **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), sur le commit et sur l'itération de la PR active dont il est la tête.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3881,7 +3881,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.44
 
 #### M7.48 — `AzureDevOpsGateway` : commentaire de pull request
-- **Issue :** à créer
+- **Issue :** [#326](https://github.com/gaetanthouvenin/code-coverage/issues/326)
 - **Objectif :** publier le commentaire Codecov dans un fil de PR qui ne contient qu'un commentaire. Le fil est retrouvé par le marqueur `<!-- code-coverage:comment -->` et par le compte de service de la connexion, puis mis à jour en place.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3903,7 +3903,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Service hooks**
 
 #### M7.49 — Réception des service hooks Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#327](https://github.com/gaetanthouvenin/code-coverage/issues/327)
 - **Objectif :** recevoir un service hook Azure DevOps par la réception neutre de M7.21. Le contrôleur et le validateur d'en-tête restent propres à Azure DevOps.
 - **Couches :** Infrastructure, Api.
 - **Fichiers :**
@@ -3917,7 +3917,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.21, M7.39
 
 #### M7.50 — Traduction des service hooks Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#328](https://github.com/gaetanthouvenin/code-coverage/issues/328)
 - **Objectif :** traduire les événements suivants en événements neutres, avec relecture de l'état par l'API (charge utile `Minimal`) :
   - `git.push` ;
   - `git.pullrequest.created` et `git.pullrequest.updated` (`PushNotification`) ;
@@ -3932,7 +3932,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.20, M7.44
 
 #### M7.51 — Abonnements des service hooks Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#329](https://github.com/gaetanthouvenin/code-coverage/issues/329)
 - **Objectif :** créer et vérifier les abonnements de chaque projet suivi, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3945,7 +3945,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Accès des utilisateurs Azure DevOps**
 
 #### M7.52 — Passerelle utilisateur et jeton délégué Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#330](https://github.com/gaetanthouvenin/code-coverage/issues/330)
 - **Objectif :** lire le profil et les organisations d'un utilisateur Azure DevOps avec son jeton délégué, et renouveler ce jeton par Entra ID.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3959,7 +3959,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.15, M7.16, M7.39
 
 #### M7.53 — Connexion Web par Microsoft Entra ID
-- **Issue :** à créer
+- **Issue :** [#331](https://github.com/gaetanthouvenin/code-coverage/issues/331)
 - **Objectif :** permettre à un membre d'une organisation Azure DevOps de se connecter avec son compte Entra ID, son identité étant `(AzureDevOps, id de profil)`.
 - **Couches :** Infrastructure, Web.
 - **Fichiers :**
@@ -3976,7 +3976,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.34, M7.52
 
 #### M7.54 — Adhésions et droits sur les dépôts Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#332](https://github.com/gaetanthouvenin/code-coverage/issues/332)
 - **Objectif :** donner à l'utilisateur Azure DevOps le rôle et les droits de dépôt que la forge lui accorde. Les droits sont évalués avec son propre jeton délégué, et l'adhésion avec l'identifiant de la connexion (M7.17).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -3995,7 +3995,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Upload et uploader**
 
 #### M7.55 — Upload par jeton pour Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#333](https://github.com/gaetanthouvenin/code-coverage/issues/333)
 - **Objectif :** accepter un upload `forge=azure-devops` par jeton d'organisation ou de dépôt, et refuser l'OIDC avec un code explicite. Les extraits de badge suivent la table de M7.30, sans ligne pour Azure DevOps.
 - **Couches :** Application, Web.
 - **Fichiers :**
@@ -4010,7 +4010,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.08, M7.27, M7.30, M7.43
 
 #### M7.56 — Uploader sur Azure Pipelines avec Azure Repos
-- **Issue :** à créer
+- **Issue :** [#334](https://github.com/gaetanthouvenin/code-coverage/issues/334)
 - **Objectif :** détecter un dépôt Azure Repos dans Azure Pipelines et envoyer sa forge, son slug et la tête de la PR, jamais le commit de fusion synthétique (règle critique 2).
 - **Couches :** Uploader, CI.
 - **Fichiers :**
@@ -4029,7 +4029,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 **Exploitation et pilote**
 
 #### M7.57 — Documentation d'onboarding Azure DevOps
-- **Issue :** à créer
+- **Issue :** [#335](https://github.com/gaetanthouvenin/code-coverage/issues/335)
 - **Objectif :** décrire pas à pas la création de l'application Entra ID de l'instance, son ajout à une organisation Azure DevOps et les droits requis.
 - **Couches :** docs, exploitation.
 - **Fichiers :**
@@ -4042,7 +4042,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Dépend de :** M7.41, M7.51, M7.53, M7.56
 
 #### M7.58 — Pilote sur une organisation Azure DevOps réelle
-- **Issue :** à créer
+- **Issue :** [#336](https://github.com/gaetanthouvenin/code-coverage/issues/336)
 - **Objectif :** vérifier de bout en bout, sur une organisation Azure DevOps du propriétaire, que M7 tient son critère de sortie.
 - **Couches :** exploitation, docs.
 - **Fichiers :**
@@ -4082,7 +4082,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Cadrage**
 
 #### M8.01 — Vérification des endpoints Bitbucket Cloud (spike)
-- **Issue :** à créer
+- **Issue :** [#337](https://github.com/gaetanthouvenin/code-coverage/issues/337)
 - **Objectif :** établir avec preuves ce qu'ADR-014 laisse « probable » pour Bitbucket, avant toute ligne de code : diff unifié, identifiants, identité de service, webhooks, statuts, commentaires, OIDC. Chaque affirmation datée du brouillon y est prouvée ou déclassée.
 - **Couches :** docs.
 - **Fichiers :**
@@ -4133,7 +4133,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M7.58
 
 #### M8.02 — ADR-014 : section Bitbucket Cloud et écarts nommés
-- **Issue :** à créer
+- **Issue :** [#338](https://github.com/gaetanthouvenin/code-coverage/issues/338)
 - **Objectif :** reporter les résultats du spike dans l'ADR et le plan, et nommer chaque écart avec Codecov propre à Bitbucket.
 - **Couches :** docs.
 - **Fichiers :**
@@ -4159,7 +4159,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Connexion d'un workspace Bitbucket**
 
 #### M8.03 — Réglages `Bitbucket:*` et client typé `bitbucket`
-- **Issue :** à créer
+- **Issue :** [#339](https://github.com/gaetanthouvenin/code-coverage/issues/339)
 - **Objectif :** appeler `api.bitbucket.org` avec un client typé. Ce client suit les redirections sans perdre l'authentification, transforme un 429 en exception neutre et rapporte le quota par forge et par connexion.
 - **Couches :** Domain, Infrastructure, Web.
 - **Fichiers :**
@@ -4182,7 +4182,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.02, M7.03, M7.28
 
 #### M8.04 — Identifiants de connexion Bitbucket
-- **Issue :** à créer
+- **Issue :** [#340](https://github.com/gaetanthouvenin/code-coverage/issues/340)
 - **Objectif :** poser l'en-tête d'authentification d'un appel Bitbucket à partir du secret chiffré de la connexion, sans jamais le persister en clair. Les types qui portent un jeton restent dans l'adaptateur (PLAN §1.4).
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -4202,7 +4202,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.03, M7.06, M7.39
 
 #### M8.05 — Refus détaillés d'une vérification de connexion
-- **Issue :** à créer
+- **Issue :** [#341](https://github.com/gaetanthouvenin/code-coverage/issues/341)
 - **Objectif :** distinguer, pour toute forge à connexion, trois cas : le jeton qui ne donne pas accès au compte annoncé, celui qui manque de portées, et l'accès refusé. M9 réutilise ces codes sans en créer d'autres.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
@@ -4218,7 +4218,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M7.13, M8.02
 
 #### M8.06 — Vérification d'une connexion Bitbucket
-- **Issue :** à créer
+- **Issue :** [#342](https://github.com/gaetanthouvenin/code-coverage/issues/342)
 - **Objectif :** refuser, à l'enregistrement comme à la rotation, un jeton qui ne donne pas accès au workspace annoncé ou qui manque de portées. Lire en même temps l'UUID du workspace et celui du compte de service.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4236,7 +4236,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.04, M8.05, M7.04, M7.09, M7.12
 
 #### M8.07 — Maquette : champs Bitbucket de l'admission et de la connexion
-- **Issue :** à créer
+- **Issue :** [#343](https://github.com/gaetanthouvenin/code-coverage/issues/343)
 - **Objectif :** valider, avant tout code d'interface, ce que Bitbucket ajoute aux écrans génériques de M7.33 :
   - dans le dialogue d'admission : slug du workspace, genre d'identifiant, e-mail pour un jeton d'API, jeton jamais réaffiché ;
   - sur la page de connexion : rotation avec e-mail, et webhook de workspace affiché comme hook unique de portée `Connection` ;
@@ -4248,7 +4248,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.02, M7.32, M7.33
 
 #### M8.08 — Formulaire d'admission Bitbucket, rotation et ligne de commande
-- **Issue :** à créer
+- **Issue :** [#344](https://github.com/gaetanthouvenin/code-coverage/issues/344)
 - **Objectif :** admettre un workspace par son slug et son jeton, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization` (M7.12), puis rendre Bitbucket admissible.
 - **Couches :** Infrastructure, Api, Web.
 - **Fichiers :**
@@ -4272,7 +4272,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.06, M8.07, M7.41
 
 #### M8.09 — Synchronisation des dépôts d'un workspace
-- **Issue :** à créer
+- **Issue :** [#345](https://github.com/gaetanthouvenin/code-coverage/issues/345)
 - **Objectif :** lister les dépôts d'un workspace connecté, pour que la synchronisation neutre (M7.09, M7.10, M7.11) les réconcilie par UUID, chaque jour et à la demande.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4290,7 +4290,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Passerelle Bitbucket**
 
 #### M8.10 — `BitbucketGateway` : dépôts et commits
-- **Issue :** à créer
+- **Issue :** [#346](https://github.com/gaetanthouvenin/code-coverage/issues/346)
 - **Objectif :** premier adaptateur Bitbucket d'`IForgeGateway` : lire les dépôts et les commits par UUID, et résoudre un hash court en `GitSha` complet.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4310,7 +4310,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.04, M7.04
 
 #### M8.11 — `BitbucketGateway` : arbres et contenus
-- **Issue :** à créer
+- **Issue :** [#347](https://github.com/gaetanthouvenin/code-coverage/issues/347)
 - **Objectif :** lire `codecov.yml`, l'arbre du dépôt et le contenu borné des sources sur Bitbucket.
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Bitbucket/BitbucketGateway.cs` (`GetTreeAsync` par `/src/{commit}/` paginé, `GetContentAsync`, `GetBoundedContentAsync` avec arrêt au plafond) ; `Infrastructure/Bitbucket/Models/BitbucketSourceEntry.cs` ; `BitbucketGatewayMapper.cs`.
@@ -4319,7 +4319,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.10
 
 #### M8.12 — Découpage du diff unifié Bitbucket
-- **Issue :** à créer
+- **Issue :** [#348](https://github.com/gaetanthouvenin/code-coverage/issues/348)
 - **Objectif :** découper le diff unifié multi-fichiers de Bitbucket en `ForgeChangedFile`, chacun avec son patch, pour que `UnifiedDiffParser` reste inchangé.
 - **Couches :** Infrastructure.
 - **Fichiers :** `Infrastructure/Bitbucket/BitbucketDiffSplitter.cs` (en-têtes `diff --git`, renommages `rename from/to`, fichiers binaires, suppressions et ajouts) ; fixtures de M8.01 `tests/fixtures/bitbucket/patches/*.diff`.
@@ -4330,7 +4330,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.01
 
 #### M8.13 — `BitbucketGateway` : comparaisons et pull requests
-- **Issue :** à créer
+- **Issue :** [#349](https://github.com/gaetanthouvenin/code-coverage/issues/349)
 - **Objectif :** fournir depuis l'API Bitbucket le diff d'une pull request et celui d'une comparaison (règle critique 2), avec les têtes de PR en SHA complets.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4345,7 +4345,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.10, M8.12
 
 #### M8.14 — Liens Bitbucket
-- **Issue :** à créer
+- **Issue :** [#350](https://github.com/gaetanthouvenin/code-coverage/issues/350)
 - **Objectif :** pointer vers les bonnes pages de bitbucket.org depuis le lien « Voir le commentaire sur {0} » et depuis ceux d'une PR ou d'un commit.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4356,7 +4356,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.03, M7.24
 
 #### M8.15 — `BitbucketGateway` : statuts de build
-- **Issue :** à créer
+- **Issue :** [#351](https://github.com/gaetanthouvenin/code-coverage/issues/351)
 - **Objectif :** publier comme statuts de build Bitbucket **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), sous les mêmes noms que Codecov.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4373,7 +4373,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.10, M8.14
 
 #### M8.16 — `BitbucketGateway` : commentaire de pull request
-- **Issue :** à créer
+- **Issue :** [#352](https://github.com/gaetanthouvenin/code-coverage/issues/352)
 - **Objectif :** lister, créer, modifier et supprimer le commentaire de couverture d'une PR Bitbucket, et ne reconnaître que le sien.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4388,7 +4388,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.10, M8.06
 
 #### M8.17 — Commentaire sans `<details>` : capacité de forge
-- **Issue :** à créer
+- **Issue :** [#353](https://github.com/gaetanthouvenin/code-coverage/issues/353)
 - **Objectif :** rendre le commentaire sans bloc repliable quand la forge ne l'affiche pas, en s'appuyant sur une capacité de forge et non sur un test de la forge dans `CommentComposer`. Le commentaire respecte aussi la taille maximale de Bitbucket.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -4408,7 +4408,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Webhooks**
 
 #### M8.18 — Réception des webhooks Bitbucket
-- **Issue :** à créer
+- **Issue :** [#354](https://github.com/gaetanthouvenin/code-coverage/issues/354)
 - **Objectif :** recevoir un webhook Bitbucket par la réception neutre de M7.21. Seuls le contrôleur, l'extraction des en-têtes et le validateur HMAC sont propres à Bitbucket.
 - **Couches :** Infrastructure, Api.
 - **Fichiers :**
@@ -4431,7 +4431,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.03, M7.21
 
 #### M8.19 — Traduction des événements Bitbucket
-- **Issue :** à créer
+- **Issue :** [#355](https://github.com/gaetanthouvenin/code-coverage/issues/355)
 - **Objectif :** traduire les charges utiles Bitbucket en événements neutres, pour que le traitement neutre de M7.20 les aiguille :
   - `repo:push` ;
   - `pullrequest:created`, `pullrequest:updated`, `pullrequest:fulfilled` et `pullrequest:rejected` ;
@@ -4455,7 +4455,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.01, M8.10, M8.18, M7.20
 
 #### M8.20 — Webhook de workspace
-- **Issue :** à créer
+- **Issue :** [#356](https://github.com/gaetanthouvenin/code-coverage/issues/356)
 - **Objectif :** créer et vérifier par l'API le webhook du workspace de chaque connexion, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4477,7 +4477,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Accès des utilisateurs Bitbucket**
 
 #### M8.21 — Passerelle utilisateur et adhésions Bitbucket
-- **Issue :** à créer
+- **Issue :** [#357](https://github.com/gaetanthouvenin/code-coverage/issues/357)
 - **Objectif :** lire l'utilisateur connecté, ses workspaces et ses droits sur les dépôts avec son jeton délégué, par les endpoints par workspace. L'adhésion au workspace est lue avec l'identifiant de la connexion (M7.17).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4495,7 +4495,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.06, M7.15, M7.17
 
 #### M8.22 — Jeton délégué d'un utilisateur Bitbucket
-- **Issue :** à créer
+- **Issue :** [#358](https://github.com/gaetanthouvenin/code-coverage/issues/358)
 - **Objectif :** renouveler le jeton OAuth d'un utilisateur Bitbucket, en persistant chaque fois le nouveau refresh token si la rotation est prouvée par M8.01.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4506,7 +4506,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.03, M7.16
 
 #### M8.23 — Connexion au Web avec Bitbucket
-- **Issue :** à créer
+- **Issue :** [#359](https://github.com/gaetanthouvenin/code-coverage/issues/359)
 - **Objectif :** permettre à un membre d'un workspace admis de se connecter au Web par OAuth Bitbucket, à côté de GitHub et d'Azure DevOps.
 - **Couches :** Infrastructure, Web.
 - **Fichiers :**
@@ -4533,7 +4533,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Upload et uploader**
 
 #### M8.24 — OIDC d'upload par forge : identité et port neutres
-- **Issue :** à créer
+- **Issue :** [#360](https://github.com/gaetanthouvenin/code-coverage/issues/360)
 - **Objectif :** sortir l'OIDC d'upload de GitHub seul. L'identité devient neutre, le validateur est choisi par forge, et la comparaison se fait par identifiants externes plutôt que par slug (ADR-014). M9 n'ajoute que son validateur.
 - **Couches :** Domain, Application, Infrastructure.
 - **Fichiers :**
@@ -4559,7 +4559,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.02, M7.55
 
 #### M8.25 — Validateur OIDC de Bitbucket Pipelines
-- **Issue :** à créer
+- **Issue :** [#361](https://github.com/gaetanthouvenin/code-coverage/issues/361)
 - **Objectif :** accepter un jeton OIDC de Bitbucket Pipelines, lié au workspace et au dépôt par leurs UUID, avec un issuer propre à chaque workspace.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4575,7 +4575,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.01, M8.24
 
 #### M8.26 — Uploader : contexte Bitbucket Pipelines
-- **Issue :** à créer
+- **Issue :** [#362](https://github.com/gaetanthouvenin/code-coverage/issues/362)
 - **Objectif :** détecter Bitbucket Pipelines et envoyer, sans option : commit, branche, PR, slug, build et forge `bitbucket`. Le commit envoyé n'est jamais un commit de fusion (règle critique 2).
 - **Couches :** Uploader, Web.
 - **Fichiers :**
@@ -4595,7 +4595,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M7.27
 
 #### M8.27 — Uploader : source de jeton OIDC neutre (`IOidcTokenSource`)
-- **Issue :** à créer
+- **Issue :** [#363](https://github.com/gaetanthouvenin/code-coverage/issues/363)
 - **Objectif :** que l'uploader obtienne un jeton OIDC d'une source choisie selon la CI, au lieu de supposer GitHub Actions, sans changer le comportement actuel. M8.28 et M9 n'y ajoutent qu'une source.
 - **Couches :** Uploader.
 - **Fichiers :**
@@ -4617,7 +4617,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M7.27
 
 #### M8.28 — Uploader : jeton OIDC de Bitbucket Pipelines
-- **Issue :** à créer
+- **Issue :** [#364](https://github.com/gaetanthouvenin/code-coverage/issues/364)
 - **Objectif :** utiliser `BITBUCKET_STEP_OIDC_TOKEN` quand aucun jeton d'upload n'est fourni.
 - **Couches :** Uploader.
 - **Fichiers :**
@@ -4633,7 +4633,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Badges et assistant**
 
 #### M8.29 — Badges Codecov `/bb/…` et `/bitbucket/…`
-- **Issue :** à créer
+- **Issue :** [#365](https://github.com/gaetanthouvenin/code-coverage/issues/365)
 - **Objectif :** servir les badges aux adresses Codecov de Bitbucket, inchangées (ADR-014, règle critique 1). Il suffit d'ajouter une ligne à la table de M7.30.
 - **Couches :** Domain.
 - **Fichiers :** `Domain/Organizations/CodecovServiceSegments.cs` (`Bitbucket` → `bb`, `bitbucket`).
@@ -4645,7 +4645,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M7.30
 
 #### M8.30 — Étape Bitbucket de l'assistant `/setup`
-- **Issue :** à créer
+- **Issue :** [#366](https://github.com/gaetanthouvenin/code-coverage/issues/366)
 - **Objectif :** proposer Bitbucket dans l'étape « forges » de `/setup` : activer `Bitbucket:Enabled` et renvoyer au groupe de réglages `Bitbucket`.
 - **Couches :** Web.
 - **Fichiers :** `Web/Components/Pages/Setup.razor(.cs)` (carte Bitbucket selon la maquette de M8.07) ; resx.
@@ -4656,7 +4656,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Exploitation et pilote**
 
 #### M8.31 — Documentation d'onboarding Bitbucket
-- **Issue :** à créer
+- **Issue :** [#367](https://github.com/gaetanthouvenin/code-coverage/issues/367)
 - **Objectif :** permettre à un administrateur d'instance et au propriétaire d'un workspace de brancher Bitbucket sans aide, jusqu'au premier statut.
 - **Couches :** docs, exploitation.
 - **Fichiers :**
@@ -4680,7 +4680,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.08, M8.20, M8.23, M8.28, M8.29
 
 #### M8.32 — Pilote sur un workspace Bitbucket réel
-- **Issue :** à créer
+- **Issue :** [#368](https://github.com/gaetanthouvenin/code-coverage/issues/368)
 - **Objectif :** vérifier de bout en bout, sur un workspace Bitbucket Cloud du propriétaire, que M8 tient son critère de sortie.
 - **Couches :** exploitation, docs.
 - **Fichiers :**
@@ -4707,7 +4707,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Cadrage**
 
 #### M9.01 — Ce que GitLab.com permet sur le plan Free (spike)
-- **Issue :** à créer
+- **Issue :** [#369](https://github.com/gaetanthouvenin/code-coverage/issues/369)
 - **Objectif :** établir, preuves à l'appui, ce que GitLab.com permet sur le plan Free avant d'écrire l'adaptateur (ADR-014 : « Le spike de M9 le vérifie »), et enregistrer les fixtures des fiches suivantes.
 - **Couches :** docs.
 - **Fichiers :**
@@ -4728,7 +4728,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M8.32
 
 #### M9.02 — ADR-014 et plan amendés pour GitLab.com
-- **Issue :** à créer
+- **Issue :** [#370](https://github.com/gaetanthouvenin/code-coverage/issues/370)
 - **Objectif :** consigner les choix de GitLab.com établis par le spike, et nommer ses écarts avec Codecov.
 - **Couches :** docs.
 - **Fichiers :**
@@ -4749,7 +4749,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Connexion et passerelle GitLab**
 
 #### M9.03 — Réglages `GitLab:*` et client HTTP typé
-- **Issue :** à créer
+- **Issue :** [#371](https://github.com/gaetanthouvenin/code-coverage/issues/371)
 - **Objectif :** donner à l'Infrastructure un client `gitlab` vers l'API de GitLab.com, avec sa limitation de débit, sans URL en dur.
 - **Couches :** Domain, Infrastructure, Web.
 - **Fichiers :**
@@ -4769,7 +4769,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.02, M7.03
 
 #### M9.04 — Jeton de connexion GitLab pour la passerelle
-- **Issue :** à créer
+- **Issue :** [#372](https://github.com/gaetanthouvenin/code-coverage/issues/372)
 - **Objectif :** authentifier chaque appel GitLab de la passerelle avec le jeton du compte de service de la connexion, sans jamais le journaliser.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4783,7 +4783,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.03, M7.06, M7.39
 
 #### M9.05 — Vérification d'une connexion GitLab
-- **Issue :** à créer
+- **Issue :** [#373](https://github.com/gaetanthouvenin/code-coverage/issues/373)
 - **Objectif :** vérifier, au moment de l'admission (M7.12), le jeton collé par l'owner du groupe : portée `api`, date d'expiration, groupe de premier niveau ou espace personnel, rôle du compte de service. C'est une vérification légère et synchrone, comme celle de M4.02f ; la synchronisation reste un job.
 - **Couches :** Domain, Infrastructure, Web.
 - **Fichiers :**
@@ -4801,7 +4801,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.04, M7.05, M7.12, M8.05
 
 #### M9.06 — Expiration et révocation des jetons GitLab
-- **Issue :** à créer
+- **Issue :** [#374](https://github.com/gaetanthouvenin/code-coverage/issues/374)
 - **Objectif :** que la santé quotidienne des connexions (M7.14) voie l'échéance réelle d'un jeton GitLab (365 jours au plus) et sa révocation. M9 n'ajoute que la règle de GitLab : le coordinateur, l'enfant par organisation et les statuts `Expiring` et `Failing` sont ceux de M7.14.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4814,7 +4814,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.05, M7.14
 
 #### M9.07 — `GitLabGateway` : projet, commits et merge request
-- **Issue :** à créer
+- **Issue :** [#375](https://github.com/gaetanthouvenin/code-coverage/issues/375)
 - **Objectif :** lire projet, commits, branches et merge requests de GitLab par `IForgeGateway`. La tête de MR est `sha`, jamais un commit de merge (règle critique 2).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4830,7 +4830,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.04, M7.04
 
 #### M9.08 — `GitLabGateway` : comparaison et fichiers de MR
-- **Issue :** à créer
+- **Issue :** [#376](https://github.com/gaetanthouvenin/code-coverage/issues/376)
 - **Objectif :** fournir le diff unifié par l'API, et déclarer un patch indisponible ou inconnu quand GitLab omet un fichier, jamais un patch vide (ADR-014). Les contrats existants suffisent : `ForgeChangedFile.Patch` est nullable, et `ForgePullFiles` et `ForgeCompareResult` portent `Truncated`.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4845,7 +4845,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.07
 
 #### M9.09 — `GitLabGateway` : arbre et contenus
-- **Issue :** à créer
+- **Issue :** [#377](https://github.com/gaetanthouvenin/code-coverage/issues/377)
 - **Objectif :** lire `codecov.yml`, l'arbre du projet et le contenu borné des sources sur GitLab.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4857,7 +4857,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.07
 
 #### M9.10 — `GitLabGateway` : statuts de commit
-- **Issue :** à créer
+- **Issue :** [#378](https://github.com/gaetanthouvenin/code-coverage/issues/378)
 - **Objectif :** publier comme statuts GitLab **tous** les contextes émis par `NotificationService` (`codecov/project`, `codecov/patch`, `codecov/changes` et ceux des flags), par `POST /projects/:id/statuses/:sha`.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4869,7 +4869,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.07
 
 #### M9.11 — `GitLabGateway` : note de merge request, liens et capacités
-- **Issue :** à créer
+- **Issue :** [#379](https://github.com/gaetanthouvenin/code-coverage/issues/379)
 - **Objectif :** créer, retrouver, modifier et supprimer la note de couverture d'une MR, et donner son lien au Web par le service de liens neutre.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4887,7 +4887,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Synchronisation et webhooks GitLab**
 
 #### M9.12 — Synchronisation des projets d'un groupe GitLab
-- **Issue :** à créer
+- **Issue :** [#380](https://github.com/gaetanthouvenin/code-coverage/issues/380)
 - **Objectif :** lister les projets du groupe et de ses sous-groupes, ou de l'espace personnel, par le port d'annuaire neutre. La réconciliation, le renommage du groupe et le rattrapage quotidien sont ceux de M7.09 et M7.10.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4902,7 +4902,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.05, M7.09, M7.10
 
 #### M9.13 — Webhooks de projet GitLab
-- **Issue :** à créer
+- **Issue :** [#381](https://github.com/gaetanthouvenin/code-coverage/issues/381)
 - **Objectif :** créer et vérifier par l'API le webhook de chaque projet suivi, avec le secret de webhook de la connexion, par le gestionnaire neutre de M7.23. La table est `ForgeHooks` (M7.22), en portée `Repository` : le plan Free n'a pas de webhook de groupe.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4916,7 +4916,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.12, M9.14, M7.23
 
 #### M9.14 — Réception des webhooks GitLab
-- **Issue :** à créer
+- **Issue :** [#382](https://github.com/gaetanthouvenin/code-coverage/issues/382)
 - **Objectif :** recevoir un webhook GitLab par la réception neutre de M7.21, en quelques millisecondes et sans appel à GitLab (règle critique 3). Le contrôleur et le validateur restent propres à GitLab ; la connexion vient de la route, jamais d'un identifiant de projet lu dans le corps.
 - **Couches :** Infrastructure, Api.
 - **Fichiers :**
@@ -4931,7 +4931,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.03, M7.21
 
 #### M9.15 — Traduction des événements GitLab
-- **Issue :** à créer
+- **Issue :** [#383](https://github.com/gaetanthouvenin/code-coverage/issues/383)
 - **Objectif :** traduire « Push Hook » et « Merge Request Hook » en événements neutres, que `HandleForgeDelivery` (M7.20) traite sans cas propre à GitLab.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4948,7 +4948,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Accès des utilisateurs GitLab**
 
 #### M9.16 — Passerelle utilisateur et jeton délégué GitLab
-- **Issue :** à créer
+- **Issue :** [#384](https://github.com/gaetanthouvenin/code-coverage/issues/384)
 - **Objectif :** lire l'utilisateur GitLab, ses groupes et les projets qu'il peut lire avec leur permission, et renouveler son jeton OAuth (2 heures).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4964,7 +4964,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.03, M7.15, M7.16
 
 #### M9.17 — Connexion Web avec GitLab
-- **Issue :** à créer
+- **Issue :** [#385](https://github.com/gaetanthouvenin/code-coverage/issues/385)
 - **Objectif :** permettre à un membre d'un groupe GitLab de se connecter au Web par une application OAuth GitLab (portées `read_user` et `read_api`), son identité étant `(GitLab, id numérique)`.
 - **Couches :** Infrastructure, Web.
 - **Fichiers :**
@@ -4980,7 +4980,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.16, M7.34
 
 #### M9.18 — Adhésions à un groupe GitLab
-- **Issue :** à créer
+- **Issue :** [#386](https://github.com/gaetanthouvenin/code-coverage/issues/386)
 - **Objectif :** donner le rôle d'organisation d'un utilisateur à partir de son niveau d'accès au groupe de premier niveau, lu avec le jeton de la connexion (M7.17).
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -4993,7 +4993,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Upload et uploader**
 
 #### M9.19 — OIDC de GitLab CI
-- **Issue :** à créer
+- **Issue :** [#387](https://github.com/gaetanthouvenin/code-coverage/issues/387)
 - **Objectif :** accepter un upload sans jeton avec l'`id_token` de GitLab CI, lié à `project_id` (ADR-014), par le validateur OIDC par forge de M8.
 - **Couches :** Domain, Infrastructure.
 - **Fichiers :**
@@ -5007,7 +5007,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.12, M8.24
 
 #### M9.20 — Contexte GitLab CI dans l'uploader
-- **Issue :** à créer
+- **Issue :** [#388](https://github.com/gaetanthouvenin/code-coverage/issues/388)
 - **Objectif :** détecter GitLab CI et envoyer la forge, le slug à plusieurs niveaux et la tête de la MR, jamais le commit de merge synthétique d'un pipeline « merged results » ou d'un merge train (règle critique 2).
 - **Couches :** Uploader, Web.
 - **Fichiers :**
@@ -5023,7 +5023,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.02, M7.27
 
 #### M9.21 — Jeton OIDC de GitLab CI dans l'uploader et modèle de pipeline
-- **Issue :** à créer
+- **Issue :** [#389](https://github.com/gaetanthouvenin/code-coverage/issues/389)
 - **Objectif :** lire l'`id_token` déclaré dans `.gitlab-ci.yml` quand aucun jeton d'upload n'est fourni, et fournir un modèle de pipeline prêt à inclure.
 - **Couches :** Uploader, CI.
 - **Fichiers :**
@@ -5040,7 +5040,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 **Badges, interface et exploitation**
 
 #### M9.22 — Badges Codecov `/gl/…` et `/gitlab/…`
-- **Issue :** à créer
+- **Issue :** [#390](https://github.com/gaetanthouvenin/code-coverage/issues/390)
 - **Objectif :** servir les adresses de badge de Codecov pour GitLab, l'owner d'un sous-groupe s'écrivant `group:sub` (ou `group:sub:sub2`), en ajoutant une ligne à la table de M7.30.
 - **Couches :** Domain.
 - **Fichiers :**
@@ -5054,7 +5054,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.12, M7.30
 
 #### M9.23 — Maquette : admission et connexion GitLab
-- **Issue :** à créer
+- **Issue :** [#391](https://github.com/gaetanthouvenin/code-coverage/issues/391)
 - **Objectif :** valider avant tout code les seuls ajouts de GitLab aux écrans génériques de M7.33 : champs du dialogue d'admission (chemin du groupe, jeton du compte de service, jamais réaffiché), sur la page de connexion, l'échéance du jeton et la marche à suivre pour un webhook `Forbidden` (rôle requis), et l'étape GitLab de l'assistant `/setup` (activation `GitLab:Enabled`, application OAuth), comme M7.42 et M8.30 pour leurs forges.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html` (variante GitLab des sections de M7.33 et étape GitLab de `/setup`).
@@ -5063,7 +5063,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.02, M7.33
 
 #### M9.24 — Admission GitLab dans la console et en ligne de commande
-- **Issue :** à créer
+- **Issue :** [#392](https://github.com/gaetanthouvenin/code-coverage/issues/392)
 - **Objectif :** admettre un groupe GitLab par son chemin et le jeton de son compte de service, depuis la console comme depuis la ligne de commande d'administration, par `ConnectOrganization` (M7.12), et expliquer un webhook interdit sur la page de connexion.
 - **Couches :** Api, Web.
 - **Fichiers :**
@@ -5079,7 +5079,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.05, M9.23, M7.38, M7.41
 
 #### M9.24b — Étape GitLab de l'assistant /setup
-- **Issue :** à créer
+- **Issue :** [#393](https://github.com/gaetanthouvenin/code-coverage/issues/393)
 - **Objectif :** proposer GitLab à l'étape des forges de l'assistant `/setup` (M7.42), pour activer `GitLab:Enabled` et renseigner l'application OAuth, afin qu'une instance qui n'a que GitLab ne reste pas indéfiniment non configurée.
 - **Couches :** Web.
 - **Fichiers :**
@@ -5090,7 +5090,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.23, M7.42
 
 #### M9.25 — Quotas de débit de GitLab
-- **Issue :** à créer
+- **Issue :** [#394](https://github.com/gaetanthouvenin/code-coverage/issues/394)
 - **Objectif :** suivre le débit restant de GitLab par connexion dans la table et les métriques neutres de M7.28 et M7.29, sans métrique ni alerte propre à GitLab.
 - **Couches :** Infrastructure.
 - **Fichiers :**
@@ -5101,7 +5101,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.03, M7.28, M7.29
 
 #### M9.26 — Alertes d'échéance des connexions et de webhooks désactivés
-- **Issue :** à créer
+- **Issue :** [#395](https://github.com/gaetanthouvenin/code-coverage/issues/395)
 - **Objectif :** alerter avant l'expiration d'un jeton de connexion et quand une forge désactive un webhook, par deux alertes neutres étiquetées par forge. GitLab en a besoin le premier ; elles valent pour toute forge à connexion.
 - **Couches :** Infrastructure, exploitation.
 - **Fichiers :**
@@ -5118,7 +5118,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.06, M9.13, M7.22, M7.29
 
 #### M9.27 — Documentation d'onboarding GitLab
-- **Issue :** à créer
+- **Issue :** [#396](https://github.com/gaetanthouvenin/code-coverage/issues/396)
 - **Objectif :** décrire pas à pas l'intégration d'un groupe GitLab.com et la migration depuis Codecov.
 - **Couches :** docs, exploitation.
 - **Fichiers :**
@@ -5131,7 +5131,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Dépend de :** M9.13, M9.17, M9.21, M9.24, M9.26
 
 #### M9.28 — Pilote sur un groupe GitLab.com réel
-- **Issue :** à créer
+- **Issue :** [#397](https://github.com/gaetanthouvenin/code-coverage/issues/397)
 - **Objectif :** vérifier de bout en bout, sur un groupe GitLab.com du propriétaire au plan Free et avec un projet de sous-groupe, que M9 tient son critère de sortie.
 - **Couches :** exploitation, docs.
 - **Fichiers :**
