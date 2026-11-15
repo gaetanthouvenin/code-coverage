@@ -40,7 +40,7 @@ public sealed class DocsTests : UiTestContext
   #region Methods
 
   [Fact]
-  public void Render_WithoutPage_ShouldOpenTheFirstPageWithTheWholeNavigation()
+  public void Render_WithoutPage_ShouldOpenTheFirstPageWithTheWholeNavigation() => InEnglish(() =>
   {
     var cut = Render<Docs>(WithContext());
 
@@ -52,10 +52,11 @@ public sealed class DocsTests : UiTestContext
        .ShouldBe(DocumentationCatalog.Entries.Select(static e => e.Section).Distinct().Select(s => L($"Docs_Section_{s}")));
     cut.Find(".cc-docs__version b").TextContent.ShouldBe($"v{DocumentationLibrary.Version}");
     _context.Response.StatusCode.ShouldBe(StatusCodes.Status200OK);
-  }
+  });
 
+  // In English, the console serves the English documents (the machine running the tests may speak another language).
   [Fact]
-  public void Render_Page_ShouldShowItsSourceContentsAndNeighbours()
+  public void Render_Page_ShouldShowItsSourceContentsAndNeighbours() => InEnglish(() =>
   {
     var cut = Render<Docs>(WithContext("organization-onboarding"));
 
@@ -67,7 +68,7 @@ public sealed class DocsTests : UiTestContext
 
     var pager = cut.FindAll(".cc-docs__pager a").Select(static a => a.GetAttribute("href")).ToList();
     pager.ShouldBe(["docs/operations", "docs/github-checklist"]);
-  }
+  });
 
   [Fact]
   public void Render_FirstPage_ShouldOfferOnlyTheNextPage()
@@ -133,6 +134,21 @@ public sealed class DocsTests : UiTestContext
 
   private Action<ComponentParameterCollectionBuilder<Docs>> WithContext(string? slug = null) =>
     p => p.Add(static d => d.Slug, slug).AddCascadingValue(_context);
+
+  private static void InEnglish(Action test)
+  {
+    var previous = CultureInfo.CurrentUICulture;
+    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
+    try
+    {
+      test();
+    }
+    finally
+    {
+      CultureInfo.CurrentUICulture = previous;
+    }
+  }
 
   private string L(string key) => Services.GetRequiredService<IStringLocalizer<Common>>()[key];
 

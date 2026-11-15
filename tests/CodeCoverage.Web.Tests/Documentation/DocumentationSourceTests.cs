@@ -180,6 +180,8 @@ public sealed partial class DocumentationSourceTests : IDisposable
   [MemberData(nameof(Slugs))]
   public async Task GetAsync_PublishedDocument_ShouldBeEmbeddedAndRendered(string slug)
   {
+    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
     var document = await _library.GetAsync(DocumentationCatalog.Find(slug)!, Ct);
 
     document.Title.ShouldNotBe(slug);
