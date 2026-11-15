@@ -178,7 +178,7 @@ public sealed class UiRequestRunnerTests : IAsyncDisposable
 
       form.GetValidationMessages(form.Field(nameof(SampleForm.Name)))
           .ShouldHaveSingleItem()
-          .ShouldBe("Indiquez au moins un administrateur, par ses identifiants GitHub numériques séparés par des virgules.");
+          .ShouldBe("Indiquez au moins un administrateur, par ses logins GitHub ou ses identifiants numériques séparés par des virgules.");
     }
     finally
     {

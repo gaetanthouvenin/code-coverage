@@ -55,6 +55,12 @@ public partial class Setup
   /// <summary>The number of bytes of the <c>state</c> of a round trip.</summary>
   private const int StateBytes = 32;
 
+  /// <summary>
+  ///   The prefix of the name given to an App created on an organization without a name: « CodeCoverage » alone is
+  ///   taken on GitHub, and an App name is unique across GitHub.
+  /// </summary>
+  private const string AppNamePrefix = "CodeCoverage-";
+
   #endregion
 
   #region Parameters
@@ -143,6 +149,9 @@ public partial class Setup
   /// <summary>Gets the form of the administrators, which receives the refusals of its field.</summary>
   private EditContext AdminsForm { get; set; } = null!;
 
+  /// <summary>Gets the administrators read from logins, shown as « login → identifier » until the operator confirms.</summary>
+  private IReadOnlyList<SetupAdministratorViewModel>? Resolved { get; set; }
+
   #endregion
 
   #region Lifecycle
@@ -157,7 +166,7 @@ public partial class Setup
     (UrlsForm, AppForm, AdminsForm) = (new EditContext(Urls), new EditContext(App), new EditContext(Admins));
 
     var (token, state) = Cookie.Read(HttpContext);
-    (Token, AppName) = (token, AppName ?? L["Setup_AppNameDefault"]);
+    Token = token;
 
     if (token is null)
     {
@@ -242,25 +251,67 @@ public partial class Setup
     return RunAsync((sender, ct) => sender.SaveGitHubAppAsync(token, app, ct), AppForm);
   }
 
-  private Task CompleteAsync()
+  // Logins are turned into identifiers first, and shown for confirmation: the field then holds the identifiers, and
+  // the next post, made of identifiers alone, ends the setup. Nothing is saved while a login is unknown.
+  private async Task CompleteAsync()
   {
+    (Error, Resolved) = (null, null);
     var (token, admins) = (Token, Admins!);
+    var result = await Runner
+                      .RunAsync((sender, ct) => sender.ResolveSetupAdministratorsAsync(token, admins.AdminUserIds, ct), AdminsForm, reportUnauthenticated: true)
+                      .ConfigureAwait(true);
 
-    return RunAsync((sender, ct) => sender.CompleteSetupAsync(token, admins.AdminUserIds, ct), AdminsForm);
+    if (result.Unauthenticated)
+    {
+      ForgetToken();
+
+      return;
+    }
+
+    if (!result.Succeeded || result.Value is not { } administrators)
+    {
+      return;
+    }
+
+    var ids = string.Join(", ", administrators.Select(static a => a.UserId));
+
+    if (administrators.Any(static a => a.Login is not null))
+    {
+      (Resolved, admins.AdminUserIds) = (administrators, ids);
+
+      return;
+    }
+
+    await RunAsync((sender, ct) => sender.CompleteSetupAsync(token, ids, ct), AdminsForm).ConfigureAwait(true);
   }
 
-  // The state of the round trip is drawn here and kept in the cookie: GitHub carries it back in the address, and
-  // nothing else can produce one that matches.
+  // The name has no default the operator does not see: GitHub refuses a name already taken (« CodeCoverage » is), so
+  // an empty name is CodeCoverage-{organization} when the organization is known, and refused otherwise. The state of
+  // the round trip is drawn here and kept in the cookie: GitHub carries it back in the address, and nothing else can
+  // produce one that matches.
   private Task StartManifestAsync()
   {
+    Error = null;
+    var organization = AppOrganization?.Trim();
+    var name = !string.IsNullOrWhiteSpace(AppName) ? AppName.Trim()
+               : !string.IsNullOrEmpty(organization) ? AppNamePrefix + organization
+               : null;
+
+    if (name is null)
+    {
+      Error = L["Setup_AppNameRequired"];
+
+      return Task.CompletedTask;
+    }
+
     var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(StateBytes));
 
     Cookie.Write(HttpContext, Token!, state);
-    Manifest = SetupMapper.BuildManifest(AppName ?? L["Setup_AppNameDefault"], Urls!.WebPublicUrl, Urls.ApiPublicUrl);
+    (AppName, Manifest) = (name, SetupMapper.BuildManifest(name, Urls!.WebPublicUrl, Urls.ApiPublicUrl));
 
-    var target = string.IsNullOrWhiteSpace(AppOrganization)
+    var target = string.IsNullOrEmpty(organization)
                    ? PersonalManifestUrl
-                   : $"https://github.com/organizations/{Uri.EscapeDataString(AppOrganization.Trim())}/settings/apps/new";
+                   : $"https://github.com/organizations/{Uri.EscapeDataString(organization)}/settings/apps/new";
 
     ManifestAction = $"{target}?state={Uri.EscapeDataString(state)}";
 

@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Linq.Expressions;
+
 using Microsoft.AspNetCore.Components;
 
 namespace CodeCoverage.Web.Components.Ui;
@@ -34,6 +36,19 @@ public partial class CcTextField
   /// <summary>Gets or sets the callback raised on every keystroke with the new text.</summary>
   [Parameter]
   public EventCallback<string?> ValueChanged { get; set; }
+
+  /// <summary>Gets or sets the expression of the bound value, which <c>@bind-Value</c> supplies.</summary>
+  /// <remarks>It names the field of a form posted without a circuit when <see cref="Name" /> is omitted.</remarks>
+  [Parameter]
+  public Expression<Func<string?>>? ValueExpression { get; set; }
+
+  /// <summary>
+  ///   Gets or sets the <c>name</c> the input is posted under. When omitted, it is the path of
+  ///   <see cref="ValueExpression" /> (<c>Urls.WebPublicUrl</c>), as <c>InputBase</c> gives it: a page rendered without a
+  ///   circuit only receives the values of named inputs.
+  /// </summary>
+  [Parameter]
+  public string? Name { get; set; }
 
   /// <summary>Gets or sets the placeholder.</summary>
   [Parameter]
@@ -82,6 +97,9 @@ public partial class CcTextField
   /// <summary>Gets the identifier of the input.</summary>
   private string InputId => string.IsNullOrEmpty(Id) ? _generatedId : Id;
 
+  /// <summary>Gets the <c>name</c> of the input, or <see langword="null" /> when it has neither a name nor a bound expression.</summary>
+  private string? InputName => string.IsNullOrEmpty(Name) ? NameOf(ValueExpression) : Name;
+
   /// <summary>Gets the identifier of the help line.</summary>
   private string HelpId => $"{InputId}-help";
 
@@ -121,6 +139,36 @@ public partial class CcTextField
   #endregion
 
   #region Methods
+
+  // The members read from the component, outermost last: () => Urls!.WebPublicUrl gives Urls.WebPublicUrl, as the
+  // form binding of [SupplyParameterFromForm] expects it.
+  private static string? NameOf(Expression<Func<string?>>? expression)
+  {
+    var members = new Stack<string>();
+    var node = expression?.Body;
+
+    while (node is not null)
+    {
+      switch (node)
+      {
+        case UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary:
+          node = unary.Operand;
+
+          break;
+        case MemberExpression member:
+          members.Push(member.Member.Name);
+          node = member.Expression;
+
+          break;
+        default:
+          node = null;
+
+          break;
+      }
+    }
+
+    return members.Count == 0 ? null : string.Join('.', members);
+  }
 
   private Task OnInputAsync(ChangeEventArgs args) =>
     ValueChanged.InvokeAsync(args.Value?.ToString());

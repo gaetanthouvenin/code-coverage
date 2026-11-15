@@ -56,7 +56,6 @@
         <div class="cc-panel__body cc-stack">
           <p class="cc-muted">@L["Setup_UrlsHelp"]</p>
           <EditForm FormName="urls" EditContext="UrlsForm" OnValidSubmit="SaveUrlsAsync" class="cc-stack">
-            <AntiforgeryToken />
             <CcTextField Label="@L["Setup_WebUrl"]" @bind-Value="Urls!.WebPublicUrl" Required="true" Error="@ErrorOf(UrlsForm, nameof(Urls.WebPublicUrl))" />
             <CcTextField Label="@L["Setup_ApiUrl"]" @bind-Value="Urls!.ApiPublicUrl" Required="true" Error="@ErrorOf(UrlsForm, nameof(Urls.ApiPublicUrl))" />
             <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Action_Save"]</CcButton>
@@ -84,9 +83,8 @@
             else
             {
               <EditForm FormName="manifest-start" Model="App!" OnValidSubmit="StartManifestAsync" class="cc-stack">
-                <AntiforgeryToken />
-                <CcTextField Label="@L["Setup_AppName"]" @bind-Value="AppName" Required="true" />
-                <CcTextField Label="@L["Setup_AppOrganization"]" @bind-Value="AppOrganization" Help="@L["Setup_AppOrganizationHelp"]" />
+                <CcTextField Label="@L["Setup_AppName"]" Name="appName" @bind-Value="AppName" Required="true" Placeholder="@L["Setup_AppNamePlaceholder"]" Help="@L["Setup_AppNameHelp"]" />
+                <CcTextField Label="@L["Setup_AppOrganization"]" Name="appOrganization" @bind-Value="AppOrganization" Help="@L["Setup_AppOrganizationHelp"]" />
                 <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Setup_ManifestStart"]</CcButton>
               </EditForm>
             }
@@ -94,7 +92,6 @@
             <details data-panel="manual" open="@AppForm.GetValidationMessages().Any()">
               <summary>@L["Setup_ManualTitle"]</summary>
               <EditForm FormName="manual-app" EditContext="AppForm" OnValidSubmit="SaveAppAsync" class="cc-stack">
-                <AntiforgeryToken />
                 <p class="cc-muted">@L["Setup_ManualHelp"]</p>
                 <CcTextField Label="@L["Setup_AppId"]" @bind-Value="App!.AppId" Required="true" Error="@ErrorOf(AppForm, nameof(App.AppId))" />
                 <CcTextField Label="@L["Setup_ClientId"]" @bind-Value="App!.ClientId" Required="true" Error="@ErrorOf(AppForm, nameof(App.ClientId))" />
@@ -115,8 +112,20 @@
           <div class="cc-panel__head"><h2 class="cc-panel__title">@L["Setup_StepAdmins"]</h2></div>
           <div class="cc-panel__body cc-stack">
             <p class="cc-muted">@L["Setup_AdminsHelp"]</p>
+            @if (Resolved is { Count: > 0 } resolved)
+            {
+              <div data-state="resolved">
+                <CcBanner Tone="CcTone.Info" Title="@L["Setup_AdminsConfirm"]">
+                  <ul class="cc-plain-list">
+                    @foreach (var admin in resolved)
+                    {
+                      <li class="cc-mono" data-admin="@admin.UserId">@L["Setup_AdminResolved", admin.Login ?? admin.UserId, admin.UserId]</li>
+                    }
+                  </ul>
+                </CcBanner>
+              </div>
+            }
             <EditForm FormName="admins" EditContext="AdminsForm" OnValidSubmit="CompleteAsync" class="cc-stack">
-              <AntiforgeryToken />
               <CcTextField Label="@L["Setup_AdminIds"]" @bind-Value="Admins!.AdminUserIds" Required="true" Error="@ErrorOf(AdminsForm, nameof(Admins.AdminUserIds))" />
               <CcButton Type="submit" Variant="CcButtonVariant.Primary">@L["Setup_Finish"]</CcButton>
             </EditForm>

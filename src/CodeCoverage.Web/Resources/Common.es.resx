@@ -109,7 +109,8 @@
   <data name="Setting.NotSecret" xml:space="preserve"><value>Este ajuste no es un secreto: modifique su valor en su lugar.</value></data>
   <data name="Setting.GitHubAppAlreadyCreated" xml:space="preserve"><value>La GitHub App ya existe en esta instancia.</value></data>
   <data name="Setting.GitHubAppNotCreated" xml:space="preserve"><value>Cree primero la GitHub App.</value></data>
-  <data name="Setting.InvalidAdministrators" xml:space="preserve"><value>Indique al menos un administrador, como identificadores numéricos de GitHub separados por comas.</value></data>
+  <data name="Setting.InvalidAdministrators" xml:space="preserve"><value>Indique al menos un administrador, como logins de GitHub o identificadores numéricos separados por comas.</value></data>
+  <data name="Setting.UnknownGitHubLogin" xml:space="preserve"><value>GitHub no conoce ninguna cuenta con este login. Compruebe la ortografía de cada administrador.</value></data>
   <data name="Setting.InvalidManifestCode" xml:space="preserve"><value>GitHub no reconoce este código o ha caducado. Vuelva a crear la App.</value></data>
   <data name="Setting.InvalidSetupToken" xml:space="preserve"><value>El token de configuración falta o no es válido. Búsquelo en los logs del host Web.</value></data>
   <data name="Setting.OutOfRange" xml:space="preserve"><value>El valor está fuera del intervalo permitido para este ajuste.</value></data>
@@ -318,7 +319,9 @@
   <data name="Setup_ApiUrl" xml:space="preserve"><value>Dirección pública de la Api</value></data>
   <data name="Setup_AppNeedsUrls" xml:space="preserve"><value>Guarde primero las direcciones públicas: el manifiesto de la App las incluye.</value></data>
   <data name="Setup_AppName" xml:space="preserve"><value>Nombre de la App</value></data>
-  <data name="Setup_AppNameDefault" xml:space="preserve"><value>CodeCoverage</value></data>
+  <data name="Setup_AppNameHelp" xml:space="preserve"><value>El nombre de una App es único en todo GitHub, que rechaza un nombre ya usado: « CodeCoverage » solo pertenece a otra cuenta. Añada su login o su organización, como CodeCoverage-{login}.</value></data>
+  <data name="Setup_AppNamePlaceholder" xml:space="preserve"><value>CodeCoverage-su-login</value></data>
+  <data name="Setup_AppNameRequired" xml:space="preserve"><value>Dé a la App un nombre libre en GitHub, como CodeCoverage-{login}.</value></data>
   <data name="Setup_AppOrganization" xml:space="preserve"><value>Organización</value></data>
   <data name="Setup_AppOrganizationHelp" xml:space="preserve"><value>Déjelo vacío para crear la App en su cuenta personal.</value></data>
   <data name="Setup_ManifestStart" xml:space="preserve"><value>Preparar la App</value></data>
@@ -333,8 +336,10 @@
   <data name="Setup_WebhookSecret" xml:space="preserve"><value>Secreto del webhook</value></data>
   <data name="Setup_PrivateKey" xml:space="preserve"><value>Clave privada (PEM)</value></data>
   <data name="Setup_AppSlug" xml:space="preserve"><value>Slug de la App</value></data>
-  <data name="Setup_AdminsHelp" xml:space="preserve"><value>Los identificadores numéricos de GitHub de los administradores de la instancia, separados por comas.</value></data>
+  <data name="Setup_AdminsHelp" xml:space="preserve"><value>Los logins de GitHub o los identificadores numéricos de los administradores de la instancia, separados por comas. Los logins se convierten en identificadores, los únicos que se guardan.</value></data>
   <data name="Setup_AdminIds" xml:space="preserve"><value>Administradores</value></data>
+  <data name="Setup_AdminsConfirm" xml:space="preserve"><value>Compruebe las cuentas encontradas por GitHub y finalice la configuración.</value></data>
+  <data name="Setup_AdminResolved" xml:space="preserve"><value>{0} → {1}</value></data>
   <data name="Setup_Finish" xml:space="preserve"><value>Finalizar la configuración</value></data>
   <data name="Tab_OrgRepositories" xml:space="preserve"><value>Repositorios</value></data>
   <data name="Action_Sync" xml:space="preserve"><value>Sincronizar</value></data>
