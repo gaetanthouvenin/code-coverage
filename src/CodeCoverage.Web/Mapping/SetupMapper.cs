@@ -11,6 +11,7 @@ using CodeCoverage.Application.Features.Settings.Commands.CompleteSetup;
 using CodeCoverage.Application.Features.Settings.Commands.SaveGitHubApp;
 using CodeCoverage.Application.Features.Settings.Commands.SavePublicUrls;
 using CodeCoverage.Application.Features.Settings.Queries.GetSetupState;
+using CodeCoverage.Application.Features.Settings.Queries.ResolveSetupAdministrators;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Web.ViewModels.Settings;
 
@@ -98,6 +99,26 @@ internal static class SetupMapper
     await sender.Send(new CompleteGitHubAppManifestCommand(setupToken, code), cancellationToken).ConfigureAwait(false);
 
     return true;
+  }
+
+  /// <summary>Turns the administrators typed by the operator, logins or numeric identifiers, into identifiers.</summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="setupToken">The setup token.</param>
+  /// <param name="administrators">The logins or numeric identifiers of the administrators, separated by commas.</param>
+  /// <param name="cancellationToken">A token to cancel the request.</param>
+  /// <returns>The administrators, once each, with the login GitHub gave for those typed by login.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  public static async Task<IReadOnlyList<SetupAdministratorViewModel>> ResolveSetupAdministratorsAsync(
+    this ISender sender,
+    string? setupToken,
+    string administrators,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    var resolved = await sender.Send(new ResolveSetupAdministratorsQuery(setupToken, administrators), cancellationToken).ConfigureAwait(false);
+
+    return [.. resolved.Select(static a => new SetupAdministratorViewModel(a.UserId, a.Login))];
   }
 
   /// <summary>Names the administrators of the instance and ends the setup.</summary>

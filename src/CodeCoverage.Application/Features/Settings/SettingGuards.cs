@@ -90,6 +90,18 @@ internal static class SettingGuards
         throw new UnprocessableEntityException(SettingErrors.GitHubAppNotCreated, "The setup cannot end before the GitHub App exists.");
       }
     }
+
+    /// <summary>Throws when GitHub knows no account of a login typed as an administrator in the first-start wizard.</summary>
+    /// <param name="account">The account GitHub described, or <see langword="null" />.</param>
+    /// <param name="login">The login that was typed.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="account" /> is <see langword="null" /> (<see cref="SettingErrors.UnknownGitHubLogin" />).</exception>
+    public static void ThrowIfUnknownAdministratorLogin([NotNull] GitHubAccountInfo? account, string login)
+    {
+      if (account is null)
+      {
+        throw new UnprocessableEntityException(SettingErrors.UnknownGitHubLogin, $"GitHub knows no account '{login}'.");
+      }
+    }
   }
 
   extension(ConflictException)

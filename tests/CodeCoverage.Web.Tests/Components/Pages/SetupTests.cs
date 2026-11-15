@@ -24,6 +24,7 @@ using CodeCoverage.Application.Features.Settings.Commands.CompleteSetup;
 using CodeCoverage.Application.Features.Settings.Commands.SaveGitHubApp;
 using CodeCoverage.Application.Features.Settings.Commands.SavePublicUrls;
 using CodeCoverage.Application.Features.Settings.Queries.GetSetupState;
+using CodeCoverage.Application.Features.Settings.Queries.ResolveSetupAdministrators;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Web.Components.Pages;
@@ -65,6 +66,8 @@ public sealed class SetupTests : UiTestContext
     Services.AddSingleton(new AppInstallationLink(new TestOptionsMonitor<GitHubOptions>(_github)));
 
     A.CallTo(() => _sender.Send(A<GetSetupStateQuery>._, A<CancellationToken>._)).ReturnsLazily(() => new ValueTask<SetupState>(_state));
+    A.CallTo(() => _sender.Send(A<ResolveSetupAdministratorsQuery>._, A<CancellationToken>._))
+     .ReturnsLazily((IQuery<IReadOnlyList<SetupAdministrator>> q, CancellationToken _) => new ValueTask<IReadOnlyList<SetupAdministrator>>(Resolve(((ResolveSetupAdministratorsQuery)q).AdminUserIds)));
   }
 
   #endregion
@@ -258,6 +261,89 @@ public sealed class SetupTests : UiTestContext
 
     A.CallTo(() => _sender.Send(A<CompleteSetupCommand>.That.Matches(c => c.AdminUserIds == "583231"), A<CancellationToken>._))
      .MustHaveHappenedOnceExactly();
+    cut.FindAll("[data-state=resolved]").ShouldBeEmpty("identifiers alone need no confirmation");
+  }
+
+  // M4.02f: a login is shown as « login → identifier » and nothing is saved until the operator posts again.
+  [Fact]
+  public void Complete_WithLogins_ShouldShowTheIdentifiersBeforeSaving()
+  {
+    _state = new SetupState(true, true, false);
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("[data-panel=admins] input").Input("Octocat, 42");
+    cut.Find("[data-panel=admins] form").Submit();
+
+    cut.Find("[data-state=resolved] [data-admin='583231']").TextContent.ShouldBe(L("Setup_AdminResolved", "octocat", "583231"));
+    cut.Find("[data-panel=admins] input").GetAttribute("value").ShouldBe("583231, 42");
+    A.CallTo(() => _sender.Send(A<CompleteSetupCommand>._, A<CancellationToken>._)).MustNotHaveHappened();
+
+    cut.Find("[data-panel=admins] form").Submit();
+
+    A.CallTo(() => _sender.Send(A<CompleteSetupCommand>.That.Matches(c => c.AdminUserIds == "583231, 42"), A<CancellationToken>._))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  // M4.02f: an unknown login is refused in the words of the console, and nothing is saved.
+  [Fact]
+  public void Complete_WithUnknownLogin_ShouldRefuseBeforeSaving()
+  {
+    A.CallTo(() => _sender.Send(A<ResolveSetupAdministratorsQuery>._, A<CancellationToken>._))
+     .ThrowsAsync(new UnprocessableEntityException(SettingErrors.UnknownGitHubLogin, "GitHub knows no account 'nobody-here'."));
+    _state = new SetupState(true, true, false);
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("[data-panel=admins] input").Input("nobody-here");
+    cut.Find("[data-panel=admins] form").Submit();
+
+    cut.Find("[data-state=error]").TextContent.ShouldContain(L(SettingErrors.UnknownGitHubLogin));
+    A.CallTo(() => _sender.Send(A<CompleteSetupCommand>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // M4.02f: « CodeCoverage » is taken on GitHub, so the name starts empty, required, with the reason on the page.
+  [Fact]
+  public void Render_ManifestForm_ShouldAskForANameWithoutDefault()
+  {
+    _state = new SetupState(false, true, false, "https://coverage.example.com", "https://coverage-api.example.com");
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    var name = cut.Find("[data-panel=app] form input[name=appName]");
+    name.GetAttribute("value").ShouldBeNullOrEmpty();
+    name.HasAttribute("required").ShouldBeTrue();
+    cut.Find("[data-panel=app] form .cc-field__help").TextContent.ShouldBe(L("Setup_AppNameHelp"));
+    cut.Find("[data-panel=app] form input[name=appOrganization]").ShouldNotBeNull();
+  }
+
+  // M4.02f: the organization is the known login: an empty name becomes CodeCoverage-{organization}.
+  [Fact]
+  public void StartManifest_WithoutNameOnAnOrganization_ShouldNameTheAppAfterIt()
+  {
+    _state = new SetupState(false, true, false, "https://coverage.example.com", "https://coverage-api.example.com");
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.FindAll("[data-panel=app] form input")[1].Input("northwind");
+    cut.Find("[data-panel=app] form").Submit();
+
+    var form = cut.Find("[data-form=manifest]");
+    form.GetAttribute("action")!.ShouldStartWith("https://github.com/organizations/northwind/settings/apps/new?state=");
+    form.QuerySelector("input[name=manifest]")!.GetAttribute("value")!.ShouldContain("\"name\":\"CodeCoverage-northwind\"");
+  }
+
+  [Fact]
+  public void StartManifest_WithoutNameOrOrganization_ShouldRefuse()
+  {
+    _state = new SetupState(false, true, false, "https://coverage.example.com", "https://coverage-api.example.com");
+    WithToken();
+    var cut = Render<SetupPage>(WithContext());
+
+    cut.Find("[data-panel=app] form").Submit();
+
+    cut.Find("[data-state=error]").TextContent.ShouldContain(L("Setup_AppNameRequired"));
+    cut.FindAll("[data-form=manifest]").ShouldBeEmpty();
   }
 
   // The manifest is prepared here, with the state kept in the cookie and carried to GitHub.
@@ -353,6 +439,17 @@ public sealed class SetupTests : UiTestContext
     p => p.AddCascadingValue(_context);
 
   private string L(string key) => Services.GetRequiredService<IStringLocalizer<Common>>()[key];
+
+  private string L(string key, params object[] arguments) => Services.GetRequiredService<IStringLocalizer<Common>>()[key, arguments];
+
+  // octocat is the one login GitHub knows here; identifiers are kept as they are.
+  private static List<SetupAdministrator> Resolve(string? list) =>
+  [
+    .. (list ?? string.Empty).Split(',', StringSplitOptions.TrimEntries)
+                             .Select(static e => e.Equals("octocat", StringComparison.OrdinalIgnoreCase)
+                                                   ? new SetupAdministrator("583231", "octocat")
+                                                   : new SetupAdministrator(e, null)),
+  ];
 
   #endregion
 }

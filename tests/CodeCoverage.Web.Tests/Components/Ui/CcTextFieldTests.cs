@@ -13,6 +13,12 @@ namespace CodeCoverage.Web.Tests.Components.Ui;
 
 public sealed class CcTextFieldTests : UiTestContext
 {
+  #region Properties
+
+  private SampleForm Form { get; set; } = new();
+
+  #endregion
+
   #region Methods
 
   [Fact]
@@ -64,6 +70,44 @@ public sealed class CcTextFieldTests : UiTestContext
     cut.Find("input").Input("ci-nightly");
 
     value.ShouldBe("ci-nightly");
+  }
+
+  // M4.02f: a page rendered without a circuit posts only the named inputs.
+  [Fact]
+  public void Render_WithName_ShouldRenderIt()
+  {
+    var cut = Render<CcTextField>(p => p.Add(f => f.Name, "appName"));
+
+    cut.Find("input").GetAttribute("name").ShouldBe("appName");
+  }
+
+  // M4.02f: without a name, the path of the bound value is the name, as the form binding of the page expects it.
+  [Fact]
+  public void Render_WithValueExpression_ShouldDeduceTheName()
+  {
+    Form = new SampleForm { Name = "ci-main" };
+
+    var cut = Render<CcTextField>(p => p.Add(f => f.Value, Form.Name).Add(f => f.ValueExpression, () => Form.Name));
+
+    cut.Find("input").GetAttribute("name").ShouldBe("Form.Name");
+  }
+
+  [Fact]
+  public void Render_WithNameAndValueExpression_ShouldPreferTheName()
+  {
+    Form = new SampleForm();
+
+    var cut = Render<CcTextField>(p => p.Add(f => f.Name, "appName").Add(f => f.ValueExpression, () => Form.Name));
+
+    cut.Find("input").GetAttribute("name").ShouldBe("appName");
+  }
+
+  [Fact]
+  public void Render_WithoutNameOrValueExpression_ShouldRenderNoName()
+  {
+    var cut = Render<CcTextField>();
+
+    cut.Find("input").HasAttribute("name").ShouldBeFalse();
   }
 
   #endregion

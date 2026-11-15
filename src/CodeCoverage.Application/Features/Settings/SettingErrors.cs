@@ -47,8 +47,11 @@ public static class SettingErrors
   /// <summary>The setup cannot end before the GitHub App exists.</summary>
   public const string GitHubAppNotCreated = "Setting.GitHubAppNotCreated";
 
-  /// <summary>The list of administrators is empty or holds something other than numeric identifiers.</summary>
+  /// <summary>The list of administrators is empty or holds something other than numeric identifiers (or logins, in the wizard).</summary>
   public const string InvalidAdministrators = "Setting.InvalidAdministrators";
+
+  /// <summary>GitHub knows no account of a login typed as an administrator in the first-start wizard.</summary>
+  public const string UnknownGitHubLogin = "Setting.UnknownGitHubLogin";
 
   #endregion
 }
