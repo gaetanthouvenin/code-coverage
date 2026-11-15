@@ -61,7 +61,7 @@ flowchart LR
   subgraph Host["Docker (VM) ou Azure Container Apps"]
     API["Api container<br/>REST /api/v1, uploads, webhooks,<br/>badges, uploader binaries,<br/>JobWorker (BackgroundService)"]
     WEB["Web container<br/>Blazor Server (InteractiveServer)<br/>GitHub login, pages, admin"]
-    DB[("PostgreSQL 17<br/>ou SQL Server<br/>(tout l'état)")]
+    DB[("PostgreSQL 18<br/>ou SQL Server<br/>(tout l'état)")]
   end
   U -- "POST /api/v1/uploads (multipart, gzip)" --> API
   GH -- "webhooks (HMAC)" --> API
@@ -78,7 +78,7 @@ flowchart LR
 |---|---|
 | **Api** (`CodeCoverage.Api`) | API REST `/api/v1`, endpoint d'upload, webhooks GitHub, badges, téléchargement de l'uploader, Swagger/Scalar. Héberge le **JobWorker** (file de jobs en base) et applique les migrations au démarrage. Joignable par GitHub, par les agents CI et par camo. |
 | **Web** (`CodeCoverage.Web`) | UI Blazor Server. Exécute **en process** les mêmes commandes et requêtes de l'Application que l'Api, via le médiateur. Pas de worker, pas de migrations. Public, avec connexion GitHub (ADR-013). |
-| **Base** | PostgreSQL 17 par défaut ; SQL Server 2022 et Azure SQL sont supportés. Elle contient tout l'état : rapports, uploads bruts (en morceaux), jobs, paramètres et clés Data Protection. |
+| **Base** | PostgreSQL 18 par défaut ; SQL Server 2022 et Azure SQL sont supportés. Elle contient tout l'état : rapports, uploads bruts (en morceaux), jobs, paramètres et clés Data Protection. |
 | **GitHub App** | Une seule application publique, partagée par les organisations, installable par tout compte et inerte tant que ce compte n'est pas admis (ADR-013). Elle porte l'identité serveur (statuts, commentaires, diff, webhooks) et la connexion des utilisateurs (user-to-server tokens). |
 | **Uploader** | `coverage-upload` : détecte le contexte CI, envoie `git ls-files` et les rapports bruts compressés. |
 
@@ -1768,9 +1768,9 @@ Après un force-push, l'ancienne tête n'est plus dans l'ascendance et n'est don
 name: code-coverage
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment: { POSTGRES_DB: codecoverage, POSTGRES_USER: cc, POSTGRES_PASSWORD: "${DB_PASSWORD}" }
-    volumes: [ "db:/var/lib/postgresql/data" ]
+    volumes: [ "db:/var/lib/postgresql" ]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U cc -d codecoverage"], interval: 5s, retries: 10 }
     restart: unless-stopped
   api:

@@ -61,14 +61,14 @@ services:
     restart: unless-stopped
 
   db:
-    # postgres:17-alpine (17.11)
-    image: postgres:17-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+    # postgres:18-alpine (18.7)
+    image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
     environment:
       POSTGRES_DB: codecoverage
       POSTGRES_USER: cc
       POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD}"
     volumes:
-      - db:/var/lib/postgresql/data
+      - db:/var/lib/postgresql
     networks: [edge]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cc -d codecoverage"]
@@ -129,7 +129,7 @@ services:
   # Off-machine copy: BACKUP_HOOK, a command run on each new dump (its path in $1), e.g. an upload to
   # object storage. Without it, the dumps stay on this VM and do not meet the RPO of ARCHITECTURE §12.5.
   backup:
-    image: postgres:17-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+    image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
     entrypoint: ["/bin/sh", "/opt/backup/backup.sh"]
     depends_on:
       db:

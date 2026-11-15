@@ -73,7 +73,7 @@ With the overlay running (and `OTEL_METRIC_EXPORT_INTERVAL` at 10 s, as the over
 ## Production on a VM
 
 [`deploy/vm`](../deploy/vm) runs the whole instance on one Docker host (M4.02): Caddy (TLS, ACME),
-PostgreSQL 17, the Api (REST API, job worker, migrations), the Web (console) and a backup container.
+PostgreSQL 18, the Api (REST API, job worker, migrations), the Web (console) and a backup container.
 Images only: the Api and the Web come from the registry of the CI at the version of a release, the
 other images are public and pinned by digest.
 
@@ -194,6 +194,67 @@ the old instance is stopped.
 image, `pg_restore` into a fresh server, row counts compared); it is skipped with a reason without
 Docker.
 
+### PostgreSQL major upgrade
+
+A PostgreSQL major version does not read the data of the previous one: the database goes through a
+dump and a restore. CodeCoverage runs PostgreSQL 18 since M4.02e. The images of 18 keep their data in
+`/var/lib/postgresql/18/docker` and mount the volume on `/var/lib/postgresql`. The images up to 17
+mounted it on `/var/lib/postgresql/data`. An 18 image refuses to start on a volume that holds a
+database of 17, at either mount point.
+
+**The deployment refuses a database of another major version.** `scripts/Deploy-Production.ps1`
+reads `DATA_DIR/db/PG_VERSION` (the layout up to 17) and `DATA_DIR/db/<major>/docker/PG_VERSION`
+through a container of the db image, before it changes anything. It refuses the release when the
+version differs from the db image, and names this procedure.
+
+**Migrating the host of "Continuous deployment"** (bind-mounted volumes under `DATA_DIR`), with
+[`scripts/Migrate-PostgreSqlMajor.ps1`](../scripts/Migrate-PostgreSqlMajor.ps1). Run it by hand on
+the host, from a checkout of the release that brings the new version, while the deployed version
+still runs:
+
+```bash
+git clone --branch v1.3.0 https://github.com/<owner>/code-coverage.git /tmp/cc-v1.3.0   # the release on PostgreSQL 18
+cd /tmp/cc-v1.3.0
+pwsh scripts/Migrate-PostgreSqlMajor.ps1 -Directory /data03/docker/code-coverage            # dry run
+pwsh scripts/Migrate-PostgreSqlMajor.ps1 -Directory /data03/docker/code-coverage -Execute
+```
+
+It runs as the user of the runner, and it needs the `docker` group. It does, in this order:
+
+1. Checks `.env` and `DATA_DIR`, the db image of the deployed compose (the source version) and the
+   one of the checkout (the target version, newer), and the `PG_VERSION` of `DATA_DIR/db`. It also
+   checks that the database runs.
+2. Takes a backup (`BACKUP_ONCE`) with the backup service of the deployed compose, hence with the
+   `pg_dump` of the source version, then counts the rows of every table.
+3. Stops the Web, the Api, the backup service, then the database.
+4. Keeps the deployed files in `DEPLOY_DIR/.pg-upgrade-<stamp>`, renames `DATA_DIR/db` to
+   `DATA_DIR/db-pg17-<stamp>` and creates an empty `DATA_DIR/db` (`70:70`, mode 700). The old data is
+   **never removed** by the script.
+5. Copies the compose files, the `Caddyfile`, `.env.example` and `backup/` of the checkout. `.env` and
+   `secrets/` are never touched, and the `TAG` stays the deployed one.
+6. Starts the new database, restores the dump with `pg_restore` (the backup service of the target
+   version), and compares the row counts with the source.
+7. Starts the Api and waits for it to be healthy, then the Web, then the backup service.
+
+On a failure after the stop of the database, it goes back by itself. The new data directory becomes
+`DATA_DIR/db-pg18-failed-<stamp>`, the old one gets its name back, and the files are put back. Then
+the database, the Api, the Web and the backup service start again on the source version. When going
+back fails too, the error prints the commands to do it by hand.
+
+Then deploy the release ("Re-run job" of its `deploy` job): the guard now finds a PostgreSQL 18
+database. Once the new version runs and a backup of PostgreSQL 18 exists, remove
+`DATA_DIR/db-pg17-<stamp>` and `DEPLOY_DIR/.pg-upgrade-<stamp>` yourself (the data directory belongs
+to the user `70`: `sudo rm -rf`).
+
+**Elsewhere.** A VM on the plain `docker-compose.prod.yml` (named volumes) and a local
+`docker-compose.yml` follow the same steps by hand. Take a dump ("Backups"), then `down`. Remove the
+old `db` volume, or keep it under another name. Then `up -d db`, `pg_restore` as in "Restore", and
+start the Api, then the Web. A volume of 17 left as it is stops the database of 18 at its start,
+whichever the mount point: the container exits with an error about the data of an older version.
+
+`scripts/test-backup-restore.ps1` restores a dump of PostgreSQL 17, from the backup image and from
+the `pg_dump` of 17, into PostgreSQL 18.
+
 ### The administration command line
 
 The command line of the Api stays as the documented break-glass path (PLAN §11-4): admitting an
@@ -224,8 +285,9 @@ What a deployment does, in this order:
    `~/.docker`.
 3. Checks `.env`, `secrets/dp.pfx` and the data directories, and compares the version with the
    current `TAG` by SemVer 2.0 precedence (`1.2.0-beta.9 < 1.2.0-beta.10 < 1.2.0-rc.1 < 1.2.0`). The
-   same version is a redeployment, and an older one is refused. It also checks that the Docker
-   network of `PROXY_NETWORK` exists.
+   same version is a redeployment, and an older one is refused. It refuses a database of
+   `DATA_DIR/db` of another PostgreSQL major version than the db image ("PostgreSQL major upgrade").
+   It also checks that the Docker network of `PROXY_NETWORK` exists.
 4. Copies an explicit list of `deploy/vm` files into `DEPLOY_DIR`, keeping the files it replaces
    until the Api starts. It never touches `.env` nor `secrets/`.
 5. Pulls the Api and Web images of the version, and refuses them unless their

@@ -1,5 +1,5 @@
 ---
-source-sha256: 0524e49244f07e98e06a1af2afbad0aef581becca61efa829d47566ad6d4c7fc
+source-sha256: f18905149121c14cff49d26076c869c43b7e1b6aa3b489fe6578740d426f5919
 ---
 # Operaciones
 
@@ -76,7 +76,7 @@ Con la superposición en ejecución (y `OTEL_METRIC_EXPORT_INTERVAL` a 10 s, com
 ## Producción en una VM
 
 [`deploy/vm`](../deploy/vm) ejecuta toda la instancia en un único host Docker (M4.02): Caddy (TLS, ACME),
-PostgreSQL 17, la Api (API REST, worker de jobs, migraciones), la Web (consola) y un contenedor de copias de seguridad.
+PostgreSQL 18, la Api (API REST, worker de jobs, migraciones), la Web (consola) y un contenedor de copias de seguridad.
 Solo imágenes: la Api y la Web proceden del registro de la CI en la versión de una release, las
 demás imágenes son públicas y están fijadas por digest.
 
@@ -197,6 +197,68 @@ detenida la instancia anterior.
 de copia de seguridad, `pg_restore` en un servidor nuevo, recuentos de filas comparados); se omite con un motivo si no hay
 Docker.
 
+### Actualización de versión mayor de PostgreSQL
+
+Una versión mayor de PostgreSQL no lee los datos de la anterior: la base de datos pasa por un volcado y una
+restauración. CodeCoverage funciona con PostgreSQL 18 desde M4.02e. Las imágenes 18 guardan sus datos en
+`/var/lib/postgresql/18/docker` y montan el volumen en `/var/lib/postgresql`. Las imágenes hasta la 17 lo
+montaban en `/var/lib/postgresql/data`. Una imagen 18 se niega a arrancar sobre un volumen que contiene una
+base de datos 17, sea cual sea el punto de montaje.
+
+**El despliegue rechaza una base de datos de otra versión mayor.** `scripts/Deploy-Production.ps1` lee
+`DATA_DIR/db/PG_VERSION` (la disposición hasta la 17) y `DATA_DIR/db/<major>/docker/PG_VERSION` mediante un
+contenedor de la imagen `db`, antes de cambiar nada. Rechaza la release cuando la versión difiere de la imagen
+`db`, y nombra este procedimiento.
+
+**Migrar el host de «Despliegue continuo»** (volúmenes en montajes enlazados bajo `DATA_DIR`), con
+[`scripts/Migrate-PostgreSqlMajor.ps1`](../scripts/Migrate-PostgreSqlMajor.ps1). Ejecútelo a mano en el
+host, desde un checkout de la release que trae la nueva versión, mientras la versión desplegada sigue en
+marcha:
+
+```bash
+git clone --branch v1.3.0 https://github.com/<owner>/code-coverage.git /tmp/cc-v1.3.0   # la release con PostgreSQL 18
+cd /tmp/cc-v1.3.0
+pwsh scripts/Migrate-PostgreSqlMajor.ps1 -Directory /data03/docker/code-coverage            # simulación
+pwsh scripts/Migrate-PostgreSqlMajor.ps1 -Directory /data03/docker/code-coverage -Execute
+```
+
+Se ejecuta con el usuario del runner y necesita el grupo `docker`. Hace, en este orden:
+
+1. Comprueba `.env` y `DATA_DIR`, la imagen `db` del compose desplegado (la versión de origen) y la del
+   checkout (la versión de destino, más reciente), y el `PG_VERSION` de `DATA_DIR/db`. También comprueba
+   que la base de datos está en marcha.
+2. Hace una copia de seguridad (`BACKUP_ONCE`) con el servicio de copias de seguridad del compose
+   desplegado, por tanto con el `pg_dump` de la versión de origen, y luego cuenta las filas de cada tabla.
+3. Detiene la Web, la Api, el servicio de copias de seguridad y luego la base de datos.
+4. Guarda los archivos desplegados en `DEPLOY_DIR/.pg-upgrade-<stamp>`, renombra `DATA_DIR/db` a
+   `DATA_DIR/db-pg17-<stamp>` y crea un `DATA_DIR/db` vacío (`70:70`, modo 700). El script **nunca
+   elimina** los datos antiguos.
+5. Copia los archivos compose, el `Caddyfile`, `.env.example` y `backup/` del checkout. `.env` y
+   `secrets/` nunca se tocan, y el `TAG` sigue siendo el desplegado.
+6. Arranca la nueva base de datos, restaura el volcado con `pg_restore` (el servicio de copias de seguridad
+   de la versión de destino) y compara los recuentos de filas con el origen.
+7. Arranca la Api y espera a que esté sana, luego la Web y luego el servicio de copias de seguridad.
+
+Ante un fallo después de detener la base de datos, vuelve atrás por sí mismo. El nuevo directorio de datos
+pasa a ser `DATA_DIR/db-pg18-failed-<stamp>`, el antiguo recupera su nombre y los archivos se restituyen.
+Luego la base de datos, la Api, la Web y el servicio de copias de seguridad vuelven a arrancar con la versión
+de origen. Cuando volver atrás también falla, el error muestra los comandos para hacerlo a mano.
+
+Después despliegue la release («Re-run job» de su job `deploy`): la protección encuentra ahora una base de
+datos PostgreSQL 18. Una vez que la nueva versión funcione y exista una copia de seguridad de PostgreSQL 18,
+elimine usted mismo `DATA_DIR/db-pg17-<stamp>` y `DEPLOY_DIR/.pg-upgrade-<stamp>` (el directorio de datos
+pertenece al usuario `70`: `sudo rm -rf`).
+
+**En otros casos.** Una VM con el `docker-compose.prod.yml` simple (volúmenes con nombre) y un
+`docker-compose.yml` local siguen los mismos pasos a mano. Haga un volcado («Copias de seguridad») y luego
+`down`. Elimine el antiguo volumen `db`, o consérvelo con otro nombre. Luego `up -d db`, `pg_restore` como en
+«Restauración», y arranque la Api y después la Web. Un volumen 17 dejado tal cual detiene la base de datos 18
+al arrancar, sea cual sea el punto de montaje: el contenedor termina con un error sobre los datos de una
+versión anterior.
+
+`scripts/test-backup-restore.ps1` restaura un volcado de PostgreSQL 17, de la imagen de copias de seguridad
+y del `pg_dump` de la 17, en PostgreSQL 18.
+
 ### La línea de comandos de administración
 
 La línea de comandos de la Api sigue siendo la vía de emergencia documentada (PLAN §11-4): admitir una
@@ -227,8 +289,9 @@ Lo que hace un despliegue, en este orden:
    `~/.docker`.
 3. Comprueba `.env`, `secrets/dp.pfx` y los directorios de datos, y compara la versión con el
    `TAG` actual según la precedencia de SemVer 2.0 (`1.2.0-beta.9 < 1.2.0-beta.10 < 1.2.0-rc.1 < 1.2.0`). La
-   misma versión es un redespliegue, y una anterior se rechaza. También comprueba que existe la red de
-   Docker de `PROXY_NETWORK`.
+   misma versión es un redespliegue, y una anterior se rechaza. Rechaza una base de datos de
+   `DATA_DIR/db` de otra versión mayor de PostgreSQL que la imagen `db` («Actualización de versión mayor de
+   PostgreSQL»). También comprueba que existe la red de Docker de `PROXY_NETWORK`.
 4. Copia una lista explícita de archivos de `deploy/vm` en `DEPLOY_DIR`, conservando los archivos que sustituye
    hasta que la Api se inicia. Nunca toca `.env` ni `secrets/`.
 5. Descarga las imágenes de la Api y de la Web de la versión, y las rechaza salvo que su etiqueta

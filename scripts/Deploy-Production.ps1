@@ -16,8 +16,11 @@
 
    1. Checks: .env writable, secrets/dp.pfx present, the data directories of DATA_DIR present, the
       current TAG read from .env and compared with -Version by SemVer 2.0 precedence. The same
-      version is a redeployment; an older one is refused without -AllowDowngrade. With -Execute, the
-      Docker network of PROXY_NETWORK must exist.
+      version is a redeployment; an older one is refused without -AllowDowngrade. The PostgreSQL
+      data of DATA_DIR/db must be of the major version of the db image of -Source (M4.02e): a
+      PG_VERSION at its root (the layout up to 17) or in <major>/docker of another version is refused,
+      naming scripts/Migrate-PostgreSqlMajor.ps1. With -Execute, the Docker network of PROXY_NETWORK
+      must exist.
    2. Copy, in place, of an explicit list of deploy/vm files. .env and secrets/ are never touched.
    3. Pull of the api and web images of -Version (the TAG of the process wins over .env).
    4. Revision: the org.opencontainers.image.revision label of both images must be -Revision (an
@@ -237,6 +240,69 @@ function Invoke-Compose {
   }
 }
 
+function Get-ComposeServiceImage {
+  # The image of a service of a compose file of ours: the first `image:` line of its block.
+  param([string] $Path, [string] $Service)
+
+  $inService = $false
+
+  foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
+    if ($line -match '^  (\S[^:]*):\s*$') {
+      $inService = $Matches[1] -eq $Service
+    }
+    elseif ($inService -and $line -match '^    image:\s*(\S+)') {
+      return $Matches[1]
+    }
+  }
+
+  throw "The image of the $Service service of $Path is not found."
+}
+
+function Get-PostgreSqlDataVersion {
+  # The PG_VERSION files of a db data directory: at its root (the layout of the images up to 17,
+  # mounted on /var/lib/postgresql/data) and in <major>/docker (the layout of 18 and later, mounted on
+  # /var/lib/postgresql). Returns @{ Path; Major } entries, none for an empty directory. The data
+  # belongs to the postgres user of the image (mode 700): with -Execute it is read through a container
+  # of the db image; in a dry run directly, and $null when this user cannot read it.
+  param([string] $Path, [string] $Image)
+
+  $lines = @()
+
+  if ($Execute) {
+    $lines = Invoke-Docker -Arguments @('run', '--rm', '--entrypoint', '/bin/sh', '-v', "${Path}:/data:ro", $Image, '-c',
+      'cd /data && for f in PG_VERSION */docker/PG_VERSION; do if [ -f "$f" ]; then echo "$f $(cat "$f")"; fi; done')
+  }
+  else {
+    try {
+      $root = Join-Path $Path 'PG_VERSION'
+      $null = [System.IO.Directory]::GetFiles($Path)
+
+      if (Test-Path -LiteralPath $root -PathType Leaf) {
+        $lines += "PG_VERSION $([System.IO.File]::ReadAllText($root).Trim())"
+      }
+
+      foreach ($major in [System.IO.Directory]::GetDirectories($Path)) {
+        $docker = Join-Path $major 'docker'
+
+        if (Test-Path -LiteralPath $docker -PathType Container) {
+          $null = [System.IO.Directory]::GetFiles($docker)
+          $file = Join-Path $docker 'PG_VERSION'
+
+          if (Test-Path -LiteralPath $file -PathType Leaf) {
+            $lines += "$(Split-Path -Leaf $major)/docker/PG_VERSION $([System.IO.File]::ReadAllText($file).Trim())"
+          }
+        }
+      }
+    }
+    catch [System.UnauthorizedAccessException] {
+      return $null
+    }
+  }
+
+  # The comma keeps an empty list from being unrolled into $null, which means unreadable.
+  return , @($lines | ForEach-Object { if ("$_" -match '^(\S+) (\S+)$') { @{ Path = $Matches[1]; Major = $Matches[2] } } })
+}
+
 function Invoke-Change {
   # A command that changes something: printed in a dry run, run otherwise.
   param([string] $Description, [scriptblock] $Action)
@@ -388,6 +454,49 @@ $returnTag = if ($comparison -eq 0 -and $recordedTag) { $recordedTag } else { $p
 $imagePrefix = $settings['IMAGE_PREFIX']
 $apiHost = $settings['CC_API_HOST']
 $webHost = $settings['CC_WEB_HOST']
+
+# The PostgreSQL major version of the data against the one of the db image (M4.02e): an image of
+# another major version refuses to start on the data, and the Api cannot reach the database.
+$composePath = Join-Path $Source 'docker-compose.prod.yml'
+
+if (-not (Test-Path -LiteralPath $composePath -PathType Leaf)) {
+  throw "$composePath is missing from the checkout."
+}
+
+$dbImage = Get-ComposeServiceImage -Path $composePath -Service db
+
+if ($dbImage -notmatch '^postgres:(\d+)') {
+  throw "The db image of $composePath ('$dbImage') is not a postgres:<major> image."
+}
+
+$imageMajor = $Matches[1]
+
+if ($settings.ContainsKey('DATA_DIR') -and $settings['DATA_DIR']) {
+  $dbData = Join-Path $settings['DATA_DIR'] 'db'
+  $found = Get-PostgreSqlDataVersion -Path $dbData -Image $dbImage
+
+  if ($null -eq $found) {
+    Write-Step "DRY RUN, would read the PostgreSQL version of $dbData through a container of the db image (unreadable by this user)"
+  }
+  else {
+    # Only <image major>/docker/PG_VERSION of that version is accepted: PG_VERSION at the root is the layout up to 17.
+    $wrong = @($found | Where-Object { $_.Major -ne $imageMajor -or $_.Path -ne "$imageMajor/docker/PG_VERSION" })
+
+    if ($wrong.Count -gt 0) {
+      $description = ($wrong | ForEach-Object {
+        if ($_.Path -eq 'PG_VERSION') { "a PostgreSQL $($_.Major) database in the layout up to 17 (PG_VERSION at its root)" }
+        else { "a PostgreSQL $($_.Major) database in $($_.Path)" }
+      }) -join ' and '
+      throw "$dbData holds $description, and the db image of $Version is PostgreSQL ${imageMajor}: migrate the database first with scripts/Migrate-PostgreSqlMajor.ps1 (docs/operations.md, PostgreSQL major upgrade). Nothing was changed."
+    }
+
+    $state = if ($found.Count -gt 0) { "a PostgreSQL $imageMajor database" } else { 'no database yet' }
+    Write-Step "$dbData holds ${state}: the db image is PostgreSQL $imageMajor"
+  }
+}
+else {
+  Write-Warning "No DATA_DIR: the PostgreSQL version of the db volume is not checked against PostgreSQL $imageMajor."
+}
 
 # A missing proxy network would make the Api fail to start after the TAG is written: checked before
 # anything changes. Read only, but run only with -Execute: a dry run calls no docker.
