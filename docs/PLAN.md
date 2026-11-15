@@ -449,7 +449,7 @@ graph TD
   M4_02f["M4.02f Formulaires de /setup et administrateurs par login"]
   M5_01 --> M4_02g["M4.02g SHA-256 de l'action sur Windows"]
   M4_02h["M4.02h Jauge en français, barre du haut et marge des tableaux"]
-  M4_02f --> M4_02i["M4.02i Appartenances et installation de l'App"]
+  M4_02i["M4.02i Appartenances et installation de l'App"]
   M4_02j["M4.02j Parcours de connexion"]
   M4_02g --> M4_02k["M4.02k Premier upload guidé"]
   M4_02i --> M4_02k
@@ -2563,7 +2563,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **`Setup.razor`** : les `<AntiforgeryToken />` en double sont retirés des `EditForm`, le jeton de `EditForm` suffit. Le même contrôle porte sur `SignIn.razor` et `NavMenu.razor`.
   - **`CcTextField`** : paramètre `Name`. Sans `Name`, le composant le déduit de `ValueExpression` quand il est dans un `EditForm` à rendu statique, comme `InputBase` (`Urls.WebPublicUrl`, `appName`…), et `Setup.razor` le passe.
   - **Nom d'App par défaut** : `CodeCoverage-{login}` quand le login est connu, sinon un champ vide obligatoire. Le refus de GitHub est expliqué sur la page.
-  - **Administrateurs** : le champ accepte des logins ou des identifiants numériques, séparés par des virgules. Les logins sont convertis en identifiants par un port de lecture `GET /users/{login}` (`IGitHubAppGateway`, ou une passerelle publique si l'App n'a pas encore de jeton) avant `CompleteSetup`. Seuls les identifiants sont stockés (`Access:AdminUserIds` ne change pas, l'épinglage par identifiant de M3.42 reste). La page affiche « login → identifiant » pour confirmation, et un login inconnu est refusé avec un code d'erreur `Setting.UnknownGitHubLogin` (`SettingErrors.cs`, `Common.resx` et `Common.fr.resx`).
+  - **Administrateurs** : le champ accepte des logins ou des identifiants numériques, séparés par des virgules. Les logins sont convertis en identifiants par le port de lecture `GET /users/{login}` créé par M4.02i (`IGitHubAppGateway.GetAccountByLoginAsync`, sans jeton, donc utilisable avant que l'App existe) avant `CompleteSetup`. Seuls les identifiants sont stockés (`Access:AdminUserIds` ne change pas, l'épinglage par identifiant de M3.42 reste). La page affiche « login → identifiant » pour confirmation, et un login inconnu est refusé avec un code d'erreur `Setting.UnknownGitHubLogin` (`SettingErrors.cs`, `Common.resx` et `Common.fr.resx`).
 - **Tests :**
   - **`Web.Tests`** : un vrai envoi de chaque formulaire de `/setup` par `WebApplicationFactory`. Le test lit la page, poste le formulaire tel qu'un navigateur le ferait, avec tous ses champs nommés, puis vérifie l'étape enregistrée. Il échoue sur un jeton antiforgery en double comme sur un champ sans `name`.
   - **bUnit** : `CcTextField` rend `name`.
@@ -2573,7 +2573,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.43
 
 #### M4.02g — Somme SHA-256 de l'action composite sur les runners Windows
-- **Issue :** à créer
+- **Issue :** [#267](https://github.com/gaetanthouvenin/code-coverage/issues/267)
 - **Objectif :** que l'action `gaetanthouvenin/code-coverage/action` installe l'uploader sur un runner Windows. Constaté le 2026-11-14 sur le premier dépôt branché (Capto, `windows-latest`) : l'action a averti « the SHA-256 of coverage-upload-win-x64.exe (\261483af…) is not the one of the release (261483af…) » et n'a rien envoyé. Cause prouvée : `sha256_of` de `action/install.sh` appelle `sha256sum "$1"`. Le chemin du binaire vient de `RUNNER_TEMP` (`D:\a\_temp\…`) ; GNU `sha256sum` échappe un nom de fichier qui contient `\` et préfixe alors la ligne d'un `\`, que `cut` garde. Le job Windows de `action-test.yml` ne l'a pas vu : `action/tests/serve-release.sh` calcule la somme publiée de la même façon, donc avec le même `\` (cause probable).
 - **Couches :** action, CI.
 - **Fichiers :**
@@ -2586,7 +2586,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M5.01
 
 #### M4.02h — Jauge en culture française, barre du haut et marge haute des tableaux sans en-tête
-- **Issue :** à créer
+- **Issue :** [#269](https://github.com/gaetanthouvenin/code-coverage/issues/269)
 - **Objectif :** corriger trois défauts d'affichage constatés le 2026-11-14 sur l'instance de production :
   1. **Jauge Quota GitHub** (`/admin/operations`) éclatée en fragments. Cause prouvée sur le HTML servi : `CcGauge.razor` écrit `y="@(CenterY - 8.5)"`, que Blazor formate dans la culture courante, d'où `y="147,5"` en français. Le navigateur ignore la valeur, prend `y=0`, et la rotation autour de (160, 156) disperse les segments. `CcLineChart` et `CcSparkline` passent déjà par `Num()` (culture invariante).
   2. **Header de tableau collé au bord de la carte** (`/orgs/github/{org}/repositories`). `.cc-panel > .cc-table-wrap` a un padding haut de 0, qui suppose qu'un `cc-panel__head` précède le tableau. Une carte dont le tableau est le premier enfant n'a donc aucune marge haute.
@@ -2608,7 +2608,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 > M4.02i à M4.02m viennent de l'audit des parcours utilisateur du 2026-11-14 (29 constats confirmés sur le code, un réfuté), mené après le premier démarrage de l'instance de production.
 
 #### M4.02i — Appartenances à jour, lien d'installation de l'App et admission guidée
-- **Issue :** à créer
+- **Issue :** [#270](https://github.com/gaetanthouvenin/code-coverage/issues/270)
 - **Objectif :** qu'un utilisateur voie ses organisations sans se déconnecter, et que l'administrateur d'instance sache installer l'App puis admettre un compte. Trois défauts sont prouvés :
   1. **Appartenances figées à la connexion.** `RefreshUserMemberships` n'est mis en file que par `SignInUserCommandHandler` et par les webhooks `member` et `membership`. `OrganizationRoleResolver` ignore une appartenance plus vieille que `Access:HardExpiryMinutes` (60 minutes), alors que le cookie vit 7 jours en glissement. Conséquence : toutes les organisations disparaissent une heure après la connexion. De plus, `AdmitOrganizationCommandHandler` ne met en file que `SyncInstallations`, donc l'administrateur qui vient d'admettre un compte ne le voit pas avant de se reconnecter. Constaté sur l'instance de production.
   2. **Aucun lien d'installation de l'App.** `GitHub:AppSlug` est stocké mais n'est affiché nulle part : aucune URL `github.com/apps/…/installations/new` n'existe dans `src`. Le manifest n'a pas de `setup_url`.
@@ -2619,7 +2619,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Admission** : `AdmitOrganizationCommandHandler` met aussi en file `RefreshUserMemberships` pour l'administrateur qui admet.
   - **Lien d'installation** : `https://github.com/apps/{AppSlug}/installations/new`, construit par la configuration du Web, affiché à la fin de `/setup`, dans l'en-tête et l'état vide de `/admin/organizations`, et dans l'état vide de l'accueil pour un administrateur d'instance. `setup_url` est ajouté au manifest (`GitHubAppManifest.cs`) pour revenir à la console.
   - **Vérifier les installations** : commande `IAdminOnly`, auditée, qui met en file `SyncInstallations` tout de suite, avec un bouton dans `/admin/organizations`.
-  - **Admission par login** : le dialogue accepte un login, résolu en identifiant de compte par le port de lecture `GET /users/{login}` de M4.02f, avec confirmation « login → identifiant ».
+  - **Admission par login** : le dialogue accepte un login, résolu en identifiant de compte par le port de lecture `GET /users/{login}` (`IGitHubAppGateway.GetAccountByLoginAsync`, sans jeton : le compte est public, et ni l'App ni une installation n'existent forcément), avec confirmation « login → identifiant ». Ce port est créé ici ; M4.02f le réutilise. Un login inconnu est refusé (`Organization.UnknownGitHubLogin`).
   - **Documents** : `docs/operations.md` (premier démarrage : installer l'App) et `docs/operations/organization-onboarding.md`.
 - **Tests :**
   - **Application** : une appartenance périmée lue met le rafraîchissement en file, une seule fois ; l'admission met en file `SyncInstallations` et `RefreshUserMemberships`.
@@ -2627,10 +2627,10 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
   - **Manifest** : `setup_url` présent.
   - **Propriétaire** : sur l'instance, admettre un compte et le voir sans se reconnecter, puis toujours le voir deux heures après la connexion.
 - **Acceptation :** aucune reconnexion n'est nécessaire, ni après une admission, ni au bout d'une heure ; l'App s'installe depuis la console ; une installation manquée se rattrape par un bouton ; un compte s'admet par son login.
-- **Dépend de :** M4.02f
+- **Dépend de :** M3.43 (le port de lecture `GET /users/{login}`, prévu par M4.02f, est créé par M4.02i)
 
 #### M4.02j — Parcours de connexion
-- **Issue :** à créer
+- **Issue :** [#271](https://github.com/gaetanthouvenin/code-coverage/issues/271)
 - **Objectif :** qu'un visiteur sache où se connecter, et revienne à la page qu'il voulait. Défauts prouvés par l'audit :
   1. aucun lien « Se connecter » : `NavMenu` n'affiche le menu utilisateur que si `Model` n'est pas nul ;
   2. un lien profond suivi sans être connecté, par exemple depuis un commentaire de PR ou un statut, affiche « Introuvable ou inaccessible ». Aucune page ne porte `[Authorize]`, donc le `LoginPath` du cookie ne se déclenche jamais, et `AuthorizationBehavior` renvoie 404 à un anonyme ;
@@ -2651,7 +2651,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.43
 
 #### M4.02k — Premier upload guidé
-- **Issue :** à créer
+- **Issue :** [#272](https://github.com/gaetanthouvenin/code-coverage/issues/272)
 - **Objectif :** qu'un administrateur de dépôt sache quoi mettre dans son workflow, et qu'un upload refusé dise pourquoi. Défauts prouvés par l'audit :
   1. l'état vide de la vue d'ensemble d'un dépôt n'a aucune action ; rien dans le Web ne mentionne l'action, l'uploader ni `id-token` ;
   2. `UploadClient` n'affiche que le code d'erreur, et ignore le `detail` du ProblemDetails ;
@@ -2671,7 +2671,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02g, M4.02i
 
 #### M4.02l — Liens de navigation manquants
-- **Issue :** à créer
+- **Issue :** [#273](https://github.com/gaetanthouvenin/code-coverage/issues/273)
 - **Objectif :** rendre accessibles les vues qu'on ne peut atteindre qu'en tapant l'adresse. Défauts prouvés par l'audit :
   1. la page Comparer n'a aucun lien ;
   2. la page d'une PR n'a de lien ni vers son commit de tête, ni vers sa base ;
@@ -2685,7 +2685,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.43
 
 #### M4.02m — Messages de validation et pages d'erreur
-- **Issue :** à créer
+- **Issue :** [#274](https://github.com/gaetanthouvenin/code-coverage/issues/274)
 - **Objectif :** des messages compris par l'utilisateur. Défauts prouvés par l'audit :
   1. les messages de validation restent en anglais, parce que `ValidationException` ne garde que `ErrorMessage` ;
   2. un refus d'étape de `/setup` n'affiche que « Certaines valeurs ne sont pas valides », sans champ ;
@@ -2704,7 +2704,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.43
 
 #### M4.02n — Maquette de la documentation dans l'application
-- **Issue :** à créer
+- **Issue :** [#275](https://github.com/gaetanthouvenin/code-coverage/issues/275)
 - **Objectif :** décider, puis faire valider par le propriétaire, la présentation d'une documentation lue dans le Web. Elle doit expliquer comment mettre en place l'instance, l'App GitHub, les organisations et les dépôts, sans renvoyer au dépôt GitHub. Demande du propriétaire du 2026-11-14, après le premier démarrage de l'instance de production.
 - **Couches :** maquette.
 - **Fichiers :** `docs/design/ui-mockup.html`, avec les composants maison `Cc*` et le préfixe `cc-`, en mode clair, sombre et largeur mobile :
@@ -2718,7 +2718,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M3.18
 
 #### M4.02o — Documentation dans l'application
-- **Issue :** à créer
+- **Issue :** [#276](https://github.com/gaetanthouvenin/code-coverage/issues/276)
 - **Objectif :** servir dans le Web la documentation utilisateur de `docs/`, selon la maquette de M4.02n. Les fichiers de `docs/` restent la seule source : la documentation affichée est celle de la version déployée.
 - **Couches :** Web, docs.
 - **Fichiers :**
