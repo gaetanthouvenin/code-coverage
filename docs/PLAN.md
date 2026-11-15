@@ -3248,7 +3248,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02v
 
 #### M4.02z — Version de l'uploader refusée par le serveur
-- **Issue :** à créer
+- **Issue :** [#420](https://github.com/gaetanthouvenin/code-coverage/issues/420)
 - **Objectif :** que les uploads d'un uploader publié soient acceptés. Constaté le 2026-11-15 sur Capto (PR Capto#65, run 43737404584, `windows-latest`, uploader `0.1.0-beta.2`) : l'installation et la somme SHA-256 passent (M4.02g), l'uploader trouve les quatre rapports, puis le serveur répond « 400 (General.ValidationFailed) » et l'uploader n'affiche que « One or more validation errors occurred. ». Cause prouvée : `UploadClient.Version` envoie l'`AssemblyInformationalVersion` complète, que GitVersion écrit `0.1.0-beta.2+Branch.develop.Sha.c37d8a367310aa9b967b5213753f378d8c5679af` (72 caractères, lue dans le binaire `coverage-upload-win-x64.exe` de la release) ; `ReceiveUploadCommandValidator` limite `Metadata.UploaderVersion` à `Upload.UploaderVersionMaxLength` (64) et refuse tout l'upload. Les autres champs d'une PR GitHub restent dans leurs limites. Toute release `v*` construite de cette façon est touchée, `v0.1.0-beta.1` comprise.
 - **Couches :** Uploader, Api.
 - **Fichiers :**
