@@ -98,6 +98,9 @@ public partial class OrganizationRepositories
 
   private string AgeOf(DateTimeOffset at) => DisplayFormatter.Age(at, Time.GetUtcNow(), L);
 
+  // The same address as the home page gives the repository: the organization is its owner.
+  private string HrefOf(OrganizationRepositoryViewModel repository) => RepositoryLinks.HrefOf(Forge, Login, repository.Name);
+
   private async Task LoadAsync()
   {
     var (forge, login) = (Forge, Login);

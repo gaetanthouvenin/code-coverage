@@ -110,6 +110,10 @@ public sealed class CompareTests : UiTestContext
     cut.Find("[data-panel=impacted] a").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Head.Value}/blob/src/a.cs");
     cut.FindAll("a[data-link=comment]").ShouldBeEmpty();
     cut.FindAll(".cc-action-renotify").ShouldBeEmpty();
+    cut.Find("a[data-link=head]").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Head.Value}");
+    cut.Find("a[data-link=compared]").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Base.Value}");
+    cut.FindAll("a[data-link=fork]").ShouldBeEmpty();
+    cut.FindAll("a[data-link=compare]").ShouldBeEmpty();
     cut.Find(".cc-pill-tabs__tab--active").TextContent.Trim().ShouldBe(L("Tab_Commits"));
     A.CallTo(() => _sender.Send(A<GetCommitRangeQuery>.That.Matches(static q => q.Base == Base && q.Head == Head), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }

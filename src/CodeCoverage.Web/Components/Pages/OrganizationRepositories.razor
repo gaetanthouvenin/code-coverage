@@ -82,7 +82,7 @@
                     <td>
                       <div class="cc-cell">
                         <span class="cc-thumb"><CcIcon Name="CcIconName.Repo" /></span>
-                        <strong>@repository.Name</strong>
+                        <a class="cc-strong" href="@HrefOf(repository)" data-link="repository">@repository.Name</a>
                       </div>
                     </td>
                     <td class="cc-muted cc-nowrap">@(repository.LastUploadAt is { } at ? AgeOf(at) : DisplayFormatter.Dash)</td>

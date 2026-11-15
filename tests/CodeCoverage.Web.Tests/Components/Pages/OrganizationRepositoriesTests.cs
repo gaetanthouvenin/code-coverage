@@ -72,6 +72,17 @@ public sealed class OrganizationRepositoriesTests : UiTestContext
     cut.Find("tr[data-repository=api]").QuerySelector("[role=switch]")!.GetAttribute("aria-checked").ShouldBe("false");
   }
 
+  // The name opens the repository by the address the home page gives it, each segment escaped.
+  [Fact]
+  public void Render_ShouldLinkEachRepositoryToItsPage()
+  {
+    var cut = Render<OrganizationRepositories>(Address(login: "acme labs"));
+
+    var link = cut.Find("tr[data-repository=web] a[data-link=repository]");
+    link.GetAttribute("href").ShouldBe("github/acme%20labs/web");
+    link.TextContent.ShouldBe("web");
+  }
+
   [Fact]
   public void Render_WithoutRepository_ShouldShowTheEmptyState()
   {
@@ -208,8 +219,8 @@ public sealed class OrganizationRepositoriesTests : UiTestContext
 
   private IReadOnlyList<CcToastMessage> Toasts() => Services.GetRequiredService<IToastService>().Toasts;
 
-  private static Action<ComponentParameterCollectionBuilder<OrganizationRepositories>> Address(string forge = "github") =>
-    p => p.Add(static c => c.Forge, forge).Add(static c => c.Login, "acme-labs");
+  private static Action<ComponentParameterCollectionBuilder<OrganizationRepositories>> Address(string forge = "github", string login = "acme-labs") =>
+    p => p.Add(static c => c.Forge, forge).Add(static c => c.Login, login);
 
   private string L(string key) => Services.GetRequiredService<IStringLocalizer<Common>>()[key];
 

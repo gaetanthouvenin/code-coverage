@@ -62,7 +62,7 @@ internal static class ComparisonMapper
     var detail = await sender.Send(new GetPullRequestQuery(parsed, owner, name, number), cancellationToken).ConfigureAwait(false);
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
 
-    return ToViewModel(detail, parsed, owner, name, config, $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}");
+    return ToViewModel(detail, parsed, owner, name, config, RepositoryLinks.HrefOf(forge, owner, name));
   }
 
   /// <summary>Splits the range of a free comparison into its two full SHAs.</summary>
@@ -115,7 +115,7 @@ internal static class ComparisonMapper
     var (baseSha, headSha) = (GitSha.Parse(first), GitSha.Parse(second));
     var commits = await sender.Send(new GetCommitRangeQuery(parsed, owner, name, baseSha, headSha), cancellationToken).ConfigureAwait(false);
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
-    var root = $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
+    var root = RepositoryLinks.HrefOf(forge, owner, name);
 
     return new CompareViewModel(
       DisplayFormatter.ShortSha(baseSha),
@@ -180,7 +180,12 @@ internal static class ComparisonMapper
         comparedTo is null && expectedBase is not null ? DisplayFormatter.ShortSha(expectedBase) : null,
         comparison.BehindBy,
         // Without a fork point the hops count from the first parent: « before the merge base » would be untrue.
-        comparedTo is null || comparison.ForkPointSha is null ? null : comparison.Hops
+        comparedTo is null || comparison.ForkPointSha is null ? null : comparison.Hops,
+        RepositoryLinks.CommitHrefOf(root, view.HeadSha),
+        comparison.ForkPointSha is { } forkPoint ? RepositoryLinks.CommitHrefOf(root, forkPoint) : null,
+        comparedTo is null ? null : RepositoryLinks.CommitHrefOf(root, comparedTo),
+        // The compare page of a pull request's head and base; the compare page itself needs no link to itself.
+        pull is null || comparedTo is null ? null : RepositoryLinks.CompareHrefOf(root, comparedTo, view.HeadSha)
       ),
       DiffTableLayout.Lay(
         baseBranch ?? DisplayFormatter.ShortSha(comparedTo ?? view.HeadSha),

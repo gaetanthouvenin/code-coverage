@@ -88,6 +88,27 @@ public sealed class PullRequestDetailTests : UiTestContext
     cut.Find(".cc-pill-tabs__tab--active").TextContent.Trim().ShouldBe(L("Tab_Pulls"));
   });
 
+  // Each commit of the explanation opens its page and the comparison opens the compare page; the segments are escaped.
+  [Fact]
+  public void Render_ShouldLinkTheCommitsAndTheComparison() => InEnglish(() =>
+  {
+    Returns(Detail(Comparison(ComparedTo, behindBy: 3, hops: 2)));
+
+    var cut = Render<PullRequestDetailPage>(Address(423, owner: "octo org", name: "my app"));
+
+    const string Root = "github/octo%20org/my%20app";
+    cut.Find("[data-base=head] a[data-link=head]").GetAttribute("href").ShouldBe($"{Root}/commit/{Head.Value}");
+    var fork = cut.Find("[data-base=fork]");
+    fork.QuerySelector("a[data-link=fork]")!.GetAttribute("href").ShouldBe($"{Root}/commit/{ForkPoint.Value}");
+    fork.QuerySelector("a[data-link=fork]")!.TextContent.ShouldBe("a1b2c3d");
+    fork.TextContent.Trim().ShouldBe(L("Comparison_OnBranch", "a1b2c3d", "main"));
+    cut.Find("[data-base=compared] a[data-link=compared]").GetAttribute("href").ShouldBe($"{Root}/commit/{ComparedTo.Value}");
+    cut.Find("[data-panel=comparison-kpis] a[data-link=base]").GetAttribute("href").ShouldBe($"{Root}/commit/{ComparedTo.Value}");
+    var compare = cut.Find("[data-panel=base] a[data-link=compare]");
+    compare.GetAttribute("href").ShouldBe($"{Root}/compare/{ComparedTo.Value}...{Head.Value}");
+    compare.TextContent.ShouldContain(L("Compare_Action"));
+  });
+
   // A comparison stored before M3.31 knows neither distance: no « 0 », no Behind row, no hops.
   [Fact]
   public void Render_OldComparison_ShouldShowNoDistance()
@@ -232,6 +253,9 @@ public sealed class PullRequestDetailTests : UiTestContext
     cut.Find("[data-panel=comparison-kpis] .cc-kpi").TextContent.ShouldContain(L("Comparison_NoBaseReport"));
     cut.Find("[data-base=compared]").TextContent.ShouldContain(L("Comparison_NoBaseReport"));
     cut.Find("[data-base=expected]").TextContent.ShouldBe(L("Comparison_UploadBase", "a1b2c3d"));
+    cut.FindAll("a[data-link=compared]").ShouldBeEmpty();
+    cut.FindAll("a[data-link=base]").ShouldBeEmpty();
+    cut.FindAll("a[data-link=compare]").ShouldBeEmpty();
   }
 
   // As the comment: files sorted by changed lines missed, then by the size of the change, then by path; all listed,
@@ -361,8 +385,8 @@ public sealed class PullRequestDetailTests : UiTestContext
     return new ComparisonView(Head, stored, null, false, 212, 210);
   }
 
-  private static Action<ComponentParameterCollectionBuilder<PullRequestDetailPage>> Address(int number) =>
-    p => p.Add(static c => c.Forge, "github").Add(static c => c.Owner, "octo-org").Add(static c => c.Name, "app").Add(static c => c.Number, number);
+  private static Action<ComponentParameterCollectionBuilder<PullRequestDetailPage>> Address(int number, string owner = "octo-org", string name = "app") =>
+    p => p.Add(static c => c.Forge, "github").Add(static c => c.Owner, owner).Add(static c => c.Name, name).Add(static c => c.Number, number);
 
   private static void InEnglish(Action test)
   {
