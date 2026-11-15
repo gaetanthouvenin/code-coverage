@@ -37,13 +37,23 @@
     <PublishedDocument Include="..\..\docs\migration-from-codecov.md" Slug="migration-from-codecov" />
   </ItemGroup>
 
-  <!-- Each document, and its French translation (name.fr.md next to it) when it exists. WithCulture=false keeps a
-       .fr.md out of the satellite assemblies: the documentation picks the translation itself. -->
+  <!-- The languages of the translations of the documents: the languages of the console but English (ConsoleLanguages,
+       checked by DocumentationSourceTests). -->
+  <PropertyGroup>
+    <DocumentationLanguages>fr;it;es</DocumentationLanguages>
+  </PropertyGroup>
+
+  <!-- Each document, and each of its translations (name.{language}.md next to it) that exists. WithCulture=false keeps a
+       translation out of the satellite assemblies: the documentation picks the translation itself (M4.02v). -->
   <Target Name="EmbedPublishedDocuments" BeforeTargets="AssignTargetPaths">
     <ItemGroup>
-      <_PublishedTranslation Include="@(PublishedDocument->'%(RootDir)%(Directory)%(Filename).fr%(Extension)')" />
+      <_DocumentationLanguage Include="$(DocumentationLanguages)" />
+      <_PublishedDocumentInLanguage Include="@(PublishedDocument)">
+        <Language>%(_DocumentationLanguage.Identity)</Language>
+      </_PublishedDocumentInLanguage>
+      <_PublishedTranslation Include="@(_PublishedDocumentInLanguage->'%(RootDir)%(Directory)%(Filename).%(Language)%(Extension)')" />
       <EmbeddedResource Include="@(PublishedDocument)" LogicalName="CodeCoverage.Web.Docs.%(PublishedDocument.Slug).md" WithCulture="false" Type="Non-Resx" />
-      <EmbeddedResource Include="@(_PublishedTranslation)" Condition="Exists('%(FullPath)')" LogicalName="CodeCoverage.Web.Docs.%(_PublishedTranslation.Slug).fr.md" WithCulture="false" Type="Non-Resx" />
+      <EmbeddedResource Include="@(_PublishedTranslation)" Condition="Exists('%(FullPath)')" LogicalName="CodeCoverage.Web.Docs.%(_PublishedTranslation.Slug).%(_PublishedTranslation.Language).md" WithCulture="false" Type="Non-Resx" />
     </ItemGroup>
   </Target>
 

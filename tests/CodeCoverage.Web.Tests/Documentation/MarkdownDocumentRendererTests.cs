@@ -154,6 +154,26 @@ public sealed class MarkdownDocumentRendererTests
     html.ShouldNotContain("<blockquote");
   }
 
+  // A translation takes the identifiers of the English headings, in order; its YAML header is never shown.
+  [Fact]
+  public void Render_TranslationWithTheEnglishAnchors_ShouldTakeThemAndHideItsHeader()
+  {
+    var english = Render("# Guide\n\n## First deployment\n\n### Prepare the host\n\n## Restore\n");
+
+    var translation = MarkdownDocumentRenderer.Render(
+      "---\nsource-sha256: abc\n---\n# Guide\n\n## Premier déploiement\n\n### Préparer l’hôte\n\n## Restauration\n",
+      Operations,
+      "fr",
+      Version,
+      Labels,
+      english.Headings);
+
+    translation.Title.ShouldBe("Guide");
+    translation.Headings.Select(static h => h.Id).ShouldBe(["first-deployment", "prepare-the-host", "restore"]);
+    translation.Html.ShouldNotContain("source-sha256");
+    translation.Language.ShouldBe("fr");
+  }
+
   private static RenderedDocument Render(string markdown, DocumentEntry? entry = null) =>
     MarkdownDocumentRenderer.Render(markdown, entry ?? Operations, "en", Version, Labels);
 

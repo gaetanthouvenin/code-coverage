@@ -10,6 +10,7 @@ using Markdig;
 using Markdig.Extensions.Alerts;
 using Markdig.Extensions.AutoIdentifiers;
 using Markdig.Extensions.Tables;
+using Markdig.Extensions.Yaml;
 using Markdig.Renderers;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
@@ -27,12 +28,13 @@ internal static class MarkdownDocumentRenderer
 {
   #region Fields
 
-  /// <summary>The pipeline: GitHub tables, alerts, identifiers and bare links, without raw HTML.</summary>
+  /// <summary>The pipeline: GitHub tables, alerts, identifiers, bare links and the YAML header of a translation, without raw HTML.</summary>
   private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
                                                       .UsePipeTables()
                                                       .UseAlertBlocks()
                                                       .UseAutoIdentifiers(AutoIdentifierOptions.GitHub)
                                                       .UseAutoLinks()
+                                                      .UseYamlFrontMatter()
                                                       .DisableHtml()
                                                       .Build();
 
@@ -43,12 +45,22 @@ internal static class MarkdownDocumentRenderer
   /// <summary>Renders a document.</summary>
   /// <param name="markdown">The Markdown of the document.</param>
   /// <param name="entry">The published document.</param>
-  /// <param name="language">The language of the Markdown, <c>en</c> or <c>fr</c>.</param>
+  /// <param name="language">The language of the Markdown, <c>en</c> or the language of a translation.</param>
   /// <param name="version">The deployed version, without the leading <c>v</c>.</param>
   /// <param name="labels">The localized texts of the rendering.</param>
+  /// <param name="anchors">
+  ///   The headings of the English document when <paramref name="markdown" /> is a translation: its headings take their
+  ///   identifiers, in order, while their levels match; <see langword="null" /> keeps the identifiers of the text.
+  /// </param>
   /// <returns>The rendered document.</returns>
-  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
-  public static RenderedDocument Render(string markdown, DocumentEntry entry, string language, string version, RenderLabels labels)
+  /// <exception cref="ArgumentNullException">A required argument is <see langword="null" />.</exception>
+  public static RenderedDocument Render(
+    string markdown,
+    DocumentEntry entry,
+    string language,
+    string version,
+    RenderLabels labels,
+    IReadOnlyList<DocumentHeading>? anchors = null)
   {
     ArgumentNullException.ThrowIfNull(markdown);
     ArgumentNullException.ThrowIfNull(entry);
@@ -57,7 +69,19 @@ internal static class MarkdownDocumentRenderer
     ArgumentNullException.ThrowIfNull(labels);
 
     var document = Markdown.Parse(markdown, Pipeline);
+
+    // The YAML header of a translation (source-sha256) is checked by the tests, never shown.
+    foreach (var header in document.OfType<YamlFrontMatterBlock>().ToList())
+    {
+      document.Remove(header);
+    }
+
     var title = TakeTitle(document) ?? entry.Slug;
+
+    if (anchors is not null)
+    {
+      TakeAnchors(document, anchors);
+    }
 
     DocumentLinkRewriter.Rewrite(document, entry, version);
 
@@ -74,7 +98,21 @@ internal static class MarkdownDocumentRenderer
     renderer.Render(document);
     writer.Flush();
 
-    return new RenderedDocument(entry, title, writer.ToString(), headings, language);
+    return new RenderedDocument(entry, title, writer.ToString(), headings, language, language);
+  }
+
+  /// <summary>Gives the headings of a translation the identifiers of the English headings, in order.</summary>
+  /// <param name="document">The parsed translation, without its title.</param>
+  /// <param name="anchors">The headings of the English document.</param>
+  /// <remarks>A translation has the plan of the English document (a test checks it); the copy stops at the first difference of level.</remarks>
+  private static void TakeAnchors(MarkdownDocument document, IReadOnlyList<DocumentHeading> anchors)
+  {
+    var headings = document.Descendants<HeadingBlock>().Where(static h => h.Level >= 2).ToList();
+
+    for (var i = 0; i < headings.Count && i < anchors.Count && headings[i].Level == anchors[i].Level; i++)
+    {
+      headings[i].GetAttributes().Id = anchors[i].Id;
+    }
   }
 
   /// <summary>Replaces the renderers of Markdig that the console draws its own way.</summary>

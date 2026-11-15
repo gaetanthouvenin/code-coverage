@@ -189,7 +189,7 @@ Maquette **M4.02n**, à valider avant M4.02o : écran `#docs` et ses états, ent
 
 - La documentation est le Markdown de `docs/` embarqué dans le Web et rendu côté serveur : celle de la **version déployée**, affichée dans la navigation (`v0.1.0-beta.2`) et sous le titre de chaque page avec son fichier source.
 - Seule la liste blanche de M4.02o est publiée ; le plan, les ADR, `ARCHITECTURE.md` et `CONVENTIONS.md` jamais.
-- Le contenu est en **anglais** tant qu'aucune traduction n'existe. L'habillage (« Sur cette page », « Précédent », « Suivant », la version, les états) suit la langue de la console. Les traductions `{nom}.{langue}.md` et le repli sur l'anglais sont décrits dans « Langues de la console » (M4.02v à M4.02y).
+- Le contenu est dans la langue de la console quand sa traduction `{nom}.{langue}.md` existe (M4.02v, règles de `docs/CONVENTIONS.md` §11.7), sinon en **anglais**, la langue de référence, avec le bandeau de « Documentation non traduite ». L'habillage (« Sur cette page », « Précédent », « Suivant », la version, les états) suit toujours la langue de la console ; la navigation et les titres des pages suivent la langue servie de chaque document.
 
 ### Accès et entrée
 

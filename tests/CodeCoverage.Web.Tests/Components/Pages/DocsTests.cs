@@ -112,9 +112,9 @@ public sealed class DocsTests : UiTestContext
     cut.Find(".cc-docs__nav-toggle").GetAttribute("aria-expanded").ShouldBe("true");
   }
 
-  // No translation is published yet: the French console serves the English document, marked as English.
+  // The chrome follows the language of the console, whatever the language the document is served in.
   [Fact]
-  public void Render_InFrench_ShouldServeTheEnglishDocumentAndFrenchChrome()
+  public void Render_InFrench_ShouldShowTheFrenchChrome()
   {
     var previous = CultureInfo.CurrentUICulture;
     CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
@@ -123,8 +123,7 @@ public sealed class DocsTests : UiTestContext
     {
       var cut = Render<Docs>(WithContext("operations"));
 
-      cut.WaitForAssertion(() => cut.Find(".cc-md").GetAttribute("lang").ShouldBe("en"));
-      cut.Find(".cc-docs__toc h2").TextContent.ShouldBe("Sur cette page");
+      cut.WaitForAssertion(() => cut.Find(".cc-docs__toc h2").TextContent.ShouldBe("Sur cette page"));
     }
     finally
     {

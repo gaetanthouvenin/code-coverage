@@ -11,13 +11,23 @@ namespace CodeCoverage.Web.Documentation;
 /// <param name="Title">The text of its first-level heading, shown as the title of the page.</param>
 /// <param name="Html">Its content without that heading: the Markdown rendered on the server, raw HTML neutralised.</param>
 /// <param name="Headings">Its headings of level 2 to 6, in the order of the document.</param>
-/// <param name="Language">The language of the content: <c>fr</c> for a translation, <c>en</c> otherwise.</param>
-public sealed record RenderedDocument(DocumentEntry Entry, string Title, string Html, IReadOnlyList<DocumentHeading> Headings, string Language)
+/// <param name="Language">The language of the content: the language of a translation, <c>en</c> otherwise.</param>
+/// <param name="RequestedLanguage">The language of the console the document was asked in.</param>
+public sealed record RenderedDocument(
+  DocumentEntry Entry,
+  string Title,
+  string Html,
+  IReadOnlyList<DocumentHeading> Headings,
+  string Language,
+  string RequestedLanguage)
 {
   #region Properties
 
   /// <summary>Gets the headings of level 2, the contents of the page (« On this page »).</summary>
   public IReadOnlyList<DocumentHeading> Contents => [.. Headings.Where(static h => h.Level == 2)];
+
+  /// <summary>Gets a value indicating whether the document is served in English for want of a translation.</summary>
+  public bool IsFallback => !string.Equals(Language, RequestedLanguage, StringComparison.Ordinal);
 
   #endregion
 

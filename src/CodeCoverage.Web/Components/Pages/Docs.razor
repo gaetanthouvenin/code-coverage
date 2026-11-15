@@ -104,6 +104,11 @@
             </ol>
           </details>
         }
+        @* No translation in the language of the console: the English page, announced, never in English. *@
+        @if (Document.IsFallback)
+        {
+          <CcBanner>@L["Docs_NotTranslated"]</CcBanner>
+        }
         <div class="cc-md" lang="@Document.Language">@((MarkupString)Document.Html)</div>
         @if (Previous is not null || Next is not null)
         {

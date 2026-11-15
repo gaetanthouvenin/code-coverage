@@ -602,4 +602,5 @@
   <data name="Docs_Section_Migration" xml:space="preserve"><value>Migration depuis Codecov</value></data>
   <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Comment envoyer le premier rapport</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Langue</value></data>
+  <data name="Docs_NotTranslated" xml:space="preserve"><value>Cette page n’est pas encore traduite en français : elle s’affiche en anglais, la langue de référence de la documentation.</value></data>
 </root>
