@@ -608,4 +608,39 @@
   <data name="Overview_FirstReportHelp" xml:space="preserve"><value>How to send the first report</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Language</value></data>
   <data name="Docs_NotTranslated" xml:space="preserve"><value>This page is not translated yet: it is shown in English, the reference language of the documentation.</value></data>
+  <data name="Report_Action" xml:space="preserve"><value>Detailed report</value></data>
+  <data name="Report_Crumb" xml:space="preserve"><value>Detailed report</value></data>
+  <data name="Report_Title" xml:space="preserve"><value>Detailed coverage report</value></data>
+  <data name="Report_Subtitle" xml:space="preserve"><value>lines, branches and methods of each file</value></data>
+  <data name="Report_Codecov" xml:space="preserve"><value>Codecov</value></data>
+  <data name="Report_CodecovCard" xml:space="preserve"><value>Coverage (Codecov)</value></data>
+  <data name="Report_CodecovFoot" xml:space="preserve"><value>hits ÷ (hits + partials + misses), the figure of the statuses</value></data>
+  <data name="Report_Lines" xml:space="preserve"><value>Lines</value></data>
+  <data name="Report_Branches" xml:space="preserve"><value>Branches</value></data>
+  <data name="Report_Methods" xml:space="preserve"><value>Methods</value></data>
+  <data name="Report_LinesFoot" xml:space="preserve"><value>{0} executed of {1}</value></data>
+  <data name="Report_BranchesFoot" xml:space="preserve"><value>{0} covered of {1}</value></data>
+  <data name="Report_MethodsFoot" xml:space="preserve"><value>{0} executed of {1}</value></data>
+  <data name="Report_NoMethods" xml:space="preserve"><value>The reports of this commit give no method</value></data>
+  <data name="Report_ReprocessFoot" xml:space="preserve"><value>Reprocess the commit to compute it</value></data>
+  <data name="Report_LegacyTitle" xml:space="preserve"><value>Processed before the detailed report</value></data>
+  <data name="Report_LegacyText" xml:space="preserve"><value>This commit was processed before lines, branches and methods were stored: only the Codecov coverage is known. Reprocessing rebuilds them from the raw uploads, kept 30 days.</value></data>
+  <data name="Report_Help" xml:space="preserve"><value>Codecov: the headline figure, partials count as not covered. Lines: executed at least once, partials included, as in ReportGenerator. —: nothing to cover, or the format gives no such data.</value></data>
+  <data name="Report_TableLabel" xml:space="preserve"><value>Detailed coverage of each file</value></data>
+  <data name="Report_CoveredTotal" xml:space="preserve"><value>Covered / total</value></data>
+  <data name="Report_CoveredTotalHint" xml:space="preserve"><value>Covered / coverable</value></data>
+  <data name="Report_Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Report_FileCount" xml:space="preserve"><value>{0} files</value></data>
+  <data name="Report_Show" xml:space="preserve"><value>Show</value></data>
+  <data name="Report_ShowAll" xml:space="preserve"><value>All files</value></data>
+  <data name="Report_ShowBelowTarget" xml:space="preserve"><value>Below the target ({0})</value></data>
+  <data name="Report_ShowUncoveredBranches" xml:space="preserve"><value>With uncovered branches</value></data>
+  <data name="Report_ShowUnexecutedMethods" xml:space="preserve"><value>With unexecuted methods</value></data>
+  <data name="Report_Sort" xml:space="preserve"><value>Sort</value></data>
+  <data name="Report_SortLowest" xml:space="preserve"><value>{0}, lowest first</value></data>
+  <data name="Report_SortHighest" xml:space="preserve"><value>{0}, highest first</value></data>
+  <data name="Report_SortPathAsc" xml:space="preserve"><value>Path, A to Z</value></data>
+  <data name="Report_SortPathDesc" xml:space="preserve"><value>Path, Z to A</value></data>
+  <data name="Report_NoMatchTitle" xml:space="preserve"><value>No file matches</value></data>
+  <data name="Report_NoMatchText" xml:space="preserve"><value>Change the search or the filter.</value></data>
 </root>

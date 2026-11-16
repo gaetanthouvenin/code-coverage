@@ -3281,3 +3281,38 @@ code {
     padding-right: 110px;
   }
 }
+
+/* The detailed report of a commit (mockup of M5.08, built by M5.15): a flat table with two header rows, one group of two
+   columns per figure, the total out of the sort; on a narrow screen, one card per file and the list « Sort ». */
+.cc-report__table th { padding: 10px 12px; }
+.cc-report__table td { padding: 13px 12px; }
+.cc-report__table thead tr:first-child th { border-radius: 0; }
+.cc-report__table thead tr:first-child th:first-child { border-radius: 12px 0 0 12px; }
+.cc-report__table thead tr:first-child th:last-child { border-radius: 0 12px 0 0; }
+.cc-report__table thead tr:last-child th { border-radius: 0; border-top: 1px solid var(--cc-line); }
+.cc-report__table thead tr:last-child th:last-child { border-radius: 0 0 12px 0; }
+.cc-report__grp { text-align: center !important; border-left: 1px solid var(--cc-line); }
+.cc-report__table .cc-report__gs { border-left: 1px solid var(--cc-line); }
+.cc-report__file { max-width: 300px; }
+.cc-report__table .cc-covbar { min-width: 96px; gap: 8px; }
+.cc-report__total td { background: color-mix(in srgb, var(--cc-card-2) 60%, transparent); border-bottom: 2px solid var(--cc-line); }
+.cc-report__sort { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.cc-report__sort .cc-icon { width: 14px; height: 14px; opacity: .55; }
+.cc-report__sort--on { color: var(--cc-fg); }
+.cc-report__sort--on .cc-icon { opacity: 1; color: var(--cc-accent); }
+.cc-report__sort:focus-visible { outline: 2px solid var(--cc-accent); outline-offset: 3px; border-radius: 4px; }
+.cc-report__sortsel { display: none; }
+.cc-report-cards { display: none; }
+.cc-report-card { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--cc-line); color: inherit; text-decoration: none; min-width: 0; }
+.cc-report-card--total { background: color-mix(in srgb, var(--cc-card-2) 60%, transparent); border-radius: 14px; border-top: 0; }
+.cc-report-card__grid { display: grid; grid-template-columns: auto auto minmax(0,1fr); align-items: center; gap: 8px 12px; }
+.cc-report-card__grid .cc-covbar { min-width: 0; }
+.cc-report-card__label { color: var(--cc-fg-2); font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .cc-report .cc-table-wrap { display: none; }
+  .cc-report-cards { display: grid; padding: 0 6px 8px; }
+  .cc-report__sortsel { display: block; }
+  .cc-report .cc-panel__tools { width: 100%; }
+  .cc-report .cc-panel__tools > * { flex: 1 1 100%; }
+}

@@ -19,6 +19,7 @@ using CodeCoverage.Application.Features.Repositories.Queries.GetRepository;
 using CodeCoverage.Application.Features.Uploads.Commands.RetryUpload;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
+using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Web.ViewModels.Repositories;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Git;
@@ -152,6 +153,56 @@ internal static partial class CommitMapper
     var files = await sender.Send(query, cancellationToken).ConfigureAwait(false);
 
     return FileTreeBuilder.Build(files, format.Precision, Enum.Parse<RoundingMode>(format.Rounding));
+  }
+
+  /// <summary>
+  ///   Reads the detailed report of a commit, or of one of its flags: the coverage of Codecov of each file, then its
+  ///   executed lines, branches and methods (ADR-016), with the fixed target of the project status.
+  /// </summary>
+  /// <param name="sender">The request sender.</param>
+  /// <param name="forge">The forge segment of the address.</param>
+  /// <param name="owner">The owner segment of the address.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="sha">The full SHA of the commit.</param>
+  /// <param name="flag">The flag, or <see langword="null" /> for every file.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The report, or <see langword="null" /> when the forge segment or the SHA is not one the console serves.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
+  /// <remarks>A compacted commit keeps no index: its files are not asked for, the report says it is compacted.</remarks>
+  public static async Task<CommitReportViewModel?> GetCommitReportViewModelAsync(
+    this ISender sender,
+    string forge,
+    string owner,
+    string name,
+    string sha,
+    string? flag,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(sender);
+
+    if (!RepositoryMapper.TryParseForge(forge, out var parsed) || !GitSha.TryParse(sha, out var commitSha))
+    {
+      return null;
+    }
+
+    var detail = await sender.Send(new GetCommitQuery(parsed, owner, name, commitSha), cancellationToken).ConfigureAwait(false);
+    var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
+    var commit = detail.Commit;
+    var isCompacted = commit.State is CommitState.Compacted;
+    IReadOnlyList<FileTotals> files = isCompacted
+      ? []
+      : await sender.Send(new GetCommitFilesQuery(parsed, owner, name, commitSha, string.IsNullOrEmpty(flag) ? null : flag, null), cancellationToken).ConfigureAwait(false);
+    string[] flags = [.. detail.Flags.Where(static f => f.Flag.Length > 0).Select(static f => f.Flag).Order(StringComparer.Ordinal)];
+
+    return CommitReportBuilder.Build(
+      DisplayFormatter.ShortSha(commit.Sha),
+      commit.Branch,
+      flags,
+      isCompacted,
+      files,
+      CommitReportBuilder.ProjectTarget(config),
+      config.Precision,
+      config.Rounding);
   }
 
   /// <summary>Queues the statuses and the comment of a commit to be published again.</summary>

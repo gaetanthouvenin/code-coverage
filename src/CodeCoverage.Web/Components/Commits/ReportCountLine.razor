@@ -1,0 +1,25 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="ReportCountLine.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+<span class="cc-report-card__label">@Label</span>
+<span class="cc-num cc-small cc-nowrap">
+  @if (Count is { } count)
+  {
+    @count.Covered.ToString("N0", CultureInfo.CurrentCulture)<span class="cc-dim"> / @count.Total.ToString("N0", CultureInfo.CurrentCulture)</span>
+  }
+  else
+  {
+    <span class="cc-dim">@Dash</span>
+  }
+</span>
+@if (Count is { Ratio: not null } shown)
+{
+  <CcCoverageBar Hits="shown.Covered" Misses="shown.Total - shown.Covered" Text="@shown.Text" />
+}
+else
+{
+  <span class="cc-dim">@Dash</span>
+}

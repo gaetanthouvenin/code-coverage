@@ -608,4 +608,39 @@
   <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Come inviare il primo report</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Lingua</value></data>
   <data name="Docs_NotTranslated" xml:space="preserve"><value>Questa pagina non è ancora tradotta in italiano: viene mostrata in inglese, la lingua di riferimento della documentazione.</value></data>
+  <data name="Report_Action" xml:space="preserve"><value>Report dettagliato</value></data>
+  <data name="Report_Crumb" xml:space="preserve"><value>Report dettagliato</value></data>
+  <data name="Report_Title" xml:space="preserve"><value>Report di copertura dettagliato</value></data>
+  <data name="Report_Subtitle" xml:space="preserve"><value>righe, rami e metodi di ogni file</value></data>
+  <data name="Report_Codecov" xml:space="preserve"><value>Codecov</value></data>
+  <data name="Report_CodecovCard" xml:space="preserve"><value>Copertura (Codecov)</value></data>
+  <data name="Report_CodecovFoot" xml:space="preserve"><value>hits ÷ (hits + parziali + mancate), la cifra degli stati</value></data>
+  <data name="Report_Lines" xml:space="preserve"><value>Righe</value></data>
+  <data name="Report_Branches" xml:space="preserve"><value>Rami</value></data>
+  <data name="Report_Methods" xml:space="preserve"><value>Metodi</value></data>
+  <data name="Report_LinesFoot" xml:space="preserve"><value>{0} eseguite su {1}</value></data>
+  <data name="Report_BranchesFoot" xml:space="preserve"><value>{0} coperti su {1}</value></data>
+  <data name="Report_MethodsFoot" xml:space="preserve"><value>{0} eseguiti su {1}</value></data>
+  <data name="Report_NoMethods" xml:space="preserve"><value>I report di questo commit non danno alcun metodo</value></data>
+  <data name="Report_ReprocessFoot" xml:space="preserve"><value>Rielabora il commit per calcolarlo</value></data>
+  <data name="Report_LegacyTitle" xml:space="preserve"><value>Elaborato prima del report dettagliato</value></data>
+  <data name="Report_LegacyText" xml:space="preserve"><value>Questo commit è stato elaborato prima che righe, rami e metodi venissero memorizzati: è nota solo la copertura Codecov. La rielaborazione li ricostruisce dagli upload grezzi, conservati 30 giorni.</value></data>
+  <data name="Report_Help" xml:space="preserve"><value>Codecov: la cifra principale, le parziali non contano come coperte. Righe: eseguite almeno una volta, parziali comprese, come in ReportGenerator. —: niente da coprire, o il formato non fornisce questo dato.</value></data>
+  <data name="Report_TableLabel" xml:space="preserve"><value>Copertura dettagliata di ogni file</value></data>
+  <data name="Report_CoveredTotal" xml:space="preserve"><value>Cop. / totale</value></data>
+  <data name="Report_CoveredTotalHint" xml:space="preserve"><value>Coperte / copribili</value></data>
+  <data name="Report_Total" xml:space="preserve"><value>Totale</value></data>
+  <data name="Report_FileCount" xml:space="preserve"><value>{0} file</value></data>
+  <data name="Report_Show" xml:space="preserve"><value>Mostra</value></data>
+  <data name="Report_ShowAll" xml:space="preserve"><value>Tutti i file</value></data>
+  <data name="Report_ShowBelowTarget" xml:space="preserve"><value>Sotto l’obiettivo ({0})</value></data>
+  <data name="Report_ShowUncoveredBranches" xml:space="preserve"><value>Con rami non coperti</value></data>
+  <data name="Report_ShowUnexecutedMethods" xml:space="preserve"><value>Con metodi non eseguiti</value></data>
+  <data name="Report_Sort" xml:space="preserve"><value>Ordina</value></data>
+  <data name="Report_SortLowest" xml:space="preserve"><value>{0}, il più basso prima</value></data>
+  <data name="Report_SortHighest" xml:space="preserve"><value>{0}, il più alto prima</value></data>
+  <data name="Report_SortPathAsc" xml:space="preserve"><value>Percorso, dalla A alla Z</value></data>
+  <data name="Report_SortPathDesc" xml:space="preserve"><value>Percorso, dalla Z alla A</value></data>
+  <data name="Report_NoMatchTitle" xml:space="preserve"><value>Nessun file corrisponde</value></data>
+  <data name="Report_NoMatchText" xml:space="preserve"><value>Modifica la ricerca o il filtro.</value></data>
 </root>

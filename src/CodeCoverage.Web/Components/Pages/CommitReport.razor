@@ -1,0 +1,179 @@
+@* ----------------------------------------------------------------------------------------------
+   <copyright file="CommitReport.razor" company="Gaëtan Thouvenin">
+     Copyright (c) Gaëtan Thouvenin. All rights reserved.
+   </copyright>
+   ---------------------------------------------------------------------------------------------- *@
+
+@page "/{Forge}/{Owner}/{Name}/commit/{Sha}/report"
+
+<PageTitle>@L["PageTitle_Format", L["Report_Title"]]</PageTitle>
+
+<CcPageContainer>
+  @if (State is PageState.Missing)
+  {
+    <RepositoryInaccessible />
+  }
+  else
+  {
+    <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@L["Report_Title"]" Crumbs="Crumbs"
+                      ActiveTab="RepositoryTab.Commits" OnPermission="PermissionKnown">
+      <SubtitleContent>@Subtitle</SubtitleContent>
+      <Actions>
+        @if (Report is { IsCompacted: false, Flags.Count: > 0 })
+        {
+          <CcSelectField Label="@L["Column_Flag"]" Value="@(Flag ?? string.Empty)" ValueChanged="FlagChanged" Options="FlagOptions" Pill="true" LeadIcon="CcIconName.Filter" Class="cc-report__flag" />
+        }
+      </Actions>
+    </RepositoryHeader>
+
+    @if (State is PageState.Loading)
+    {
+      <div class="cc-panel cc-status-page"><CcLoadingSpinner Label="@L["Loading"]" ShowLabel="true" /></div>
+    }
+    else if (State is PageState.Failed)
+    {
+      <div class="cc-panel cc-status-page">
+        <CcEmptyState Title="@L["Error_Title"]" Icon="CcIconName.Alert">
+          <Actions><CcButton Icon="CcIconName.Refresh" OnClick="LoadAsync">@L["Action_Retry"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Report is { IsCompacted: true })
+    {
+      <div class="cc-panel" data-state="compacted">
+        <CcEmptyState Title="@L["Source_CompactedTitle"]" Icon="CcIconName.File">
+          <ChildContent>@L["Commit_CompactedHint"]</ChildContent>
+          <Actions><CcButton Href="@CommitHref">@L["Source_BackToCommit"]</CcButton></Actions>
+        </CcEmptyState>
+      </div>
+    }
+    else if (Report is { } report)
+    {
+      @if (!report.HasDetail)
+      {
+        <CcBanner Tone="CcTone.Info" Title="@L["Report_LegacyTitle"]" Class="cc-report__legacy">
+          <ChildContent>@L["Report_LegacyText"]</ChildContent>
+          <Actions>
+            @if (CanAdminister)
+            {
+              <CcButton Variant="CcButtonVariant.PillAccent" Icon="CcIconName.Refresh" Disabled="Reprocessing" OnClick="ReprocessAsync" Class="cc-action-reprocess">@L["Action_Reprocess"]</CcButton>
+            }
+          </Actions>
+        </CcBanner>
+      }
+      <div class="cc-grid cc-grid--4" data-report="cards">
+        <CcKpiCard Label="@L["Report_CodecovCard"]" Value="@report.Total.Codecov" Icon="CcIconName.Target" Accent="true">
+          <Footer>@L["Report_CodecovFoot"]</Footer>
+        </CcKpiCard>
+        <CcKpiCard Label="@L["Report_Lines"]" Value="@CardValue(report.Total.Lines)" Icon="CcIconName.Lines" IconStyle="CcKpiIconStyle.Ink">
+          <Footer>@CardFoot(report.Total.Lines, "Report_LinesFoot")</Footer>
+        </CcKpiCard>
+        <CcKpiCard Label="@L["Report_Branches"]" Value="@CardValue(report.Total.Branches)" Icon="CcIconName.PullRequest" IconStyle="CcKpiIconStyle.Gradient">
+          <Footer>@CardFoot(report.Total.Branches, "Report_BranchesFoot")</Footer>
+        </CcKpiCard>
+        <CcKpiCard Label="@L["Report_Methods"]" Value="@CardValue(report.Total.Methods)" Icon="CcIconName.List">
+          <Footer>@CardFoot(report.Total.Methods, "Report_MethodsFoot")</Footer>
+        </CcKpiCard>
+      </div>
+      <div class="cc-report">
+        <section class="cc-panel" data-panel="report">
+          <div class="cc-panel__head">
+            <div>
+              <h2 class="cc-panel__title">@L["Commit_Files"]</h2>
+              <div class="cc-panel__sub">@L["Report_Help"]</div>
+            </div>
+            <div class="cc-panel__tools">
+              <CcSearchBar Value="@Search" ValueChanged="SearchChanged" Placeholder="@L["Search_Files"]" AriaLabel="@L["Search_Files"]" />
+              <CcSelectField Label="@L["Report_Show"]" Value="@FilterValue" ValueChanged="FilterChanged" Options="FilterOptions" Pill="true" LeadIcon="CcIconName.Filter" Class="cc-report__filter" />
+              <CcSelectField Label="@L["Report_Sort"]" Value="@SortValue" ValueChanged="SortChanged" Options="SortOptions" Pill="true" LeadIcon="CcIconName.Sort" Class="cc-report__sortsel" />
+            </div>
+          </div>
+          <div class="cc-table-wrap">
+            <table class="cc-table cc-report__table" aria-label="@L["Report_TableLabel"]">
+              <thead>
+                <tr>
+                  <th rowspan="2" aria-sort="@AriaSort(SortPath)">
+                    <button type="button" class="@SortClass(SortPath)" data-sort="@SortPath" @onclick="() => SortBy(SortPath)">@L["Column_File"] <CcIcon Name="CcIconName.Sort" /></button>
+                  </th>
+                  <th rowspan="2" class="cc-r" aria-sort="@AriaSort(SortCodecov)">
+                    <button type="button" class="@SortClass(SortCodecov)" data-sort="@SortCodecov" @onclick="() => SortBy(SortCodecov)">@L["Report_Codecov"] <CcIcon Name="CcIconName.Sort" /></button>
+                  </th>
+                  <th colspan="2" class="cc-report__grp">@L["Report_Lines"]</th>
+                  <th colspan="2" class="cc-report__grp">@L["Report_Branches"]</th>
+                  <th colspan="2" class="cc-report__grp">@L["Report_Methods"]</th>
+                </tr>
+                <tr>
+                  @foreach (var key in GroupKeys)
+                  {
+                    <th class="cc-r cc-report__gs"><span title="@L["Report_CoveredTotalHint"]">@L["Report_CoveredTotal"]</span></th>
+                    <th aria-sort="@AriaSort(key)">
+                      <button type="button" class="@SortClass(key)" data-sort="@key" @onclick="() => SortBy(key)">% <CcIcon Name="CcIconName.Sort" /></button>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody class="cc-report__total">
+                <tr data-row="total">
+                  <td class="cc-report__file"><span class="cc-strong">@L["Report_Total"]</span> <span class="cc-dim cc-small">· @L["Report_FileCount", report.Files.Count]</span></td>
+                  <td class="cc-r cc-num cc-strong">@report.Total.Codecov</td>
+                  <ReportCountCells Count="report.Total.Lines" />
+                  <ReportCountCells Count="report.Total.Branches" />
+                  <ReportCountCells Count="report.Total.Methods" />
+                </tr>
+              </tbody>
+              <tbody>
+                @foreach (var row in Rows)
+                {
+                  <tr @key="row.Path" data-path="@row.Path">
+                    <td class="cc-report__file"><a href="@SourceHref(row.Path)" class="cc-mono cc-ellip" title="@row.Path"><CcIcon Name="CcIconName.File" /> @row.Path</a></td>
+                    <td class="cc-r cc-num cc-strong">@row.Codecov</td>
+                    <ReportCountCells Count="row.Lines" />
+                    <ReportCountCells Count="row.Branches" />
+                    <ReportCountCells Count="row.Methods" />
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="cc-report-cards">
+            <div class="cc-report-card cc-report-card--total">
+              <span class="cc-strong">@L["Report_Total"] <span class="cc-dim cc-small">· @L["Report_FileCount", report.Files.Count]</span></span>
+              <div class="cc-report-card__grid">
+                <span class="cc-report-card__label cc-strong">@L["Report_Codecov"]</span><span></span>
+                <CcCoverageBar Hits="report.Total.Hits" Partials="report.Total.Partials" Misses="report.Total.Misses" Text="@report.Total.Codecov" />
+                <ReportCountLine Label="@L["Report_Lines"]" Count="report.Total.Lines" />
+                <ReportCountLine Label="@L["Report_Branches"]" Count="report.Total.Branches" />
+                <ReportCountLine Label="@L["Report_Methods"]" Count="report.Total.Methods" />
+              </div>
+            </div>
+            @foreach (var row in Rows)
+            {
+              <a @key="row.Path" class="cc-report-card" href="@SourceHref(row.Path)" data-card="@row.Path">
+                <span class="cc-mono cc-small cc-ellip"><CcIcon Name="CcIconName.File" /> @row.Path</span>
+                <div class="cc-report-card__grid">
+                  <span class="cc-report-card__label cc-strong">@L["Report_Codecov"]</span><span></span>
+                  <CcCoverageBar Hits="row.Hits" Partials="row.Partials" Misses="row.Misses" Text="@row.Codecov" />
+                  <ReportCountLine Label="@L["Report_Lines"]" Count="row.Lines" />
+                  <ReportCountLine Label="@L["Report_Branches"]" Count="row.Branches" />
+                  <ReportCountLine Label="@L["Report_Methods"]" Count="row.Methods" />
+                </div>
+              </a>
+            }
+          </div>
+          @if (report.Files.Count == 0)
+          {
+            <div class="cc-panel__body cc-muted" data-report="empty">@L["Commit_NoFileYet"]</div>
+          }
+          else if (Rows.Count == 0)
+          {
+            <div data-report="nomatch">
+              <CcEmptyState Title="@L["Report_NoMatchTitle"]" Icon="CcIconName.Search">
+                <ChildContent>@L["Report_NoMatchText"]</ChildContent>
+              </CcEmptyState>
+            </div>
+          }
+        </section>
+      </div>
+    }
+  }
+</CcPageContainer>

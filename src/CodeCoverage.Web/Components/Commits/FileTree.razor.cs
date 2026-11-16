@@ -108,6 +108,11 @@ public partial class FileTree
 
   private IReadOnlyList<(FileNodeViewModel Node, int Depth)> Rows { get; set; } = [];
 
+  // The detailed report of the commit, with the flag the tree shows.
+  private string ReportHref =>
+    $"{Uri.EscapeDataString(Forge)}/{Uri.EscapeDataString(Owner)}/{Uri.EscapeDataString(Name)}/commit/{Uri.EscapeDataString(Sha)}/report"
+    + (Flag is { } flag ? $"?flag={Uri.EscapeDataString(flag)}" : string.Empty);
+
   #endregion
 
   #region Lifecycle
