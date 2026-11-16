@@ -1,6 +1,6 @@
 # ADR-014 : Plusieurs forges
 
-- **Statut :** accepté le 2026-11-09 (M1.16a2). **Amendement M7.02 proposé** le 2026-11-16 : implémentation d'Azure DevOps, de Bitbucket et de GitLab.com, choix d'Azure DevOps ; il prend effet quand le propriétaire l'accepte. Complète [ADR-013](0013-organization-isolation.md) ; les connexions de forge sont tranchées par [ADR-017](0017-forge-connections.md).
+- **Statut :** accepté le 2026-11-09 (M1.16a2). **Amendement M7.02** proposé le 2026-11-16 et **accepté par le propriétaire le 2026-11-16** : implémentation d'Azure DevOps, de Bitbucket et de GitLab.com, choix d'Azure DevOps. Complète [ADR-013](0013-organization-isolation.md) ; les connexions de forge sont tranchées par [ADR-017](0017-forge-connections.md).
 - **Date :** 2026-11-08, amendé le 2026-11-16 (M7.02)
 - **Références :** `docs/PLAN.md` §1.4, §2.1, §2.3, §2.7 à §2.9, §4.4, §9, §9.1 à §9.3, §10 et §11 ; `docs/ARCHITECTURE.md` §1.3, §4.2, §5.1, §8, §10.2 et §10bis.3, réécrits par M1.16a2 ; `docs/research/azure-devops-diff.md` (spike M7.01)
 
