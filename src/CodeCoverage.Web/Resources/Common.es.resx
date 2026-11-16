@@ -608,4 +608,39 @@
   <data name="Overview_FirstReportHelp" xml:space="preserve"><value>Cómo enviar el primer informe</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Idioma</value></data>
   <data name="Docs_NotTranslated" xml:space="preserve"><value>Esta página aún no está traducida al español: se muestra en inglés, el idioma de referencia de la documentación.</value></data>
+  <data name="Report_Action" xml:space="preserve"><value>Informe detallado</value></data>
+  <data name="Report_Crumb" xml:space="preserve"><value>Informe detallado</value></data>
+  <data name="Report_Title" xml:space="preserve"><value>Informe de cobertura detallado</value></data>
+  <data name="Report_Subtitle" xml:space="preserve"><value>líneas, ramas y métodos de cada archivo</value></data>
+  <data name="Report_Codecov" xml:space="preserve"><value>Codecov</value></data>
+  <data name="Report_CodecovCard" xml:space="preserve"><value>Cobertura (Codecov)</value></data>
+  <data name="Report_CodecovFoot" xml:space="preserve"><value>hits ÷ (hits + parciales + no cubiertas), la cifra de los estados</value></data>
+  <data name="Report_Lines" xml:space="preserve"><value>Líneas</value></data>
+  <data name="Report_Branches" xml:space="preserve"><value>Ramas</value></data>
+  <data name="Report_Methods" xml:space="preserve"><value>Métodos</value></data>
+  <data name="Report_LinesFoot" xml:space="preserve"><value>{0} ejecutadas de {1}</value></data>
+  <data name="Report_BranchesFoot" xml:space="preserve"><value>{0} cubiertas de {1}</value></data>
+  <data name="Report_MethodsFoot" xml:space="preserve"><value>{0} ejecutados de {1}</value></data>
+  <data name="Report_NoMethods" xml:space="preserve"><value>Los informes de este commit no dan ningún método</value></data>
+  <data name="Report_ReprocessFoot" xml:space="preserve"><value>Vuelva a procesar el commit para calcularlo</value></data>
+  <data name="Report_LegacyTitle" xml:space="preserve"><value>Procesado antes del informe detallado</value></data>
+  <data name="Report_LegacyText" xml:space="preserve"><value>Este commit se procesó antes de que se almacenaran las líneas, ramas y métodos: solo se conoce la cobertura de Codecov. Volver a procesarlo los reconstruye a partir de los uploads sin procesar, conservados 30 días.</value></data>
+  <data name="Report_Help" xml:space="preserve"><value>Codecov: la cifra principal, las parciales no cuentan como cubiertas. Líneas: ejecutadas al menos una vez, parciales incluidas, como en ReportGenerator. —: nada que cubrir, o el formato no da ese dato.</value></data>
+  <data name="Report_TableLabel" xml:space="preserve"><value>Cobertura detallada de cada archivo</value></data>
+  <data name="Report_CoveredTotal" xml:space="preserve"><value>Cub. / total</value></data>
+  <data name="Report_CoveredTotalHint" xml:space="preserve"><value>Cubiertas / cubribles</value></data>
+  <data name="Report_Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Report_FileCount" xml:space="preserve"><value>{0} archivos</value></data>
+  <data name="Report_Show" xml:space="preserve"><value>Mostrar</value></data>
+  <data name="Report_ShowAll" xml:space="preserve"><value>Todos los archivos</value></data>
+  <data name="Report_ShowBelowTarget" xml:space="preserve"><value>Por debajo del objetivo ({0})</value></data>
+  <data name="Report_ShowUncoveredBranches" xml:space="preserve"><value>Con ramas no cubiertas</value></data>
+  <data name="Report_ShowUnexecutedMethods" xml:space="preserve"><value>Con métodos no ejecutados</value></data>
+  <data name="Report_Sort" xml:space="preserve"><value>Ordenar</value></data>
+  <data name="Report_SortLowest" xml:space="preserve"><value>{0}, el más bajo primero</value></data>
+  <data name="Report_SortHighest" xml:space="preserve"><value>{0}, el más alto primero</value></data>
+  <data name="Report_SortPathAsc" xml:space="preserve"><value>Ruta, de la A a la Z</value></data>
+  <data name="Report_SortPathDesc" xml:space="preserve"><value>Ruta, de la Z a la A</value></data>
+  <data name="Report_NoMatchTitle" xml:space="preserve"><value>Ningún archivo coincide</value></data>
+  <data name="Report_NoMatchText" xml:space="preserve"><value>Cambie la búsqueda o el filtro.</value></data>
 </root>

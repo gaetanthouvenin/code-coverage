@@ -10,6 +10,7 @@
     @if (!Compacted)
     {
       <div class="cc-panel__tools">
+        <CcButton Variant="CcButtonVariant.Pill" Icon="CcIconName.Chart" Href="@ReportHref" Class="cc-files__report">@L["Report_Action"]</CcButton>
         <CcSearchBar Value="@Search" ValueChanged="SearchChanged" Placeholder="@L["Search_Files"]" AriaLabel="@L["Search_Files"]" />
         <CcSelectField Label="@L["Column_Flag"]" Value="@(Flag ?? string.Empty)" ValueChanged="FlagChanged" Options="FlagOptions" Pill="true" LeadIcon="CcIconName.Filter" Class="cc-files__flag" />
       </div>

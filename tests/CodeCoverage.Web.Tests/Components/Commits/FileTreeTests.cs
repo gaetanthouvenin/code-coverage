@@ -142,6 +142,20 @@ public sealed class FileTreeTests : UiTestContext
     cut.FindAll("tbody tr").Select(static r => r.GetAttribute("data-path")).ShouldBe(["web"]);
   }
 
+  // The detailed report opens on the flag the tree shows.
+  [Fact]
+  public void ReportButton_ShouldLinkToTheReportWithTheCurrentFlag()
+  {
+    Files("backend", File("api/Only.cs", 1, 0, 0));
+    var cut = Render();
+
+    cut.Find("a.cc-files__report").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Sha}/report");
+
+    cut.Find("select").Change("backend");
+
+    cut.WaitForAssertion(() => cut.Find("a.cc-files__report").GetAttribute("href").ShouldBe($"github/octo-org/app/commit/{Sha}/report?flag=backend"));
+  }
+
   [Fact]
   public void Render_NotFinalized_ShouldSayNoFileYet()
   {
