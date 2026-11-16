@@ -28,12 +28,16 @@ internal sealed class RetryPolicy(Func<TimeSpan, CancellationToken, Task> delay,
   /// <param name="send">Sends one attempt.</param>
   /// <param name="cancellationToken">A token to cancel the waits.</param>
   /// <returns>The last answer.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="send" /> is <see langword="null" />.</exception>
   /// <exception cref="HttpRequestException">The last attempt failed.</exception>
   public async Task<HttpResponseMessage> SendAsync(Func<CancellationToken, Task<HttpResponseMessage>> send, CancellationToken cancellationToken)
   {
+    ArgumentNullException.ThrowIfNull(send);
+
     for (var attempt = 1; ; attempt++)
     {
       TimeSpan wait;
+      string reason;
 
       try
       {
@@ -44,17 +48,41 @@ internal sealed class RetryPolicy(Func<TimeSpan, CancellationToken, Task> delay,
           return response;
         }
 
-        wait = RetryAfter(response) ?? Backoff(attempt);
-        response.Dispose();
+        using (response)
+        {
+          wait = RetryAfter(response) ?? Backoff(attempt);
+          reason = await DescribeAsync(response, cancellationToken).ConfigureAwait(false);
+        }
       }
       catch (Exception exception) when (attempt < MaxAttempts && exception is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
       {
         wait = Backoff(attempt);
-        reporter.Detail(exception.Message);
+        reason = exception.Message.TrimEnd('.');
       }
 
-      reporter.Warning($"Attempt {attempt} of {MaxAttempts} failed: trying again in {wait.TotalSeconds:0.#} s.");
+      reporter.Warning($"Attempt {attempt} of {MaxAttempts} failed ({reason}): trying again in {wait.TotalSeconds:0.#} s.");
       await delay(wait, cancellationToken).ConfigureAwait(false);
+    }
+  }
+
+  /// <summary>Tells why a retryable answer failed: its HTTP status, and the <c>errorCode</c> of its problem details if it has one.</summary>
+  /// <param name="response">The answer.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The reason, such as <c>HTTP 502</c> or <c>HTTP 502, GitHub.Unavailable</c>.</returns>
+  /// <remarks>A body that cannot be read only loses its error code: the status is always given.</remarks>
+  private static async Task<string> DescribeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+  {
+    var status = $"HTTP {(int)response.StatusCode}";
+
+    try
+    {
+      var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+      return JsonBody.ReadString(body, "errorCode") is { } code ? $"{status}, {code}" : status;
+    }
+    catch (Exception exception) when (exception is HttpRequestException or IOException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+    {
+      return status;
     }
   }
 

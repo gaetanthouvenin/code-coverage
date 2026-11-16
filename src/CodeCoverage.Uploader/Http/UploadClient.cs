@@ -93,7 +93,7 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
 
     if (response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Accepted)
     {
-      var commitUrl = Read(body, "commitUrl");
+      var commitUrl = JsonBody.ReadString(body, "commitUrl");
 
       reporter.Info(response.StatusCode is HttpStatusCode.OK ? "This upload had already been received." : "The upload was accepted.");
 
@@ -105,8 +105,8 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
       return new UploadReceipt(ReadStatusUrl(server, body), credential);
     }
 
-    var code = Read(body, "errorCode");
-    var detail = Read(body, "detail");
+    var code = JsonBody.ReadString(body, "errorCode");
+    var detail = JsonBody.ReadString(body, "detail");
 
     reporter.Error($"The server refused the upload: {(int)response.StatusCode}{(code is null ? string.Empty : $" ({code})")}.");
 
@@ -209,7 +209,7 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
   /// </remarks>
   private Uri? ReadStatusUrl(Uri server, string body)
   {
-    var text = Read(body, "statusUrl");
+    var text = JsonBody.ReadString(body, "statusUrl");
 
     if (text is null)
     {
@@ -231,24 +231,6 @@ internal sealed class UploadClient(HttpClient client, RetryPolicy retry, OidcTok
     }
 
     return statusUrl;
-  }
-
-  /// <summary>Reads a text property of a JSON body.</summary>
-  /// <param name="body">The body.</param>
-  /// <param name="name">The name of the property.</param>
-  /// <returns>The value, or <see langword="null" />.</returns>
-  private static string? Read(string body, string name)
-  {
-    try
-    {
-      var json = JsonSerializer.Deserialize(body, UploaderJsonContext.Default.JsonElement);
-
-      return json.ValueKind is JsonValueKind.Object && json.TryGetProperty(name, out var value) ? value.GetString() : null;
-    }
-    catch (JsonException)
-    {
-      return null;
-    }
   }
 
   #endregion
