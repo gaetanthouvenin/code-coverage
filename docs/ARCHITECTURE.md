@@ -1906,9 +1906,9 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | [ADR-011](adr/0011-two-public-hostnames.md) | Deux noms d'hôte publics (Api et Web) ; aucun routage par chemin. |
 | [ADR-012](adr/0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api avec SHA-256 épinglé ; outil dotnet en complément. |
 | [ADR-013](adr/0013-organization-isolation.md) | Plusieurs organisations isolées sur une instance : filtre EF, estampille, garde et jeton de concurrence à l'écriture, une seule porte, App publique partagée, admission fermée. |
-| [ADR-014](adr/0014-multi-forge.md) | Plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway` ; GitHub seul avant la bascule, puis Azure DevOps, Bitbucket et GitLab.com implémentés (amendement M7.02, proposé) avec leurs écarts nommés. |
+| [ADR-014](adr/0014-multi-forge.md) | Plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway` ; GitHub seul avant la bascule, puis Azure DevOps, Bitbucket et GitLab.com implémentés (amendement M7.02, accepté) avec leurs écarts nommés. |
 | [ADR-015](adr/0015-console-languages.md) | Langues de la console : anglais (référence et repli), français, italien, espagnol ; cookie de culture, puis `Accept-Language` ; Api, uploader, journaux, forges et identifiants stockés restent en anglais. |
-| [ADR-017](adr/0017-forge-connections.md) | Connexions de forge (proposé, M7.02) : table globale `ForgeConnections`, route de webhook par connexion, GitHub sur `Installations`, portes nommées dans `OrganizationIsolationTests`. |
+| [ADR-017](adr/0017-forge-connections.md) | Connexions de forge (accepté, M7.02) : table globale `ForgeConnections`, route de webhook par connexion, GitHub sur `Installations`, portes nommées dans `OrganizationIsolationTests`. |
 
 ### 13.2 Décisions encore ouvertes
 

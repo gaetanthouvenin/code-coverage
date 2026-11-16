@@ -1,6 +1,6 @@
 # ADR-017 : Connexions de forge
 
-- **Statut :** proposé le 2026-11-16 (M7.02), à accepter par le propriétaire avant tout code de M7. Complète [ADR-013](0013-organization-isolation.md) et [ADR-014](0014-multi-forge.md).
+- **Statut :** **accepté** par le propriétaire le 2026-11-16 (M7.02), proposé le même jour. Complète [ADR-013](0013-organization-isolation.md) et [ADR-014](0014-multi-forge.md).
 - **Date :** 2026-11-16
 - **Références :** `docs/PLAN.md` M7.02, M7.06, M7.07, M7.10, M7.12 à M7.14, M7.21, M7.23, M7.49, M8 et M9 ; `docs/ARCHITECTURE.md` §4.2, §6.1 et §8 ; `TableClassification`, `OrganizationIsolationTests`
 
