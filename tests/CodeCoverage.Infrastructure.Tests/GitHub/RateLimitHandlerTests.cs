@@ -18,6 +18,7 @@ using WireMock.ResponseBuilders;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -50,7 +51,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<GitHubRateLimitedException>(() => SendAsync());
 
-    exception.ResetAt.ShouldBe(GitHubApiHarness.Now.AddSeconds(30));
+    exception.RetryAfter.ShouldBe(GitHubApiHarness.Now.AddSeconds(30));
     _github.Server.LogEntries.Count().ShouldBe(1);
   }
 
@@ -61,7 +62,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<GitHubRateLimitedException>(() => SendAsync());
 
-    exception.ResetAt.ShouldBe(GitHubApiHarness.Now.AddMinutes(1));
+    exception.RetryAfter.ShouldBe(GitHubApiHarness.Now.AddMinutes(1));
   }
 
   [Fact]
@@ -78,7 +79,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<GitHubRateLimitedException>(() => SendAsync());
 
-    exception.ResetAt.ShouldBe(reset);
+    exception.RetryAfter.ShouldBe(reset);
   }
 
   [Fact]
@@ -88,7 +89,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<GitHubRateLimitedException>(() => SendAsync());
 
-    exception.ResetAt.ShouldBe(GitHubApiHarness.Now.AddMinutes(1));
+    exception.RetryAfter.ShouldBe(GitHubApiHarness.Now.AddMinutes(1));
     _github.Server.LogEntries.Count().ShouldBe(1);
   }
 
@@ -111,7 +112,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => SendAsync());
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
     _github.Server.LogEntries.Count().ShouldBe(4, "one attempt and three retries");
   }
 
@@ -231,7 +232,7 @@ public sealed class RateLimitHandlerTests : IDisposable
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => invoker.SendAsync(request, Cancellation));
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
     exception.InnerException.ShouldBeSameAs(failure);
   }
 

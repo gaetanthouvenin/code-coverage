@@ -55,7 +55,7 @@ public sealed class CheckRunPublisherTests
   public async Task Publish_BatchFailsAfterTheCreation_ShouldStillReturnTheIdentifier()
   {
     A.CallTo(() => _gitHub.UpdateCheckRunAsync(A<ForgeRepositoryRef>._, A<long>._, A<GitHubCheckRun>._, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub does not answer."));
 
     var id = await _publisher.PublishAsync(Repository, Sha, Status, null, Annotations(120), Ct);
 

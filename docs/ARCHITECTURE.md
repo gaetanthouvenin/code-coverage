@@ -846,7 +846,7 @@ OUTPUT inserted.*;
 - **`LeaseSweeper`** (chaque minute) : remet en `Queued` les `Running` dont le bail a expiré. **La remise en file tient compte du dédoublonnage :** si un jumeau `Queued` avec la même `DedupKey` existe, le job expiré passe à `Succeeded` (absorbé) au lieu d'être remis en file.
 - **Échecs :**
   - `RunAfter = now + min(2^attempts × 10 s, 30 min) ± 20 %`. Après `MaxAttempts` (8), le job est `Dead`, visible dans `/admin/operations` avec un bouton Relancer.
-  - `GitHubRateLimitedException(resetAt)` et `RetryLaterException(delay)` reprogramment **sans consommer de tentative** (`Attempts - 1`).
+  - `ForgeRateLimitedException(forge, retryAfter)` (dont `GitHubRateLimitedException` dérive) et `RetryLaterException(delay)` reprogramment **sans consommer de tentative** (`Attempts - 1`).
   - Les refus permanents (`NotFound`, `Validation`, `UnprocessableEntity`) passent directement à `Failed`. Une `ConflictException` (`General.ConcurrentChange`, §4.2) est rejouée.
 - **Concurrence :** `Processing:WorkerConcurrency` boucles (4). Réveil immédiat par le canal en process, sinon scrutation toutes les 2 s. La scrutation couvre aussi les jobs mis en file par le Web (re-notification, relance).
 - **Exécution :** chaque job s'exécute dans un nouveau scope DI, avec `ICurrentUser.IsSystem`, un `LogContext` (JobId, JobType, Repository, CommitSha, CorrelationId, OrganizationId) et une `Activity` OpenTelemetry. Le worker entre dans l'organisation à partir de `Jobs.OrganizationId`, jamais du payload, et un job dont l'organisation n'est plus active échoue sans s'exécuter (`InvalidJobException`). Le timeout est de 10 minutes.
@@ -1319,7 +1319,7 @@ L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayP
   - En-têtes : `X-GitHub-Api-Version: 2022-11-28`, `User-Agent: CodeCoverage`.
   - `RateLimitHandler` : lit `x-ratelimit-remaining` et `x-ratelimit-reset`. Il lève `GitHubRateLimitedException(resetAt)` sur tout 429, et sur un 403 portant `retry-after`, `x-ratelimit-remaining: 0` ou un corps mentionnant « rate limit » (limites primaire et secondaire, comme GitHub le documente) ; tout autre 403 reste une réponse pour l'appelant. `resetAt` vient de `retry-after`, sinon de `x-ratelimit-reset` si le quota est vide, sinon de l'heure courante plus une minute. Le job est alors reprogrammé à `resetAt` sans perte de tentative (§6.1, `JobWorker`). Il publie la métrique de quota restant par installation.
   - `AddStandardResilienceHandler()` : 3 nouvelles tentatives sur 5xx et timeout, coupe-circuit ; 403 et 429 exclus.
-  - Échec définitif : `BadGatewayException(GitHub.Unavailable)`.
+  - Échec définitif : `BadGatewayException(Forge.Unavailable)`, code partagé par toutes les forges (`ForgeErrors`, avec `Forge.StatusRefused`).
 
 **Endpoints utilisés.** Un dépôt suivi s'adresse par son identifiant, sous `/repositories/{id}/…` : un renommage ne casse aucune lecture. Seul le suivi d'un dépôt inconnu emploie owner et nom. La forme par identifiant reste à vérifier sur chaque endpoint, sur deux comptes réels (M4.02a).
 - `GET /repos/{o}/{r}/installation` (JWT de l'App) et `GET /repos/{o}/{r}`, pour un dépôt inconnu ;

@@ -15,6 +15,7 @@ using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.GitHub.Models;
 using CodeCoverage.Infrastructure.Persistence;
@@ -410,7 +411,7 @@ public sealed class GitHubUserTokenProviderTests(DatabaseFixture database)
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => Provider(services).GetTokenAsync(userId, Ct));
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
     (await ReadUserAsync(seed, userId)).RefreshTokenProtected.ShouldBe(Prefix + "ghr_old");
   }
 

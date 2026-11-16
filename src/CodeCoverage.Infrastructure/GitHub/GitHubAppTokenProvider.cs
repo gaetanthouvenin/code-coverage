@@ -20,6 +20,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub.Models;
 
 namespace CodeCoverage.Infrastructure.GitHub;
@@ -153,7 +154,7 @@ internal sealed class GitHubAppTokenProvider(
     if (!response.IsSuccessStatusCode)
     {
       throw new BadGatewayException(
-        GitHubErrors.Unavailable,
+        ForgeErrors.Unavailable,
         string.Create(CultureInfo.InvariantCulture, $"GitHub refused the token of installation {installationId}: HTTP {(int)response.StatusCode}.")
       );
     }
@@ -168,7 +169,7 @@ internal sealed class GitHubAppTokenProvider(
     catch (JsonException exception)
     {
       throw new BadGatewayException(
-        GitHubErrors.Unavailable,
+        ForgeErrors.Unavailable,
         string.Create(CultureInfo.InvariantCulture, $"GitHub answered with an unreadable token for installation {installationId}."),
         exception
       );

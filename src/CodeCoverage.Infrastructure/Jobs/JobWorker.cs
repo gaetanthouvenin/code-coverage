@@ -18,7 +18,7 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Diagnostics;
-using CodeCoverage.Infrastructure.GitHub;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Identity;
 
 using AppException = CodeCoverage.Application.Exceptions.ApplicationException;
@@ -60,7 +60,7 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///       (<see cref="SqlJobQueue.RescheduleAsync" />);
 ///     </item>
 ///     <item>
-///       <see cref="GitHubRateLimitedException" />: queued again at the moment GitHub accepts requests again, without
+///       <see cref="ForgeRateLimitedException" />: queued again at the moment the forge accepts requests again, without
 ///       consuming the attempt;
 ///     </item>
 ///     <item>
@@ -413,9 +413,9 @@ internal sealed partial class JobWorker : BackgroundService
       return;
     }
 
-    if (failure is GitHubRateLimitedException rateLimited)
+    if (failure is ForgeRateLimitedException rateLimited)
     {
-      var resetAt = rateLimited.ResetAt > now ? rateLimited.ResetAt : now;
+      var resetAt = rateLimited.RetryAfter > now ? rateLimited.RetryAfter : now;
 
       LogRetryLater(_logger, job.Id, resetAt, rateLimited.Message);
       await WithQueueAsync(q => q.RescheduleAsync(job.Id, workerId, resetAt, Describe(rateLimited), cancellationToken))

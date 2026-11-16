@@ -84,7 +84,7 @@ public sealed class ApiExceptionHandlerTests(CodeCoverageApiFactory factory)
     var (response, problem) = await GetProblemAsync("bad-gateway");
 
     response.StatusCode.ShouldBe(HttpStatusCode.BadGateway);
-    problem.GetProperty("errorCode").GetString().ShouldBe("GitHub.Unavailable");
+    problem.GetProperty("errorCode").GetString().ShouldBe("Forge.Unavailable");
   }
 
   [Theory]

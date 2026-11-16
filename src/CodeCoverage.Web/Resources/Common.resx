@@ -42,8 +42,8 @@
   <data name="General.Unexpected" xml:space="preserve"><value>An unexpected error occurred. Try again in a moment; if the problem persists, contact an administrator.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Some values are not valid. Correct them, then try again.</value></data>
   <data name="GitHub.RateLimited" xml:space="preserve"><value>GitHub limits the requests of this instance for now. Try again after the time given in the detail.</value></data>
-  <data name="GitHub.StatusRefused" xml:space="preserve"><value>GitHub refused the commit status for good: check that the application may write statuses in this repository and that the commit exists there.</value></data>
-  <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub is unavailable. Try again in a few minutes.</value></data>
+  <data name="Forge.StatusRefused" xml:space="preserve"><value>The forge refused the commit status for good: check that the application may write statuses in this repository and that the commit exists there.</value></data>
+  <data name="Forge.Unavailable" xml:space="preserve"><value>The forge is unavailable. Try again in a few minutes.</value></data>
   <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>The delivery to handle does not exist.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>The delivery has no valid identifier or event.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>The body of the delivery cannot be read.</value></data>

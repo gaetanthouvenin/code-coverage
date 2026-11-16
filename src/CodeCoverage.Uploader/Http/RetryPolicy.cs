@@ -68,7 +68,7 @@ internal sealed class RetryPolicy(Func<TimeSpan, CancellationToken, Task> delay,
   /// <summary>Tells why a retryable answer failed: its HTTP status, and the <c>errorCode</c> of its problem details if it has one.</summary>
   /// <param name="response">The answer.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
-  /// <returns>The reason, such as <c>HTTP 502</c> or <c>HTTP 502, GitHub.Unavailable</c>.</returns>
+  /// <returns>The reason, such as <c>HTTP 502</c> or <c>HTTP 502, Forge.Unavailable</c>.</returns>
   /// <remarks>
   ///   A body that cannot be read only loses its error code: the status is always given. The reading wraps every
   ///   error of the stream in an <see cref="HttpRequestException" />; a cancelled run stops at the wait that follows.

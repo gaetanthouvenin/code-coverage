@@ -13,6 +13,7 @@ using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -147,7 +148,7 @@ public sealed class GitHubAppTokenProviderTests : IDisposable
       () => _github.TokenProvider.GetInstallationTokenAsync(Installation, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
     _github.Server.LogEntries.Count().ShouldBe(1);
   }
 
@@ -183,7 +184,7 @@ public sealed class GitHubAppTokenProviderTests : IDisposable
       () => _github.TokenProvider.GetInstallationTokenAsync(Installation, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]

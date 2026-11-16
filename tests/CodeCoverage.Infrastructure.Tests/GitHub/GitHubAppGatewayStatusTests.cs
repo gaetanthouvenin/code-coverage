@@ -135,7 +135,7 @@ public sealed class GitHubAppGatewayStatusTests : IDisposable
     );
 
     exception.ShouldBeOfType(expected);
-    exception.ErrorCode.ShouldBe("GitHub.StatusRefused");
+    exception.ErrorCode.ShouldBe("Forge.StatusRefused");
   }
 
   // T1. A rate limit stays a rate limit, whatever its status: the job waits for the reset and tries again.

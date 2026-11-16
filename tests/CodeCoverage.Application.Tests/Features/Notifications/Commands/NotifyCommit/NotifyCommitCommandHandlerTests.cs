@@ -244,7 +244,7 @@ public sealed class NotifyCommitCommandHandlerTests
   public async Task Handle_SweepWhoseNotificationFailsForAWhile_ShouldLeaveTheCommitForTheNextSweep()
   {
     A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "refused"));
+     .Throws(new BadGatewayException("Forge.Unavailable", "refused"));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(new NotifyCommitCommand(9, Force: true, Partial: true), Ct));
 
@@ -257,7 +257,7 @@ public sealed class NotifyCommitCommandHandlerTests
   public async Task Handle_NotificationThatFails_ShouldNotMarkTheCommit()
   {
     A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>._, A<string?>._, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "refused"));
+     .Throws(new BadGatewayException("Forge.Unavailable", "refused"));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(new NotifyCommitCommand(9), Ct));
 

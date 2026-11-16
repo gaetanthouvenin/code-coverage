@@ -596,7 +596,7 @@ public sealed class NotificationServiceTests
   public async Task Publish_ForgeRefuses_ShouldNotStoreTheStatus()
   {
     A.CallTo(() => _gateway.CreateStatusAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<CommitStatus>.That.Matches(s => s.Context == "coverage/patch"), A<string?>._, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub does not answer."));
 
     await Should.ThrowAsync<BadGatewayException>(() => PublishAsync(Complete(HeadId, Head), Config()));
 

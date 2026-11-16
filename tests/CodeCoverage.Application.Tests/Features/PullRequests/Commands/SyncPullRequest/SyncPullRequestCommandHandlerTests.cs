@@ -320,7 +320,7 @@ public sealed class SyncPullRequestCommandHandlerTests
   public async Task Handle_ForgeUnavailable_ShouldThrow()
   {
     A.CallTo(() => _gateway.GetPullAsync(A<ForgeRepositoryRef>._, 12, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub does not answer."));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
   }

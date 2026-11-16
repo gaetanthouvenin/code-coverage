@@ -260,7 +260,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
   {
     _directory.Add("1001", "octo-org", admitted: true);
     Reaches(Installed(42, "1001", "octo-org"));
-    var failure = new BadGatewayException("GitHub.Unavailable", "GitHub does not answer.");
+    var failure = new BadGatewayException("Forge.Unavailable", "GitHub does not answer.");
 
     if (whileListing)
     {

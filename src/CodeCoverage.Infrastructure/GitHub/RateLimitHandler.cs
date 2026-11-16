@@ -14,6 +14,7 @@ using Polly;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 
 namespace CodeCoverage.Infrastructure.GitHub;
 
@@ -89,7 +90,7 @@ internal sealed partial class RateLimitHandler(
       if ((int)response.StatusCode >= 500)
       {
         throw new BadGatewayException(
-          GitHubErrors.Unavailable,
+          ForgeErrors.Unavailable,
           string.Create(CultureInfo.InvariantCulture, $"GitHub is unavailable: HTTP {(int)response.StatusCode}.")
         );
       }
@@ -155,7 +156,7 @@ internal sealed partial class RateLimitHandler(
     }
     catch (Exception exception) when (exception is HttpRequestException or ExecutionRejectedException)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub does not answer.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub does not answer.", exception);
     }
   }
 

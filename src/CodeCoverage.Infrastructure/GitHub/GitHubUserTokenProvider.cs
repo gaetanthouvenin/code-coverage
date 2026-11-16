@@ -18,6 +18,7 @@ using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Domain.Users;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub.Models;
 
 namespace CodeCoverage.Infrastructure.GitHub;
@@ -198,7 +199,7 @@ internal sealed class GitHubUserTokenProvider(
 
       if (!response.IsSuccessStatusCode)
       {
-        throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub refused the renewal of a user token: HTTP {(int)response.StatusCode}.");
+        throw new BadGatewayException(ForgeErrors.Unavailable, $"GitHub refused the renewal of a user token: HTTP {(int)response.StatusCode}.");
       }
 
       var issued = await response.Content.ReadFromJsonAsync(GitHubJsonContext.Default.GitHubUserTokenResponse, cancellationToken).ConfigureAwait(false)
@@ -212,19 +213,19 @@ internal sealed class GitHubUserTokenProvider(
       // Any other refusal is about the App, not about the user: nobody is signed out for it.
       return issued is { Error: null, AccessToken.Length: > 0 }
                ? issued
-               : throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub refused the renewal of a user token: '{issued.Error}'.");
+               : throw new BadGatewayException(ForgeErrors.Unavailable, $"GitHub refused the renewal of a user token: '{issued.Error}'.");
     }
     catch (JsonException exception)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub answered the renewal of a user token with an unreadable payload.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub answered the renewal of a user token with an unreadable payload.", exception);
     }
     catch (HttpRequestException exception)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub does not answer the renewal of a user token.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub does not answer the renewal of a user token.", exception);
     }
     catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub does not answer the renewal of a user token.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub does not answer the renewal of a user token.", exception);
     }
   }
 

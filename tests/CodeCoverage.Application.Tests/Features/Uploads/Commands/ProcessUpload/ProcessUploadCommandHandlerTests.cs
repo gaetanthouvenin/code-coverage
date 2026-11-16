@@ -191,7 +191,7 @@ public sealed class ProcessUploadCommandHandlerTests
     A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, head, true, A<CancellationToken>._))
      .Returns(new ForgeTree(head, [new ForgeTreeEntry("src/A.cs", head, false)], false));
     A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, head, true, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "down"))
+     .Throws(new BadGatewayException("Forge.Unavailable", "down"))
      .Once();
 
     await Should.ThrowAsync<BadGatewayException>(async () => await Handler().Handle(Command(), Ct));

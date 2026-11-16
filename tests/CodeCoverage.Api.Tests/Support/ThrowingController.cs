@@ -46,7 +46,7 @@ public sealed class ThrowingController : ControllerBase
       "not-found" => NotFoundException.For("Repository", "octo/demo"),
       "conflict" => new ConflictException("Test.Conflict", "The entity already exists."),
       "unprocessable" => new UnprocessableEntityException("Test.Unprocessable", "The rule refuses it."),
-      "bad-gateway" => new BadGatewayException("GitHub.Unavailable", "GitHub cannot answer."),
+      "bad-gateway" => new BadGatewayException("Forge.Unavailable", "GitHub cannot answer."),
       "retry-later" => new RetryLaterException(TimeSpan.FromSeconds(30), "Internal to the worker."),
       "body-too-large" => new BadHttpRequestException("Too large.", StatusCodes.Status413PayloadTooLarge),
       var _ => new InvalidOperationException(BugMessage),

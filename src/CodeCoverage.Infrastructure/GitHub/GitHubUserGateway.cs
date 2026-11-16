@@ -16,6 +16,7 @@ using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub.Models;
 
 namespace CodeCoverage.Infrastructure.GitHub;
@@ -75,7 +76,7 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
     if (!response.IsSuccessStatusCode)
     {
       throw new BadGatewayException(
-        GitHubErrors.Unavailable,
+        ForgeErrors.Unavailable,
         string.Create(CultureInfo.InvariantCulture, $"GitHub refused the reading of '{address}': HTTP {(int)response.StatusCode}.")
       );
     }
@@ -87,7 +88,7 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
     }
     catch (JsonException exception)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub answered the reading of '{address}' with an unreadable payload.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, $"GitHub answered the reading of '{address}' with an unreadable payload.", exception);
     }
   }
 
@@ -155,11 +156,11 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
         // A list that does not hold what GitHub counted would take organizations away from the user: read again later.
         return installations.Count == read.TotalCount
                  ? [.. installations.Values]
-                 : throw new BadGatewayException(GitHubErrors.Unavailable, "The installations of the user changed while they were listed.");
+                 : throw new BadGatewayException(ForgeErrors.Unavailable, "The installations of the user changed while they were listed.");
       }
     }
 
-    throw new BadGatewayException(GitHubErrors.Unavailable, "The user reaches more installations than this instance reads.");
+    throw new BadGatewayException(ForgeErrors.Unavailable, "The user reaches more installations than this instance reads.");
   }
 
   /// <inheritdoc />
@@ -202,11 +203,11 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
         // not hold what GitHub counted would cut the access of the user short: it is read again later.
         return repositories.Count == read.TotalCount
                  ? [.. repositories.Values]
-                 : throw new BadGatewayException(GitHubErrors.Unavailable, "The repositories of the installation changed while they were listed.");
+                 : throw new BadGatewayException(ForgeErrors.Unavailable, "The repositories of the installation changed while they were listed.");
       }
     }
 
-    throw new BadGatewayException(GitHubErrors.Unavailable, "The installation has more repositories than this instance reads.");
+    throw new BadGatewayException(ForgeErrors.Unavailable, "The installation has more repositories than this instance reads.");
   }
 
   #endregion

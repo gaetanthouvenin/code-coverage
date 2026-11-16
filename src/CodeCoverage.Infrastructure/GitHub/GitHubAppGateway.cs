@@ -25,6 +25,7 @@ using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub.Models;
 
 namespace CodeCoverage.Infrastructure.GitHub;
@@ -296,8 +297,8 @@ internal sealed partial class GitHubAppGateway(
   ///   statuses already). A rate limit and a failure of GitHub stay transient.
   /// </remarks>
   /// <exception cref="ArgumentException">The reference does not designate a GitHub repository.</exception>
-  /// <exception cref="NotFoundException">GitHub does not know the repository or the commit (GitHub.StatusRefused).</exception>
-  /// <exception cref="UnprocessableEntityException">GitHub refuses the status for good (GitHub.StatusRefused).</exception>
+  /// <exception cref="NotFoundException">GitHub does not know the repository or the commit (Forge.StatusRefused).</exception>
+  /// <exception cref="UnprocessableEntityException">GitHub refuses the status for good (Forge.StatusRefused).</exception>
   /// <exception cref="BadGatewayException">GitHub refused the status for another reason, or does not answer.</exception>
   /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
   public async Task CreateStatusAsync(ForgeRepositoryRef repository, GitSha sha, CommitStatus status, string? targetUrl, CancellationToken cancellationToken)
@@ -334,9 +335,9 @@ internal sealed partial class GitHubAppGateway(
     switch (response.StatusCode)
     {
       case HttpStatusCode.NotFound:
-        throw new NotFoundException(GitHubErrors.StatusRefused, refused);
+        throw new NotFoundException(ForgeErrors.StatusRefused, refused);
       case HttpStatusCode.Forbidden or HttpStatusCode.UnprocessableEntity:
-        throw new UnprocessableEntityException(GitHubErrors.StatusRefused, refused);
+        throw new UnprocessableEntityException(ForgeErrors.StatusRefused, refused);
     }
 
     // Nothing is absent here: any other refusal is a failure of the publication, tried again.
@@ -366,7 +367,7 @@ internal sealed partial class GitHubAppGateway(
 
     return GitSha.TryParse(read.Commit?.Sha, out var head)
              ? head
-             : throw new BadGatewayException(GitHubErrors.Unavailable, $"GitHub answered the reading of '{address}' without the commit of the branch.");
+             : throw new BadGatewayException(ForgeErrors.Unavailable, $"GitHub answered the reading of '{address}' without the commit of the branch.");
   }
 
   /// <inheritdoc />
@@ -506,7 +507,7 @@ internal sealed partial class GitHubAppGateway(
     }
 
     // A partial listing could miss the comment of this application, and a second one would be written.
-    throw new BadGatewayException(GitHubErrors.Unavailable, "The pull request has more comments than this instance reads.");
+    throw new BadGatewayException(ForgeErrors.Unavailable, "The pull request has more comments than this instance reads.");
   }
 
   /// <inheritdoc />
@@ -741,7 +742,7 @@ internal sealed partial class GitHubAppGateway(
       }
     }
 
-    throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub lists more installations than this instance reads.");
+    throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub lists more installations than this instance reads.");
   }
 
   /// <inheritdoc />
@@ -805,7 +806,7 @@ internal sealed partial class GitHubAppGateway(
         if (repositories.Count != read.TotalCount || repositories.DistinctBy(static r => r.ExternalId).Count() != repositories.Count)
         {
           throw new BadGatewayException(
-            GitHubErrors.Unavailable,
+            ForgeErrors.Unavailable,
             string.Create(
               CultureInfo.InvariantCulture,
               $"The repositories of installation {installationId} changed while they were listed: {repositories.Count} read, {read.TotalCount} counted."
@@ -817,7 +818,7 @@ internal sealed partial class GitHubAppGateway(
       }
     }
 
-    throw new BadGatewayException(GitHubErrors.Unavailable, "GitHub lists more repositories than this instance reads for one installation.");
+    throw new BadGatewayException(ForgeErrors.Unavailable, "GitHub lists more repositories than this instance reads for one installation.");
   }
 
   /// <inheritdoc />
@@ -1061,7 +1062,7 @@ internal sealed partial class GitHubAppGateway(
     }
 
     throw new BadGatewayException(
-      GitHubErrors.Unavailable,
+      ForgeErrors.Unavailable,
       string.Create(CultureInfo.InvariantCulture, $"GitHub refused the reading of '{address}': HTTP {(int)response.StatusCode}.")
     );
   }
@@ -1102,7 +1103,7 @@ internal sealed partial class GitHubAppGateway(
     catch (JsonException exception)
     {
       throw new BadGatewayException(
-        GitHubErrors.Unavailable,
+        ForgeErrors.Unavailable,
         $"GitHub answered the reading of '{address}' with an unreadable payload.",
         exception
       );
