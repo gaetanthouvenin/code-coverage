@@ -30,6 +30,10 @@ public sealed class GitHubOptions
   /// <value><c>https://api.github.com</c> by default.</value>
   public string ApiBaseUrl { get; set; } = "https://api.github.com";
 
+  /// <summary>Gets or sets the numeric identifier of the GitHub App.</summary>
+  /// <value>The identifier, or <see langword="null" /> while the App is not created; organizations are then not admitted.</value>
+  public string? AppId { get; set; }
+
   /// <summary>Gets or sets the client identifier of the GitHub App, the issuer of its JSON Web Tokens.</summary>
   /// <value>The client identifier, or <see langword="null" /> while the App is not created.</value>
   public string? ClientId { get; set; }

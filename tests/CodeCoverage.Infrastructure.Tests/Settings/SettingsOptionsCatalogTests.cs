@@ -32,10 +32,7 @@ public sealed class SettingsOptionsCatalogTests
   ];
 
   // Instance keys read straight from the configuration, or not read yet: no options class holds them.
-  private static readonly string[] KeysWithoutOptions =
-  [
-    SettingDefinitions.GitHubAppId,
-  ];
+  private static readonly string[] KeysWithoutOptions = [];
 
   #endregion
 
