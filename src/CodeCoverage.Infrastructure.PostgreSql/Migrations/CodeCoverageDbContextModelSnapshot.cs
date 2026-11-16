@@ -532,6 +532,83 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeConnection", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("BaseAddress")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset>("ConnectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CredentialProtected")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExternalAccountId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Forge")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("LastCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<long>("OrganizationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ServiceAccountExternalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("SuspendedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("WebhookSecretPreviousProtected")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WebhookSecretProtected")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Id")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ForgeConnections_OrganizationId_Id");
+
+                    b.ToTable("ForgeConnections", (string)null);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Operations.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -1871,6 +1948,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
                         .WithMany()
                         .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeConnection", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

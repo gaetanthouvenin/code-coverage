@@ -24,6 +24,7 @@ public static partial class DependencyInjection
     services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
     services.AddScoped<IRepositoryRepository, RepositoryRepository>();
     services.AddScoped<IInstallationRepository, InstallationRepository>();
+    services.AddScoped<IForgeConnectionRepository, ForgeConnectionRepository>();
     services.AddScoped<IBranchRepository, BranchRepository>();
     services.AddScoped<ICommitRepository, CommitRepository>();
     services.AddScoped<ICommitConfigRepository, CommitConfigRepository>();

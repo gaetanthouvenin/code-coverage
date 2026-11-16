@@ -533,6 +533,83 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeConnection", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("BaseAddress")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTimeOffset>("ConnectedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CredentialProtected")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExternalAccountId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Forge")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("LastCheckedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<long>("OrganizationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ServiceAccountExternalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("SuspendedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WebhookSecretPreviousProtected")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WebhookSecretProtected")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Id")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ForgeConnections_OrganizationId_Id");
+
+                    b.ToTable("ForgeConnections", (string)null);
+                });
+
             modelBuilder.Entity("CodeCoverage.Domain.Operations.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -1875,6 +1952,15 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasOne("CodeCoverage.Domain.Repositories.TrackedRepository", null)
                         .WithMany()
                         .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeConnection", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
