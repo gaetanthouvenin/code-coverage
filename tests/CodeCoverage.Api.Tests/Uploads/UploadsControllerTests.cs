@@ -18,6 +18,8 @@ using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Contracts.Identity;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
 using CodeCoverage.Domain.Git;
@@ -38,6 +40,8 @@ public sealed class UploadsControllerTests
   private const string Boundary = "----upload-test";
 
   private const string Sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  private const string Jwt = "header.payload.signature";
 
   private static readonly DateTimeOffset Now = new(2026, 11, 9, 8, 0, 0, TimeSpan.Zero);
 
@@ -60,6 +64,14 @@ public sealed class UploadsControllerTests
   private readonly IUploadRepository _uploads = A.Fake<IUploadRepository>();
 
   private readonly ICommitReportRepository _reports = A.Fake<ICommitReportRepository>();
+
+  private readonly IOidcTokenValidator _oidc = A.Fake<IOidcTokenValidator>();
+
+  private readonly IOrganizationDirectory _directory = A.Fake<IOrganizationDirectory>();
+
+  private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
+
+  private readonly IForgeGateway _gateway = A.Fake<IForgeGateway>();
 
   #endregion
 
@@ -211,6 +223,29 @@ public sealed class UploadsControllerTests
     second.StatusCode.ShouldBe(HttpStatusCode.Accepted);
   }
 
+  // The controller authorizes before reading the files, and the command checks again: GitHub is asked once.
+  [Fact]
+  public async Task Post_OidcOnUntrackedRepository_ShouldReadTheRepositoryConnectionOnce()
+  {
+    var repository = TrackedRepository.Create(1, "2002", RepositorySlug.Parse("octo-org/app"), "main", true, "protected", Now);
+    typeof(TrackedRepository).GetProperty(nameof(TrackedRepository.Id))!.SetValue(repository, 5L);
+    A.CallTo(() => _repositories.FindBySlugAsync(A<RepositorySlug>._, A<CancellationToken>._)).Returns((TrackedRepository?)null);
+    A.CallTo(() => _repositories.FindByExternalIdAsync("2002", A<CancellationToken>._)).Returns(repository);
+    A.CallTo(() => _oidc.ValidateAsync(Jwt, A<CancellationToken>._)).Returns(new GitHubOidcIdentity("octo-org/app", "2002", "octo-org", "1001", null, null));
+    A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._))
+     .Returns(Organization.CreatePending(Forge.GitHub, "1001", "octo-org", OrganizationAccountType.Organization, Now));
+    A.CallTo(() => _gateways.GetGateway(Forge.GitHub)).Returns(_gateway);
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync("octo-org", "app", A<CancellationToken>._)).Returns(new ForgeConnectionInfo("77", "1001", "2002"));
+    await using var host = Host(oidc: true);
+    using var client = host.CreateClient();
+
+    using var response = await SendAsync(client, ValidBody(), credential: Jwt);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+    A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync(A<string>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
   [Theory]
   [InlineData("sha", "not-a-sha")]
   [InlineData("forge", "svn")]
@@ -356,11 +391,15 @@ public sealed class UploadsControllerTests
     return body.Append("--").Append(Boundary).Append("--\r\n").ToString();
   }
 
-  private static async Task<HttpResponseMessage> SendAsync(HttpClient client, string body, string? idempotencyKey = null)
+  private static async Task<HttpResponseMessage> SendAsync(
+    HttpClient client,
+    string body,
+    string? idempotencyKey = null,
+    string credential = "cvc_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG")
   {
     using var request = new HttpRequestMessage(HttpMethod.Post, UploadsPath) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes(body)) };
     request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse($"multipart/form-data; boundary={Boundary}");
-    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "cvc_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG");
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential);
 
     if (idempotencyKey is not null)
     {
@@ -370,7 +409,7 @@ public sealed class UploadsControllerTests
     return await client.SendAsync(request, Ct);
   }
 
-  private WebApplicationFactory<Program> Host(int limit = 120) =>
+  private WebApplicationFactory<Program> Host(int limit = 120, bool oidc = false) =>
     _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
     {
       services.AddSingleton(_scope);
@@ -383,6 +422,13 @@ public sealed class UploadsControllerTests
       services.AddSingleton(_reports);
       services.AddSingleton(A.Fake<IClock>());
       services.Configure<UploadOptions>(options => options.RateLimitPerMinute = limit);
+
+      if (oidc)
+      {
+        services.AddSingleton(_oidc);
+        services.AddSingleton(_directory);
+        services.AddSingleton(_gateways);
+      }
     }));
 
   #endregion

@@ -308,6 +308,124 @@ public sealed class UploadAuthenticatorTests
     A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
+  // The controller authorizes before reading the files, and the command checks again in the same scope.
+  [Fact]
+  public async Task Authenticate_SameOidcTwiceInTheScope_ShouldAskOnce()
+  {
+    Proves(RepositoryExternalId, OwnerId);
+    ForgeReports(new ForgeConnectionInfo("77", OwnerId, RepositoryExternalId));
+    var authenticator = Handler();
+
+    var first = await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+    var second = await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+
+    second.ShouldBe(first);
+    A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync(A<string>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Authenticate_SameTokenTwiceInTheScope_ShouldReadOnce()
+  {
+    Tracked(5);
+    Known(OrganizationToken());
+    var authenticator = Handler();
+
+    await authenticator.AuthenticateAsync(Token(), Forge.GitHub, Slug, Ct);
+    await authenticator.AuthenticateAsync(Token(), Forge.GitHub, Slug, Ct);
+
+    A.CallTo(() => _tokens.FindByHashAsync(A<byte[]>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _repositories.FindBySlugAsync(A<RepositorySlug>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Authenticate_OtherCredentialInTheScope_ShouldCheckAgain()
+  {
+    Proves(RepositoryExternalId, OwnerId);
+    ForgeReports(new ForgeConnectionInfo("77", OwnerId, RepositoryExternalId));
+    A.CallTo(() => _oidc.ValidateAsync("other.payload.signature", A<CancellationToken>._))
+     .Returns(new GitHubOidcIdentity("octo-org/app", RepositoryExternalId, "octo-org", OwnerId, null, null));
+    var authenticator = Handler();
+
+    await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+    await authenticator.AuthenticateAsync(new UploadCredential(UploadCredentialKind.Jwt, "other.payload.signature"), Forge.GitHub, Slug, Ct);
+
+    A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync(A<string>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  // The same value, read as an upload token, proves something else.
+  [Fact]
+  public async Task Authenticate_OtherCredentialKindInTheScope_ShouldCheckAgain()
+  {
+    Tracked(5);
+    Proves(RepositoryExternalId, OwnerId);
+    Known(OrganizationToken());
+    var authenticator = Handler();
+
+    await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+    var authorization = await authenticator.AuthenticateAsync(new UploadCredential(UploadCredentialKind.UploadToken, JwtValue), Forge.GitHub, Slug, Ct);
+
+    authorization.PrincipalKind.ShouldBe(PrincipalKind.OrganizationToken);
+  }
+
+  [Fact]
+  public async Task Authenticate_OtherForgeInTheScope_ShouldCheckAgain()
+  {
+    Proves(RepositoryExternalId, OwnerId);
+    ForgeReports(new ForgeConnectionInfo("77", OwnerId, RepositoryExternalId));
+    var authenticator = Handler();
+
+    await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+    var exception = await Should.ThrowAsync<UnauthorizedException>(() => authenticator.AuthenticateAsync(Jwt(), Forge.GitLab, Slug, Ct));
+
+    exception.ErrorCode.ShouldBe(UploadErrors.TokenInvalid);
+  }
+
+  [Fact]
+  public async Task Authenticate_OtherSlugInTheScope_ShouldCheckAgain()
+  {
+    Proves(RepositoryExternalId, OwnerId);
+    ForgeReports(new ForgeConnectionInfo("77", OwnerId, RepositoryExternalId));
+    var authenticator = Handler();
+
+    await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+    var exception = await Should.ThrowAsync<ForbiddenException>(() => authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, RepositorySlug.Parse("octo-org/other"), Ct));
+
+    exception.ErrorCode.ShouldBe(UploadErrors.OidcMismatch);
+    A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  [Fact]
+  public async Task Authenticate_AfterAFailureInTheScope_ShouldCheckAgain()
+  {
+    Proves(RepositoryExternalId, OwnerId);
+    ForgeReports(null);
+    var authenticator = Handler();
+
+    await Should.ThrowAsync<NotFoundException>(() => authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct));
+    ForgeReports(new ForgeConnectionInfo("77", OwnerId, RepositoryExternalId));
+    var authorization = await authenticator.AuthenticateAsync(Jwt(), Forge.GitHub, Slug, Ct);
+
+    authorization.Connection.ShouldNotBeNull().ConnectionId.ShouldBe("77");
+    A.CallTo(() => _oidc.ValidateAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync(A<string>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  // A new request is a new scope: a token revoked in between is refused.
+  [Fact]
+  public async Task Authenticate_InAnotherScope_ShouldCheckAgain()
+  {
+    Tracked(5);
+    var token = OrganizationToken();
+    Known(token);
+
+    await Handler().AuthenticateAsync(Token(), Forge.GitHub, Slug, Ct);
+    token.Revoke(Now);
+
+    await ShouldRefuseAsInvalid(Token());
+  }
+
   private static UploadCredential Token() => new(UploadCredentialKind.UploadToken, TokenValue);
 
   private static UploadCredential Jwt() => new(UploadCredentialKind.Jwt, JwtValue);

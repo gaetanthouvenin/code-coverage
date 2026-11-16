@@ -29,7 +29,11 @@ namespace CodeCoverage.Application.Services;
 /// <param name="gateways">The gateways of the forges.</param>
 /// <param name="hasher">The hash of the tokens.</param>
 /// <param name="clock">The clock.</param>
-/// <remarks>Until a credential is proven, no answer depends on the state of the organization.</remarks>
+/// <remarks>
+///   Until a credential is proven, no answer depends on the state of the organization. The service lives in the scope of a
+///   request: it keeps its last success for the same credential, forge and repository, so that the authorization of the
+///   controller and the check of the command ask the forge once. A refusal is never kept, and nothing outlives the request.
+/// </remarks>
 internal sealed class UploadAuthenticator(
   ICurrentOrganization organization,
   IOrganizationDirectory directory,
@@ -41,6 +45,28 @@ internal sealed class UploadAuthenticator(
   ITokenHasher hasher,
   IClock clock)
 {
+  #region Fields
+
+  /// <summary>The kind of the credential of the last success.</summary>
+  private UploadCredentialKind _lastKind;
+
+  /// <summary>The value of the credential of the last success.</summary>
+  private string? _lastValue;
+
+  /// <summary>The forge of the last success.</summary>
+  private Forge _lastForge;
+
+  /// <summary>The repository of the last success.</summary>
+  private RepositorySlug? _lastSlug;
+
+  /// <summary>The organization of the scope at the last success.</summary>
+  private long _lastOrganizationId;
+
+  /// <summary>The last success, unset until one.</summary>
+  private UploadAuthorization? _last;
+
+  #endregion
+
   #region Methods
 
   /// <summary>Checks a credential for a repository.</summary>
@@ -62,9 +88,24 @@ internal sealed class UploadAuthenticator(
     ArgumentNullException.ThrowIfNull(credential);
     ArgumentNullException.ThrowIfNull(slug);
 
-    return credential.Kind is UploadCredentialKind.Jwt
-      ? await AuthenticateOidcAsync(credential.Value, forge, slug, cancellationToken).ConfigureAwait(false)
-      : await AuthenticateTokenAsync(credential.Value, slug, cancellationToken).ConfigureAwait(false);
+    if (_last is { } last && IsLast(credential, forge, slug))
+    {
+      return last;
+    }
+
+    // A refusal throws before the success is kept: the next call checks again.
+    var authorization = credential.Kind is UploadCredentialKind.Jwt
+                          ? await AuthenticateOidcAsync(credential.Value, forge, slug, cancellationToken).ConfigureAwait(false)
+                          : await AuthenticateTokenAsync(credential.Value, slug, cancellationToken).ConfigureAwait(false);
+
+    _lastKind = credential.Kind;
+    _lastValue = credential.Value;
+    _lastForge = forge;
+    _lastSlug = slug;
+    _lastOrganizationId = organization.Id;
+    _last = authorization;
+
+    return authorization;
   }
 
   /// <summary>Builds the refusal of a credential that proves nothing.</summary>
@@ -85,6 +126,20 @@ internal sealed class UploadAuthenticator(
   /// <param name="right">The second identifier.</param>
   /// <returns><see langword="true" /> when they are the same.</returns>
   private static bool SameId(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+  /// <summary>Tells whether a call repeats the last success of the scope.</summary>
+  /// <param name="credential">The credential.</param>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="slug">The repository.</param>
+  /// <returns><see langword="true" /> when the last success answers the call.</returns>
+  /// <remarks>A success needs a known organization: an organization left or changed since then checks again.</remarks>
+  private bool IsLast(UploadCredential credential, Forge forge, RepositorySlug slug) =>
+    credential.Kind == _lastKind
+    && string.Equals(credential.Value, _lastValue, StringComparison.Ordinal)
+    && forge == _lastForge
+    && slug.Equals(_lastSlug)
+    && organization.IsKnown
+    && organization.Id == _lastOrganizationId;
 
   /// <summary>Checks an OIDC token.</summary>
   /// <param name="token">The token.</param>
