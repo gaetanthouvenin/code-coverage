@@ -3309,7 +3309,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** M4.02m
 
 #### M4.02ad — Limite de GitHub atteinte pendant un upload
-- **Issue :** à créer.
+- **Issue :** [#454](https://github.com/gaetanthouvenin/code-coverage/issues/454)
 - **Objectif :** qu'un upload refusé parce que GitHub limite l'instance réponde par un refus nommé, et non par une erreur 500 sans code. Relevé par la revue du chemin d'upload du 2026-11-16 (après la panne de production du même jour, sans lien avec elle) : pour un dépôt pas encore suivi, `UploadAuthenticator.ReadConnectionAsync` et `ReceiveUploadCommandHandler.CreateRepositoryAsync` appellent GitHub pendant la requête. `RateLimitHandler` y lève `GitHubRateLimitedException` sur un 429, ou sur un 403 de limite. Cette exception n'est volontairement pas une `ApplicationException` : `JobWorker` la traite comme une attente, pas comme un échec. Mais `ApiExceptionHandler` ne la connaît pas, et la rend en 500 « Internal server error », sans code ni détail. L'uploader réessaie cinq fois, puis n'affiche que « The server refused the upload: 500. ».
 - **Couches :** Api, Infrastructure, Web (traductions).
 - **Fichiers :**
@@ -3322,7 +3322,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** —
 
 #### M4.02ae — Une seule authentification par upload
-- **Issue :** à créer.
+- **Issue :** [#455](https://github.com/gaetanthouvenin/code-coverage/issues/455)
 - **Objectif :** qu'un upload n'interroge GitHub qu'une fois pour son authentification. Relevé par la même revue : `UploadsController.CreateAsync` envoie `AuthorizeUploadQuery` avant de lire les fichiers, pour refuser tôt. Puis `ReceiveUploadCommandHandler.Handle` rappelle `UploadAuthenticator.AuthenticateAsync` avec la même preuve. Pour un jeton OIDC, chaque appel valide le jeton. Pour un dépôt pas encore suivi, il lit aussi la connexion du dépôt chez GitHub, soit deux appels par l'App (installation, puis dépôt avec un jeton d'installation). Un upload fait donc ce travail deux fois, et autant de risques d'attente ou de refus de GitHub pendant la requête.
 - **Couches :** Application.
 - **Fichiers :**
@@ -3333,7 +3333,7 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Dépend de :** —
 
 #### M4.02af — Statut de chaque tentative de l'uploader
-- **Issue :** à créer.
+- **Issue :** [#456](https://github.com/gaetanthouvenin/code-coverage/issues/456)
 - **Objectif :** que l'uploader dise pourquoi chaque tentative a échoué. Constaté le 2026-11-16 sur la CI de ce dépôt (runs 43774865172, 43780718086, 43780864301, 43780891190) : les quatre premières tentatives n'affichent que « Attempt n of 5 failed: trying again in … s. ». Seul le statut de la dernière apparaît, et il varie d'un run à l'autre (500, 504, 502). Il a fallu les journaux du serveur pour voir que l'Api ne démarrait plus. Cause prouvée : `RetryPolicy.SendAsync` libère la réponse d'une tentative réessayable sans en lire le statut, et n'écrit le message de l'exception d'une tentative sans réponse qu'en mode détaillé.
 - **Couches :** Uploader.
 - **Fichiers :**
