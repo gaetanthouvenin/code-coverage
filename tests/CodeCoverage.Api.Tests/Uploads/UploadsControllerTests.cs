@@ -27,6 +27,7 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Tokens;
+using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Api.Tests.Uploads;
 
@@ -208,6 +209,31 @@ public sealed class UploadsControllerTests
     refused.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
     refused.Headers.RetryAfter.ShouldNotBeNull();
     await ShouldHaveErrorCode(refused, UploadErrors.RateLimited);
+  }
+
+  [Fact]
+  public async Task Post_OidcForUntrackedRepositoryWhenGitHubRateLimits_ShouldReturn502WithTheResetTime()
+  {
+    var resetAt = new DateTimeOffset(2026, 11, 9, 9, 0, 0, TimeSpan.Zero);
+    A.CallTo(() => _oidc.ValidateAsync(Jwt, A<CancellationToken>._))
+     .Returns(new GitHubOidcIdentity("octo-org/app", "2002", "octo-org", "1001", "refs/heads/main", "push"));
+    A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._))
+     .Returns(Organization.CreatePending(Forge.GitHub, "1001", "octo-org", OrganizationAccountType.Organization, Now));
+    A.CallTo(() => _gateways.GetGateway(Forge.GitHub)).Returns(_gateway);
+    A.CallTo(() => _gateway.GetRepositoryConnectionAsync("octo-org", "app", A<CancellationToken>._))
+     .ThrowsAsync(new GitHubRateLimitedException(resetAt));
+    A.CallTo(() => _repositories.FindBySlugAsync(A<RepositorySlug>._, A<CancellationToken>._)).Returns((TrackedRepository?)null);
+    await using var host = Host(oidc: true);
+    using var client = host.CreateClient();
+
+    using var response = await SendAsync(client, ValidBody(), credential: Jwt);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.BadGateway);
+    response.Headers.RetryAfter.ShouldBeNull();
+
+    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+    json.RootElement.GetProperty("errorCode").GetString().ShouldBe(GitHubErrors.RateLimited);
+    json.RootElement.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("2026-11-09T09:00:00");
   }
 
   [Fact]
