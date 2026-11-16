@@ -12,6 +12,12 @@ public static class GitHubErrors
   #region Fields
 
   /// <summary>
+  ///   GitHub refused a request sent while an HTTP request was handled, because the instance reached one of its rate
+  ///   limits: the caller may try again once it is reset.
+  /// </summary>
+  public const string RateLimited = "GitHub.RateLimited";
+
+  /// <summary>
   ///   GitHub refused a commit status for good: it does not know the repository or the commit, the App may not write
   ///   statuses there, or the commit holds as many statuses as GitHub allows.
   /// </summary>

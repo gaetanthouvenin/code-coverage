@@ -41,6 +41,7 @@
   <data name="General.ConcurrentChange" xml:space="preserve"><value>I dati sono stati modificati o rimossi nel frattempo. Ricaricali e riprova.</value></data>
   <data name="General.Unexpected" xml:space="preserve"><value>Si è verificato un errore imprevisto. Riprova tra un momento; se il problema persiste, contatta un amministratore.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Alcuni valori non sono validi. Correggili, poi riprova.</value></data>
+  <data name="GitHub.RateLimited" xml:space="preserve"><value>GitHub limita per ora le richieste di questa istanza. Riprova dopo l’orario indicato nel dettaglio.</value></data>
   <data name="GitHub.StatusRefused" xml:space="preserve"><value>GitHub ha rifiutato definitivamente lo stato del commit: verifica che l’applicazione possa scrivere gli stati in questo repository e che il commit vi esista.</value></data>
   <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub non è disponibile. Riprova tra qualche minuto.</value></data>
   <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La consegna da gestire non esiste.</value></data>
