@@ -58,6 +58,14 @@ public sealed class CoverageDetailTests
   }
 
   [Fact]
+  public void Add_UnknownMethodsOnTheLeft_ShouldMakeThemUnknown()
+  {
+    var sum = new CoverageDetail(1, 6, 2, 2, null, null).Add(new CoverageDetail(3, 4, 1, 3, 2, 2));
+
+    sum.ShouldBe(new CoverageDetail(4, 10, 3, 5, null, null));
+  }
+
+  [Fact]
   public void Add_BeyondAnInteger_ShouldHoldToTheLargest()
   {
     var sum = new CoverageDetail(1, int.MaxValue, 0, 0, 0, 0).Add(new CoverageDetail(1, 1, 0, 0, 0, 0));
