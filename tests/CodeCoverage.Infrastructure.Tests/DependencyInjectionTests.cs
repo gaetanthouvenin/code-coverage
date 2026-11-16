@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application;
 using CodeCoverage.Domain.Coverage;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.GitHub;
@@ -376,6 +377,18 @@ public sealed class DependencyInjectionTests
     services.GetRequiredService<GitHubAppTokenProvider>().ShouldBeSameAs(provider);
     services.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubHttpClientConfiguration.ClientName)
             .BaseAddress.ShouldBe(new Uri("https://api.github.com/"));
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheGitHubGatewayByItsForge()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var scope = services.CreateAsyncScope();
+
+    var gateway = scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetGateway(Forge.GitHub);
+
+    gateway.ShouldBeOfType<GitHubAppGateway>();
+    scope.ServiceProvider.GetRequiredKeyedService<IForgeGateway>(Forge.GitHub).ShouldBeSameAs(gateway);
   }
 
   private static ServiceProvider Build(Dictionary<string, string?> settings, bool withProviders = false)
