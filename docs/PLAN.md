@@ -138,6 +138,8 @@ graph LR
   M8 --> M9["M9 GitLab.com"]
 ```
 
+M7, M8 et M9 implémentent Azure DevOps, Bitbucket et GitLab.com, dans cet ordre ([ADR-014](adr/0014-multi-forge.md), amendé par M7.02) ; M7 porte aussi les refactors neutres que M8 et M9 réutilisent.
+
 Deux exceptions à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible ; M3.03a (appartenances) passe avant M2.03a2, dont les événements de membres alimentent cette table.
 
 Les graphes suivants ne montrent que les dépendances **internes** à chaque jalon. Les dépendances vers des jalons antérieurs sont indiquées sur chaque fiche.
@@ -502,7 +504,7 @@ graph TD
 ```mermaid
 graph TD
   M7_01["M7.01 Calcul du diff sur Azure DevOps (spike)"]
-  M7_02["M7.02 Amendement d'ADR-014 et ADR-015 (connexions de…"]
+  M7_02["M7.02 Amendement d'ADR-014 et ADR-017 (connexions de…"]
   M7_03["M7.03 Limitation de débit et indisponibilité neutres"]
   M7_04["M7.04 Résolution des passerelles par forge"]
   M7_05["M7.05 Disponibilité des forges : admission et connex…"]
@@ -3612,7 +3614,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Acceptation :** la voie retenue reproduit `git diff -U0` sur au moins neuf PR sur dix, et chaque divergence est décrite comme écart nommé ou comme patch inconnu. Chaque affirmation est classée prouvée ou probable. Si l'identifiant de fil ne suffit pas, le document le prouve et M7.02 ajoute une micro-feature d'identifiant de commentaire texte avant M7.48.
 - **Dépend de :** M4.02a
 
-#### M7.02 — Amendement d'ADR-014 et ADR-015 (connexions de forge)
+#### M7.02 — Amendement d'ADR-014 et ADR-017 (connexions de forge)
 - **Issue :** [#278](https://github.com/gaetanthouvenin/code-coverage/issues/278)
 - **Objectif :** remplacer « préparer maintenant, implémenter GitHub seul » par la décision du propriétaire d'implémenter Azure DevOps, Bitbucket puis GitLab.com ; trancher les choix d'Azure DevOps établis par le spike et la recherche ; consigner la place des connexions de forge dans l'isolation (ADR-013).
 - **Couches :** docs.
@@ -3626,16 +3628,16 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
     - upload par jeton seulement ; diff selon M7.01.
 
     Écarts nommés et non configurables : pas de route de badge Codecov, pas de signature HMAC, pas d'OIDC d'upload, comptes Microsoft personnels non pris en charge tant qu'Entra ne les accepte pas.
-  - **`docs/adr/0015-forge-connections.md`** :
+  - **`docs/adr/0017-forge-connections.md`** (ADR-017 ; ce plan l'appelait ADR-015, numéro déjà pris par les langues de la console) :
     - **Classement** : la table `ForgeConnections` est **globale**, comme `Installations` (`TableClassification.Global`), avec une clé étrangère `OrganizationId`, `UX(OrganizationId, Id)` et des secrets chiffrés par `ISecretProtector`. Une réception de webhook doit en effet trouver l'organisation avant d'y entrer, et `IgnoreQueryFilters` reste interdit sans exception.
     - **Routes** : toute route de webhook d'une forge à connexion porte l'identifiant de la connexion, `/api/v1/{forge}/webhooks/{connectionId}`, jamais un identifiant lu dans le corps.
     - **GitHub** reste sur `Installations` : aucune ligne `ForgeConnections` n'est créée pour lui, et `Repositories.ConnectionId` n'a pas de clé étrangère (pour GitHub, il vaut l'identifiant d'installation en texte).
     - **Portes d'isolation** : chaque réception et chaque coordinateur qui lit `ForgeConnections` est une porte nommée dans `OrganizationIsolationTests`.
-  - **`docs/adr/README.md`** (index : ADR-015, ADR-014 amendé).
+  - **`docs/adr/README.md`** (index : ADR-017, ADR-014 amendé).
   - **`docs/PLAN.md`** : §2.1, graphes du §2, §9.1 remplacée par les §9.1 (M7), §9.2 (M8) et §9.3 (M9), nouvelles lignes du §10 à partir de 27 (connexions globales, ports neutres ajoutés), item 12 du §11.
-  - **`docs/ARCHITECTURE.md`** §1.3 et §8 (renvoi à ADR-014 et ADR-015 pour les autres forges).
+  - **`docs/ARCHITECTURE.md`** §1.3 et §8 (renvoi à ADR-014 et ADR-017 pour les autres forges).
 - **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
-- **Acceptation :** ADR-014 et le plan ne disent plus « GitHub seul ». Chaque écart d'Azure DevOps avec GitHub est nommé et déclaré non configurable. ADR-015 tranche le classement global, la route par connexion et le cas de GitHub, et il est accepté par le propriétaire (propriétaire).
+- **Acceptation :** ADR-014 et le plan ne disent plus « GitHub seul ». Chaque écart d'Azure DevOps avec GitHub est nommé et déclaré non configurable. ADR-017 tranche le classement global, la route par connexion et le cas de GitHub, et il est accepté par le propriétaire (propriétaire).
 - **Dépend de :** M7.01
 
 **Refactors neutres (partagés avec M8 et M9) : socle des forges**
@@ -3689,7 +3691,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 
 #### M7.06 — Table `ForgeConnections` et son port
 - **Issue :** [#282](https://github.com/gaetanthouvenin/code-coverage/issues/282)
-- **Objectif :** donner à chaque organisation d'une forge à connexion (Azure DevOps, Bitbucket, GitLab) une connexion qui porte ses identifiants chiffrés, avec ses colonnes définitives pour M8 et M9 : aucune migration conditionnelle plus tard. La table est globale (ADR-015).
+- **Objectif :** donner à chaque organisation d'une forge à connexion (Azure DevOps, Bitbucket, GitLab) une connexion qui porte ses identifiants chiffrés, avec ses colonnes définitives pour M8 et M9 : aucune migration conditionnelle plus tard. La table est globale (ADR-017).
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
   - **`Domain/Connections/ForgeConnection.cs`** :
@@ -3722,12 +3724,12 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 - **Couches :** Domain, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
 - **Fichiers :**
   - `Domain/Repositories/TrackedRepository.cs` : `ConnectionId` texte ≤ 64, `InstallationId` nullable, `ToForgeRef` lit `ConnectionId`, `Create` et `Activate` reçoivent la connexion ;
-  - `Infrastructure/Persistence/Configurations/TrackedRepositoryConfiguration.cs` : aucune clé étrangère vers `ForgeConnections` ni `Installations` (ADR-015) ;
+  - `Infrastructure/Persistence/Configurations/TrackedRepositoryConfiguration.cs` : aucune clé étrangère vers `ForgeConnections` ni `Installations` (ADR-017) ;
   - Migration `AddRepositoryConnectionId`, colonne remplie depuis `InstallationId` dans la migration.
 - **Tests :**
   - `Domain.Tests/Repositories/TrackedRepositoryTests` — `ToForgeRef_AnyForge_ShouldCarryTheConnectionId` ;
   - `Infrastructure.Tests/Persistence/Repositories/RepositoryRepositoryTests` — `Migration_ExistingGitHubRepository_ShouldKeepItsInstallationAsConnection` (deux fournisseurs).
-- **Acceptation :** un dépôt GitHub existant garde la même `ForgeRepositoryRef` après la migration. Pour GitHub, `ConnectionId` vaut l'identifiant d'installation en texte, sans clé étrangère, et aucune ligne `ForgeConnections` n'est créée (ADR-015).
+- **Acceptation :** un dépôt GitHub existant garde la même `ForgeRepositoryRef` après la migration. Pour GitHub, `ConnectionId` vaut l'identifiant d'installation en texte, sans clé étrangère, et aucune ligne `ForgeConnections` n'est créée (ADR-017).
 - **Dépend de :** M7.06
 
 #### M7.08 — Appelants sans `long.Parse` de la connexion
@@ -3963,7 +3965,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
   Les contrôleurs par forge restent minces : seuls leurs en-têtes diffèrent.
 - **Couches :** Domain, Application, Web.
 - **Fichiers :**
-  - **Port** : `Domain/Ports/IForgeWebhookValidator.cs`, à clé `Forge` (ajout, §10). Il reçoit `Domain/Contracts/Webhooks/ForgeWebhookRequest.cs` (forge, connexion, identifiant de livraison, événement, en-têtes utiles, corps) et les secrets déchiffrés. Le validateur GitHub (`IWebhookSignatureValidator`, `GitHub:WebhookSecret`) reste celui des installations, comme le dit ADR-015.
+  - **Port** : `Domain/Ports/IForgeWebhookValidator.cs`, à clé `Forge` (ajout, §10). Il reçoit `Domain/Contracts/Webhooks/ForgeWebhookRequest.cs` (forge, connexion, identifiant de livraison, événement, en-têtes utiles, corps) et les secrets déchiffrés. Le validateur GitHub (`IWebhookSignatureValidator`, `GitHub:WebhookSecret`) reste celui des installations, comme le dit ADR-017.
   - **Cas d'usage** : UC `Features/Webhooks/Commands/ReceiveForgeWebhook` `+V` (`IAnonymousEntry`, authentifiée dans son handler) :
     - `IForgeConnectionRepository.FindOwnerAsync` ;
     - comparaison en temps constant par le validateur ;
@@ -4557,7 +4559,7 @@ Ce jalon n'est pas découpé ; il le sera après la bascule. Il comprend :
 
 **Socle repris de M7.** M8 n'ajoute que des adaptateurs Bitbucket, posés sur les pièces neutres de M7 :
 - le registre des passerelles par forge (M7.04) et la disponibilité des forges (M7.05) ;
-- la table `ForgeConnections`, globale (M7.06, ADR-015), l'admission par connexion (M7.12), la rotation des secrets (M7.13) et la santé des connexions (M7.14) ;
+- la table `ForgeConnections`, globale (M7.06, ADR-017), l'admission par connexion (M7.12), la rotation des secrets (M7.13) et la santé des connexions (M7.14) ;
 - l'annuaire neutre et la synchronisation (M7.09, M7.10, M7.11) ;
 - la réception (M7.21) et le traitement neutres des webhooks (M7.18 à M7.20), ainsi que la table `ForgeHooks` et sa gestion (M7.22, M7.23) ;
 - les ports utilisateur neutres (M7.15 à M7.17) ;
@@ -4634,7 +4636,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Fichiers :**
   - **`docs/adr/0014-multi-forge.md`**, section Bitbucket Cloud :
     - genre d'identifiant de connexion retenu ;
-    - webhook de workspace unique par connexion, sur la route `/api/v1/bitbucket/webhooks/{connectionId}` (ADR-015) ;
+    - webhook de workspace unique par connexion, sur la route `/api/v1/bitbucket/webhooks/{connectionId}` (ADR-017) ;
     - clé de statut ;
     - marqueur de commentaire ;
     - OIDC de Pipelines.
@@ -5197,7 +5199,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 
 **Critère de sortie :** un groupe GitLab.com du propriétaire, sur le plan Free et avec un projet dans un sous-groupe, est admis et connecté par le jeton d'un compte de service (M7.12, M9.05). Ses projets sont suivis sous l'owner `group:sub` (M9.12) et leurs webhooks sont créés par l'API (M9.13). Une merge request d'un projet pilote reçoit, après un upload sans jeton par l'OIDC de GitLab CI lié à `project_id` (M9.19, M9.21), tous les statuts émis par `NotificationService` et une note unique mise à jour à chaque push (M9.10, M9.11), déclenchés par les webhooks du projet (M9.14, M9.15). Le badge `/gl/group:sub/repo` répond comme chez Codecov (M9.22). Un membre du groupe se connecte au Web avec GitLab et ne voit que les projets qu'il peut lire (M9.17, M9.18). Le pilote le constate (M9.28, propriétaire). GitHub, Azure DevOps et Bitbucket ne régressent pas.
 
-**GitLab.com branché sur les pièces neutres.** M9 ne construit aucune abstraction. Il branche GitLab sur les ports et cas d'usage neutres livrés par M7 (passerelles par forge, disponibilité, connexions globales, admission, rotation et santé des connexions, annuaire et synchronisation, réception et traitement des webhooks, table `ForgeHooks`, liens, capacités de commentaire, uploader à plusieurs niveaux, quotas, table des segments Codecov, page de connexion et administrateurs) et par M8 (OIDC d'upload par forge, source de jeton OIDC de l'uploader). Chaque fiche ne contient que l'adaptateur GitLab. La route de webhook est `/api/v1/gitlab/webhooks/{connectionId}` (ADR-015), et le secret de webhook est celui de la connexion, comme pour Azure DevOps et Bitbucket : il n'existe aucun secret de webhook d'instance pour GitLab. Seul GitLab.com est pris en charge ; une instance auto-hébergée reste hors périmètre (`Forge.GitLab`).
+**GitLab.com branché sur les pièces neutres.** M9 ne construit aucune abstraction. Il branche GitLab sur les ports et cas d'usage neutres livrés par M7 (passerelles par forge, disponibilité, connexions globales, admission, rotation et santé des connexions, annuaire et synchronisation, réception et traitement des webhooks, table `ForgeHooks`, liens, capacités de commentaire, uploader à plusieurs niveaux, quotas, table des segments Codecov, page de connexion et administrateurs) et par M8 (OIDC d'upload par forge, source de jeton OIDC de l'uploader). Chaque fiche ne contient que l'adaptateur GitLab. La route de webhook est `/api/v1/gitlab/webhooks/{connectionId}` (ADR-017), et le secret de webhook est celui de la connexion, comme pour Azure DevOps et Bitbucket : il n'existe aucun secret de webhook d'instance pour GitLab. Seul GitLab.com est pris en charge ; une instance auto-hébergée reste hors périmètre (`Forge.GitLab`).
 
 **Cadrage**
 
@@ -5236,7 +5238,7 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
     - §10, écarts nommés et non configurables : « statuts et notes publiés sous le compte de service, clé `codecov.bot` sans effet » ; « fichier omis par GitLab (`too_large`, `collapsed`) : patch du fichier indisponible ; `compare_timeout` : patch inconnu » ; « sous-groupe dont le namespace dépasse 512 caractères non suivi » ; « renommage et transfert d'un projet rattrapés par la synchronisation quotidienne, faute de webhook de groupe » ;
     - §11 item 12 mis à jour ;
     - si un verdict de M9.01 change le périmètre d'une fiche de M9, la fiche est réécrite ici.
-  - **`docs/ARCHITECTURE.md`** §8 (GitLab.com à côté de GitHub, Azure DevOps et Bitbucket, renvoi à ADR-014 et ADR-015).
+  - **`docs/ARCHITECTURE.md`** §8 (GitLab.com à côté de GitHub, Azure DevOps et Bitbucket, renvoi à ADR-014 et ADR-017).
 - **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
 - **Acceptation :** les questions ouvertes du spike sont tranchées par le propriétaire ou listées au §11 ; chaque écart de GitLab.com avec Codecov est nommé et déclaré non configurable (règle critique 1) (propriétaire).
 - **Dépend de :** M9.01
@@ -5673,6 +5675,9 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 | 24 | Les Check Runs (M5.05) remplacent les statuts derrière un cinquième paramètre d'organisation, `Notifications:ChecksEnabled`, éteint par défaut ; un refus revient au statut. | Décision du propriétaire du 2026-11-13 : Codecov publie des Check Runs, mais la permission Checks doit être accordée par chaque organisation à l'App partagée ; ADR-007 et la règle 7 d'AGENT.md sont amendés. |
 | 25 | Les templates CI (M5.01, M5.02) téléchargent l'uploader depuis la release GitHub de la version épinglée ; la route `/api/v1/uploader/{rid}` de l'instance devient un secours. | Décision du propriétaire du 2026-11-13 : l'Api ne sert que sa propre version, une somme épinglée échouerait donc en silence à chaque mise à jour du serveur ; ADR-012 est amendé. |
 | 26 | Les commits importés de Codecov (M5.06) n'ont ni fichiers ni sessions et ne sont jamais base ni tête d'une comparaison. | L'API v2 ne donne que les totaux ; une base sans sessions donnerait des totaux de base nuls. |
+| 27 | Les forges autres que GitHub sont **implémentées** (M7 Azure DevOps, M8 Bitbucket, M9 GitLab.com), et non plus seulement préparées : ADR-014 est amendé par M7.02. L'architecture décrit GitHub seul en détail et renvoie à ADR-014 et ADR-017 pour les autres forges. | Décision du propriétaire du 2026-11-14. |
+| 28 | Table globale `ForgeConnections` (M7.06, [ADR-017](adr/0017-forge-connections.md)) : `TableClassification.Global`, clé étrangère `OrganizationId`, `UX(OrganizationId, Id)`, secrets chiffrés par `ISecretProtector`. Routes de webhook `/api/v1/{forge}/webhooks/{connectionId}`. GitHub reste sur `Installations`, et `Repositories.ConnectionId` (texte, M7.07) n'a pas de clé étrangère. Chaque réception et chaque coordinateur qui la lit est une porte nommée de `OrganizationIsolationTests`. | Une réception doit trouver l'organisation avant d'y entrer, et `IgnoreQueryFilters` reste interdit sans exception ; une adresse par connexion évite de choisir le secret d'après un corps non authentifié. |
+| 29 | Ports neutres ajoutés par M7, à clé `Forge` : `IForgeAvailability`, `IForgeConnectionRepository`, `IForgeDirectoryGateway`, `IForgeConnectionVerifier`, `IForgeUserGateway`, `IForgeUserTokenProvider`, `IForgeLinks`, `IForgeWebhookValidator`, `IForgeEventTranslator`, `IForgeHookRepository` et `IForgeHookManager` ; `IOidcTokenValidator` et `IOidcTokenValidatorProvider` par M8. `ForgeGatewayProvider` résout les adaptateurs par services à clé (M7.04). | ADR-014 réservait ces abstractions au deuxième adaptateur : Azure DevOps l'est, et M8 et M9 les réutilisent sans en créer d'autres. |
 
 ---
 
@@ -5694,7 +5699,10 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 9. **Hébergement : tranché**, VM Docker (M4.02) pour la production ; Azure Container Apps (M4.03) livré en Bicep et documentation, sans déploiement (décision du propriétaire du 2026-11-13).
 10. **Nom définitif du produit et du dépôt** : tranché, produit `CodeCoverage` et dépôt `code-coverage`. Le projet est indépendant.
 11. **Flux de publication de l'outil `coverage-upload` (M5.03) : tranché**, nuget.org public par publication de confiance (OIDC), sous licence Apache-2.0 (fichier `LICENSE` à la racine), décision du propriétaire du 2026-11-13. Le compte nuget.org, la configuration de l'éditeur de confiance et la première publication sont des actions du propriétaire.
-12. **Multi-forge : tranché**, préparé maintenant avec GitHub seul implémenté ([ADR-014](adr/0014-multi-forge.md)). Restent à établir le calcul du diff sur Azure DevOps (spike en tête de M7) les endpoints de Bitbucket (début de M8), et l'accès au plan Free de GitLab comme la forme des badges de sous-groupes (spike en tête de M9).
+12. **Multi-forge : tranché**, toutes les forges implémentées ([ADR-014](adr/0014-multi-forge.md), amendé par M7.02 sur décision du propriétaire du 2026-11-14) : Azure DevOps (M7), puis Bitbucket (M8), puis GitLab.com (M9). Les connexions de forge sont tranchées par [ADR-017](adr/0017-forge-connections.md) (proposé, à accepter avant tout code de M7). Restent à établir :
+    - la mesure du diff d'Azure DevOps sur au moins dix pull requests réelles (spike M7.01, voie C provisoire) avant M7.46, et les quatre questions annexes du spike, encore probables, avant M7.40, M7.47, M7.48 et M7.54 ;
+    - les endpoints de Bitbucket (début de M8) ;
+    - l'accès au plan Free de GitLab et la forme des badges de sous-groupes (spike en tête de M9).
 
 ### Backlog de l'isolation entre organisations
 

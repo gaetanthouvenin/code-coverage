@@ -36,7 +36,7 @@ Transverse MVP :
 
 Test analytics, bundle analysis, notifications Slack/Teams/e-mail, GraphQL, facturation et sièges. GitLab auto-hébergé et les versions serveur des forges restent hors portée.
 
-L'identité, les adresses et le port principal sont indépendants de la forge (ADR-014), mais seul GitHub est implémenté avant la mise en production. Azure DevOps Services, Bitbucket Cloud et GitLab.com sont des jalons ultérieurs (M7, M8 et M9).
+L'identité, les adresses et le port principal sont indépendants de la forge (ADR-014). GitHub est la seule forge implémentée avant la mise en production. Azure DevOps Services (M7), Bitbucket Cloud (M8) et GitLab.com (M9) sont ensuite **implémentés**, dans cet ordre (décision du propriétaire du 2026-11-14, [ADR-014](adr/0014-multi-forge.md) amendé par M7.02). Ce document décrit GitHub en détail ; les choix propres aux autres forges et leurs écarts nommés sont dans ADR-014, et leurs connexions dans [ADR-017](adr/0017-forge-connections.md).
 
 ### 1.4 Principes non négociables
 
@@ -1284,7 +1284,9 @@ fmt et sign dans une description de statut sont ceux de `round_number` de Codeco
 
 ## 8. Intégration GitHub
 
-L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayProvider` (ADR-014), dont seul l'adaptateur GitHub est implémenté. Restent propres à GitHub : `IGitHubAppGateway` (installations, manifest, Check Runs), la réception des webhooks, `IGitHubUserGateway` et `IGitHubUserTokenProvider`. Cette section décrit l'adaptateur GitHub.
+L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayProvider` (ADR-014), dont seul l'adaptateur GitHub est implémenté à ce jour. Restent propres à GitHub : `IGitHubAppGateway` (installations, manifest, Check Runs), la réception des webhooks, `IGitHubUserGateway` et `IGitHubUserTokenProvider`. Cette section décrit l'adaptateur GitHub.
+
+**Autres forges.** Azure DevOps (M7), Bitbucket (M8) et GitLab.com (M9) ont chacun leur adaptateur, derrière des ports neutres à clé `Forge` construits par M7. Leurs choix (identité de l'instance, connexion Web, webhooks, statuts, commentaires, upload, diff) et leurs écarts nommés et non configurables sont dans [ADR-014](adr/0014-multi-forge.md). Leurs connexions vivent dans la table globale `ForgeConnections`, et leurs webhooks arrivent sur `/api/v1/{forge}/webhooks/{connectionId}` ([ADR-017](adr/0017-forge-connections.md)). GitHub reste sur `Installations` et sur la réception décrite au §8.3.
 
 ### 8.1 Type d'application et permissions
 
@@ -1902,8 +1904,9 @@ Le dépôt utilise son propre service pour l'upload de sa couverture.
 | [ADR-011](adr/0011-two-public-hostnames.md) | Deux noms d'hôte publics (Api et Web) ; aucun routage par chemin. |
 | [ADR-012](adr/0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api avec SHA-256 épinglé ; outil dotnet en complément. |
 | [ADR-013](adr/0013-organization-isolation.md) | Plusieurs organisations isolées sur une instance : filtre EF, estampille, garde et jeton de concurrence à l'écriture, une seule porte, App publique partagée, admission fermée. |
-| [ADR-014](adr/0014-multi-forge.md) | Préparation à plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway`, GitHub seul implémenté avant la bascule. |
+| [ADR-014](adr/0014-multi-forge.md) | Plusieurs forges : identité et adresses indépendantes de la forge, `IForgeGateway` ; GitHub seul avant la bascule, puis Azure DevOps, Bitbucket et GitLab.com implémentés (amendement M7.02, proposé) avec leurs écarts nommés. |
 | [ADR-015](adr/0015-console-languages.md) | Langues de la console : anglais (référence et repli), français, italien, espagnol ; cookie de culture, puis `Accept-Language` ; Api, uploader, journaux, forges et identifiants stockés restent en anglais. |
+| [ADR-017](adr/0017-forge-connections.md) | Connexions de forge (proposé, M7.02) : table globale `ForgeConnections`, route de webhook par connexion, GitHub sur `Installations`, portes nommées dans `OrganizationIsolationTests`. |
 
 ### 13.2 Décisions encore ouvertes
 

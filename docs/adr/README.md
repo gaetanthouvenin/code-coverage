@@ -17,6 +17,7 @@ Chaque ADR suit le format **Contexte / Décision / Conséquences** et porte un s
 | [ADR-011](0011-two-public-hostnames.md) | Deux noms d'hôte publics, aucun routage par chemin | accepté |
 | [ADR-012](0012-uploader-distribution.md) | Uploader distribué en binaires servis par l'Api | accepté |
 | [ADR-013](0013-organization-isolation.md) | Isolation entre organisations sur une instance partagée | accepté |
-| [ADR-014](0014-multi-forge.md) | Préparation à plusieurs forges | accepté |
+| [ADR-014](0014-multi-forge.md) | Plusieurs forges : préparation, puis Azure DevOps, Bitbucket et GitLab.com | accepté ; amendement M7.02 proposé |
 | [ADR-015](0015-console-languages.md) | Langues de la console et ce qui reste en anglais | proposé |
 | [ADR-016](0016-detailed-coverage.md) | Couverture détaillée des lignes, branches et méthodes | accepté (M5.09) |
+| [ADR-017](0017-forge-connections.md) | Connexions de forge : table globale, route de webhook par connexion, GitHub sur `Installations` | proposé (M7.02) |
