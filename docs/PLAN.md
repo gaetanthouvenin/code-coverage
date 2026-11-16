@@ -3308,6 +3308,40 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Acceptation :** une exception non gérée d'une page d'un utilisateur connecté affiche la page d'erreur ; la page suivante relit la session.
 - **Dépend de :** M4.02m
 
+#### M4.02ad — Limite de GitHub atteinte pendant un upload
+- **Issue :** à créer.
+- **Objectif :** qu'un upload refusé parce que GitHub limite l'instance réponde par un refus nommé, et non par une erreur 500 sans code. Relevé par la revue du chemin d'upload du 2026-11-16 (après la panne de production du même jour, sans lien avec elle) : pour un dépôt pas encore suivi, `UploadAuthenticator.ReadConnectionAsync` et `ReceiveUploadCommandHandler.CreateRepositoryAsync` appellent GitHub pendant la requête. `RateLimitHandler` y lève `GitHubRateLimitedException` sur un 429, ou sur un 403 de limite. Cette exception n'est volontairement pas une `ApplicationException` : `JobWorker` la traite comme une attente, pas comme un échec. Mais `ApiExceptionHandler` ne la connaît pas, et la rend en 500 « Internal server error », sans code ni détail. L'uploader réessaie cinq fois, puis n'affiche que « The server refused the upload: 500. ».
+- **Couches :** Api, Infrastructure, Web (traductions).
+- **Fichiers :**
+  - **`Infrastructure/GitHub/GitHubErrors.cs`** : code `GitHub.RateLimited`.
+  - **`Api/Configuration/Errors/ApiExceptionHandler.cs`** : `GitHubRateLimitedException` → 502 « External service unavailable », code `GitHub.RateLimited`, détail qui donne l'heure de reprise (`ResetAt`), journalisé en avertissement et non en erreur. Pas d'en-tête `Retry-After` : la reprise peut être à une heure, et l'uploader respecte cet en-tête.
+  - **`Web/Resources/Common*.resx`** (quatre langues) : traduction du code.
+- **Choix :** 502 plutôt que 429. Ce n'est pas l'appelant qui dépasse une limite, c'est un service externe qui refuse, comme `GitHub.Unavailable`. L'uploader réessaie déjà les 5xx, puis affiche le code et le détail. Les jobs ne changent pas.
+- **Tests :** `Api.Tests` : un upload OIDC pour un dépôt non suivi, avec une passerelle qui lève `GitHubRateLimitedException`, répond 502 avec `errorCode` `GitHub.RateLimited` et l'heure de reprise dans `detail` ; il échoue sans le correctif (500 sans code).
+- **Acceptation :** aucune limite de GitHub atteinte pendant un upload ne rend plus de 500 ; l'uploader affiche `502 (GitHub.RateLimited)` et l'heure de reprise.
+- **Dépend de :** —
+
+#### M4.02ae — Une seule authentification par upload
+- **Issue :** à créer.
+- **Objectif :** qu'un upload n'interroge GitHub qu'une fois pour son authentification. Relevé par la même revue : `UploadsController.CreateAsync` envoie `AuthorizeUploadQuery` avant de lire les fichiers, pour refuser tôt. Puis `ReceiveUploadCommandHandler.Handle` rappelle `UploadAuthenticator.AuthenticateAsync` avec la même preuve. Pour un jeton OIDC, chaque appel valide le jeton. Pour un dépôt pas encore suivi, il lit aussi la connexion du dépôt chez GitHub, soit deux appels par l'App (installation, puis dépôt avec un jeton d'installation). Un upload fait donc ce travail deux fois, et autant de risques d'attente ou de refus de GitHub pendant la requête.
+- **Couches :** Application.
+- **Fichiers :**
+  - **`Application/Services/UploadAuthenticator.cs`** (portée `Scoped`) : garde le résultat de la dernière authentification réussie de sa portée, pour la même preuve, la même forge et le même dépôt. Un second appel identique le rend sans rien relire. Un échec n'est jamais gardé.
+- **Choix :** le gestionnaire garde sa propre vérification : une commande ne fait pas confiance à son appelant, et `ReceiveUploadCommand` doit rester sûre envoyée seule. Le résultat n'est gardé que dans la portée de la requête, jamais entre deux requêtes : la révocation d'un jeton reste effective à la requête suivante.
+- **Tests :** `Application.Tests` : deux appels identiques dans la même portée n'appellent qu'une fois le validateur OIDC et la passerelle ; une preuve, une forge ou un dépôt différent relance la vérification ; un échec relance la vérification au second appel. `Api.Tests` : l'upload OIDC d'un dépôt non suivi lit une seule fois la connexion du dépôt.
+- **Acceptation :** un upload OIDC d'un dépôt non suivi fait un seul aller-retour de vérification vers GitHub ; les refus restent les mêmes.
+- **Dépend de :** —
+
+#### M4.02af — Statut de chaque tentative de l'uploader
+- **Issue :** à créer.
+- **Objectif :** que l'uploader dise pourquoi chaque tentative a échoué. Constaté le 2026-11-16 sur la CI de ce dépôt (runs 43774865172, 43780718086, 43780864301, 43780891190) : les quatre premières tentatives n'affichent que « Attempt n of 5 failed: trying again in … s. ». Seul le statut de la dernière apparaît, et il varie d'un run à l'autre (500, 504, 502). Il a fallu les journaux du serveur pour voir que l'Api ne démarrait plus. Cause prouvée : `RetryPolicy.SendAsync` libère la réponse d'une tentative réessayable sans en lire le statut, et n'écrit le message de l'exception d'une tentative sans réponse qu'en mode détaillé.
+- **Couches :** Uploader.
+- **Fichiers :**
+  - **`Uploader/Http/RetryPolicy.cs`** : l'avertissement d'une tentative donne son statut HTTP, et le code `errorCode` d'un corps ProblemDetails s'il y en a un. Pour une tentative sans réponse, il donne le message de l'exception. Exemple : « Attempt 1 of 5 failed (HTTP 502): trying again in 1 s. ».
+- **Tests :** `Uploader.Tests` : une réponse 502 puis 202 affiche « (HTTP 502) » ; une 502 ProblemDetails avec `GitHub.Unavailable` affiche le code ; une exception réseau affiche son message sans mode détaillé.
+- **Acceptation :** dans un journal de CI, chaque tentative échouée dit son statut ou son erreur.
+- **Dépend de :** —
+
 #### M4.03 — Déploiement Azure Container Apps (option)
 - **Issue :** [#217](https://github.com/gaetanthouvenin/code-coverage/issues/217)
 - **Objectif :** deux Container Apps, PostgreSQL Flexible ou Azure SQL, et Key Vault pour Data Protection (déjà pris en charge par `DataProtectionConfiguration`, M0.16). Bicep et documentation seulement : aucun déploiement dans le lot (décision du propriétaire du 2026-11-13, §11-9).
