@@ -1,0 +1,13 @@
+# The coverage statuses of this repository, read by the CodeCoverage instance as Codecov would read them.
+# The project status follows the coverage of the base (target auto) and tolerates a loss of 1 point: below
+# that, a drop is often the noise of lines whose coverage varies from one run to the next, not the change.
+# The patch status keeps the default of Codecov.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
