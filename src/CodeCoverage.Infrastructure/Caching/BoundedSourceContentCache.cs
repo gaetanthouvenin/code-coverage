@@ -11,8 +11,9 @@ using Microsoft.Extensions.Logging;
 
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Infrastructure.GitHub;
+using CodeCoverage.Infrastructure.Forges;
 
 namespace CodeCoverage.Infrastructure.Caching;
 
@@ -77,10 +78,10 @@ internal sealed partial class BoundedSourceContentCache(
     {
       text = await ReadAsync(repository, sha, path, cancellationToken).ConfigureAwait(false);
     }
-    catch (GitHubRateLimitedException exception)
+    catch (ForgeRateLimitedException exception)
     {
       // Not kept: the quota comes back within the hour, and the next view reads again.
-      LogRateLimited(exception.ResetAt);
+      LogRateLimited(exception.Forge, exception.RetryAfter);
       return null;
     }
 
@@ -113,8 +114,8 @@ internal sealed partial class BoundedSourceContentCache(
     return content is { Text: { } text } && !text.Contains('\0', StringComparison.Ordinal) ? text : null;
   }
 
-  [LoggerMessage(Level = LogLevel.Information, Message = "The forge rate limited the reading of a source until {ResetAt}: shown unavailable.")]
-  private partial void LogRateLimited(DateTimeOffset resetAt);
+  [LoggerMessage(Level = LogLevel.Information, Message = "{Forge} rate limited the reading of a source until {RetryAfter}: shown unavailable.")]
+  private partial void LogRateLimited(Forge forge, DateTimeOffset retryAfter);
 
   #endregion
 }

@@ -20,6 +20,7 @@ using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
@@ -91,6 +92,27 @@ public sealed class JobWorkerTests(DatabaseFixture database)
     job.RunAfter.ShouldBe(resetAt, TimeSpan.FromSeconds(1));
     job.LockedBy.ShouldBeNull();
     job.LastError!.ShouldContain("rate limited");
+  }
+
+  // Any forge, not only GitHub: Bitbucket and GitLab raise the neutral exception (M7.03).
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task RunAsync_ForgeRateLimited_ShouldRescheduleAfterRetryAfter(DatabaseProvider provider)
+  {
+    var connectionString = await MigratedDatabaseAsync(provider);
+    var retryAfter = DateTimeOffset.UtcNow.AddMinutes(7);
+    var dispatcher = Throwing(new ForgeRateLimitedException(Forge.Bitbucket, retryAfter));
+    await using var services = BuildServices(provider, connectionString, dispatcher);
+    var id = await SeedAsync(provider, connectionString, Record());
+
+    (await Worker(services).RunOnceAsync(WorkerId, Ct)).ShouldBeTrue();
+
+    var job = await JobAsync(provider, connectionString, id);
+    job.State.ShouldBe(JobState.Queued);
+    job.Attempts.ShouldBe(0, "a rate limit never consumes an attempt");
+    job.RunAfter.ShouldBe(retryAfter, TimeSpan.FromSeconds(1));
+    job.LockedBy.ShouldBeNull();
+    job.LastError!.ShouldContain("Bitbucket rate limited");
   }
 
   [Theory]

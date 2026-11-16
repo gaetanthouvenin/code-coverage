@@ -13,6 +13,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Users;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -82,7 +83,7 @@ public sealed class GitHubUserGatewayTests : IDisposable
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => _github.UserGateway.GetUserAsync(Token, Cancellation));
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]

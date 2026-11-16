@@ -23,6 +23,7 @@ using WireMock.Server;
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -442,7 +443,7 @@ public sealed class GitHubOidcTokenValidatorTests : IDisposable
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => _validator.ValidateAsync(CreateToken(), Cancellation));
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]

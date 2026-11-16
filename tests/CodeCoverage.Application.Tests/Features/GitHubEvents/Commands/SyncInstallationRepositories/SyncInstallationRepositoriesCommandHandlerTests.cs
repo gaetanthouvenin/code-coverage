@@ -206,7 +206,7 @@ public sealed class SyncInstallationRepositoriesCommandHandlerTests
   {
     var repository = Track("1", "octo/repo");
     A.CallTo(() => _gitHub.ListInstallationRepositoriesAsync(Installation, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub does not answer."));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
 

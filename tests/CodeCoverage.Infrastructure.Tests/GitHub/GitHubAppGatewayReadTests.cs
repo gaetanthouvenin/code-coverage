@@ -20,6 +20,7 @@ using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -267,7 +268,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
       () => _github.Gateway.CompareAsync(Repository, Base, Head, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Theory]
@@ -545,7 +546,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
 
     var exception = await Should.ThrowAsync<BadGatewayException>(() => _github.Gateway.GetBoundedContentAsync(Repository, "src/A.cs", Head, 64, Cancellation));
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Theory]
@@ -672,7 +673,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
       () => _github.Gateway.GetRepositoryAsync(Repository, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]
@@ -684,7 +685,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
       () => _github.Gateway.GetContentAsync(Repository, "big.bin", Head, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Theory]
@@ -699,7 +700,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
       () => _github.Gateway.GetRepositoryAsync(Repository, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]
@@ -713,7 +714,7 @@ public sealed class GitHubAppGatewayReadTests : IDisposable
       () => _github.Gateway.GetCommitAsync(Repository, Head, Cancellation)
     );
 
-    exception.ErrorCode.ShouldBe(GitHubErrors.Unavailable);
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
   [Fact]

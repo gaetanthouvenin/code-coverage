@@ -6,7 +6,11 @@
 
 namespace CodeCoverage.Infrastructure.GitHub;
 
-/// <summary>The error codes of the GitHub adapters.</summary>
+/// <summary>The error codes proper to the GitHub adapters.</summary>
+/// <remarks>
+///   A refused status and an unavailable forge carry the codes shared by every forge, those of
+///   <see cref="Forges.ForgeErrors" />.
+/// </remarks>
 public static class GitHubErrors
 {
   #region Fields
@@ -16,15 +20,6 @@ public static class GitHubErrors
   ///   limits: the caller may try again once it is reset.
   /// </summary>
   public const string RateLimited = "GitHub.RateLimited";
-
-  /// <summary>
-  ///   GitHub refused a commit status for good: it does not know the repository or the commit, the App may not write
-  ///   statuses there, or the commit holds as many statuses as GitHub allows.
-  /// </summary>
-  public const string StatusRefused = "GitHub.StatusRefused";
-
-  /// <summary>GitHub failed for good: its API answers with an error, or does not answer.</summary>
-  public const string Unavailable = "GitHub.Unavailable";
 
   #endregion
 }

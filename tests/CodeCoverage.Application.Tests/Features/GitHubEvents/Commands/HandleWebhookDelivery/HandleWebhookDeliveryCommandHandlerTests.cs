@@ -846,7 +846,7 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._))
      .Returns(Branch.Create(RepositoryId, "main", GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3"), Now.AddDays(-1)));
     A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, "main", A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub does not answer."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub does not answer."));
     Stored("push", null, Push("refs/heads/main"));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());

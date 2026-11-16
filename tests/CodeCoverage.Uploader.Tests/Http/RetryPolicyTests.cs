@@ -45,11 +45,11 @@ public sealed class RetryPolicyTests : IDisposable
   [Fact]
   public async Task Send_ServerErrorWithProblemDetails_ShouldPrintItsErrorCode()
   {
-    _handler.Then(HttpStatusCode.BadGateway, """{"status":502,"errorCode":"GitHub.Unavailable"}""").Then(HttpStatusCode.Accepted);
+    _handler.Then(HttpStatusCode.BadGateway, """{"status":502,"errorCode":"Forge.Unavailable"}""").Then(HttpStatusCode.Accepted);
 
     using var response = await SendAsync();
 
-    _output.ToString().ShouldContain("warning: Attempt 1 of 5 failed (HTTP 502, GitHub.Unavailable): trying again in 1 s.");
+    _output.ToString().ShouldContain("warning: Attempt 1 of 5 failed (HTTP 502, Forge.Unavailable): trying again in 1 s.");
   }
 
   [Fact]

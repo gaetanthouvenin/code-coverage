@@ -122,7 +122,7 @@ public sealed class RefreshUserAccessCommandHandlerTests
   [Fact]
   public async Task Handle_GitHubUnavailable_ShouldWriteNothingAndFail()
   {
-    A.CallTo(() => _userGateway.ListInstallationRepositoriesAsync(Token, 42, A<CancellationToken>._)).Throws(new BadGatewayException("GitHub.Unavailable", "down"));
+    A.CallTo(() => _userGateway.ListInstallationRepositoriesAsync(Token, 42, A<CancellationToken>._)).Throws(new BadGatewayException("Forge.Unavailable", "down"));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
 

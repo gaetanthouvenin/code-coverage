@@ -322,7 +322,7 @@ public sealed class SyncInstallationsCommandHandlerTests
   {
     var organization = _directory.Add("1001", "first", admitted: true);
     A.CallTo(() => _gitHub.ListInstallationsAsync(A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "GitHub lists more installations than this instance reads."));
+     .Throws(new BadGatewayException("Forge.Unavailable", "GitHub lists more installations than this instance reads."));
 
     await Should.ThrowAsync<BadGatewayException>(async () => await _handler.Handle(new SyncInstallationsCommand(), Ct));
 

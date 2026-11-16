@@ -54,7 +54,7 @@ internal sealed class ApiExceptionHandler(
     ApplicationException refusal => (refusal.ErrorCode, refusal.Message),
     GitHubRateLimitedException limited => (
       GitHubErrors.RateLimited,
-      $"GitHub limits the requests of this instance until {limited.ResetAt.ToString("O", CultureInfo.InvariantCulture)}. Try again after this moment."),
+      $"GitHub limits the requests of this instance until {limited.RetryAfter.ToString("O", CultureInfo.InvariantCulture)}. Try again after this moment."),
     var _ => (null, null),
   };
 
@@ -93,7 +93,7 @@ internal sealed class ApiExceptionHandler(
     // A rate limit of GitHub is a wait, not a bug: the job worker treats it the same way.
     if (exception is GitHubRateLimitedException limited)
     {
-      logger.LogWarning("GitHub rate limited {Path} until {ResetAt}", httpContext.Request.Path, limited.ResetAt);
+      logger.LogWarning("GitHub rate limited {Path} until {ResetAt}", httpContext.Request.Path, limited.RetryAfter);
     }
     else if (status >= StatusCodes.Status500InternalServerError)
     {

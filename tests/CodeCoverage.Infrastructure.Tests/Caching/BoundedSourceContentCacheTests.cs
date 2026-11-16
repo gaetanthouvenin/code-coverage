@@ -12,6 +12,7 @@ using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Caching;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
 
@@ -89,6 +90,19 @@ public sealed class BoundedSourceContentCacheTests : IDisposable
     (await cache.GetSourceAsync(Repository, Sha, "src/A.cs", Ct)).ShouldBe("back");
   }
 
+  // The rate limit of any forge is « unavailable », and never kept either (M7.03).
+  [Fact]
+  public async Task GetAsync_ForgeRateLimited_ShouldReturnUnavailable()
+  {
+    A.CallTo(() => _gateway.GetBoundedContentAsync(A<ForgeRepositoryRef>._, A<string>._, A<GitSha>._, A<int>._, A<CancellationToken>._))
+     .Throws(new ForgeRateLimitedException(Forge.GitLab, DateTimeOffset.UnixEpoch)).Once()
+     .Then.Returns(new ForgeFileContent("back"));
+    var cache = CacheOf(1);
+
+    (await cache.GetSourceAsync(Repository, Sha, "src/A.cs", Ct)).ShouldBeNull();
+    (await cache.GetSourceAsync(Repository, Sha, "src/A.cs", Ct)).ShouldBe("back");
+  }
+
   // Absent, too large and binary are verdicts of the file itself: kept, so they cost one reading.
   [Theory]
   [InlineData("absent")]
@@ -125,7 +139,7 @@ public sealed class BoundedSourceContentCacheTests : IDisposable
   public async Task GetSource_BadGateway_ShouldBeRaisedAndNotKept()
   {
     A.CallTo(() => _gateway.GetBoundedContentAsync(A<ForgeRepositoryRef>._, A<string>._, A<GitSha>._, A<int>._, A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "down")).Once()
+     .Throws(new BadGatewayException("Forge.Unavailable", "down")).Once()
      .Then.Returns(new ForgeFileContent("back"));
     var cache = CacheOf(1);
 

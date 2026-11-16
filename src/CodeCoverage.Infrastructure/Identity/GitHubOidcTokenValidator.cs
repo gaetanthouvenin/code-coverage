@@ -18,6 +18,7 @@ using CodeCoverage.Domain.Contracts.Identity;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Infrastructure.Identity;
@@ -159,7 +160,7 @@ internal sealed partial class GitHubOidcTokenValidator(
     }
     catch (InvalidOperationException exception)
     {
-      throw new BadGatewayException(GitHubErrors.Unavailable, "The signing keys of GitHub Actions cannot be obtained.", exception);
+      throw new BadGatewayException(ForgeErrors.Unavailable, "The signing keys of GitHub Actions cannot be obtained.", exception);
     }
   }
 

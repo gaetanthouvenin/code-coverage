@@ -42,8 +42,8 @@
   <data name="General.Unexpected" xml:space="preserve"><value>Si è verificato un errore imprevisto. Riprova tra un momento; se il problema persiste, contatta un amministratore.</value></data>
   <data name="General.ValidationFailed" xml:space="preserve"><value>Alcuni valori non sono validi. Correggili, poi riprova.</value></data>
   <data name="GitHub.RateLimited" xml:space="preserve"><value>GitHub limita per ora le richieste di questa istanza. Riprova dopo l’orario indicato nel dettaglio.</value></data>
-  <data name="GitHub.StatusRefused" xml:space="preserve"><value>GitHub ha rifiutato definitivamente lo stato del commit: verifica che l’applicazione possa scrivere gli stati in questo repository e che il commit vi esista.</value></data>
-  <data name="GitHub.Unavailable" xml:space="preserve"><value>GitHub non è disponibile. Riprova tra qualche minuto.</value></data>
+  <data name="Forge.StatusRefused" xml:space="preserve"><value>La forge ha rifiutato definitivamente lo stato del commit: verifica che l’applicazione possa scrivere gli stati in questo repository e che il commit vi esista.</value></data>
+  <data name="Forge.Unavailable" xml:space="preserve"><value>La forge non è disponibile. Riprova tra qualche minuto.</value></data>
   <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La consegna da gestire non esiste.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La consegna non ha un identificativo o un evento valido.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>Il corpo della consegna non può essere letto.</value></data>

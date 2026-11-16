@@ -4,33 +4,26 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.Globalization;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.Forges;
 
 namespace CodeCoverage.Infrastructure.GitHub;
 
 /// <summary>Exception thrown when GitHub refuses a request because of a primary or a secondary rate limit.</summary>
 /// <remarks>
-///   It is not a failure of the work that sent the request, which only has to wait until <see cref="ResetAt" />: it
-///   carries no error code and is not an <see cref="CodeCoverage.Application.Exceptions.ApplicationException" />.
+///   A <see cref="ForgeRateLimitedException" /> of <see cref="Forge.GitHub" />: the job worker and the source content
+///   cache catch the base type. The Api names it <see cref="GitHubErrors.RateLimited" /> when it is met during a request.
 /// </remarks>
-public sealed class GitHubRateLimitedException : Exception
+public sealed class GitHubRateLimitedException : ForgeRateLimitedException
 {
   #region Ctors
 
   /// <summary>Initializes a new instance of the <see cref="GitHubRateLimitedException" /> class.</summary>
   /// <param name="resetAt">The moment from which GitHub accepts requests again.</param>
   public GitHubRateLimitedException(DateTimeOffset resetAt)
-    : base($"GitHub rate limited the request until {resetAt.ToString("O", CultureInfo.InvariantCulture)}.")
+    : base(Forge.GitHub, resetAt)
   {
-    ResetAt = resetAt;
   }
-
-  #endregion
-
-  #region Properties
-
-  /// <summary>Gets the moment from which GitHub accepts requests again.</summary>
-  public DateTimeOffset ResetAt { get; }
 
   #endregion
 }

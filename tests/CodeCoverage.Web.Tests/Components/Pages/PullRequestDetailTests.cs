@@ -168,7 +168,7 @@ public sealed class PullRequestDetailTests : UiTestContext
     A.CallTo(() => _sender.Send(A<GetPullRequestQuery>.That.Matches(static q => q.Number == 7), A<CancellationToken>._))
      .Returns(new ValueTask<PullRequestDetail>(Detail(Comparison(ComparedTo, 1, 1), number: 7, title: "seventh")));
     A.CallTo(() => _sender.Send(A<GetPullRequestQuery>.That.Matches(static q => q.Number == 8), A<CancellationToken>._))
-     .Throws(new BadGatewayException("GitHub.Unavailable", "down"));
+     .Throws(new BadGatewayException("Forge.Unavailable", "down"));
     A.CallTo(() => _sender.Send(A<Application.Features.Repositories.Queries.GetRepositoryPermission.GetRepositoryPermissionQuery>._, A<CancellationToken>._))
      .Returns(new ValueTask<bool>(true));
     var cut = Render<PullRequestDetailPage>(Address(7));
