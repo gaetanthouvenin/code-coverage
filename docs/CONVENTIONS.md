@@ -1266,6 +1266,10 @@ jobs `gitversion` (GitVersion 6.x, `gittools/actions/gitversion/setup@v4` + `exe
 et SQL Server) → test de fumée compose → images Docker Api et Web poussées sur GHCR. Ce dernier job
 ne tourne que sur `main` (`latest`) et les tags `v*` ; sur `develop` et les PR, le test de fumée
 compose construit déjà les deux images (§15).
+Sur une PR, le job `changes` aiguille : documents seuls → `docs-checks` (tests filtrés
+`FullyQualifiedName~Documentation`, plus `.Pages.Docs` pour Web.Tests ; seuls le Markdown hors de
+`src/` et `tests/`, `LICENSE` et `.claude/` comptent comme documents), sinon chaîne entière ; le contrôle requis par le ruleset est
+`CI gate`, jamais un job que la voie peut sauter.
 Aucune étape de flux NuGet privé. Images `${IMAGE_PREFIX}-api` et `${IMAGE_PREFIX}-web`, avec
 `IMAGE_PREFIX` = `ghcr.io/<owner>/code-coverage` en CI et `code-coverage` par défaut en local.
 
