@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +15,7 @@ using CodeCoverage.Application.Features.Access;
 using CodeCoverage.Application.Features.Access.Commands.SignInUser;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Support;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
@@ -33,9 +36,11 @@ public sealed class SignInUserCommandHandlerTests
 
   private static readonly DateTimeOffset Now = new(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
 
-  private static readonly SignInUserCommand Command = new(AccessToken, TimeSpan.FromHours(8), RefreshToken, TimeSpan.FromDays(184));
+  private static readonly SignInUserCommand Command = new(Forge.GitHub, AccessToken, TimeSpan.FromHours(8), RefreshToken, TimeSpan.FromDays(184));
 
-  private readonly IGitHubUserGateway _userGateway = A.Fake<IGitHubUserGateway>();
+  private readonly IForgeUserGateway _userGateway = A.Fake<IForgeUserGateway>();
+
+  private readonly IForgeGatewayProvider _forges = A.Fake<IForgeGatewayProvider>();
 
   private readonly IUserRepository _users = A.Fake<IUserRepository>();
 
@@ -74,8 +79,9 @@ public sealed class SignInUserCommandHandlerTests
     A.CallTo(() => protector.Protect(A<string>._)).ReturnsLazily((string value) => $"protected({value})");
     A.CallTo(() => access.CurrentValue).Returns(_access);
     A.CallTo(() => bootstrap.CurrentValue).Returns(_bootstrap);
-    A.CallTo(() => _userGateway.GetUserAsync(AccessToken, A<CancellationToken>._)).Returns(new GitHubUser("583231", "octocat", "https://avatars.example/u/583231"));
-    A.CallTo(() => _userGateway.ListInstallationsAsync(AccessToken, A<CancellationToken>._)).Returns([]);
+    A.CallTo(() => _forges.GetUserGateway(Forge.GitHub)).Returns(_userGateway);
+    A.CallTo(() => _userGateway.GetUserAsync(AccessToken, A<CancellationToken>._)).Returns(new ForgeUser("583231", "octocat", "https://avatars.example/u/583231"));
+    A.CallTo(() => _userGateway.ListAccountsAsync(AccessToken, A<CancellationToken>._)).Returns([]);
     A.CallTo(() => _users.FindByExternalIdAsync(Forge.GitHub, "583231", A<CancellationToken>._)).Returns((AppUser?)null);
     A.CallTo(() => _users.TryAddAsync(A<AppUser>._, A<CancellationToken>._))
      .ReturnsLazily((AppUser user, CancellationToken _) =>
@@ -92,7 +98,7 @@ public sealed class SignInUserCommandHandlerTests
 
     var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
 
-    _handler = new SignInUserCommandHandler(_userGateway, _users, protector, updater, _directory, _jobQueue, access, bootstrap, clock);
+    _handler = new SignInUserCommandHandler(_forges, _users, protector, updater, _directory, _jobQueue, access, bootstrap, clock);
   }
 
   #endregion
@@ -150,7 +156,7 @@ public sealed class SignInUserCommandHandlerTests
   public async Task Handle_SuspendedInstallationOfAPendingOrganization_ShouldThrowNoRepository()
   {
     _directory.Add("1001", "pending-org");
-    Reaches(new GitHubInstallationInfo(42, "1001", "pending-org", OrganizationAccountType.Organization, true));
+    Reaches(new ForgeUserAccount("42", "1001", "pending-org", OrganizationAccountType.Organization, true));
 
     var exception = await Should.ThrowAsync<ForbiddenException>(async () => await HandleAsync());
 
@@ -229,7 +235,7 @@ public sealed class SignInUserCommandHandlerTests
     _directory.Add("1001", "octo-org", admitted: true);
     Reaches(Installed(42, "1001", "octo-org"));
 
-    await _handler.Handle(new SignInUserCommand(AccessToken, null, null, null), Ct);
+    await _handler.Handle(new SignInUserCommand(Forge.GitHub, AccessToken, null, null, null), Ct);
 
     var user = _added.ShouldNotBeNull();
     user.AccessTokenExpiresAt.ShouldBeNull();
@@ -298,6 +304,55 @@ public sealed class SignInUserCommandHandlerTests
     A.CallTo(_memberships).MustNotHaveHappened();
   }
 
+  // M7.15: the account is read from the forge of the command and its row is the one of that forge, never GitHub by default.
+  [Fact]
+  public async Task Handle_Forge_ShouldFindTheUserOnThatForge()
+  {
+    var gitLab = GivenUserGateway(Forge.GitLab);
+    var known = WithId(AppUser.Create(Forge.GitLab, "583231", "old-login", null));
+    A.CallTo(() => _users.FindByExternalIdAsync(Forge.GitLab, "583231", A<CancellationToken>._)).Returns(known);
+
+    // No organization of that forge lets the user in yet: the row is refreshed all the same.
+    await Should.ThrowAsync<ForbiddenException>(async () => await _handler.Handle(Command with { Forge = Forge.GitLab }, Ct));
+
+    known.Login.ShouldBe("octocat");
+    known.AccessTokenProtected.ShouldBe($"protected({AccessToken})");
+    A.CallTo(() => gitLab.ListAccountsAsync(AccessToken, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _users.UpdateAsync(known, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _users.FindByExternalIdAsync(Forge.GitHub, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(_userGateway).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_UnknownUser_ShouldCreateItOnTheCommandForge()
+  {
+    GivenUserGateway(Forge.GitLab);
+    A.CallTo(() => _users.FindByExternalIdAsync(Forge.GitLab, "583231", A<CancellationToken>._)).Returns((AppUser?)null);
+
+    await Should.ThrowAsync<ForbiddenException>(async () => await _handler.Handle(Command with { Forge = Forge.GitLab }, Ct));
+
+    var created = _added.ShouldNotBeNull();
+    created.Forge.ShouldBe(Forge.GitLab);
+    created.ExternalId.ShouldBe("583231");
+    created.Login.ShouldBe("octocat");
+  }
+
+  // Until M7.17, the memberships read GitHub organizations only: an account of another forge never links to one.
+  [Fact]
+  public async Task Handle_OtherForgeAccountMatchingAGitHubOrganization_ShouldLinkNoMembership()
+  {
+    _directory.Add("1001", "octo-org", admitted: true);
+    var gitLab = GivenUserGateway(Forge.GitLab);
+    A.CallTo(() => gitLab.ListAccountsAsync(AccessToken, A<CancellationToken>._))
+     .Returns([new ForgeUserAccount("gitlab-group-77", "1001", "octo-org", OrganizationAccountType.Organization, false)]);
+
+    var exception = await Should.ThrowAsync<ForbiddenException>(async () => await _handler.Handle(Command with { Forge = Forge.GitLab }, Ct));
+
+    exception.ErrorCode.ShouldBe(AccessErrors.NoRepository);
+    _saved.ShouldNotBeNull().ShouldBeEmpty();
+    A.CallTo(_appGateway).MustNotHaveHappened();
+  }
+
   [Fact]
   public void ToString_ShouldNotContainTheTokens()
   {
@@ -313,8 +368,8 @@ public sealed class SignInUserCommandHandlerTests
     await Should.ThrowAsync<ArgumentNullException>(async () => await _handler.Handle(null!, Ct));
   }
 
-  private static GitHubInstallationInfo Installed(long id, string accountId, string login) =>
-    new(id, accountId, login, OrganizationAccountType.Organization, false);
+  private static ForgeUserAccount Installed(long id, string accountId, string login) =>
+    new(id.ToString(CultureInfo.InvariantCulture), accountId, login, OrganizationAccountType.Organization, false);
 
   private static AppUser WithId(AppUser user)
   {
@@ -323,11 +378,21 @@ public sealed class SignInUserCommandHandlerTests
     return user;
   }
 
+  private IForgeUserGateway GivenUserGateway(Forge forge)
+  {
+    var gateway = A.Fake<IForgeUserGateway>();
+    A.CallTo(() => _forges.GetUserGateway(forge)).Returns(gateway);
+    A.CallTo(() => gateway.GetUserAsync(AccessToken, A<CancellationToken>._)).Returns(new ForgeUser("583231", "octocat", null));
+    A.CallTo(() => gateway.ListAccountsAsync(AccessToken, A<CancellationToken>._)).Returns([]);
+
+    return gateway;
+  }
+
   private async Task<long> HandleAsync() => await _handler.Handle(Command, Ct);
 
-  private void Reaches(params GitHubInstallationInfo[] installations)
+  private void Reaches(params ForgeUserAccount[] accounts)
   {
-    A.CallTo(() => _userGateway.ListInstallationsAsync(AccessToken, A<CancellationToken>._)).Returns(installations);
+    A.CallTo(() => _userGateway.ListAccountsAsync(AccessToken, A<CancellationToken>._)).Returns(accounts);
   }
 
   #endregion

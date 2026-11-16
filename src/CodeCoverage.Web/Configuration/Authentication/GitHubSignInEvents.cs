@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 
 using CodeCoverage.Application.Features.Access;
 using CodeCoverage.Application.Features.Access.Commands.SignInUser;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 
 using ApplicationException = CodeCoverage.Application.Exceptions.ApplicationException;
@@ -94,6 +95,7 @@ internal sealed partial class GitHubSignInEvents(ISender sender, IClock clock, I
     ArgumentNullException.ThrowIfNull(context);
 
     var command = new SignInUserCommand(
+      Forge.GitHub,
       context.AccessToken ?? string.Empty,
       context.ExpiresIn,
       context.RefreshToken,

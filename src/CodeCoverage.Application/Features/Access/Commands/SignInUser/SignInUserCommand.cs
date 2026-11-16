@@ -7,22 +7,24 @@
 using Mediator;
 
 using CodeCoverage.Application.Security;
+using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Application.Features.Access.Commands.SignInUser;
 
 /// <summary>
-///   Signs a user in with the tokens GitHub issued at the end of the OAuth flow: records the account, keeps its tokens
+///   Signs a user in with the tokens a forge issued at the end of the OAuth flow: records the account, keeps its tokens
 ///   on the server side and writes its memberships.
 /// </summary>
-/// <param name="AccessToken">The user-to-server access token, in clear.</param>
+/// <param name="Forge">The forge that issued the tokens, where the account is read and kept.</param>
+/// <param name="AccessToken">The user access token, in clear.</param>
 /// <param name="AccessTokenLifetime">How long the access token lasts (<c>expires_in</c>), or <see langword="null" /> when it does not expire.</param>
-/// <param name="RefreshToken">The refresh token, in clear, or <see langword="null" /> when GitHub gives none.</param>
+/// <param name="RefreshToken">The refresh token, in clear, or <see langword="null" /> when the forge gives none.</param>
 /// <param name="RefreshTokenLifetime">How long the refresh token lasts (<c>refresh_token_expires_in</c>), or <see langword="null" />.</param>
 /// <remarks>
 ///   <para>
 ///     Sent by the OAuth handler of the Web while nobody is signed in yet, hence <see cref="IAnonymousEntry" />: the
-///     tokens themselves prove the account, which is read again from GitHub. It returns the identifier of the user, the
-///     only value the cookie keeps.
+///     tokens themselves prove the account, which is read again from the forge. It returns the identifier of the user,
+///     the only value the cookie keeps.
 ///   </para>
 ///   <para>
 ///     It refuses with <c>Access.NoRepository</c> an account that reaches no repository of an active organization and
@@ -31,6 +33,7 @@ namespace CodeCoverage.Application.Features.Access.Commands.SignInUser;
 ///   </para>
 /// </remarks>
 public sealed record SignInUserCommand(
+  Forge Forge,
   string AccessToken,
   TimeSpan? AccessTokenLifetime,
   string? RefreshToken,

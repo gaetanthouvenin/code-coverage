@@ -19,6 +19,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Access;
 using CodeCoverage.Application.Features.Access.Commands.SignInUser;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Web.Configuration.Authentication;
 
@@ -70,6 +71,7 @@ public sealed class GitHubSignInEventsTests
     await _events.CreatingTicket(context);
 
     var command = _sent.ShouldNotBeNull();
+    command.Forge.ShouldBe(Forge.GitHub);
     command.AccessToken.ShouldBe("ghu_a");
     command.AccessTokenLifetime.ShouldBe(TimeSpan.FromHours(8));
     command.RefreshToken.ShouldBe("ghr_r");
