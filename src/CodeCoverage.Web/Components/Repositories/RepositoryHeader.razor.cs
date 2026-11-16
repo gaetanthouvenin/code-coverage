@@ -69,6 +69,10 @@ public partial class RepositoryHeader
   [Parameter]
   public RepositoryTab? ActiveTab { get; set; }
 
+  /// <summary>Gets or sets the address of the contextual help of the page, or <see langword="null" /> without one.</summary>
+  [Parameter]
+  public string? HelpHref { get; set; }
+
   /// <summary>
   ///   Gets or sets the callback told whether the user administers the repository, each time the header learns it: the
   ///   page shows its actions from this one answer instead of asking again.

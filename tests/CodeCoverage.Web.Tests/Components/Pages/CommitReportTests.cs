@@ -24,6 +24,7 @@ using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Web.Components.Pages;
+using CodeCoverage.Web.Documentation;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
 
@@ -95,6 +96,15 @@ public sealed class CommitReportTests : UiTestContext
     total[2].TextContent.Trim().ShouldBe("27 / 34");
     cut.FindAll(".cc-kpi__value")[2].TextContent.ShouldBe("50.00%");
   });
+
+  // The help of the header opens the section of the documentation that explains the four figures.
+  [Fact]
+  public void Render_ShouldLinkTheHelpToTheDocumentation()
+  {
+    var cut = Render<CommitReport>(Address());
+
+    cut.Find("a.cc-help").GetAttribute("href").ShouldBe(DocumentationLinks.DetailedReport);
+  }
 
   [Fact]
   public void SortHeader_ClickedTwice_ShouldReverseOrder()

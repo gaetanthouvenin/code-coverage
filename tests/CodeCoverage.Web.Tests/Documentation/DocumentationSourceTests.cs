@@ -216,6 +216,7 @@ public sealed partial class DocumentationSourceTests : IDisposable
   [InlineData("Components/Pages/OrganizationSettings.razor", nameof(DocumentationLinks.OrganizationSettings))]
   [InlineData("Components/Pages/OrganizationUploadTokens.razor", nameof(DocumentationLinks.UploadTokens))]
   [InlineData("Components/Pages/RepositoryOverview.razor", nameof(DocumentationLinks.FirstUpload))]
+  [InlineData("Components/Pages/CommitReport.razor", nameof(DocumentationLinks.DetailedReport))]
   public void Screen_OfTheMockup_ShouldCarryItsContextualHelp(string page, string link) =>
     WebRootFiles.Read(page).ShouldContain($"DocumentationLinks.{link}");
 

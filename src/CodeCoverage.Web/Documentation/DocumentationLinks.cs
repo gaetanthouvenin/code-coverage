@@ -30,5 +30,8 @@ public static class DocumentationLinks
   /// <summary>The help of a repository without a report: how to send the first upload.</summary>
   public const string FirstUpload = "docs/github-actions";
 
+  /// <summary>The help of <c>/{forge}/{owner}/{repo}/commit/{sha}/report</c>: the figures of the detailed report.</summary>
+  public const string DetailedReport = "docs/migration-from-codecov#the-detailed-report";
+
   #endregion
 }

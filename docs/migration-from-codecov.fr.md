@@ -1,5 +1,5 @@
 ---
-source-sha256: 1017bca7ee8867d68b1870da6385f7ac4e0614ff9838d3986a279b3acd887306
+source-sha256: 646e28cc7146d4505bd421d0837b4230598a3079a5f48b15faf1c98106c5582d
 ---
 # Migrer un dépôt depuis Codecov
 
@@ -178,3 +178,54 @@ l’identité multi-forge (ADR-014) ne sont pas configurables, par conception ;
 | `comment.behavior: spammy` et `new` peuvent publier plus souvent des commentaires identiques : CodeCoverage notifie de nouveau quand un rapport de base arrive en retard, lors du balayage et lors d’une re-notification manuelle. | Non | La fraîcheur plutôt que le silence. |
 | `comment.behavior: new` : quand GitHub refuse de supprimer le commentaire précédent (403, 422), CodeCoverage le journalise et publie quand même le nouveau commentaire, si bien que l’ancien peut rester à côté. Codecov s’arrête probablement à la place (`no_permissions`) ; ce n’est pas prouvé. | Non | Conservé jusqu’à ce que le comportement de Codecov soit vérifié (ARCHITECTURE §8.4). |
 | `codecov/codecov-action` et codecov-cli ne dialoguent pas avec CodeCoverage (le shim de compatibilité est reporté jusqu’à ce que le pilote mesure le besoin). | — | M5.07. |
+
+## Le rapport détaillé
+
+Le bouton **Rapport détaillé** du panneau Fichiers d’un commit ouvre
+`/{forge}/{owner}/{repo}/commit/{sha}/report` : une ligne par fichier, le total en tête, et la même vue
+pour un flag. La couverture Codecov reste le chiffre de tête, celui des statuts, du commentaire et des
+badges ; le rapport y ajoute trois chiffres, que Codecov n’a pas. Aucun ne change un statut.
+
+### Les quatre chiffres
+
+| Chiffre | Couvert | Couvrable |
+|---|---|---|
+| **Codecov** | lignes couvertes | lignes couvertes, partielles et manquées : `hits / (hits + partielles + manquées)` |
+| **Lignes** | lignes exécutées au moins une fois, partielles comprises, comme dans ReportGenerator | lignes du rapport |
+| **Branches** | branches prises | branches des lignes |
+| **Méthodes** | méthodes exécutées au moins une fois | méthodes du rapport |
+
+Une ligne à branches exécutée sans qu’aucune branche soit prise est manquée pour Codecov et exécutée pour
+**Lignes** : les deux chiffres diffèrent par les lignes partielles. Chaque pourcentage est arrondi selon
+`coverage.precision` et `coverage.round` du `codecov.yml`, comme le chiffre Codecov. Un clic sur un en-tête
+de colonne trie les fichiers, un second clic inverse l’ordre ; **Afficher** garde les fichiers sous
+l’objectif du statut projet, ceux qui ont une branche non prise ou ceux qui ont une méthode jamais
+exécutée. Le flag, le tri et le filtre sont dans l’adresse : un lien partagé ouvre la même vue.
+
+### Ce que signifie un tiret
+
+`—` signifie qu’il n’y a rien à couvrir (un fichier sans branche), ou que le rapport ne donne pas cette
+donnée : les méthodes d’un format ou d’un upload qui n’en a pas. Un nombre de méthodes inconnu n’est jamais
+affiché 0 : un fichier fusionné depuis une partie qui connaît ses méthodes et une partie qui ne les connaît
+pas affiche `—`, et le total aussi.
+
+### Un commit traité avant le rapport
+
+Un commit traité avant la version qui a apporté le rapport ne garde que les compteurs de Codecov : la page
+affiche un bandeau et `—` dans toutes les colonnes sauf Codecov. **Retraiter**, proposé à un administrateur
+du dépôt, reconstruit le détail depuis les uploads bruts, conservés 30 jours (`Retention:RawDays`). Le
+prochain upload de la branche l’a sans rien faire.
+
+### Écarts avec ReportGenerator
+
+Les chiffres suivent les rapports tels que Codecov en lit les lignes : ils peuvent donc différer de
+ReportGenerator. Chaque écart est nommé et n’est pas configurable (ADR-016) :
+
+| Écart | Pourquoi |
+|---|---|
+| Un rapport LCOV d’un fichier `.js` n’a aucune branche. | Codecov ignore ses enregistrements `BRDA`. |
+| Une ligne changée en ligne simple par `parsers.*.partials_as_hits` perd ses branches. | Comme chez Codecov. |
+| Une ligne `cond` de Clover compte deux branches, vrai et faux. | Le format ne donne pas d’autre compte. |
+| Deux méthodes qui commencent sur la même ligne (une lambda, une méthode synthétique) comptent pour une. | Une méthode est gardée par sa première ligne. |
+| Une méthode Cobertura est couverte dès qu’une de ses lignes l’est. | Le format n’a pas de compteur de méthode. |
+| Les « méthodes entièrement couvertes » de ReportGenerator ne sont pas calculées. | Hors du rapport. |

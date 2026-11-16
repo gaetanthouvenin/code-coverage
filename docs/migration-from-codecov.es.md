@@ -1,5 +1,5 @@
 ---
-source-sha256: 1017bca7ee8867d68b1870da6385f7ac4e0614ff9838d3986a279b3acd887306
+source-sha256: 646e28cc7146d4505bd421d0837b4230598a3079a5f48b15faf1c98106c5582d
 ---
 # Migrar un repositorio desde Codecov
 
@@ -178,3 +178,55 @@ identidad multiforja (ADR-014) no son configurables por diseño; las demás sí.
 | `comment.behavior: spammy` y `new` pueden publicar comentarios idénticos con más frecuencia: CodeCoverage vuelve a notificar cuando llega tarde un informe de base, en el barrido y en una renotificación manual. | No | Se prioriza la actualidad frente al silencio. |
 | `comment.behavior: new`: cuando GitHub se niega a eliminar el comentario anterior (403, 422), CodeCoverage lo registra y publica el nuevo comentario de todos modos, por lo que el anterior puede quedarse a su lado. Codecov probablemente se detiene en su lugar (`no_permissions`); esto no está probado. | No | Se mantiene hasta comprobar el comportamiento de Codecov (ARCHITECTURE §8.4). |
 | `codecov/codecov-action` y codecov-cli no se comunican con CodeCoverage (el shim de compatibilidad está aplazado hasta que el piloto mida la necesidad). | — | M5.07. |
+
+## El informe detallado
+
+El botón **Informe detallado** del panel Archivos de un commit abre
+`/{forge}/{owner}/{repo}/commit/{sha}/report`: una fila por archivo, el total primero, y la misma vista
+para un flag. La cobertura de Codecov sigue siendo la cifra principal, la de los estados, el comentario y
+los badges; el informe añade tres cifras a su lado, que Codecov no tiene. Ninguna cambia un estado.
+
+### Las cuatro cifras
+
+| Cifra | Cubierto | Cubrible |
+|---|---|---|
+| **Codecov** | líneas cubiertas | líneas cubiertas, parciales y no cubiertas: `hits / (hits + parciales + no cubiertas)` |
+| **Líneas** | líneas ejecutadas al menos una vez, parciales incluidas, como en ReportGenerator | líneas del informe |
+| **Ramas** | ramas tomadas | ramas de las líneas |
+| **Métodos** | métodos ejecutados al menos una vez | métodos del informe |
+
+Una línea con ramas que se ejecutó sin tomar ninguna de ellas no está cubierta para Codecov y está
+ejecutada para **Líneas**: las dos cifras difieren por las líneas parciales. Cada porcentaje se redondea
+con `coverage.precision` y `coverage.round` del `codecov.yml`, como la cifra de Codecov. Un clic en el
+encabezado de una columna ordena los archivos, un segundo clic invierte el orden; **Mostrar** conserva los
+archivos por debajo del objetivo del estado del proyecto, los que tienen una rama no tomada o los que
+tienen un método nunca ejecutado. El flag, el orden y el filtro están en la dirección: un enlace
+compartido abre la misma vista.
+
+### Qué significa un guion
+
+`—` significa que no hay nada que cubrir (un archivo sin ramas), o que el informe no da ese dato: los
+métodos de un formato o de un upload que no los tiene. Un número de métodos desconocido nunca se muestra
+como 0: un archivo fusionado a partir de una parte que conoce sus métodos y otra que no muestra `—`, y el
+total también.
+
+### Un commit procesado antes del informe
+
+Un commit procesado antes de la versión que trajo el informe solo conserva los contadores de Codecov: la
+página muestra un banner y `—` en todas las columnas salvo Codecov. **Volver a procesar**, ofrecido a un
+administrador del repositorio, reconstruye el detalle a partir de los uploads sin procesar, conservados
+30 días (`Retention:RawDays`). El siguiente upload de la rama lo tiene sin hacer nada.
+
+### Diferencias con ReportGenerator
+
+Las cifras siguen los informes tal como Codecov lee sus líneas, así que pueden diferir de ReportGenerator.
+Cada diferencia está nombrada y no es configurable (ADR-016):
+
+| Diferencia | Por qué |
+|---|---|
+| Un informe LCOV de un archivo `.js` no tiene ramas. | Codecov ignora sus registros `BRDA`. |
+| Una línea convertida en línea simple por `parsers.*.partials_as_hits` pierde sus ramas. | Como en Codecov. |
+| Una línea `cond` de Clover cuenta dos ramas, verdadero y falso. | El formato no da otro recuento. |
+| Dos métodos que empiezan en la misma línea (una lambda, un método sintético) cuentan como uno. | Un método se conserva por su primera línea. |
+| Un método de Cobertura está cubierto en cuanto lo está una de sus líneas. | El formato no tiene contador de métodos. |
+| Los « métodos totalmente cubiertos » de ReportGenerator no se calculan. | Fuera del informe. |
