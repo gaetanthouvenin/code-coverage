@@ -497,6 +497,12 @@ graph TD
   M5_08 --> M5_15["M5.15 Écran Rapport détaillé"]
   M5_11 --> M5_15
   M5_15 --> M5_16["M5.16 Documentation du rapport détaillé"]
+  M5_02 --> M5_17["M5.17 ADR-012 : task Azure Pipelines"]
+  M5_17 --> M5_18["M5.18 Task CodeCoverageUpload@1"]
+  M5_18 --> M5_19["M5.19 Connexion de service CodeCoverage"]
+  M5_18 --> M5_20["M5.20 Publication sur le Marketplace"]
+  M5_19 --> M5_21["M5.21 Documentation et pilote de la task"]
+  M5_20 --> M5_21
 ```
 
 ### 2.7 M7 – Azure DevOps Services
@@ -3572,6 +3578,83 @@ L'isolation entre organisations (ADR-013) passe avant la première table métier
 - **Tests :** `DocumentationLinksTests` : l'ancre existe dans chaque langue.
 - **Acceptation :** l'aide de l'écran ouvre la section dans la langue de la console, ou en anglais avec le bandeau de page non traduite.
 - **Dépend de :** M5.15
+
+> M5.17 à M5.21 viennent de la demande du propriétaire du 2026-11-16 : une task Azure Pipelines publiée sur le Visual Studio Marketplace, en plus du template de M5.02. La task ne dépend pas de M7 : comme le template, elle installe l'uploader et l'exécute, et l'uploader sait déjà lire le contexte d'Azure Pipelines pour un dépôt GitHub. Un dépôt Azure Repos l'utilisera dès que l'uploader le détectera (M7.56), sans changer la task. État au 2026-11-16, d'après la documentation Microsoft (non mesuré) :
+> - une task d'agent est un dossier avec `task.json` et un point d'entrée Node (handler `Node20_1`), écrit avec `azure-pipelines-task-lib` ; le handler `PowerShell3` ne tourne que sous Windows ;
+> - une extension peut ajouter un type de connexion de service (`ms.vss-endpoint.service-endpoint-type`, schéma par jeton), qu'une entrée `connectedService:<type>` de la task sélectionne ;
+> - une extension privée se partage avec des organisations nommées ; une extension publique demande un éditeur vérifié ;
+> - `tfx extension publish` accepte un jeton Microsoft Entra d'un principal de service membre de l'éditeur, ou un PAT de portée Marketplace (publish). Les PAT globaux d'Azure DevOps sont retirés le 2026-12-01. Microsoft documente la publication de confiance par OIDC depuis GitHub Actions pour `vsce` et `VsixPublisher`, pas pour `tfx` : le chemin retenu est un jeton Entra obtenu par une identité fédérée de GitHub Actions, à prouver par M5.20.
+
+#### M5.17 — Amendement d'ADR-012 : task Azure Pipelines du Marketplace
+- **Issue :** [#479](https://github.com/gaetanthouvenin/code-coverage/issues/479)
+- **Objectif :** décider de la forme de la task et de sa publication avant tout code.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/adr/0012-uploader-distribution.md`**, amendement du 2026-11-16 :
+    - l'extension `code-coverage` porte une task `CodeCoverageUpload@1` et un type de connexion de service ;
+    - le code de la task est en TypeScript sous `extensions/azure-devops/`, première chaîne Node du dépôt, dépendances verrouillées par `package-lock.json` ;
+    - la task télécharge l'uploader depuis la release GitHub de **sa propre version** et vérifie sa somme contre les sommes embarquées dans le paquet au moment du `tfx extension create`, pas contre le `.sha256` téléchargé à côté du binaire ;
+    - versions : la task et l'extension suivent la version GitVersion du tag (`Major.Minor.Patch`) ;
+    - deux extensions, comme le recommande Microsoft : `code-coverage-dev`, privée et partagée avec l'organisation du propriétaire, publiée à chaque tag ; `code-coverage`, publique, publiée sur les tags stables seulement ;
+    - le template de M5.02 reste supporté ; la task ne remplace aucune étape de Codecov et n'en reprend pas les noms d'entrées, qui restent ceux du template.
+  - **`docs/adr/README.md`** (ADR-012 amendé).
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** l'amendement est accepté par le propriétaire (propriétaire).
+- **Dépend de :** M5.02
+
+#### M5.18 — Task `CodeCoverageUpload@1`
+- **Issue :** [#480](https://github.com/gaetanthouvenin/code-coverage/issues/480)
+- **Objectif :** une task qui installe l'uploader de sa version, vérifie sa somme et l'exécute, avec les entrées du template de M5.02.
+- **Couches :** extension, CI.
+- **Fichiers :**
+  - **`extensions/azure-devops/tasks/CodeCoverageUpload/`** :
+    - `task.json` (handler `Node20_1`, `restrictions.commands.mode` `restricted`) ; entrées `url`, `token`, `files`, `flags`, `name`, `dryRun`, `failOnError`, `downloadUrl` ;
+    - `src/index.ts` : choix du RID depuis l'agent (`linux-x64`, `linux-musl-x64`, `win-x64`, `osx-arm64`), téléchargement, vérification de la somme embarquée, exécution de l'uploader ;
+    - le jeton passe à l'uploader par l'environnement (`CODECOV_TOKEN`), jamais dans la ligne de commande, et il est déclaré secret (`setSecret`) ;
+    - un échec d'installation ou d'upload écrit `##vso[task.logissue type=warning]` et termine en `Succeeded`, sauf avec `failOnError` (règle critique 6).
+  - **`extensions/azure-devops/vss-extension.json`** (contribution `ms.vss-distributed-task.task`) et `scripts/Set-ExtensionChecksums.ps1`, qui écrit les sommes de la release dans le paquet.
+  - **`.github/workflows/ci-cd.yml`** : job `azure-devops-extension` : `npm ci`, `tsc`, tests, puis `tfx extension create` ; le `.vsix` est un artefact du run et n'est publié nulle part.
+- **Tests :** `extensions/azure-devops/tasks/CodeCoverageUpload/tests/` (mocha et `azure-pipelines-task-lib/mock-test`, serveur HTTP local) : somme bonne, somme fausse, URL injoignable, upload refusé, chacun avec et sans `failOnError` ; jeton absent de la ligne de commande et des journaux.
+- **Acceptation :** la task termine en `Succeeded` sans `failOnError` quand l'installation ou l'upload échoue ; un dépôt GitHub construit sur Azure Pipelines envoie sa couverture avec la task comme avec le template.
+- **Dépend de :** M5.17, M4.01
+
+#### M5.19 — Connexion de service CodeCoverage
+- **Issue :** [#481](https://github.com/gaetanthouvenin/code-coverage/issues/481)
+- **Objectif :** garder l'adresse de l'instance et le jeton d'upload dans une connexion de service d'Azure DevOps, au lieu d'une variable secrète mappée dans chaque pipeline.
+- **Couches :** extension.
+- **Fichiers :**
+  - `vss-extension.json` : contribution `ms.vss-endpoint.service-endpoint-type` `codecoverage` (URL de l'Api, schéma `ms.vss-endpoint.endpoint-auth-scheme-token`) ;
+  - `task.json` : entrée `connection` de type `connectedService:codecoverage`, exclusive de `url` et `token` ;
+  - `src/index.ts` : lecture de l'URL et du jeton de la connexion (`getEndpointUrl`, `getEndpointAuthorizationParameter`).
+- **Tests :** connexion seule, `url` et `token` seuls, les deux (refus explicite, en avertissement sauf `failOnError`), connexion sans jeton.
+- **Acceptation :** le jeton de la connexion n'apparaît ni dans la ligne de commande ni dans les journaux.
+- **Dépend de :** M5.18
+
+#### M5.20 — Publication de l'extension sur le Marketplace
+- **Issue :** [#482](https://github.com/gaetanthouvenin/code-coverage/issues/482)
+- **Objectif :** publier `code-coverage-dev` à chaque tag `v*` et `code-coverage` sur les tags stables, sans secret durable.
+- **Couches :** CI.
+- **Fichiers :**
+  - **`.github/workflows/ci-cd.yml`** : job `azure-devops-extension-publish`, sur un tag `v*` quand la variable de dépôt `AZDO_EXTENSION_PUBLISH` vaut `true` :
+    - `azure/login` épinglé par SHA, par identité fédérée (OIDC de GitHub Actions) d'une application Entra membre de l'éditeur avec le rôle Contributor ;
+    - jeton Entra de la ressource du Marketplace passé à `tfx extension publish` ;
+    - variables de dépôt `AZDO_PUBLISHER`, `AZURE_CLIENT_ID` et `AZURE_TENANT_ID`, aucune non secrète dans le dépôt.
+  - **`docs/operations.md`** et ses traductions : section « Extension Azure DevOps » (éditeur, application Entra, identité fédérée, partage avec une organisation).
+- **Tests :** sur un tag de préversion, `code-coverage-dev` est publiée et installable dans l'organisation du propriétaire (propriétaire). Si `tfx` refuse le jeton Entra, M5.20 retombe sur un PAT de portée Marketplace stocké en secret d'environnement `production`, et l'écart est consigné dans ADR-012.
+- **Acceptation :** aucun PAT ni jeton durable dans le dépôt ; la version publiée est celle du tag.
+- **Dépend de :** M5.18
+
+#### M5.21 — Documentation de la task et pilote sur Azure Pipelines
+- **Issue :** [#483](https://github.com/gaetanthouvenin/code-coverage/issues/483)
+- **Objectif :** que les utilisateurs installent la task et l'utilisent sans autre source, et que le propriétaire la vérifie sur une vraie organisation.
+- **Couches :** docs, exploitation.
+- **Fichiers :**
+  - **`docs/migration-from-codecov.md`** et ses traductions : section Azure Pipelines (task, connexion de service, template de M5.02 en alternative) ;
+  - **`extensions/azure-devops/overview.md`** : page du Marketplace, en anglais ;
+  - **`pipelines/demo/azure-pipelines.yml`** : variante avec la task.
+- **Tests :** `DocumentationLinksTests` si l'aide de la console renvoie à la section ; pipeline de démonstration exécuté avec `code-coverage-dev` sur l'organisation Azure DevOps du propriétaire (propriétaire).
+- **Acceptation :** l'upload de la démonstration est accepté par l'instance de production ; `code-coverage` est rendue publique une fois l'éditeur vérifié (propriétaire).
+- **Dépend de :** M5.19, M5.20
 
 ---
 
