@@ -21,7 +21,9 @@ namespace CodeCoverage.Infrastructure.Reports.Parsers;
 ///   <see cref="FormatException" />, and malformed XML with an <see cref="XmlException" />.
 ///   The <c>max_report_age</c> rule is not applied here, the parser receiving only the content of
 ///   the report. Each <c>file</c> element is loaded whole, the metrics that bound a PHP file coming
-///   after its lines.
+///   after its lines. Each line of type <c>method</c> is also a method of its file (ADR-016), executed
+///   as many times as its <c>count</c>; the <c>methods</c> and <c>coveredmethods</c> of the metrics
+///   are not read.
 /// </remarks>
 internal sealed class CloverParser : IReportParser
 {
@@ -30,11 +32,13 @@ internal sealed class CloverParser : IReportParser
   /// <summary>Reads a file, whose coverage is added to the one of its path.</summary>
   /// <param name="file">The file.</param>
   /// <param name="files">The lines read so far, by path.</param>
+  /// <param name="methods">The methods read so far, by path.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <exception cref="FormatException">The file has no name, or a line is not valid.</exception>
   private static void ReadFile(
     XElement file,
     Dictionary<string, Dictionary<int, LineCoverage>> files,
+    Dictionary<string, List<MethodCoverage>> methods,
     CancellationToken cancellationToken)
   {
     var path = GetPath(file);
@@ -46,15 +50,30 @@ internal sealed class CloverParser : IReportParser
 
     var endOfFile = GetEndOfFile(path, file);
 
+    if (!methods.TryGetValue(path, out var fileMethods))
+    {
+      fileMethods = [];
+      methods[path] = fileMethods;
+    }
+
     foreach (var line in file.Descendants("line"))
     {
       cancellationToken.ThrowIfCancellationRequested();
 
       var number = ParseLineNumber(line);
 
-      if (number >= 1 && (endOfFile is 0 || number <= endOfFile))
+      if (number < 1 || (endOfFile is not 0 && number > endOfFile))
       {
-        AddLine(files, path, ReadLine(number, line));
+        continue;
+      }
+
+      var coverage = ReadLine(number, line);
+
+      AddLine(files, path, coverage);
+
+      if (coverage.IsMethod)
+      {
+        fileMethods.Add(new MethodCoverage(number, coverage.Hits));
       }
     }
   }
@@ -231,6 +250,7 @@ internal sealed class CloverParser : IReportParser
 
     using var reader = SafeXmlReaderFactory.Create(report);
     Dictionary<string, Dictionary<int, LineCoverage>> files = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methods = new(StringComparer.Ordinal);
 
     // Reading an element moves past its end: the next node must not be consumed by another read.
     while (!reader.EOF)
@@ -241,7 +261,7 @@ internal sealed class CloverParser : IReportParser
       {
         var file = (XElement)await XNode.ReadFromAsync(reader, cancellationToken).ConfigureAwait(false);
 
-        ReadFile(file, files, cancellationToken);
+        ReadFile(file, files, methods, cancellationToken);
       }
       else
       {
@@ -252,7 +272,11 @@ internal sealed class CloverParser : IReportParser
     ParsedFile[] parsed =
     [
       .. files.OrderBy(file => file.Key, StringComparer.Ordinal)
-              .Select(file => new ParsedFile(file.Key, [.. file.Value.Values.OrderBy(line => line.Line)])),
+              .Select(
+                file => new ParsedFile(
+                  file.Key,
+                  [.. file.Value.Values.OrderBy(line => line.Line)],
+                  [.. methods[file.Key].OrderBy(method => method.Line)])),
     ];
 
     return new ParsedReport(ReportFormat.Clover, [], parsed);

@@ -28,24 +28,19 @@ internal static class ReportGeneratorOracle
         group => (IReadOnlyDictionary<int, OracleLine>)ReadLines(group),
         StringComparer.Ordinal);
 
-  // A code element of ReportGenerator, a method or a property, is covered when one of the lines from its
-  // first to its last is covered in its file, all the classes of the file together.
+  // A code element of ReportGenerator, a method or a property, is covered when its quota is above 0, as
+  // CodeFile.CoveredCodeElements counts it; the parser of each format gives that quota.
   public static IReadOnlyDictionary<string, IReadOnlyList<OracleMethod>> ReadMethods(string reportPath) =>
     ParseFiles(reportPath)
       .GroupBy(file => file.Path, StringComparer.Ordinal)
       .ToDictionary(
         group => group.Key,
-        group =>
-        {
-          var views = group.ToList();
-
-          return (IReadOnlyList<OracleMethod>)
-          [
-            .. views.SelectMany(view => view.CodeElements)
-                    .Select(element => new OracleMethod(element.FirstLine, IsCovered(views, element)))
-                    .OrderBy(method => method.FirstLine),
-          ];
-        },
+        group => (IReadOnlyList<OracleMethod>)
+        [
+          .. group.SelectMany(view => view.CodeElements)
+                  .Select(element => new OracleMethod(element.FirstLine, element.CoverageQuota > 0))
+                  .OrderBy(method => method.FirstLine),
+        ],
         StringComparer.Ordinal);
 
   public static (int CoveredBranches, int TotalBranches, int CoveredMethods, int TotalMethods) ReadDetail(string reportPath)
@@ -71,12 +66,6 @@ internal static class ReportGeneratorOracle
       .Assemblies.SelectMany(assembly => assembly.Classes)
       .SelectMany(@class => @class.Files);
   }
-
-  private static bool IsCovered(List<CodeFile> views, CodeElement element) =>
-    views.Any(
-      view => Enumerable
-        .Range(element.FirstLine, element.LastLine - element.FirstLine + 1)
-        .Any(line => line < view.LineCoverage.Length && view.LineCoverage[line] > 0));
 
   private static Dictionary<int, OracleLine> ReadLines(IEnumerable<CodeFile> views)
   {

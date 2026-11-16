@@ -435,6 +435,22 @@ public sealed class CloverParserTests
   }
 
   [Fact]
+  public async Task Parse_MethodLine_ShouldReadMethod()
+  {
+    var report = await ParseAsync(
+      $"""
+      <coverage clover="3.2.0"><project><file name="{FileName}">
+        <line num="1" type="method" count="3" />
+        <line num="2" type="stmt" count="3" />
+        <line num="5" type="method" count="0" />
+        <line num="6" type="cond" count="0" truecount="0" falsecount="0" />
+      </file></project></coverage>
+      """);
+
+    report.Files.ShouldHaveSingleItem().Methods.ShouldBe([new MethodCoverage(1, 3), new MethodCoverage(5, 0)]);
+  }
+
+  [Fact]
   public async Task Parse_CancelledToken_ShouldThrowOperationCanceledException()
   {
     using var report = new MemoryStream(Encoding.UTF8.GetBytes("""<coverage clover="3.2.0" />"""));

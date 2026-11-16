@@ -493,6 +493,50 @@ public sealed class LcovParserTests
   }
 
   [Fact]
+  public async Task Parse_FnAndFnda_ShouldReadMethods()
+  {
+    var file = await ParseFileAsync("FN:3,f\nFN:9,g\nFN:12,h\nFNDA:4,f\nFNDA:0,g\nDA:3,4\nDA:9,0\nDA:12,0");
+
+    file.Methods.ShouldBe([new MethodCoverage(3, 4), new MethodCoverage(9, 0), new MethodCoverage(12, 0)]);
+  }
+
+  [Fact]
+  public async Task Parse_JavaScriptFile_ShouldReadMethodsWithoutBranches()
+  {
+    var file = await ParseFileAsync("FN:1,f\nFNDA:3,f\nDA:1,3\nBRDA:1,0,0,0", "a.js");
+
+    file.Lines.ShouldBe([new LineCoverage(1, 3, 0, 0, false, null)]);
+    file.Methods.ShouldBe([new MethodCoverage(1, 3)]);
+  }
+
+  [Fact]
+  public async Task Parse_FnWithEndLine_ShouldMatchFndaByName()
+  {
+    var file = await ParseFileAsync("FN:3,7,f\nFNDA:2,f\nDA:3,2");
+
+    file.Methods.ShouldBe([new MethodCoverage(3, 2)]);
+  }
+
+  [Fact]
+  public async Task Parse_MangledCppFunction_ShouldNotBeAMethod()
+  {
+    var file = await ParseFileAsync("FN:3,_Z1fv\nFNDA:1,_Z1fv\nFN:8,main\nFNDA:1,main\nDA:3,1\nDA:8,1", "a.cpp");
+
+    file.Methods.ShouldBe([new MethodCoverage(8, 1)]);
+  }
+
+  [Fact]
+  public async Task Parse_SecondSf_ShouldDropTheMethodsOfTheFirst()
+  {
+    var report = await ParseAsync("TN:\nSF:a.c\nFN:1,f\nDA:1,1\nSF:b.c\nFN:4,g\nFNDA:1,g\nDA:4,1\nend_of_record\n");
+
+    var file = report.Files.ShouldHaveSingleItem();
+
+    file.RawPath.ShouldBe("b.c");
+    file.Methods.ShouldBe([new MethodCoverage(4, 1)]);
+  }
+
+  [Fact]
   public async Task Parse_CancelledToken_ShouldThrowOperationCanceledException()
   {
     using var report = new MemoryStream("SF:a.c\nDA:1,1\nend_of_record\n"u8.ToArray());
@@ -540,6 +584,13 @@ public sealed class LcovParserTests
     var report = await ParseAsync($"TN:\nSF:{path}\n{entries}\nend_of_record\n");
 
     return report.Files.Count == 0 ? [] : report.Files.ShouldHaveSingleItem().Lines;
+  }
+
+  private async Task<ParsedFile> ParseFileAsync(string entries, string path = "a.c")
+  {
+    var report = await ParseAsync($"TN:\nSF:{path}\n{entries}\nend_of_record\n");
+
+    return report.Files.ShouldHaveSingleItem();
   }
 
   private async Task<ParsedReport> ParseAsync(string text)

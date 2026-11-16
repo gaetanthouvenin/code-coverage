@@ -27,6 +27,12 @@ namespace CodeCoverage.Infrastructure.Reports.Parsers;
 ///     report as a module directory, the same two directories are given as source roots, for the
 ///     <c>PathFixer</c> to try.
 ///   </para>
+///   <para>
+///     Each <c>method</c> with a line, of any class, nested ones included, is also a method of the
+///     source file its class names in <c>sourcefilename</c> (ADR-016): executed once when its
+///     <c>METHOD</c> counter has <c>covered</c> above 0, otherwise never, JaCoCo counting no
+///     executions. The method lines Codecov marks (<see cref="LineCoverage.IsMethod" />) do not change.
+///   </para>
 /// </remarks>
 internal sealed class JacocoParser : IReportParser
 {
@@ -52,12 +58,14 @@ internal sealed class JacocoParser : IReportParser
   /// <summary>Reads a package, whose coverage is added to the one of its files.</summary>
   /// <param name="reader">The reader, on the package; on return, on the node after it.</param>
   /// <param name="files">The lines read so far, by path.</param>
+  /// <param name="methods">The methods read so far, by path.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task that completes when the package is read.</returns>
   /// <exception cref="FormatException">The package or one of its elements is not valid.</exception>
   private static async Task ReadPackageAsync(
     XmlReader reader,
     Dictionary<string, Dictionary<int, LineCoverage>> files,
+    Dictionary<string, List<MethodCoverage>> methods,
     CancellationToken cancellationToken)
   {
     var packageName = ReadRequiredAttribute(reader, "name");
@@ -72,6 +80,7 @@ internal sealed class JacocoParser : IReportParser
     }
 
     Dictionary<string, HashSet<int>> methodLines = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> sourceMethods = new(StringComparer.Ordinal);
     List<(string Name, List<LineCoverage> Lines)> sourceFiles = [];
 
     // The classes and the source files come in any order: the lines are only added once all are read.
@@ -81,7 +90,7 @@ internal sealed class JacocoParser : IReportParser
 
       if (reader is { NodeType: XmlNodeType.Element, LocalName: "class" })
       {
-        await ReadClassAsync(reader, methodLines, cancellationToken).ConfigureAwait(false);
+        await ReadClassAsync(reader, methodLines, sourceMethods, cancellationToken).ConfigureAwait(false);
       }
       else if (reader is { NodeType: XmlNodeType.Element, LocalName: "sourcefile" })
       {
@@ -99,34 +108,50 @@ internal sealed class JacocoParser : IReportParser
 
     foreach (var (name, lines) in sourceFiles)
     {
-      AddSourceFile(files, packageName, name, lines, methodLines);
+      AddSourceFile(files, methods, packageName, name, lines, methodLines, sourceMethods.GetValueOrDefault(name));
     }
   }
 
-  /// <summary>Reads the lines where the methods of a top-level class start.</summary>
+  /// <summary>
+  ///   Reads the methods of a class, and the lines where the methods of a top-level class start.
+  /// </summary>
   /// <param name="reader">The reader, on the class; on return, on the node after it.</param>
-  /// <param name="methodLines">The lines of the methods of the package, by class name.</param>
+  /// <param name="methodLines">The lines Codecov marks as methods, by class name.</param>
+  /// <param name="sourceMethods">The methods of the package, by name of source file.</param>
   /// <param name="cancellationToken">The cancellation token.</param>
   /// <returns>A task that completes when the class is read.</returns>
   /// <exception cref="FormatException">The class or one of its methods is not valid.</exception>
   private static async Task ReadClassAsync(
     XmlReader reader,
     Dictionary<string, HashSet<int>> methodLines,
+    Dictionary<string, List<MethodCoverage>> sourceMethods,
     CancellationToken cancellationToken)
   {
     var name = ReadRequiredAttribute(reader, "name");
+    var sourceName = reader.GetAttribute("sourcefilename");
 
-    if (name.Contains('$') || reader.IsEmptyElement)
+    if (reader.IsEmptyElement)
     {
       await reader.SkipAsync().ConfigureAwait(false);
 
       return;
     }
 
-    if (!methodLines.TryGetValue(name, out var lines))
+    // Codecov only marks the method lines of a top-level class.
+    HashSet<int>? lines = null;
+
+    if (!name.Contains('$') && !methodLines.TryGetValue(name, out lines))
     {
       lines = [];
       methodLines[name] = lines;
+    }
+
+    List<MethodCoverage>? methods = null;
+
+    if (sourceName is not null && !sourceMethods.TryGetValue(sourceName, out methods))
+    {
+      methods = [];
+      sourceMethods[sourceName] = methods;
     }
 
     var depth = reader.Depth;
@@ -139,9 +164,14 @@ internal sealed class JacocoParser : IReportParser
 
       if (reader is { NodeType: XmlNodeType.Element, LocalName: "method" })
       {
-        if (await ReadMethodLineAsync(reader).ConfigureAwait(false) is { } line)
+        if (await ReadMethodAsync(reader).ConfigureAwait(false) is var (line, hasComplexity, isCovered))
         {
-          lines.Add(line);
+          if (hasComplexity)
+          {
+            lines?.Add(line);
+          }
+
+          methods?.Add(new MethodCoverage(line, isCovered ? 1 : 0));
         }
       }
       else
@@ -153,11 +183,15 @@ internal sealed class JacocoParser : IReportParser
     await reader.ReadAsync().ConfigureAwait(false);
   }
 
-  /// <summary>Reads the line of a method, which only counts with a complexity counter.</summary>
+  /// <summary>Reads a method: its line, its complexity counter and its method counter.</summary>
   /// <param name="reader">The reader, on the method; on return, on the node after it.</param>
-  /// <returns>The line, or <see langword="null" /> when the method does not mark one.</returns>
+  /// <returns>
+  ///   The line; whether the method has a complexity counter, without which Codecov does not mark
+  ///   its line; and whether its <c>METHOD</c> counter says it is covered. <see langword="null" />
+  ///   when the method has no line.
+  /// </returns>
   /// <exception cref="FormatException">The method is not valid.</exception>
-  private static async Task<int?> ReadMethodLineAsync(XmlReader reader)
+  private static async Task<(int Line, bool HasComplexity, bool IsCovered)?> ReadMethodAsync(XmlReader reader)
   {
     var value = reader.GetAttribute("line");
     var line = value is null ? 0 : ParseInteger(value, "line");
@@ -171,18 +205,28 @@ internal sealed class JacocoParser : IReportParser
 
     var depth = reader.Depth;
     var hasComplexity = false;
+    var isCovered = false;
 
     await reader.ReadAsync().ConfigureAwait(false);
 
     while (reader.Depth > depth)
     {
-      if (!hasComplexity
-          && reader is { NodeType: XmlNodeType.Element, LocalName: "counter" }
-          && ReadRequiredAttribute(reader, "type") is "COMPLEXITY")
+      if (reader is { NodeType: XmlNodeType.Element, LocalName: "counter" })
       {
-        _ = ParseInteger(ReadRequiredAttribute(reader, "missed"), "missed");
-        _ = ParseInteger(ReadRequiredAttribute(reader, "covered"), "covered");
-        hasComplexity = true;
+        var type = ReadRequiredAttribute(reader, "type");
+
+        if (!hasComplexity && type is "COMPLEXITY")
+        {
+          _ = ParseInteger(ReadRequiredAttribute(reader, "missed"), "missed");
+          _ = ParseInteger(ReadRequiredAttribute(reader, "covered"), "covered");
+          hasComplexity = true;
+        }
+        else if (type is "METHOD")
+        {
+          // Codecov does not read this counter: one that is not valid is no error, and says not covered.
+          isCovered = int.TryParse(reader.GetAttribute("covered"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var covered)
+            && covered > 0;
+        }
       }
 
       await reader.ReadAsync().ConfigureAwait(false);
@@ -190,7 +234,7 @@ internal sealed class JacocoParser : IReportParser
 
     await reader.ReadAsync().ConfigureAwait(false);
 
-    return hasComplexity ? line : null;
+    return (line, hasComplexity, isCovered);
   }
 
   /// <summary>Reads the lines of a source file.</summary>
@@ -288,21 +332,33 @@ internal sealed class JacocoParser : IReportParser
       ? number
       : throw new FormatException($"The attribute {name} of the report is not a valid integer.");
 
-  /// <summary>Adds the lines of a source file, flagging those that declare a method.</summary>
+  /// <summary>Adds the lines of a source file, flagging those that declare a method, and its methods.</summary>
   /// <param name="files">The lines read so far, by path.</param>
+  /// <param name="methods">The methods read so far, by path.</param>
   /// <param name="packageName">The name of the package.</param>
   /// <param name="name">The name of the source file.</param>
   /// <param name="lines">The lines of the source file.</param>
-  /// <param name="methodLines">The lines of the methods of the package, by class name.</param>
+  /// <param name="methodLines">The lines Codecov marks as methods, by class name.</param>
+  /// <param name="sourceMethods">The methods of the source file, or <see langword="null" /> when none.</param>
   private static void AddSourceFile(
     Dictionary<string, Dictionary<int, LineCoverage>> files,
+    Dictionary<string, List<MethodCoverage>> methods,
     string packageName,
     string name,
     List<LineCoverage> lines,
-    Dictionary<string, HashSet<int>> methodLines)
+    Dictionary<string, HashSet<int>> methodLines,
+    List<MethodCoverage>? sourceMethods)
   {
     var path = packageName.Length == 0 ? name : $"{packageName}/{name}";
     var isMethodLine = methodLines.GetValueOrDefault(GetClassName(packageName, name));
+
+    if (!methods.TryGetValue(path, out var pathMethods))
+    {
+      pathMethods = [];
+      methods[path] = pathMethods;
+    }
+
+    pathMethods.AddRange(sourceMethods ?? []);
 
     foreach (var line in lines)
     {
@@ -363,6 +419,7 @@ internal sealed class JacocoParser : IReportParser
 
     var sourceRoots = ListSourceRoots(reader.GetAttribute("name"));
     Dictionary<string, Dictionary<int, LineCoverage>> files = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methods = new(StringComparer.Ordinal);
 
     // Reading an element moves past its end: the next node must not be consumed by another read.
     while (!reader.EOF)
@@ -371,7 +428,7 @@ internal sealed class JacocoParser : IReportParser
 
       if (reader is { NodeType: XmlNodeType.Element, LocalName: "package" })
       {
-        await ReadPackageAsync(reader, files, cancellationToken).ConfigureAwait(false);
+        await ReadPackageAsync(reader, files, methods, cancellationToken).ConfigureAwait(false);
       }
       else
       {
@@ -382,7 +439,11 @@ internal sealed class JacocoParser : IReportParser
     ParsedFile[] parsed =
     [
       .. files.OrderBy(file => file.Key, StringComparer.Ordinal)
-              .Select(file => new ParsedFile(file.Key, [.. file.Value.Values.OrderBy(line => line.Line)])),
+              .Select(
+                file => new ParsedFile(
+                  file.Key,
+                  [.. file.Value.Values.OrderBy(line => line.Line)],
+                  [.. methods[file.Key].OrderBy(method => method.Line)])),
     ];
 
     return new ParsedReport(ReportFormat.Jacoco, sourceRoots, parsed);
