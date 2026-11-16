@@ -6,6 +6,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
@@ -23,7 +24,8 @@ public static partial class DependencyInjection
   /// <remarks>
   ///   <see cref="GitHubAppTokenProvider" /> is a singleton: it holds one lock per installation for the whole process.
   ///   It needs the secret protector, registered by
-  ///   <see cref="Security.DataProtectionConfiguration.AddCodeCoverageDataProtection" />.
+  ///   <see cref="Security.DataProtectionConfiguration.AddCodeCoverageDataProtection" />. The gateway of the App is the
+  ///   <see cref="IForgeGateway" /> keyed by <see cref="Forge.GitHub" />, which <see cref="ForgeGatewayProvider" /> resolves.
   /// </remarks>
   private static IServiceCollection AddGitHub(this IServiceCollection services)
   {
@@ -36,6 +38,7 @@ public static partial class DependencyInjection
     services.AddTransient<IGitHubAppGateway>(static provider => provider.GetRequiredService<GitHubAppGateway>());
     services.AddTransient<IGitHubUserGateway>(static provider => provider.GetRequiredService<GitHubUserGateway>());
     services.AddSingleton<IGitHubUserTokenProvider, GitHubUserTokenProvider>();
+    services.AddKeyedScoped<IForgeGateway>(Forge.GitHub, static (provider, _) => provider.GetRequiredService<GitHubAppGateway>());
     services.AddTransient<IForgeGatewayProvider, ForgeGatewayProvider>();
 
     return services;

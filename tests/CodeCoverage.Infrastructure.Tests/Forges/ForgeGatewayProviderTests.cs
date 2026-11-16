@@ -4,44 +4,50 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using Microsoft.Extensions.DependencyInjection;
+
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Forges;
-using CodeCoverage.Infrastructure.Tests.Support;
 
 namespace CodeCoverage.Infrastructure.Tests.Forges;
 
-public sealed class ForgeGatewayProviderTests : IDisposable
+public sealed class ForgeGatewayProviderTests
 {
-  #region Fields
-
-  private readonly GitHubApiHarness _github = new();
-
-  #endregion
-
   #region Methods
 
-  [Fact]
-  public void GetGateway_GitHub_ShouldReturnTheGitHubGateway()
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.AzureDevOps)]
+  [InlineData(Forge.Bitbucket)]
+  [InlineData(Forge.GitLab)]
+  public void GetGateway_RegisteredForge_ShouldReturnItsAdapter(Forge forge)
   {
-    var gateway = _github.Gateway;
+    var adapter = A.Fake<IForgeGateway>();
+    var other = A.Fake<IForgeGateway>();
+    var otherForge = forge is Forge.GitHub ? Forge.GitLab : Forge.GitHub;
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(forge, (_, _) => adapter);
+    services.AddKeyedScoped(otherForge, (_, _) => other);
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
 
-    new ForgeGatewayProvider(gateway).GetGateway(Forge.GitHub).ShouldBeSameAs(gateway);
+    new ForgeGatewayProvider(scope.ServiceProvider).GetGateway(forge).ShouldBeSameAs(adapter);
   }
 
   [Theory]
   [InlineData(Forge.AzureDevOps)]
   [InlineData(Forge.Bitbucket)]
   [InlineData(Forge.GitLab)]
-  public void GetGateway_ForgeWithoutGateway_ShouldThrowNotSupported(Forge forge)
+  public void GetGateway_UnregisteredForge_ShouldThrowNotSupported(Forge forge)
   {
-    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(_github.Gateway).GetGateway(forge));
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(Forge.GitHub, (_, _) => A.Fake<IForgeGateway>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetGateway(forge));
   }
-
-  #endregion
-
-  #region Implementation of IDisposable
-
-  public void Dispose() => _github.Dispose();
 
   #endregion
 }
