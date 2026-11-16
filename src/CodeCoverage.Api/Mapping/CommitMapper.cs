@@ -109,7 +109,7 @@ internal static class CommitMapper
 
     var files = await sender.Send(new GetCommitFilesQuery(AddressSegments.ToRepositoryForge(forge), owner, repo, AddressSegments.ToCommitSha(sha), flag, path), cancellationToken).ConfigureAwait(false);
 
-    return [.. files.Select(static f => new FileTotalsResponse(f.Path, ToModel(f.Totals)))];
+    return [.. files.Select(static f => new FileTotalsResponse(f.Path, ToModel(f.Totals), f.Detail is { } detail ? ToModel(detail) : null))];
   }
 
   /// <summary>Reads the coverage of a file of a commit and converts it for the API.</summary>
@@ -207,6 +207,19 @@ internal static class CommitMapper
 
   private static CoverageTotalsModel ToModel(CoverageTotals totals) =>
     new(totals.Lines, totals.Hits, totals.Misses, totals.Partials, totals.Coverage);
+
+  private static CoverageDetailModel ToModel(CoverageDetail detail) =>
+    new(
+      detail.ExecutedLines,
+      detail.CoverableLines,
+      detail.CoveredBranches,
+      detail.TotalBranches,
+      detail.CoveredMethods,
+      detail.TotalMethods,
+      detail.LineRatio,
+      detail.BranchRatio,
+      detail.MethodRatio
+    );
 
   private static FileLineModel ToModel(LineCoverage line) =>
     new(
