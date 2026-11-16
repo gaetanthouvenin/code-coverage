@@ -13,7 +13,10 @@ using System.Text.Json.Serialization.Metadata;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Security;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
 using CodeCoverage.Infrastructure.Forges;
@@ -25,9 +28,10 @@ namespace CodeCoverage.Infrastructure.GitHub;
 /// <param name="client">The typed <c>github</c> HTTP client.</param>
 /// <remarks>
 ///   A token GitHub refuses (HTTP 401) is an expired session: it is reported as unauthenticated, and the user signs
-///   in again. Every other refusal is a failure of GitHub.
+///   in again. Every other refusal is a failure of GitHub. It is also the <see cref="IForgeUserGateway" /> of GitHub, keyed
+///   by <see cref="Forge.GitHub" />: the neutral members read GitHub the same way and map its answer.
 /// </remarks>
-internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
+internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway, IForgeUserGateway
 {
   #region Fields
 
@@ -208,6 +212,71 @@ internal sealed class GitHubUserGateway(HttpClient client) : IGitHubUserGateway
     }
 
     throw new BadGatewayException(ForgeErrors.Unavailable, "The installation has more repositories than this instance reads.");
+  }
+
+  #endregion
+
+  #region Implementation of IForgeUserGateway
+
+  /// <inheritdoc />
+  /// <exception cref="UnauthorizedException">GitHub no longer accepts the token.</exception>
+  /// <exception cref="BadGatewayException">GitHub refused the reading, does not answer or answered with an unreadable payload.</exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  async Task<ForgeUser> IForgeUserGateway.GetUserAsync(string accessToken, CancellationToken cancellationToken)
+  {
+    var user = await GetUserAsync(accessToken, cancellationToken).ConfigureAwait(false);
+
+    return new ForgeUser(user.ExternalId, user.Login, user.AvatarUrl);
+  }
+
+  /// <inheritdoc />
+  /// <remarks>An account is an installation of the App: its connection is the identifier of the installation.</remarks>
+  /// <exception cref="UnauthorizedException">GitHub no longer accepts the token.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   GitHub refused the reading, does not answer, answered with an unreadable payload, or its pages do not hold the
+  ///   installations it counted.
+  /// </exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  async Task<IReadOnlyList<ForgeUserAccount>> IForgeUserGateway.ListAccountsAsync(string accessToken, CancellationToken cancellationToken)
+  {
+    var installations = await ListInstallationsAsync(accessToken, cancellationToken).ConfigureAwait(false);
+
+    return
+    [
+      .. installations.Select(static installation => new ForgeUserAccount(
+                                installation.Id.ToString(CultureInfo.InvariantCulture),
+                                installation.AccountId,
+                                installation.AccountLogin,
+                                installation.AccountType,
+                                installation.Suspended
+                              )
+      ),
+    ];
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="UnauthorizedException">GitHub no longer accepts the token.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   GitHub refused the reading, does not answer, answered with an unreadable payload, or its pages do not hold the
+  ///   repositories it counted.
+  /// </exception>
+  /// <exception cref="GitHubRateLimitedException">GitHub rate limited the request.</exception>
+  async Task<IReadOnlyList<ForgeRepositoryPermission>> IForgeUserGateway.ListRepositoryPermissionsAsync(
+    string accessToken,
+    ForgeUserAccount account,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(account);
+
+    ArgumentException.ThrowIf(
+      !long.TryParse(account.ConnectionId, NumberStyles.None, CultureInfo.InvariantCulture, out var installationId) || installationId <= 0,
+      "The connection of a GitHub account is the numeric identifier of an installation.",
+      nameof(account)
+    );
+
+    var repositories = await ListInstallationRepositoriesAsync(accessToken, installationId, cancellationToken).ConfigureAwait(false);
+
+    return [.. repositories.Select(static repository => new ForgeRepositoryPermission(repository.ExternalId, repository.Permission))];
   }
 
   #endregion

@@ -49,5 +49,32 @@ public sealed class ForgeGatewayProviderTests
     Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetGateway(forge));
   }
 
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.GitLab)]
+  public void GetUserGateway_RegisteredForge_ShouldReturnItsAdapter(Forge forge)
+  {
+    var adapter = A.Fake<IForgeUserGateway>();
+    var otherForge = forge is Forge.GitHub ? Forge.GitLab : Forge.GitHub;
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(forge, (_, _) => adapter);
+    services.AddKeyedScoped(otherForge, (_, _) => A.Fake<IForgeUserGateway>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetUserGateway(forge).ShouldBeSameAs(adapter);
+  }
+
+  [Fact]
+  public void GetUserGateway_UnregisteredForge_ShouldThrowNotSupported()
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(Forge.GitHub, (_, _) => A.Fake<IForgeUserGateway>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetUserGateway(Forge.Bitbucket));
+  }
+
   #endregion
 }

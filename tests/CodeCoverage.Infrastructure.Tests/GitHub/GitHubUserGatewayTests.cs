@@ -11,6 +11,9 @@ using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Security;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Forges;
@@ -155,6 +158,69 @@ public sealed class GitHubUserGatewayTests : IDisposable
     await Should.ThrowAsync<ArgumentException>(() => _github.UserGateway.GetUserAsync(null!, Cancellation));
     await Should.ThrowAsync<ArgumentException>(() => _github.UserGateway.ListInstallationRepositoriesAsync(string.Empty, 42, Cancellation));
     await Should.ThrowAsync<ArgumentOutOfRangeException>(() => _github.UserGateway.ListInstallationRepositoriesAsync(Token, 0, Cancellation));
+  }
+
+  // M7.15: the neutral port reads GitHub the same way; an account is an installation, its connection the installation.
+  [Fact]
+  public async Task ForgeGetUser_ShouldMapTheAccount()
+  {
+    _github.Server.Given(Request.Create().WithPath("/user").UsingGet())
+           .RespondWith(Response.Create().WithStatusCode(200).WithBody("""{"id":583231,"login":"Octocat","avatar_url":"https://avatars.example/u/583231"}"""));
+
+    var user = await ((IForgeUserGateway)_github.UserGateway).GetUserAsync(Token, Cancellation);
+
+    user.ShouldBe(new ForgeUser("583231", "Octocat", "https://avatars.example/u/583231"));
+  }
+
+  [Fact]
+  public async Task ForgeListAccounts_ShouldMapEachInstallation()
+  {
+    _github.Server.Given(Request.Create().WithPath("/user/installations").UsingGet())
+           .RespondWith(
+             Response.Create()
+                     .WithStatusCode(200)
+                     .WithBody(
+                       """
+                       {"total_count":2,"installations":[
+                         {"id":42,"account":{"id":1001,"login":"octo-org","type":"Organization"}},
+                         {"id":44,"account":{"id":583231,"login":"octocat","type":"User"},"suspended_at":"2026-11-01T00:00:00Z"}
+                       ]}
+                       """
+                     )
+           );
+
+    var accounts = await ((IForgeUserGateway)_github.UserGateway).ListAccountsAsync(Token, Cancellation);
+
+    accounts.ShouldBe(
+      [
+        new ForgeUserAccount("42", "1001", "octo-org", OrganizationAccountType.Organization, false),
+        new ForgeUserAccount("44", "583231", "octocat", OrganizationAccountType.User, true),
+      ]
+    );
+  }
+
+  [Fact]
+  public async Task ForgeListRepositoryPermissions_ShouldReadTheRepositoriesOfTheInstallation()
+  {
+    GivenPage(1, """{"total_count":2,"repositories":[{"id":1,"permissions":{"admin":true}},{"id":2,"permissions":{"push":true}}]}""");
+    var account = new ForgeUserAccount("42", "1001", "octo-org", OrganizationAccountType.Organization, false);
+
+    var permissions = await ((IForgeUserGateway)_github.UserGateway).ListRepositoryPermissionsAsync(Token, account, Cancellation);
+
+    permissions.ShouldBe([new ForgeRepositoryPermission("1", RepositoryPermission.Admin), new ForgeRepositoryPermission("2", RepositoryPermission.Write)]);
+  }
+
+  [Theory]
+  [InlineData("octo-org")]
+  [InlineData("0")]
+  [InlineData("-42")]
+  public async Task ForgeListRepositoryPermissions_ConnectionThatIsNoInstallation_ShouldThrow(string connectionId)
+  {
+    var account = new ForgeUserAccount(connectionId, "1001", "octo-org", OrganizationAccountType.Organization, false);
+
+    await Should.ThrowAsync<ArgumentException>(() => ((IForgeUserGateway)_github.UserGateway).ListRepositoryPermissionsAsync(Token, account, Cancellation));
+    await Should.ThrowAsync<ArgumentNullException>(() => ((IForgeUserGateway)_github.UserGateway).ListRepositoryPermissionsAsync(Token, null!, Cancellation));
+    _github.Server.LogEntries.ShouldBeEmpty();
   }
 
   private static string Page(int total, int first, int count) =>

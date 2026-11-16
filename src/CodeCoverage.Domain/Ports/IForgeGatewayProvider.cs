@@ -8,7 +8,7 @@ using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Domain.Ports;
 
-/// <summary>Resolves the gateway of the forge an organization belongs to.</summary>
+/// <summary>Resolves the gateways of the forge an organization or a user belongs to.</summary>
 public interface IForgeGatewayProvider
 {
   #region Methods
@@ -18,6 +18,12 @@ public interface IForgeGatewayProvider
   /// <returns>The gateway of the forge.</returns>
   /// <exception cref="NotSupportedException">No gateway is implemented for <paramref name="forge" />.</exception>
   IForgeGateway GetGateway(Forge forge);
+
+  /// <summary>Gets the gateway that calls a forge in the name of a user.</summary>
+  /// <param name="forge">The forge.</param>
+  /// <returns>The user gateway of the forge.</returns>
+  /// <exception cref="NotSupportedException">No user gateway is implemented for <paramref name="forge" />.</exception>
+  IForgeUserGateway GetUserGateway(Forge forge);
 
   #endregion
 }
