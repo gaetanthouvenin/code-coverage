@@ -6,6 +6,7 @@
 
 using System.Globalization;
 
+using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
@@ -20,6 +21,11 @@ namespace CodeCoverage.Domain.Repositories;
 ///     keeps the row. The same repository can have a row in two organizations, after a transfer for instance.
 ///   </para>
 ///   <para>
+///     <see cref="ConnectionId" /> names the connection that gives access to the repository, with no foreign key
+///     (ADR-017): the identifier of a <see cref="ForgeConnection" /> on a forge with connections, the identifier of
+///     the installation in text on GitHub, which also keeps it in <see cref="InstallationId" />.
+///   </para>
+///   <para>
 ///     <see cref="Owner" /> is a copy for display, never used to resolve, authorize or reach the repository
 ///     (ADR-013).
 ///   </para>
@@ -27,6 +33,9 @@ namespace CodeCoverage.Domain.Repositories;
 public sealed class TrackedRepository
 {
   #region Fields
+
+  /// <summary>The maximum length of <see cref="ConnectionId" />, the one of the identifier of a connection.</summary>
+  public const int ConnectionIdMaxLength = ForgeConnection.IdMaxLength;
 
   /// <summary>The maximum length of <see cref="ExternalId" />; a braced GUID takes 38 characters.</summary>
   public const int ExternalIdMaxLength = 40;
@@ -45,7 +54,8 @@ public sealed class TrackedRepository
   #region Ctors
 
   /// <summary>Initializes a new instance of the <see cref="TrackedRepository" /> class.</summary>
-  /// <param name="installationId">The installation that gives access to the repository.</param>
+  /// <param name="connectionId">The connection that gives access to the repository.</param>
+  /// <param name="installationId">The GitHub installation that gives access to the repository, or <see langword="null" />.</param>
   /// <param name="externalId">The identifier given by the forge, in lower case.</param>
   /// <param name="owner">The display copy of the owner.</param>
   /// <param name="namespace">The levels between the owner and the repository.</param>
@@ -59,7 +69,8 @@ public sealed class TrackedRepository
   /// <param name="createdAt">When the row was created, in UTC.</param>
   /// <param name="updatedAt">When the row last changed, in UTC.</param>
   private TrackedRepository(
-    long installationId,
+    string connectionId,
+    long? installationId,
     string externalId,
     string owner,
     string @namespace,
@@ -73,6 +84,7 @@ public sealed class TrackedRepository
     DateTimeOffset createdAt,
     DateTimeOffset updatedAt)
   {
+    ConnectionId = connectionId;
     InstallationId = installationId;
     ExternalId = externalId;
     Owner = owner;
@@ -95,8 +107,17 @@ public sealed class TrackedRepository
   /// <summary>Gets the identifier of the row, assigned when it is saved.</summary>
   public long Id { get; private set; }
 
-  /// <summary>Gets the identifier of the GitHub installation that gives access to the repository.</summary>
-  public long InstallationId { get; private set; }
+  /// <summary>
+  ///   Gets the identifier of the connection that gives access to the repository: the identifier of the installation in
+  ///   text on GitHub.
+  /// </summary>
+  public string ConnectionId { get; private set; }
+
+  /// <summary>
+  ///   Gets the identifier of the GitHub installation that gives access to the repository, or <see langword="null" /> on
+  ///   a forge with connections.
+  /// </summary>
+  public long? InstallationId { get; private set; }
 
   /// <summary>Gets the identifier the forge gives the repository, in lower case, which survives a renaming.</summary>
   public string ExternalId { get; private set; }
@@ -174,10 +195,20 @@ public sealed class TrackedRepository
   /// <summary>Gives the address of the repository on its forge.</summary>
   /// <param name="forge">The forge of the organization.</param>
   /// <returns>The address, which survives a renaming.</returns>
-  public ForgeRepositoryRef ToForgeRef(Forge forge) =>
-    new(forge, InstallationId.ToString(CultureInfo.InvariantCulture), ExternalId);
+  public ForgeRepositoryRef ToForgeRef(Forge forge) => new(forge, ConnectionId, ExternalId);
 
-  /// <summary>Starts tracking a repository.</summary>
+  /// <summary>Gives the identifier of the connection of a GitHub installation.</summary>
+  /// <param name="installationId">The identifier of the installation.</param>
+  /// <returns>The identifier of the installation in text, with no foreign key and no forge connection (ADR-017).</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  public static string ConnectionIdOf(long installationId)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+
+    return installationId.ToString(CultureInfo.InvariantCulture);
+  }
+
+  /// <summary>Starts tracking a repository of GitHub, served by an installation.</summary>
   /// <param name="installationId">The GitHub installation that gives access to the repository.</param>
   /// <param name="externalId">The identifier the forge gives the repository.</param>
   /// <param name="slug">The current name of the repository.</param>
@@ -202,9 +233,43 @@ public sealed class TrackedRepository
     string defaultBranch,
     bool isPrivate,
     string badgeTokenProtected,
+    DateTimeOffset at) =>
+    Create(ConnectionIdOf(installationId), installationId, externalId, slug, defaultBranch, isPrivate, badgeTokenProtected, at);
+
+  /// <summary>Starts tracking a repository, served by a connection.</summary>
+  /// <param name="connectionId">The connection that gives access to the repository.</param>
+  /// <param name="installationId">
+  ///   The GitHub installation that gives access to the repository, whose connection is <paramref name="connectionId" />,
+  ///   or <see langword="null" /> on a forge with connections.
+  /// </param>
+  /// <param name="externalId">The identifier the forge gives the repository.</param>
+  /// <param name="slug">The current name of the repository.</param>
+  /// <param name="defaultBranch">The default branch of the repository.</param>
+  /// <param name="isPrivate">A value indicating whether the repository is private.</param>
+  /// <param name="badgeTokenProtected">The badge token, already protected.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <returns>The active repository, not saved yet.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  /// <exception cref="ArgumentNullException">
+  ///   <paramref name="connectionId" />, <paramref name="externalId" />, <paramref name="slug" />,
+  ///   <paramref name="defaultBranch" /> or <paramref name="badgeTokenProtected" /> is <see langword="null" />.
+  /// </exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="connectionId" /> is not well formed or is not the connection of <paramref name="installationId" />,
+  ///   or <paramref name="externalId" />, <paramref name="defaultBranch" /> or <paramref name="badgeTokenProtected" /> is
+  ///   empty, white space or too long.
+  /// </exception>
+  public static TrackedRepository Create(
+    string connectionId,
+    long? installationId,
+    string externalId,
+    RepositorySlug slug,
+    string defaultBranch,
+    bool isPrivate,
+    string badgeTokenProtected,
     DateTimeOffset at)
   {
-    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+    ThrowIfInvalidConnection(connectionId, installationId);
     ArgumentException.ThrowIfNullOrWhiteSpace(externalId);
     ArgumentNullException.ThrowIfNull(slug);
     ArgumentException.ThrowIfNullOrWhiteSpace(defaultBranch);
@@ -223,6 +288,7 @@ public sealed class TrackedRepository
     var utc = at.ToUniversalTime();
 
     return new TrackedRepository(
+      connectionId,
       installationId,
       NormalizeExternalId(externalId),
       slug.Owner,
@@ -324,7 +390,7 @@ public sealed class TrackedRepository
     return true;
   }
 
-  /// <summary>Tracks the repository again, under the installation that serves it now.</summary>
+  /// <summary>Tracks the repository of GitHub again, under the installation that serves it now.</summary>
   /// <param name="installationId">The identifier of the installation that serves the repository.</param>
   /// <param name="at">The current time; converted to UTC.</param>
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
@@ -332,16 +398,35 @@ public sealed class TrackedRepository
   ///   Nothing that was revoked while the repository was away comes back with it. A row that a transfer closed is
   ///   open again: the repository that leaves once more is closed once more.
   /// </remarks>
-  public void Activate(long installationId, DateTimeOffset at)
-  {
-    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+  public void Activate(long installationId, DateTimeOffset at) => Activate(ConnectionIdOf(installationId), installationId, at);
 
-    if (IsActive && InstallationId == installationId)
+  /// <summary>Tracks the repository again, under the connection that serves it now.</summary>
+  /// <param name="connectionId">The identifier of the connection that serves the repository.</param>
+  /// <param name="installationId">
+  ///   The GitHub installation whose connection is <paramref name="connectionId" />, or <see langword="null" /> on a forge
+  ///   with connections.
+  /// </param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <exception cref="ArgumentNullException"><paramref name="connectionId" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="connectionId" /> is not well formed or is not the connection of <paramref name="installationId" />.
+  /// </exception>
+  /// <remarks>
+  ///   Nothing that was revoked while the repository was away comes back with it. A row that a transfer closed is
+  ///   open again: the repository that leaves once more is closed once more.
+  /// </remarks>
+  public void Activate(string connectionId, long? installationId, DateTimeOffset at)
+  {
+    ThrowIfInvalidConnection(connectionId, installationId);
+
+    if (IsActive && string.Equals(ConnectionId, connectionId, StringComparison.Ordinal) && InstallationId == installationId)
     {
       return;
     }
 
     IsActive = true;
+    ConnectionId = connectionId;
     InstallationId = installationId;
     TransferredAt = null;
     Touch(at);
@@ -465,6 +550,31 @@ public sealed class TrackedRepository
 
     BadgeTokenProtected = badgeTokenProtected;
     Touch(at);
+  }
+
+  /// <summary>Checks the connection of a repository.</summary>
+  /// <param name="connectionId">The identifier of the connection.</param>
+  /// <param name="installationId">The GitHub installation of the connection, or <see langword="null" />.</param>
+  /// <exception cref="ArgumentNullException"><paramref name="connectionId" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="connectionId" /> is not well formed or is not the connection of <paramref name="installationId" />.
+  /// </exception>
+  private static void ThrowIfInvalidConnection(string connectionId, long? installationId)
+  {
+    ArgumentNullException.ThrowIfNull(connectionId);
+    ArgumentException.ThrowIf(
+      !ForgeConnection.IsWellFormedId(connectionId),
+      $"The connection identifier '{connectionId}' is not well formed.",
+      nameof(connectionId));
+
+    if (installationId is { } id)
+    {
+      ArgumentException.ThrowIf(
+        !string.Equals(connectionId, ConnectionIdOf(id), StringComparison.Ordinal),
+        "The connection of a GitHub repository is the identifier of its installation.",
+        nameof(connectionId));
+    }
   }
 
   /// <summary>Records a change.</summary>

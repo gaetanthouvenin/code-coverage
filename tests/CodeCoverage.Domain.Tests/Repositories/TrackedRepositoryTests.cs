@@ -4,7 +4,9 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Tests.Repositories;
@@ -61,6 +63,62 @@ public sealed class TrackedRepositoryTests
     var slug = RepositorySlug.Parse("owner/repo");
 
     Should.Throw<ArgumentOutOfRangeException>(() => TrackedRepository.Create(0, "42", slug, "main", false, "protected", Now));
+  }
+
+  [Fact]
+  public void Create_GitHubInstallation_ShouldUseItsIdentifierAsConnection()
+  {
+    var repository = TrackedRepository.Create(1234, "42", RepositorySlug.Parse("owner/repo"), "main", false, "protected", Now);
+
+    repository.ConnectionId.ShouldBe("1234");
+    repository.InstallationId.ShouldBe(1234);
+  }
+
+  [Fact]
+  public void Create_ForgeConnection_ShouldKeepNoInstallation()
+  {
+    var repository = NewConnectedRepository("contoso-devops");
+
+    repository.ConnectionId.ShouldBe("contoso-devops");
+    repository.InstallationId.ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("Contoso")]
+  [InlineData("-contoso")]
+  [InlineData("contoso devops")]
+  public void Create_ConnectionNotWellFormed_ShouldThrow(string connectionId)
+  {
+    Should.Throw<ArgumentException>(() => NewConnectedRepository(connectionId));
+  }
+
+  [Fact]
+  public void Create_ConnectionOverTheLimit_ShouldThrow()
+  {
+    Should.Throw<ArgumentException>(() => NewConnectedRepository(new string('a', TrackedRepository.ConnectionIdMaxLength + 1)));
+  }
+
+  [Fact]
+  public void Create_ConnectionOtherThanTheInstallation_ShouldThrow()
+  {
+    var slug = RepositorySlug.Parse("owner/repo");
+
+    Should.Throw<ArgumentException>(() => TrackedRepository.Create("contoso", 9, "42", slug, "main", false, "protected", Now));
+  }
+
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.AzureDevOps)]
+  [InlineData(Forge.Bitbucket)]
+  [InlineData(Forge.GitLab)]
+  public void ToForgeRef_AnyForge_ShouldCarryTheConnectionId(Forge forge)
+  {
+    var installed = NewRepository("owner/repo", "42");
+    var connected = NewConnectedRepository("contoso-devops");
+
+    installed.ToForgeRef(forge).ShouldBe(new ForgeRepositoryRef(forge, "1", "42"));
+    connected.ToForgeRef(forge).ShouldBe(new ForgeRepositoryRef(forge, "contoso-devops", "42"));
   }
 
   [Fact]
@@ -190,6 +248,7 @@ public sealed class TrackedRepositoryTests
 
     repository.IsActive.ShouldBeTrue();
     repository.InstallationId.ShouldBe(9);
+    repository.ConnectionId.ShouldBe("9");
     repository.Version.ShouldBe(2);
   }
 
@@ -221,6 +280,40 @@ public sealed class TrackedRepositoryTests
   public void Activate_InstallationNotPositive_ShouldThrow(long installationId)
   {
     Should.Throw<ArgumentOutOfRangeException>(() => NewRepository("owner/repo", "42").Activate(installationId, Later));
+  }
+
+  [Fact]
+  public void Activate_ActiveUnderTheSameConnection_ShouldChangeNothing()
+  {
+    var repository = NewConnectedRepository("contoso-devops");
+
+    repository.Activate("contoso-devops", null, Later);
+
+    repository.Version.ShouldBe(0);
+  }
+
+  [Fact]
+  public void Activate_AnotherConnection_ShouldMoveIt()
+  {
+    var repository = NewConnectedRepository("contoso-devops");
+    repository.Deactivate(Now);
+
+    repository.Activate("fabrikam-devops", null, Later);
+
+    repository.IsActive.ShouldBeTrue();
+    repository.ConnectionId.ShouldBe("fabrikam-devops");
+    repository.InstallationId.ShouldBeNull();
+  }
+
+  [Fact]
+  public void Activate_ConnectionOtherThanTheInstallation_ShouldThrowAndChangeNothing()
+  {
+    var repository = NewRepository("owner/repo", "42");
+
+    Should.Throw<ArgumentException>(() => repository.Activate("contoso", 9, Later));
+
+    repository.ConnectionId.ShouldBe("1");
+    repository.InstallationId.ShouldBe(1);
   }
 
   [Fact]
@@ -379,6 +472,9 @@ public sealed class TrackedRepositoryTests
 
   private static TrackedRepository NewRepository(string slug, string externalId) =>
     TrackedRepository.Create(1, externalId, RepositorySlug.Parse(slug), "main", false, "protected", Now);
+
+  private static TrackedRepository NewConnectedRepository(string connectionId) =>
+    TrackedRepository.Create(connectionId, null, "42", RepositorySlug.Parse("owner/repo"), "main", false, "protected", Now);
 
   #endregion
 }

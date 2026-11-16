@@ -5,9 +5,13 @@
 // ------------------------------------------------------------------------------------------------
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
+using CodeCoverage.Domain.Contracts.Forges;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
@@ -28,6 +32,8 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
   private const string SharedExternalId = "4242";
 
   private const string NoOrganization = "has not entered";
+
+  private const string ConnectionIdMigration = "AddRepositoryConnectionId";
 
   #endregion
 
@@ -424,6 +430,80 @@ public sealed class RepositoryRepositoryTests(DatabaseFixture database)
     await using var context = organizations.ContextOf(organizations.FirstId);
 
     await Should.ThrowAsync<ArgumentException>(() => TestRepositories.Repositories(context).FindAsync(firstId, Ct));
+  }
+
+  // The migration runs on databases whose repositories are all GitHub repositories: each keeps its installation as its
+  // connection, so its address on the forge does not change, and no forge connection is created (ADR-017).
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Migration_ExistingGitHubRepository_ShouldKeepItsInstallationAsConnection(DatabaseProvider provider)
+  {
+    var organizations = await SeededAsync(provider);
+    var (firstId, secondId) = await AddToBothAsync(organizations);
+
+    await MigrateAsync(organizations, MigrationBefore(organizations, ConnectionIdMigration));
+    await MigrateAsync(organizations, null);
+
+    await using (var first = organizations.ContextOf(organizations.FirstId))
+    {
+      var repository = await first.Repositories.AsNoTracking().SingleAsync(r => r.Id == firstId, Ct);
+
+      repository.ConnectionId.ShouldBe("101");
+      repository.InstallationId.ShouldBe(FirstInstallation);
+      repository.ToForgeRef(Forge.GitHub).ShouldBe(new ForgeRepositoryRef(Forge.GitHub, "101", SharedExternalId));
+    }
+
+    await using (var second = organizations.ContextOf(organizations.SecondId))
+    {
+      var repository = await second.Repositories.AsNoTracking().SingleAsync(r => r.Id == secondId, Ct);
+
+      repository.ConnectionId.ShouldBe("202");
+      repository.InstallationId.ShouldBe(SecondInstallation);
+      repository.ToForgeRef(Forge.GitHub).ShouldBe(new ForgeRepositoryRef(Forge.GitHub, "202", SharedExternalId));
+    }
+
+    await using var check = organizations.ContextWithoutOrganization();
+    (await check.ForgeConnections.CountAsync(Ct)).ShouldBe(0);
+    (await check.Database.GetPendingMigrationsAsync(Ct)).ShouldBeEmpty();
+  }
+
+  // A repository of a forge with connections has no installation, and no foreign key holds its connection.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task AddAsync_ForgeConnection_ShouldStoreItWithoutInstallation(DatabaseProvider provider)
+  {
+    var organizations = await SeededAsync(provider);
+    var repository = TrackedRepository.Create("contoso-devops", null, "{abc}", RepositorySlug.Parse("contoso/project/repo"), "main", false, "protected", Now);
+
+    await using (var context = organizations.ContextOf(organizations.FirstId))
+    {
+      await TestRepositories.Repositories(context).AddAsync(repository, Ct);
+    }
+
+    await using var reader = organizations.ContextOf(organizations.FirstId);
+    var found = await TestRepositories.Repositories(reader).FindAsync(repository.Id, Ct);
+
+    found.ShouldNotBeNull().ConnectionId.ShouldBe("contoso-devops");
+    found.InstallationId.ShouldBeNull();
+  }
+
+  // The migration applied just before the named one.
+  private static string MigrationBefore(TwoOrganizationDatabase organizations, string migration)
+  {
+    using var context = organizations.ContextWithoutOrganization();
+    var migrations = context.Database.GetMigrations().ToList();
+    var index = migrations.FindIndex(id => id.EndsWith("_" + migration, StringComparison.Ordinal));
+
+    index.ShouldBeGreaterThan(0);
+
+    return migrations[index - 1];
+  }
+
+  private static async Task MigrateAsync(TwoOrganizationDatabase organizations, string? target)
+  {
+    await using var context = organizations.ContextWithoutOrganization();
+
+    await context.GetService<IMigrator>().MigrateAsync(target, Ct);
   }
 
   // Raw on purpose: the Domain has no setter yet, and the model cannot write a text that is not a SHA.

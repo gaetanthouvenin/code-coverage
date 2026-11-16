@@ -26,6 +26,12 @@ namespace CodeCoverage.Infrastructure.Persistence.Configurations;
 ///     its own on either engine. Its two text columns take at most 1,534 bytes on SQL Server, whose limit is
 ///     1,700.
 ///   </para>
+///   <para>
+///     <c>ConnectionId</c> has no foreign key, neither to <c>ForgeConnections</c> nor to <c>Installations</c>
+///     (ADR-017): on GitHub it holds the identifier of the installation in text, which <c>InstallationId</c> keeps
+///     with its foreign key to <c>Installations</c>; on the other forges, where <c>InstallationId</c> is empty, it holds
+///     the identifier of the forge connection.
+///   </para>
 /// </remarks>
 internal sealed class TrackedRepositoryConfiguration : IEntityTypeConfiguration<TrackedRepository>
 {
@@ -53,7 +59,8 @@ internal sealed class TrackedRepositoryConfiguration : IEntityTypeConfiguration<
     builder.HasKey(static r => r.Id);
     builder.IsOrganizationOwned();
 
-    builder.Property(static r => r.InstallationId).IsRequired();
+    builder.Property(static r => r.ConnectionId).IsRequired().HasMaxLength(TrackedRepository.ConnectionIdMaxLength);
+    builder.Property(static r => r.InstallationId);
     builder.Property(static r => r.ExternalId).IsRequired().HasMaxLength(TrackedRepository.ExternalIdMaxLength);
     builder.Property(static r => r.Owner).IsRequired().HasMaxLength(Organization.LoginMaxLength);
     builder.Property(static r => r.Namespace).IsRequired().HasMaxLength(TrackedRepository.NamespaceMaxLength);

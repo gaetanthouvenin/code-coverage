@@ -969,6 +969,11 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ConnectionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -992,7 +997,7 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
-                    b.Property<long>("InstallationId")
+                    b.Property<long?>("InstallationId")
                         .HasColumnType("bigint");
 
                     b.Property<bool>("IsActive")
@@ -2017,8 +2022,7 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                     b.HasOne("CodeCoverage.Domain.Repositories.Installation", null)
                         .WithMany()
                         .HasForeignKey("InstallationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
                         .WithMany()
