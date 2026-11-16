@@ -53,6 +53,18 @@ public sealed class RetryPolicyTests : IDisposable
   }
 
   [Fact]
+  public async Task Send_ServerErrorWithUnreadableBody_ShouldStillPrintTheStatus()
+  {
+    _handler.Then(HttpStatusCode.BadGateway, configure: static response => response.Content = new StreamContent(new BrokenStream()))
+            .Then(HttpStatusCode.Accepted);
+
+    using var response = await SendAsync();
+
+    response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+    _output.ToString().ShouldContain("warning: Attempt 1 of 5 failed (HTTP 502): trying again in 1 s.");
+  }
+
+  [Fact]
   public async Task Send_NetworkError_ShouldPrintItsMessageWithoutVerboseMode()
   {
     _handler.ThenThrow(new HttpRequestException("Connection refused (coverage.example.com:443).")).Then(HttpStatusCode.Accepted);
@@ -95,7 +107,7 @@ public sealed class RetryPolicyTests : IDisposable
     using var client = new HttpClient(_handler, disposeHandler: false);
     var retry = new RetryPolicy(static (_, _) => Task.CompletedTask, new ConsoleReporter(_output));
 
-    return await retry.SendAsync(token => client.SendAsync(new HttpRequestMessage(HttpMethod.Post, Address), token), Ct);
+    return await retry.SendAsync(token => client.SendAsync(new HttpRequestMessage(HttpMethod.Post, Address), HttpCompletionOption.ResponseHeadersRead, token), Ct);
   }
 
   #endregion
