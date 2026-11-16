@@ -968,6 +968,11 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ConnectionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -991,7 +996,7 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
-                    b.Property<long>("InstallationId")
+                    b.Property<long?>("InstallationId")
                         .HasColumnType("bigint");
 
                     b.Property<bool>("IsActive")
@@ -2013,8 +2018,7 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Repositories.Installation", null)
                         .WithMany()
                         .HasForeignKey("InstallationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
                         .WithMany()
