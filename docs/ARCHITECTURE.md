@@ -1881,6 +1881,8 @@ volumes: { db: {}, api-data: {}, web-data: {} }
 5. `nuget-tool` (empaquetage, installation locale et lancement de l'outil, à chaque exécution) et `nuget-publish` (nuget.org par publication de confiance, tags `v*` et `NUGET_PUBLISH=true`, M5.03).
 6. `deploy` (M4.02b) : chaque tag `v*`, pré-versions comprises, déployé sur l'hôte de production par le runner auto-hébergé de label `cc-production` et l'environnement `production` (relecteur requis), jamais sur une PR ; `scripts/Deploy-Production.ps1` et le crochet pré-job du runner sont testés hors ligne dans `build-and-test`.
 
+Sur une PR, le job `changes` lit les fichiers du commit de fusion : une PR qui ne change que des documents (Markdown hors de `src/` et `tests/`, `LICENSE`, `.claude/` ; la maquette `docs/design/ui-mockup.html`, lue par `UiStylesheetTests`, est du code) ne lance que `docs-checks` (tests de documentation d'Architecture.Tests et de Web.Tests), sans compilation complète, base de données, test de fumée ni outil NuGet ; tout autre fichier lance la chaîne entière, comme chaque push sur `main`, `develop` ou un tag. Le ruleset exige le seul job `CI gate`, qui ne passe que si la voie choisie a réussi en entier.
+
 Le dépôt utilise son propre service pour l'upload de sa couverture.
 
 ---
