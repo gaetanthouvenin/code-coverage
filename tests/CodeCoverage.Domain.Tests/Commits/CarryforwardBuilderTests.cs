@@ -85,6 +85,18 @@ public sealed class CarryforwardBuilderTests
     carried.DataUploadId.ShouldBeNull();
   }
 
+  // A method follows the shift of its line and goes with a removed line, as the lines do.
+  [Fact]
+  public void Build_ModifiedFileWithMethods_ShouldShiftMethods()
+  {
+    var diff = Diff(FileDiff.Create(SourcePath, null, FileDiffStatus.Modified, Patch));
+
+    var carried = CarryforwardBuilder.Build(Back(), Source(["back"], [new MethodCoverage(1, 1), new MethodCoverage(2, 3), new MethodCoverage(3, 0)]), diff, null, null, AllPaths)
+                                     .ShouldNotBeNull();
+
+    carried.Report.Files.ShouldHaveSingleItem().Methods.ShouldBe([new MethodCoverage(1, 1), new MethodCoverage(4, 0)]);
+  }
+
   [Fact]
   public void Build_RenamedFile_ShouldMovePath()
   {
@@ -248,7 +260,7 @@ public sealed class CarryforwardBuilderTests
   private static ForgeTree Tree(GitSha sha, params (string Path, GitSha Blob)[] files) =>
     new(sha, [.. files.Select(file => new ForgeTreeEntry(file.Path, file.Blob, false))], false);
 
-  private static CarryforwardSource Source(string[] flags) =>
+  private static CarryforwardSource Source(string[] flags, IEnumerable<MethodCoverage>? methods = null) =>
     new(
       SessionId,
       AncestorSha,
@@ -257,7 +269,7 @@ public sealed class CarryforwardBuilderTests
       flags,
       "backend",
       CoverageReport.Create(
-        [FileCoverage.Create(SourcePath, Enumerable.Range(1, 3).Select(static line => new LineCoverage(line, 1, 0, 0, false, null)))]
+        [FileCoverage.Create(SourcePath, Enumerable.Range(1, 3).Select(static line => new LineCoverage(line, 1, 0, 0, false, null)), methods)]
       )
     );
 
