@@ -40,6 +40,8 @@ public static partial class DependencyInjection
     services.AddSingleton<IGitHubUserTokenProvider, GitHubUserTokenProvider>();
     services.AddKeyedScoped<IForgeGateway>(Forge.GitHub, static (provider, _) => provider.GetRequiredService<GitHubAppGateway>());
     services.AddTransient<IForgeGatewayProvider, ForgeGatewayProvider>();
+    services.AddKeyedSingleton<IForgeAvailabilityContributor, GitHubAvailabilityContributor>(Forge.GitHub);
+    services.AddTransient<IForgeAvailability, ForgeAvailability>();
 
     return services;
   }
