@@ -175,3 +175,55 @@ multi-forge identity (ADR-014) are not configurable by design; the others are.
 | `comment.behavior: spammy` and `new` may post identical comments more often: CodeCoverage notifies again when a late base report arrives, on the sweep and on a manual re-notify. | No | Freshness over silence. |
 | `comment.behavior: new`: when GitHub refuses to delete the earlier comment (403, 422), CodeCoverage logs it and posts the new comment anyway, so the old one may stay beside it. Codecov probably stops instead (`no_permissions`); this is not proven. | No | Kept until the behaviour of Codecov is checked (ARCHITECTURE §8.4). |
 | `codecov/codecov-action` and codecov-cli do not talk to CodeCoverage (the compatibility shim is postponed until the pilot measures the need). | — | M5.07. |
+
+## The detailed report
+
+The **Detailed report** button of the Files panel of a commit opens
+`/{forge}/{owner}/{repo}/commit/{sha}/report`: one row per file, the total first, and the same view for
+a flag. The coverage of Codecov stays the headline figure, the one of the statuses, the comment and the
+badges; the report adds three figures next to it, which Codecov does not have. None of them changes a
+status.
+
+### The four figures
+
+| Figure | Covered | Coverable |
+|---|---|---|
+| **Codecov** | lines hit | lines hit, partial and missed: `hits / (hits + partials + misses)` |
+| **Lines** | lines executed at least once, partial lines included, as in ReportGenerator | lines of the report |
+| **Branches** | branches taken | branches of the lines |
+| **Methods** | methods executed at least once | methods of the report |
+
+A line with branches that ran but took none of them is missed for Codecov and executed for **Lines**: the
+two figures differ by the partial lines. Each percentage is rounded with `coverage.precision` and
+`coverage.round` of the `codecov.yml`, as the Codecov figure. A click on a column header sorts the files,
+a second click reverses the order; **Show** keeps the files below the target of the project status, those
+with a branch not taken or those with a method never executed. The flag, the sort and the filter are in
+the address, so a shared link opens the same view.
+
+### What a dash means
+
+`—` means there is nothing to cover (a file without branch), or that the report does not give this data:
+the methods of a format or of an upload that has none. A method count that is not known is never shown as
+0: a file merged from a part that knows its methods and a part that does not shows `—`, and so does the
+total.
+
+### A commit processed before the report
+
+A commit processed before the release that brought the report keeps only the counters of Codecov: the
+page shows a banner and `—` in every column but Codecov. **Reprocess**, offered to an administrator of the
+repository, rebuilds the detail from the raw uploads, kept 30 days (`Retention:RawDays`). The next upload of
+the branch has it without doing anything.
+
+### Differences with ReportGenerator
+
+The figures follow the reports as Codecov reads their lines, so they can differ from ReportGenerator. Each
+difference is named and not configurable (ADR-016):
+
+| Difference | Why |
+|---|---|
+| An LCOV report of a `.js` file has no branch. | Codecov ignores its `BRDA` records. |
+| A line turned into a plain line by `parsers.*.partials_as_hits` loses its branches. | As in Codecov. |
+| A Clover `cond` line counts two branches, true and false. | The format gives no other count. |
+| Two methods that start on the same line (a lambda, a synthetic method) count as one. | A method is kept by its first line. |
+| A Cobertura method is covered as soon as one of its lines is. | The format has no method counter. |
+| The « fully covered methods » of ReportGenerator are not computed. | Not part of the report. |

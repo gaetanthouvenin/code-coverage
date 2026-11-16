@@ -1,5 +1,5 @@
 ---
-source-sha256: 1017bca7ee8867d68b1870da6385f7ac4e0614ff9838d3986a279b3acd887306
+source-sha256: 646e28cc7146d4505bd421d0837b4230598a3079a5f48b15faf1c98106c5582d
 ---
 # Migrare un repository da Codecov
 
@@ -178,3 +178,54 @@ multi-forge (ADR-014) non sono configurabili per scelta progettuale; le altre s�
 | `comment.behavior: spammy` e `new` possono pubblicare commenti identici più spesso: CodeCoverage notifica di nuovo quando arriva un report di base in ritardo, durante lo sweep e su una nuova notifica manuale. | No | Freschezza piuttosto che silenzio. |
 | `comment.behavior: new`: quando GitHub rifiuta di eliminare il commento precedente (403, 422), CodeCoverage lo registra nei log e pubblica comunque il nuovo commento, quindi quello vecchio può restare accanto. Codecov probabilmente si ferma invece (`no_permissions`); ciò non è dimostrato. | No | Mantenuto finché il comportamento di Codecov non è verificato (ARCHITECTURE §8.4). |
 | `codecov/codecov-action` e codecov-cli non comunicano con CodeCoverage (lo shim di compatibilità è rinviato finché il pilota non misura il bisogno). | — | M5.07. |
+
+## Il report dettagliato
+
+Il pulsante **Report dettagliato** del pannello File di un commit apre
+`/{forge}/{owner}/{repo}/commit/{sha}/report`: una riga per file, il totale in testa, e la stessa vista
+per un flag. La copertura Codecov resta la cifra principale, quella degli stati, del commento e dei badge;
+il report vi aggiunge tre cifre, che Codecov non ha. Nessuna cambia uno stato.
+
+### Le quattro cifre
+
+| Cifra | Coperto | Copribile |
+|---|---|---|
+| **Codecov** | righe coperte | righe coperte, parziali e mancate: `hits / (hits + parziali + mancate)` |
+| **Righe** | righe eseguite almeno una volta, parziali comprese, come in ReportGenerator | righe del report |
+| **Rami** | rami presi | rami delle righe |
+| **Metodi** | metodi eseguiti almeno una volta | metodi del report |
+
+Una riga con rami eseguita senza che nessun ramo sia preso è mancata per Codecov ed eseguita per
+**Righe**: le due cifre differiscono per le righe parziali. Ogni percentuale è arrotondata secondo
+`coverage.precision` e `coverage.round` del `codecov.yml`, come la cifra Codecov. Un clic sull’intestazione
+di una colonna ordina i file, un secondo clic inverte l’ordine; **Mostra** tiene i file sotto l’obiettivo
+dello stato di progetto, quelli con un ramo non preso o quelli con un metodo mai eseguito. Il flag,
+l’ordinamento e il filtro sono nell’indirizzo: un link condiviso apre la stessa vista.
+
+### Che cosa significa un trattino
+
+`—` significa che non c’è niente da coprire (un file senza rami), o che il report non fornisce questo dato:
+i metodi di un formato o di un upload che non ne ha. Un numero di metodi sconosciuto non è mai mostrato
+come 0: un file unito da una parte che conosce i suoi metodi e da una che non li conosce mostra `—`, e
+anche il totale.
+
+### Un commit elaborato prima del report
+
+Un commit elaborato prima della versione che ha portato il report conserva solo i contatori di Codecov: la
+pagina mostra un banner e `—` in tutte le colonne tranne Codecov. **Rielabora**, proposto a un
+amministratore del repository, ricostruisce il dettaglio dagli upload grezzi, conservati 30 giorni
+(`Retention:RawDays`). Il prossimo upload del ramo lo ha senza fare nulla.
+
+### Differenze con ReportGenerator
+
+Le cifre seguono i report così come Codecov ne legge le righe: possono quindi differire da
+ReportGenerator. Ogni differenza è nominata e non è configurabile (ADR-016):
+
+| Differenza | Perché |
+|---|---|
+| Un report LCOV di un file `.js` non ha rami. | Codecov ignora i suoi record `BRDA`. |
+| Una riga trasformata in riga semplice da `parsers.*.partials_as_hits` perde i suoi rami. | Come in Codecov. |
+| Una riga `cond` di Clover conta due rami, vero e falso. | Il formato non dà altro conteggio. |
+| Due metodi che iniziano sulla stessa riga (una lambda, un metodo sintetico) contano come uno. | Un metodo è tenuto per la sua prima riga. |
+| Un metodo Cobertura è coperto non appena lo è una delle sue righe. | Il formato non ha un contatore di metodi. |
+| I « metodi interamente coperti » di ReportGenerator non sono calcolati. | Fuori dal report. |

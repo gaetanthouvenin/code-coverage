@@ -16,7 +16,7 @@
   else
   {
     <RepositoryHeader Forge="@Forge" Owner="@Owner" Name="@Name" Title="@L["Report_Title"]" Crumbs="Crumbs"
-                      ActiveTab="RepositoryTab.Commits" OnPermission="PermissionKnown">
+                      ActiveTab="RepositoryTab.Commits" OnPermission="PermissionKnown" HelpHref="@DocumentationLinks.DetailedReport">
       <SubtitleContent>@Subtitle</SubtitleContent>
       <Actions>
         @if (Report is { IsCompacted: false, Flags.Count: > 0 })
