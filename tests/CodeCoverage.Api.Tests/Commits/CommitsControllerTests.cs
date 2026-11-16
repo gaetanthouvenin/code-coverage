@@ -158,6 +158,74 @@ public sealed class CommitsControllerTests
   }
 
   [Fact]
+  public async Task GetCommitFiles_Cfi2_ShouldReturnDetail()
+  {
+    A.CallTo(() => _reports.GetFileIndexAsync(9, A<CancellationToken>._)).Returns([1]);
+    A.CallTo(() => _codec.DecodeFileIndex(A<ReadOnlyMemory<byte>>._))
+     .Returns([new FileTotals("src/a.cs", new CoverageTotals(2, 1, 1, 0, 0), new CoverageDetail(3, 4, 1, 4, 1, 2))]);
+    using var client = Client();
+
+    using var response = await client.GetAsync(new Uri($"{Base}/commits/{Sha.Value}/files", UriKind.Relative), Ct);
+    using var body = await JsonAsync(response);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    var file = body.RootElement[0];
+    file.GetProperty("totals").GetProperty("hits").GetInt32().ShouldBe(2);
+    file.GetProperty("totals").GetProperty("coverage").GetDecimal().ShouldBe(50m);
+    var detail = file.GetProperty("detail");
+    detail.GetProperty("executedLines").GetInt32().ShouldBe(3);
+    detail.GetProperty("coverableLines").GetInt32().ShouldBe(4);
+    detail.GetProperty("coveredBranches").GetInt32().ShouldBe(1);
+    detail.GetProperty("totalBranches").GetInt32().ShouldBe(4);
+    detail.GetProperty("coveredMethods").GetInt32().ShouldBe(1);
+    detail.GetProperty("totalMethods").GetInt32().ShouldBe(2);
+    detail.GetProperty("lineCoverage").GetDecimal().ShouldBe(75m);
+    detail.GetProperty("branchCoverage").GetDecimal().ShouldBe(25m);
+    detail.GetProperty("methodCoverage").GetDecimal().ShouldBe(50m);
+  }
+
+  [Fact]
+  public async Task GetCommitFiles_Cfi1_ShouldReturnNullDetail()
+  {
+    A.CallTo(() => _reports.GetFileIndexAsync(9, A<CancellationToken>._)).Returns([1]);
+    A.CallTo(() => _codec.DecodeFileIndex(A<ReadOnlyMemory<byte>>._))
+     .Returns([new FileTotals("src/a.cs", new CoverageTotals(2, 1, 1, 0, 0))]);
+    using var client = Client();
+
+    using var response = await client.GetAsync(new Uri($"{Base}/commits/{Sha.Value}/files", UriKind.Relative), Ct);
+    using var body = await JsonAsync(response);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    var file = body.RootElement[0];
+    file.GetProperty("totals").GetProperty("lines").GetInt32().ShouldBe(4);
+    file.GetProperty("detail").ValueKind.ShouldBe(JsonValueKind.Null);
+  }
+
+  [Fact]
+  public async Task GetCommitFiles_Flag_ShouldReturnDetailOfFlagView()
+  {
+    A.CallTo(() => _reports.ListSessionsAsync(9, A<CancellationToken>._))
+     .Returns([Session.FromUpload(9, 1, 77, ["unit"], "job", "github-actions", null, default), Session.FromUpload(9, 2, 78, ["e2e"], "job", "github-actions", null, default)]);
+    A.CallTo(() => _reports.GetUploadCoverageAsync(77, A<CancellationToken>._)).Returns(new byte[] { 77 });
+    A.CallTo(() => _reports.GetUploadCoverageAsync(78, A<CancellationToken>._)).Returns(new byte[] { 78 });
+    var unit = CoverageReport.Create([FileCoverage.Create("src/a.cs", [new LineCoverage(1, 2, 0, 0, false, null), new LineCoverage(2, 0, 0, 0, false, null)], [new MethodCoverage(1, 2)])]);
+    var e2e = CoverageReport.Create([FileCoverage.Create("src/a.cs", [new LineCoverage(2, 5, 0, 0, false, null)], [new MethodCoverage(2, 5)])]);
+    A.CallTo(() => _codec.Decode(A<ReadOnlyMemory<byte>>._)).ReturnsLazily((ReadOnlyMemory<byte> data) => data.Span[0] == 77 ? unit : e2e);
+    using var client = Client();
+
+    using var response = await client.GetAsync(new Uri($"{Base}/commits/{Sha.Value}/files?flag=unit", UriKind.Relative), Ct);
+    using var body = await JsonAsync(response);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    var detail = body.RootElement[0].GetProperty("detail");
+    detail.GetProperty("executedLines").GetInt32().ShouldBe(1);
+    detail.GetProperty("coverableLines").GetInt32().ShouldBe(2);
+    detail.GetProperty("coveredMethods").GetInt32().ShouldBe(1);
+    detail.GetProperty("totalMethods").GetInt32().ShouldBe(1);
+    A.CallTo(() => _reports.GetFileIndexAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
   public async Task Get_FileCoverage_ShouldReturnItsLines()
   {
     A.CallTo(() => _reports.GetReportAsync(9, A<CancellationToken>._)).Returns([1]);

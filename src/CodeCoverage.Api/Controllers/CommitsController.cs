@@ -80,7 +80,10 @@ public sealed class CommitsController(ISender sender) : ControllerBase
   /// <remarks>
   ///   The files of the report of the commit with their counters, sorted by path. Without <c>flag</c>, the index of the
   ///   files is read without decoding any line; with it, the sessions of the flag are merged, and a compacted commit
-  ///   answers 422 <c>Commit.Compacted</c>. <c>path</c> keeps the paths that start with it.
+  ///   answers 422 <c>Commit.Compacted</c>. <c>path</c> keeps the paths that start with it. Next to the counters of
+  ///   Codecov, <c>detail</c> gives the executed lines, the branches and the methods of each file (ADR-016): it is
+  ///   <c>null</c> for a commit processed before the detail was stored, and its methods are <c>null</c> when the report
+  ///   does not give them. The coverage of Codecov stays <c>totals.coverage</c>.
   /// </remarks>
   /// <param name="forge">The forge of the repository.</param>
   /// <param name="owner">The owner of the repository.</param>

@@ -1607,7 +1607,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/codecov-import` | Repositories | ApiToken (admin du dépôt) | `StartCodecovImportRequest` (jeton API Codecov) | 202 | `StartCodecovImport` (M5.06) : chiffre le jeton, écrit `CodecovImports` et met en file `ImportCodecovHistory` dans la même transaction ; rien n'est lu chez Codecov dans la requête |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits` | Commits | ApiToken | `?branch=&page=&pageSize=` | `CommitPageResponse` | `ListCommits` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}` | Commits | ApiToken | — | `CommitResponse` (totaux, état, sessions, uploads, flags, statuts publiés) | `GetCommit` |
-| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` | Commits | ApiToken | `?flag=&path=` | `IReadOnlyList<FileTotalsResponse>` | `GetCommitFiles` |
+| `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files` | Commits | ApiToken | `?flag=&path=` | `IReadOnlyList<FileTotalsResponse(Path, Totals, Detail?)>`, `Detail` = `CoverageDetailModel` (lignes exécutées, branches, méthodes `null` si inconnues, trois couvertures ; ADR-016), `null` pour un index `CFI1` | `GetCommitFiles` |
 | `GET /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/files/{**path}` | Commits | ApiToken | `?flag=` | `FileCoverageResponse(Lines[{Line, State, Hits, Branches}])` | `GetFileCoverage` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/notify` | Commits | ApiToken (admin du dépôt) | — | 202 | `TriggerNotify` |
 | `POST /api/v1/repos/{forge}/{owner}/{repo}/commits/{sha}/reprocess` | Commits | ApiToken (admin du dépôt) | — | 202 | `ReprocessCommit` |
