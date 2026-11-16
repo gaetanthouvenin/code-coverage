@@ -51,10 +51,11 @@ public readonly record struct CoverageDetail
       "The methods are either known with both counters, or not known.",
       nameof(totalMethods));
 
-    if (coveredMethods is { } executed && totalMethods is { } total)
+    // Both method counters are known here, or neither is.
+    if (totalMethods is { } total)
     {
-      ArgumentOutOfRangeException.ThrowIfNegative(executed, nameof(coveredMethods));
-      ArgumentOutOfRangeException.ThrowIfGreaterThan(executed, total, nameof(coveredMethods));
+      ArgumentOutOfRangeException.ThrowIfNegative(coveredMethods.GetValueOrDefault(), nameof(coveredMethods));
+      ArgumentOutOfRangeException.ThrowIfGreaterThan(coveredMethods.GetValueOrDefault(), total, nameof(coveredMethods));
     }
 
     ExecutedLines = executedLines;
@@ -104,7 +105,7 @@ public readonly record struct CoverageDetail
   ///   methods are not known.
   /// </summary>
   public decimal? MethodRatio =>
-    CoveredMethods is { } executed && TotalMethods is { } total ? CoverageMath.Ratio(executed, total) : null;
+    TotalMethods is { } total ? CoverageMath.Ratio(CoveredMethods.GetValueOrDefault(), total) : null;
 
   #endregion
 
