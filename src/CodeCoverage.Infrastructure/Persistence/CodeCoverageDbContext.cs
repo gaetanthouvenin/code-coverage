@@ -14,6 +14,7 @@ using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Codecov;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
+using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
@@ -135,6 +136,9 @@ public sealed class CodeCoverageDbContext(
 
   /// <inheritdoc />
   public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
+  /// <summary>Gets the connections of the organizations to the forges other than GitHub (<c>ForgeConnections</c>).</summary>
+  public DbSet<ForgeConnection> ForgeConnections => Set<ForgeConnection>();
 
   /// <summary>Gets the cache of the commit metadata read from the forges (<c>GitCommits</c>).</summary>
   public DbSet<GitCommit> GitCommits => Set<GitCommit>();
