@@ -37,7 +37,14 @@ public sealed class ParserOracleTests
 
   // The formats whose parsers read the methods (ADR-016); the branches and the methods of their fixtures
   // are compared with those of ReportGenerator, and each difference is listed in expected-detail.json.
-  private static readonly HashSet<string> DetailFormats = new(StringComparer.Ordinal) { "cobertura", "opencover" };
+  private static readonly HashSet<string> DetailFormats = new(StringComparer.Ordinal)
+  {
+    "cobertura",
+    "opencover",
+    "lcov",
+    "jacoco",
+    "clover",
+  };
 
   private static readonly JsonNode ExpectedDetail =
     JsonNode.Parse(File.ReadAllText(Path.Combine(ReportsDirectory, "expected-detail.json")))!;
@@ -72,9 +79,13 @@ public sealed class ParserOracleTests
     var parsed = await ParseAsync(fixture, path);
     var expected = ExpectedDetail["fixtures"]![fixture]!;
 
+    var oracle = ReportGeneratorOracle.ReadDetail(path);
+    var oracleMethods = ReportGeneratorOracle.ReadMethods(path);
+
     DetailOf(parsed).ShouldBe(ReadDetail(expected["parser"]!));
-    ReportGeneratorOracle.ReadDetail(path).ShouldBe(ReadDetail(expected["oracle"]!));
-    CompareMethods(parsed, ReportGeneratorOracle.ReadMethods(path)).ShouldBe(ReadDifferences(expected));
+    oracle.ShouldBe(ReadDetail(expected["oracle"]!));
+    oracleMethods.Values.Sum(methods => methods.Count(method => method.IsCovered)).ShouldBe(oracle.CoveredMethods);
+    CompareMethods(parsed, oracleMethods).ShouldBe(ReadDifferences(expected));
   }
 
   [Fact]

@@ -1,6 +1,6 @@
 {
   "oracle": "ReportGenerator.Core 5.5.12",
-  "notes": "One entry per report of the formats whose parsers read the methods (ADR-016), today tests/fixtures/reports/{cobertura,opencover}. `parser` holds the covered and total branches and methods of the parsers, summed over the files; `oracle` those of ReportGenerator (CodeFile.CoveredBranches, TotalBranches, CoveredCodeElements, TotalCodeElements). The branches of each line are compared by expected-totals.json. `differences` lists every line where a method starts in one tool and not in the other, or where the two disagree on how many of the methods that start on it are executed (`executed/total methods`); an empty list means they agree on every method. Each difference names a rule of `rules`, which says what each tool does and which part of ADR-016 the parser follows. Paths are compared without their prefix, as in expected-totals.json.",
+  "notes": "One entry per report of tests/fixtures/reports/{cobertura,opencover,lcov,jacoco,clover}, whose parsers read the methods (ADR-016). `parser` holds the covered and total branches and methods of the parsers, summed over the files; `oracle` those of ReportGenerator (CodeFile.CoveredBranches, TotalBranches, CoveredCodeElements, TotalCodeElements), a code element being covered when its CoverageQuota is above 0. The branches of each line are compared by expected-totals.json, whose differences explain those of the branch totals here (the BRDA of a `.js` LCOV file, rule lcov-branches-ignored-in-js). `differences` lists every line where a method starts in one tool and not in the other, or where the two disagree on how many of the methods that start on it are executed (`executed/total methods`); an empty list means they agree on every method. Each difference names a rule of `rules`, which says what each tool does and which part of ADR-016 the parser follows. Paths are compared without their prefix, as in expected-totals.json.",
   "rules": {},
   "fixtures": {
     "cobertura/coverlet-async.xml": {
@@ -105,6 +105,81 @@
         "totalBranches": 34,
         "coveredMethods": 12,
         "totalMethods": 15
+      },
+      "differences": []
+    },
+    "lcov/coverlet.info": {
+      "parser": {
+        "coveredBranches": 8,
+        "totalBranches": 16,
+        "coveredMethods": 2,
+        "totalMethods": 3
+      },
+      "oracle": {
+        "coveredBranches": 8,
+        "totalBranches": 16,
+        "coveredMethods": 2,
+        "totalMethods": 3
+      },
+      "differences": []
+    },
+    "lcov/jest-absolute.info": {
+      "parser": {
+        "coveredBranches": 2,
+        "totalBranches": 6,
+        "coveredMethods": 2,
+        "totalMethods": 4
+      },
+      "oracle": {
+        "coveredBranches": 5,
+        "totalBranches": 12,
+        "coveredMethods": 2,
+        "totalMethods": 4
+      },
+      "differences": []
+    },
+    "lcov/vitest-relative.info": {
+      "parser": {
+        "coveredBranches": 2,
+        "totalBranches": 6,
+        "coveredMethods": 2,
+        "totalMethods": 3
+      },
+      "oracle": {
+        "coveredBranches": 3,
+        "totalBranches": 8,
+        "coveredMethods": 2,
+        "totalMethods": 3
+      },
+      "differences": []
+    },
+    "jacoco/with-doctype.xml": {
+      "parser": {
+        "coveredBranches": 7,
+        "totalBranches": 16,
+        "coveredMethods": 9,
+        "totalMethods": 15
+      },
+      "oracle": {
+        "coveredBranches": 7,
+        "totalBranches": 16,
+        "coveredMethods": 9,
+        "totalMethods": 15
+      },
+      "differences": []
+    },
+    "clover/istanbul.xml": {
+      "parser": {
+        "coveredBranches": 16,
+        "totalBranches": 22,
+        "coveredMethods": 0,
+        "totalMethods": 0
+      },
+      "oracle": {
+        "coveredBranches": 16,
+        "totalBranches": 22,
+        "coveredMethods": 0,
+        "totalMethods": 0
       },
       "differences": []
     }

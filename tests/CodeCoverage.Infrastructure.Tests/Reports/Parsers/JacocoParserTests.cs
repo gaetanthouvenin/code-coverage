@@ -470,6 +470,46 @@ public sealed class JacocoParserTests
   }
 
   [Fact]
+  public async Task Parse_MethodCounter_ShouldMarkMethodExecuted()
+  {
+    var report = await ParsePackageAsync(
+      """
+      <class name="p/A" sourcefilename="A.java">
+        <method name="run" desc="()V" line="3"><counter type="COMPLEXITY" missed="0" covered="1" /><counter type="METHOD" missed="0" covered="1" /></method>
+        <method name="idle" desc="()V" line="7"><counter type="METHOD" missed="1" covered="0" /></method>
+        <method name="lambda" desc="()V"><counter type="METHOD" missed="0" covered="1" /></method>
+      </class>
+      <class name="p/A$B" sourcefilename="A.java">
+        <method name="inner" desc="()V" line="10"><counter type="COMPLEXITY" missed="0" covered="1" /><counter type="METHOD" missed="0" covered="2" /></method>
+      </class>
+      <sourcefile name="A.java">
+        <line nr="3" mi="0" ci="2" mb="0" cb="0" />
+        <line nr="7" mi="2" ci="0" mb="0" cb="0" />
+        <line nr="10" mi="0" ci="1" mb="0" cb="0" />
+      </sourcefile>
+      """);
+
+    var file = report.Files.ShouldHaveSingleItem();
+
+    file.Methods.ShouldBe([new MethodCoverage(3, 1), new MethodCoverage(7, 0), new MethodCoverage(10, 1)]);
+    file.Lines.Where(line => line.IsMethod).Select(line => line.Line).ShouldBe([3]);
+  }
+
+  [Fact]
+  public async Task Parse_ClassWithoutSourceFileName_ShouldGiveNoMethod()
+  {
+    var report = await ParsePackageAsync(
+      """
+      <class name="p/A">
+        <method name="run" desc="()V" line="3"><counter type="COMPLEXITY" missed="0" covered="1" /><counter type="METHOD" missed="0" covered="1" /></method>
+      </class>
+      <sourcefile name="A.java"><line nr="3" mi="0" ci="2" mb="0" cb="0" /></sourcefile>
+      """);
+
+    report.Files.ShouldHaveSingleItem().Methods.ShouldBe([]);
+  }
+
+  [Fact]
   public async Task Parse_CancelledToken_ShouldThrowOperationCanceledException()
   {
     using var report = new MemoryStream(Encoding.UTF8.GetBytes("""<report name="a" />"""));

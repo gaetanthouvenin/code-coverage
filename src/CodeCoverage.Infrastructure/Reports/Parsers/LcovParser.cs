@@ -109,13 +109,14 @@ internal sealed class LcovParser : IReportParser
       leaveOpen: true);
 
     Dictionary<string, Dictionary<int, LineCoverage>> files = new(StringComparer.Ordinal);
+    Dictionary<string, List<MethodCoverage>> methods = new(StringComparer.Ordinal);
     var record = new LcovRecord();
 
     await foreach (var line in ReadLinesAsync(reader, cancellationToken).ConfigureAwait(false))
     {
       if (line.StartsWith(EndOfRecord, StringComparison.Ordinal))
       {
-        record.AddTo(files);
+        record.AddTo(files, methods);
         record = new LcovRecord();
         record.Read(line[EndOfRecord.Length..]);
       }
@@ -125,12 +126,16 @@ internal sealed class LcovParser : IReportParser
       }
     }
 
-    record.AddTo(files);
+    record.AddTo(files, methods);
 
     ParsedFile[] parsed =
     [
       .. files.OrderBy(file => file.Key, StringComparer.Ordinal)
-              .Select(file => new ParsedFile(file.Key, [.. file.Value.Values.OrderBy(line => line.Line)])),
+              .Select(
+                file => new ParsedFile(
+                  file.Key,
+                  [.. file.Value.Values.OrderBy(line => line.Line)],
+                  [.. methods[file.Key].OrderBy(method => method.Line)])),
     ];
 
     return new ParsedReport(ReportFormat.Lcov, [], parsed);
