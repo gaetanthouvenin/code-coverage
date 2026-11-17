@@ -236,19 +236,75 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
     }
   }
 
+  /// <summary>Translates a <c>push</c> delivery into the neutral push of a branch.</summary>
+  /// <param name="delivery">The delivery.</param>
+  /// <returns>The push, or <see langword="null" /> when the delivery names no repository or is not about a branch, a tag for instance.</returns>
+  private static ForgePushEvent? ToPushEvent(GitHubWebhookEvent delivery)
+  {
+    if (delivery.RepositoryId is not { } repositoryId || GitHubPushEvent.Parse(delivery.Payload) is not { Branch: { } branch } push)
+    {
+      return null;
+    }
+
+    return new ForgePushEvent(repositoryId.ToString(CultureInfo.InvariantCulture), branch, push.Head, push.Deleted, push.TouchesConfig, push.Before);
+  }
+
+  /// <summary>Translates a <c>pull_request</c> delivery into the neutral change of a pull request.</summary>
+  /// <param name="delivery">The delivery.</param>
+  /// <returns>
+  ///   The change, or <see langword="null" /> when the delivery names no repository or no pull request, or reports an
+  ///   action that changes nothing that is recorded, a label or a review request for instance.
+  /// </returns>
+  private static ForgePullRequestEvent? ToPullRequestEvent(GitHubWebhookEvent delivery)
+  {
+    if (delivery.Action is not ("opened" or "synchronize" or "reopened" or "edited" or "ready_for_review" or "closed")
+        || delivery.RepositoryId is not { } repositoryId
+        || GitHubPullRequestEvent.Parse(delivery.Payload).Number is not { } number)
+    {
+      return null;
+    }
+
+    return new ForgePullRequestEvent(repositoryId.ToString(CultureInfo.InvariantCulture), number);
+  }
+
+  /// <summary>Translates a <c>repository</c> delivery into the neutral change of a repository.</summary>
+  /// <param name="delivery">The delivery.</param>
+  /// <returns>
+  ///   The change, or <see langword="null" /> when the body names no repository that can be read, or the action is
+  ///   one that changes nothing that is recorded, an archiving for instance.
+  /// </returns>
+  /// <remarks><c>privatized</c> and <c>publicized</c> change the repository in place, like a renaming.</remarks>
+  private static ForgeRepositoryEvent? ToRepositoryEvent(GitHubWebhookEvent delivery)
+  {
+    ForgeRepositoryEventKind? kind = delivery.Action switch
+    {
+      "created" => ForgeRepositoryEventKind.Created,
+      "renamed" or "privatized" or "publicized" => ForgeRepositoryEventKind.Renamed,
+      "deleted" => ForgeRepositoryEventKind.Deleted,
+      "transferred" => ForgeRepositoryEventKind.Transferred,
+      _ => null,
+    };
+
+    if (kind is not { } known || GitHubRepositoryEvent.Parse(delivery.Payload) is not { Repository: { } repository } body)
+    {
+      return null;
+    }
+
+    return new ForgeRepositoryEvent(known, repository, body.PreviousOwnerAccountId);
+  }
+
   /// <summary>Handles a push to a repository that is tracked, inside its organization.</summary>
   /// <param name="delivery">The delivery.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>A task that completes when the push is applied.</returns>
   private async Task HandlePushAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
   {
-    if (delivery.RepositoryId is not { } externalId)
+    if (ToPushEvent(delivery) is not { } push)
     {
       return;
     }
 
-    var repository = await repositories.FindByExternalIdAsync(externalId.ToString(CultureInfo.InvariantCulture), cancellationToken)
-                                       .ConfigureAwait(false);
+    var repository = await repositories.FindByExternalIdAsync(push.RepositoryExternalId, cancellationToken).ConfigureAwait(false);
 
     if (repository is not { IsActive: true })
     {
@@ -258,8 +314,7 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
     var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false)
                        ?? throw new InvalidOperationException("The scope has not entered an organization.");
 
-    await pushes.ApplyAsync(repository, repository.ToForgeRef(organization.Forge), GitHubPushEvent.Parse(delivery.Payload), cancellationToken)
-                .ConfigureAwait(false);
+    await pushes.ApplyAsync(repository, repository.ToForgeRef(organization.Forge), push, cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>Handles an event about a pull request of a repository that is tracked, inside its organization.</summary>
@@ -272,19 +327,16 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   /// </remarks>
   private async Task HandlePullRequestAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
   {
-    if (delivery.Action is not ("opened" or "synchronize" or "reopened" or "edited" or "ready_for_review" or "closed")
-        || delivery.RepositoryId is not { } externalId
-        || GitHubPullRequestEvent.Parse(delivery.Payload).Number is not { } number)
+    if (ToPullRequestEvent(delivery) is not { } change)
     {
       return;
     }
 
-    var repository = await repositories.FindByExternalIdAsync(externalId.ToString(CultureInfo.InvariantCulture), cancellationToken)
-                                       .ConfigureAwait(false);
+    var repository = await repositories.FindByExternalIdAsync(change.RepositoryExternalId, cancellationToken).ConfigureAwait(false);
 
     if (repository is { IsActive: true })
     {
-      await jobQueue.EnqueueAsync(SyncPullRequestJobs.Create(repository.Id, number), cancellationToken).ConfigureAwait(false);
+      await jobQueue.EnqueueAsync(SyncPullRequestJobs.Create(repository.Id, change.Number), cancellationToken).ConfigureAwait(false);
     }
   }
 
@@ -292,41 +344,40 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   /// <param name="delivery">The delivery.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>A task that completes when the event is handled.</returns>
+  /// <remarks>
+  ///   A created repository changes nothing here: the <c>installation_repositories</c> delivery that gives it to the
+  ///   installation queues the listing that tracks it.
+  /// </remarks>
   private async Task HandleRepositoryAsync(GitHubWebhookEvent delivery, CancellationToken cancellationToken)
   {
-    var body = GitHubRepositoryEvent.Parse(delivery.Payload);
-
-    if (body.Repository is not { } info)
+    if (ToRepositoryEvent(delivery) is not { } change || change.Kind is ForgeRepositoryEventKind.Created)
     {
       return;
     }
 
+    var info = change.Repository;
     var repository = await repositories.FindByExternalIdAsync(info.ExternalId, cancellationToken).ConfigureAwait(false);
 
-    switch (delivery.Action)
+    if (change.Kind is ForgeRepositoryEventKind.Renamed)
     {
-      case "renamed" or "privatized" or "publicized":
-        if (repository is not null && reconciler.Apply(repository, info))
-        {
-          await reconciler.SaveAsync(repository, isNew: false, job: null, cancellationToken).ConfigureAwait(false);
-        }
-
-        break;
-      case "deleted":
-        await DeactivateAsync(repository, cancellationToken).ConfigureAwait(false);
-
-        break;
-      case "transferred":
-        await HandleTransferAsync(delivery, body, info, repository, cancellationToken).ConfigureAwait(false);
-
-        break;
+      if (repository is not null && reconciler.Apply(repository, info))
+      {
+        await reconciler.SaveAsync(repository, isNew: false, job: null, cancellationToken).ConfigureAwait(false);
+      }
+    }
+    else if (change.Kind is ForgeRepositoryEventKind.Deleted)
+    {
+      await DeactivateAsync(repository, cancellationToken).ConfigureAwait(false);
+    }
+    else
+    {
+      await HandleTransferAsync(delivery.InstallationId, change, repository, cancellationToken).ConfigureAwait(false);
     }
   }
 
   /// <summary>Handles the transfer of a repository, on the side of the account that receives it or of the one it left.</summary>
-  /// <param name="delivery">The delivery.</param>
-  /// <param name="body">What the body says.</param>
-  /// <param name="info">The repository, as the body describes it.</param>
+  /// <param name="installationId">The installation of the delivery, or <see langword="null" />.</param>
+  /// <param name="change">The transfer.</param>
   /// <param name="repository">Its row in the organization of the scope, or <see langword="null" />.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>A task that completes when the transfer is handled.</returns>
@@ -335,16 +386,16 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
   ///   was revoked when the repository left, and queues the reconciliation that closes the row of the origin.
   /// </remarks>
   private async Task HandleTransferAsync(
-    GitHubWebhookEvent delivery,
-    GitHubRepositoryEvent body,
-    ForgeRepositoryInfo info,
+    long? installationId,
+    ForgeRepositoryEvent change,
     TrackedRepository? repository,
     CancellationToken cancellationToken)
   {
+    var info = change.Repository;
     var organization = await directory.FindCurrentAsync(cancellationToken).ConfigureAwait(false)
                        ?? throw new InvalidOperationException("The scope has not entered an organization.");
 
-    if (!string.Equals(body.OwnerAccountId, organization.ExternalAccountId, StringComparison.OrdinalIgnoreCase))
+    if (!string.Equals(info.OwnerExternalId, organization.ExternalAccountId, StringComparison.OrdinalIgnoreCase))
     {
       // The repository belongs to another account now: this organization is the one it left.
       if (repository is not null)
@@ -355,7 +406,7 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
       return;
     }
 
-    if (delivery.InstallationId is not { } installationId || info.DefaultBranch.Length == 0)
+    if (installationId is not { } installation || info.DefaultBranch.Length == 0)
     {
       return;
     }
@@ -364,15 +415,15 @@ internal sealed class HandleWebhookDeliveryCommandHandler(
 
     if (repository is null)
     {
-      repository = reconciler.Create(installationId, info);
+      repository = reconciler.Create(installation, info);
     }
     else
     {
-      repository.Activate(installationId, clock.UtcNow);
+      repository.Activate(installation, clock.UtcNow);
       reconciler.Apply(repository, info);
     }
 
-    var reconciliation = body.PreviousOwnerAccountId is { } previousOwner
+    var reconciliation = change.PreviousOwnerExternalId is { } previousOwner
                            ? SyncInstallationsJobs.CreateForTransfer(info.ExternalId, previousOwner)
                            : SyncInstallationsJobs.Create();
 

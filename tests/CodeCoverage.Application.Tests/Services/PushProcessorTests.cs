@@ -8,7 +8,6 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Forges;
-using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -40,6 +39,8 @@ public sealed class PushProcessorTests
 
   private readonly IForgeGateway _gateway = A.Fake<IForgeGateway>();
 
+  private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
+
   private readonly List<Commit> _stored = [];
 
   private readonly TrackedRepository _repository = TrackedRepository.Create(42, "7", RepositorySlug.Parse("octo/repo"), "main", false, "badge", Now.AddDays(-30));
@@ -54,7 +55,7 @@ public sealed class PushProcessorTests
 
   public PushProcessorTests()
   {
-    var gateways = A.Fake<IForgeGatewayProvider>();
+    var gateways = _gateways;
     var clock = A.Fake<IClock>();
 
     typeof(TrackedRepository).GetProperty(nameof(TrackedRepository.Id))!.SetValue(_repository, RepositoryId);
@@ -98,7 +99,7 @@ public sealed class PushProcessorTests
   {
     var covered = Complete(Parent);
 
-    await ApplyAsync(new GitHubPushEvent("feature/x", Head, false, false));
+    await ApplyAsync(new ForgePushEvent("7", "feature/x", Head, false, false));
 
     var branch = _added.ShouldNotBeNull();
     branch.RepositoryId.ShouldBe(RepositoryId);
@@ -118,7 +119,7 @@ public sealed class PushProcessorTests
     branch.Cover(77, Now.AddDays(-1));
     A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns(branch);
 
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, false, former));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, false, former));
 
     branch.HeadSha.ShouldBe(Head);
     // The commit covered before the push is no longer in the ancestry of the head, and nothing else is complete.
@@ -139,7 +140,7 @@ public sealed class PushProcessorTests
     A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns(branch);
     A.CallTo(() => _gateway.GetBranchHeadAsync(Address, "main", A<CancellationToken>._)).Returns(later);
 
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, false, started));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, false, started));
 
     branch.HeadSha.ShouldBe(later);
     A.CallTo(() => _commits.GetOrCreateAsync(RepositoryId, Head, A<DateTimeOffset>._, A<CancellationToken>._)).MustNotHaveHappened();
@@ -153,9 +154,28 @@ public sealed class PushProcessorTests
     var branch = Branch.Create(RepositoryId, "main", started, Now.AddMinutes(-1));
     A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns(branch);
 
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, false, started));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, false, started));
 
     branch.HeadSha.ShouldBe(Head);
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // M7.19. The push is neutral: a repository of another forge is asked through the gateway of its own forge.
+  [Fact]
+  public async Task Apply_NeutralPushOfAnotherForge_ShouldAskTheGatewayOfThatForge()
+  {
+    var gitLab = A.Fake<IForgeGateway>();
+    var address = new ForgeRepositoryRef(Forge.GitLab, "connection-3", "7");
+    var started = GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    var later = GitSha.Parse("d94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    var branch = Branch.Create(RepositoryId, "main", later, Now.AddMinutes(-1));
+    A.CallTo(() => _gateways.GetGateway(Forge.GitLab)).Returns(gitLab);
+    A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns(branch);
+    A.CallTo(() => gitLab.GetBranchHeadAsync(address, "main", A<CancellationToken>._)).Returns(later);
+
+    await _processor.ApplyAsync(_repository, address, new ForgePushEvent("7", "main", Head, false, false, started), Ct);
+
+    branch.HeadSha.ShouldBe(later);
     A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -163,7 +183,7 @@ public sealed class PushProcessorTests
   [Fact]
   public async Task Apply_PushThatCreatesTheBranch_ShouldCreateItAtTheHeadWithoutAskingTheForge()
   {
-    await ApplyAsync(new GitHubPushEvent("feature/x", Head, false, false));
+    await ApplyAsync(new ForgePushEvent("7", "feature/x", Head, false, false));
 
     _added.ShouldNotBeNull().HeadSha.ShouldBe(Head);
     A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
@@ -176,7 +196,7 @@ public sealed class PushProcessorTests
     var started = GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
     A.CallTo(() => _gateway.GetBranchHeadAsync(Address, "feature/x", A<CancellationToken>._)).Returns((GitSha?)null);
 
-    await ApplyAsync(new GitHubPushEvent("feature/x", Head, false, true, started));
+    await ApplyAsync(new ForgePushEvent("7", "feature/x", Head, false, true, started));
 
     _added.ShouldBeNull();
     A.CallTo(() => _branches.UpdateAsync(A<Branch>._, A<CancellationToken>._)).MustNotHaveHappened();
@@ -214,25 +234,24 @@ public sealed class PushProcessorTests
     A.CallTo(() => _branches.UpdateAsync(branch, A<CancellationToken>._))
      .ReturnsLazily(() => read == stored ? Task.CompletedTask : throw new ConflictException("General.ConcurrentChange", "changed in the meantime"));
 
-    await Should.ThrowAsync<ConflictException>(() => ApplyAsync(new GitHubPushEvent("main", Head, false, false, started)));
+    await Should.ThrowAsync<ConflictException>(() => ApplyAsync(new ForgePushEvent("7", "main", Head, false, false, started)));
   }
 
   [Fact]
   public async Task Apply_Deleted_ShouldRemoveTheBranchAndNothingElse()
   {
-    await ApplyAsync(new GitHubPushEvent("feature/x", null, true, false));
+    await ApplyAsync(new ForgePushEvent("7", "feature/x", null, true, false));
 
     A.CallTo(() => _branches.RemoveAsync(RepositoryId, "feature/x", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(_commits).MustNotHaveHappened();
     A.CallTo(_gateway).MustNotHaveHappened();
   }
 
-  [Theory]
-  [InlineData(null)]
-  [InlineData("")]
-  public async Task Apply_NoBranch_ShouldDoNothing(string? name)
+  // A push that names no branch is never translated; an empty name is still refused.
+  [Fact]
+  public async Task Apply_EmptyBranch_ShouldDoNothing()
   {
-    await ApplyAsync(new GitHubPushEvent(name, Head, false, true));
+    await ApplyAsync(new ForgePushEvent("7", string.Empty, Head, false, true));
 
     A.CallTo(_branches).MustNotHaveHappened();
     A.CallTo(_commits).MustNotHaveHappened();
@@ -241,7 +260,7 @@ public sealed class PushProcessorTests
   [Fact]
   public async Task Apply_NameLongerThanABranchCanHold_ShouldDoNothing()
   {
-    await ApplyAsync(new GitHubPushEvent(new string('b', Branch.NameMaxLength + 1), Head, false, false));
+    await ApplyAsync(new ForgePushEvent("7", new string('b', Branch.NameMaxLength + 1), Head, false, false));
 
     A.CallTo(_branches).MustNotHaveHappened();
   }
@@ -253,7 +272,7 @@ public sealed class PushProcessorTests
      .Returns(new ForgeTree(Head, [new ForgeTreeEntry("codecov.yml", Parent, false)], false));
     A.CallTo(() => _gateway.GetContentAsync(Address, "codecov.yml", Head, A<CancellationToken>._)).Returns("coverage:\n  precision: 1\n");
 
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, true));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, true));
 
     _repository.DefaultBranchYaml.ShouldBe("coverage:\n  precision: 1\n");
     _repository.DefaultBranchYamlSha.ShouldBe(Head);
@@ -266,7 +285,7 @@ public sealed class PushProcessorTests
     A.CallTo(() => _gateway.GetTreeAsync(Address, Head, false, A<CancellationToken>._))
      .Returns(new ForgeTree(Head, [new ForgeTreeEntry("codecov.yml", Parent, false)], false));
     A.CallTo(() => _gateway.GetContentAsync(Address, "codecov.yml", Head, A<CancellationToken>._)).Returns("yaml");
-    var push = new GitHubPushEvent("main", Head, false, true);
+    var push = new ForgePushEvent("7", "main", Head, false, true);
 
     await ApplyAsync(push);
     await ApplyAsync(push);
@@ -277,7 +296,7 @@ public sealed class PushProcessorTests
   [Fact]
   public async Task Apply_DefaultBranchWithoutAConfigurationChange_ShouldNotReadTheForge()
   {
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, false));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, false));
 
     A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(_repositories).MustNotHaveHappened();
@@ -286,7 +305,7 @@ public sealed class PushProcessorTests
   [Fact]
   public async Task Apply_OtherBranchTouchingTheConfiguration_ShouldNotRefreshTheDefault()
   {
-    await ApplyAsync(new GitHubPushEvent("feature/x", Head, false, true));
+    await ApplyAsync(new ForgePushEvent("7", "feature/x", Head, false, true));
 
     A.CallTo(() => _gateway.GetTreeAsync(A<ForgeRepositoryRef>._, A<GitSha>._, A<bool>._, A<CancellationToken>._)).MustNotHaveHappened();
     _repository.DefaultBranchYaml.ShouldBeNull();
@@ -298,7 +317,7 @@ public sealed class PushProcessorTests
     _repository.RefreshDefaultBranchYaml("kept", Parent, Now.AddDays(-1));
     A.CallTo(() => _gateway.GetTreeAsync(Address, Head, false, A<CancellationToken>._)).Returns(new ForgeTree(Head, [], false));
 
-    await ApplyAsync(new GitHubPushEvent("main", Head, false, true));
+    await ApplyAsync(new ForgePushEvent("7", "main", Head, false, true));
 
     _repository.DefaultBranchYaml.ShouldBe("kept");
     A.CallTo(_repositories).MustNotHaveHappened();
@@ -307,14 +326,14 @@ public sealed class PushProcessorTests
   [Fact]
   public async Task Apply_NullArguments_ShouldThrow()
   {
-    var push = new GitHubPushEvent("main", Head, false, false);
+    var push = new ForgePushEvent("7", "main", Head, false, false);
 
     await Should.ThrowAsync<ArgumentNullException>(() => _processor.ApplyAsync(null!, Address, push, Ct));
     await Should.ThrowAsync<ArgumentNullException>(() => _processor.ApplyAsync(_repository, null!, push, Ct));
     await Should.ThrowAsync<ArgumentNullException>(() => _processor.ApplyAsync(_repository, Address, null!, Ct));
   }
 
-  private Task ApplyAsync(GitHubPushEvent push) => _processor.ApplyAsync(_repository, Address, push, Ct);
+  private Task ApplyAsync(ForgePushEvent push) => _processor.ApplyAsync(_repository, Address, push, Ct);
 
   private Commit Complete(GitSha sha)
   {
