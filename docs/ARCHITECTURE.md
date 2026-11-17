@@ -1284,7 +1284,7 @@ fmt et sign dans une description de statut sont ceux de `round_number` de Codeco
 
 ## 8. Intégration GitHub
 
-L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayProvider` (ADR-014), dont seul l'adaptateur GitHub est implémenté à ce jour. Restent propres à GitHub : `IGitHubAppGateway` (installations, manifest, Check Runs), la réception des webhooks, `IGitHubUserGateway` et `IGitHubUserTokenProvider`. Cette section décrit l'adaptateur GitHub.
+L'Application appelle une forge par `IForgeGateway`, résolu par `IForgeGatewayProvider` (ADR-014), dont seul l'adaptateur GitHub est implémenté à ce jour. Le jeton délégué d'un utilisateur est donné par `IForgeUserTokenProvider`, résolu par `IForgeGatewayProvider.GetUserTokenProvider(Forge)`. Restent propres à GitHub : `IGitHubAppGateway` (installations, manifest, Check Runs), la réception des webhooks et `IGitHubUserGateway`. Cette section décrit l'adaptateur GitHub.
 
 **Autres forges.** Azure DevOps (M7), Bitbucket (M8) et GitLab.com (M9) ont chacun leur adaptateur, derrière des ports neutres à clé `Forge` construits par M7. Leurs choix (identité de l'instance, connexion Web, webhooks, statuts, commentaires, upload, diff) et leurs écarts nommés et non configurables sont dans [ADR-014](adr/0014-multi-forge.md). Leurs connexions vivent dans la table globale `ForgeConnections`, et leurs webhooks arrivent sur `/api/v1/{forge}/webhooks/{connectionId}` ([ADR-017](adr/0017-forge-connections.md)). GitHub reste sur `Installations` et sur la réception décrite au §8.3.
 
@@ -1657,7 +1657,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 - **Cookie et `AddGitHub`** (`AspNet.Security.OAuth.GitHub`, ClientId et secret lus depuis les paramètres, rechargés à chaud par invalidation de `IOptionsMonitorCache`).
   - À la connexion, `SignInUserCommand` enregistre l'utilisateur, avec **jeton d'accès et jeton de rafraîchissement chiffrés dans `Users`, côté serveur**.
   - Le cookie ne contient que l'identifiant utilisateur et un horodatage de session.
-- **Rafraîchissement** : quand le jeton d'accès expire (8 h), `IGitHubUserTokenProvider` utilise le refresh token (usage unique) sous un verrou par utilisateur (`SemaphoreSlim` en process et `Users.Version`) et stocke la nouvelle paire. Cela fonctionne à l'intérieur d'un circuit Blazor, sans réécriture de cookie. Si le rafraîchissement échoue, l'utilisateur est redirigé vers la connexion.
+- **Rafraîchissement** : quand le jeton d'accès expire (8 h), `GitHubUserTokenProvider` (le `IForgeUserTokenProvider` à clé `Forge.GitHub`) utilise le refresh token (usage unique) sous un verrou par utilisateur (`SemaphoreSlim` en process et `Users.Version`) et stocke la nouvelle paire. Cela fonctionne à l'intérieur d'un circuit Blazor, sans réécriture de cookie. Si le rafraîchissement échoue, l'utilisateur est redirigé vers la connexion.
 - **Exposition** : le Web est public, avec connexion GitHub (ADR-013).
 - **Règle d'entrée** : l'organisation vient toujours de l'adresse. `AuthorizationBehavior` y entre à chaque envoi (§3bis.2), et `CircuitUserScopeInitializer` ne copie aucune organisation dans le circuit.
 - **Rôles d'organisation** (`OrganizationMemberships`) : `Participant` (accès à au moins un dépôt de l'installation, aucun droit sur l'organisation) ou `Admin` (membre actif avec le rôle admin, ou propriétaire du compte personnel).

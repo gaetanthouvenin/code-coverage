@@ -52,13 +52,17 @@ namespace CodeCoverage.Infrastructure.GitHub;
 ///     invalidated the old one, so the answer is read and saved whatever the caller does, within the timeout of the
 ///     client.
 ///   </para>
+///   <para>
+///     It is the <see cref="IForgeUserTokenProvider" /> of GitHub, keyed by <see cref="Domain.Organizations.Forge.GitHub" />,
+///     which <see cref="IForgeGatewayProvider.GetUserTokenProvider" /> resolves.
+///   </para>
 /// </remarks>
 internal sealed class GitHubUserTokenProvider(
   IServiceScopeFactory scopes,
   IHttpClientFactory httpClientFactory,
   IOptionsMonitor<GitHubOptions> options,
   ISecretProtector protector,
-  IClock clock) : IGitHubUserTokenProvider
+  IClock clock) : IForgeUserTokenProvider
 {
   #region Fields
 
@@ -319,7 +323,7 @@ internal sealed class GitHubUserTokenProvider(
 
   #endregion
 
-  #region Implementation of IGitHubUserTokenProvider
+  #region Implementation of IForgeUserTokenProvider
 
   /// <inheritdoc />
   /// <exception cref="UnauthorizedException">The user has no token GitHub accepts: it must sign in again.</exception>

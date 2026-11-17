@@ -25,5 +25,11 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No user gateway is implemented for <paramref name="forge" />.</exception>
   IForgeUserGateway GetUserGateway(Forge forge);
 
+  /// <summary>Gets what gives the token a forge issued for a user, renewed when it is about to expire.</summary>
+  /// <param name="forge">The forge.</param>
+  /// <returns>The user token provider of the forge.</returns>
+  /// <exception cref="NotSupportedException">No user token provider is implemented for <paramref name="forge" />.</exception>
+  IForgeUserTokenProvider GetUserTokenProvider(Forge forge);
+
   #endregion
 }

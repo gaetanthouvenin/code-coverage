@@ -11,12 +11,13 @@ using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
+using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 
 /// <summary>Handler for the <see cref="RefreshUserAccessCommand" /> command.</summary>
 /// <param name="users">The repository of the users.</param>
-/// <param name="tokens">What gives the token GitHub issued for a user.</param>
+/// <param name="gateways">What resolves the provider of the token the forge of a user issued for it.</param>
 /// <param name="userGateway">The gateway that calls GitHub in the name of a user.</param>
 /// <param name="directory">The directory of the organizations, which gives the one of the scope.</param>
 /// <param name="accesses">The cache of the accesses of the organization of the scope.</param>
@@ -35,7 +36,7 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 /// </remarks>
 internal sealed class RefreshUserAccessCommandHandler(
   IUserRepository users,
-  IGitHubUserTokenProvider tokens,
+  IForgeGatewayProvider gateways,
   IGitHubUserGateway userGateway,
   IOrganizationDirectory directory,
   IUserRepositoryAccessRepository accesses,
@@ -44,7 +45,7 @@ internal sealed class RefreshUserAccessCommandHandler(
   #region Methods
 
   /// <summary>Lists the repositories of the installation of an organization that a user can reach.</summary>
-  /// <param name="userId">The identifier of the user.</param>
+  /// <param name="user">The user, whose token is renewed by the provider of its forge.</param>
   /// <param name="organization">The organization.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>
@@ -52,13 +53,13 @@ internal sealed class RefreshUserAccessCommandHandler(
   ///   has no token GitHub accepts.
   /// </returns>
   private async Task<IReadOnlyList<GitHubUserRepository>?> ListRepositoriesAsync(
-    long userId,
+    AppUser user,
     Organization organization,
     CancellationToken cancellationToken)
   {
     try
     {
-      var token = await tokens.GetTokenAsync(userId, cancellationToken).ConfigureAwait(false);
+      var token = await gateways.GetUserTokenProvider(user.Forge).GetTokenAsync(user.Id, cancellationToken).ConfigureAwait(false);
       var installations = await userGateway.ListInstallationsAsync(token, cancellationToken).ConfigureAwait(false);
       var accountId = Organization.NormalizeExternalAccountId(organization.ExternalAccountId);
 
@@ -91,7 +92,7 @@ internal sealed class RefreshUserAccessCommandHandler(
       return Unit.Value;
     }
 
-    var listed = await ListRepositoriesAsync(user.Id, organization, cancellationToken).ConfigureAwait(false) ?? [];
+    var listed = await ListRepositoriesAsync(user, organization, cancellationToken).ConfigureAwait(false) ?? [];
     var now = clock.UtcNow;
     var kept = new HashSet<string>(StringComparer.Ordinal);
 

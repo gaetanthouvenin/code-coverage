@@ -136,7 +136,6 @@ public sealed class PipelineOrderTests
     services.AddScoped(_ => A.Fake<IApiTokenRepository>());
     services.AddScoped(_ => A.Fake<IRepositoryAccessService>());
     services.AddScoped(_ => A.Fake<IOrganizationSettingRepository>());
-    services.AddScoped(_ => A.Fake<IGitHubUserTokenProvider>());
     services.AddScoped(_ => A.Fake<IGitHubUserGateway>());
     services.AddScoped(_ => A.Fake<IOrganizationMembershipRepository>());
     services.AddScoped(_ => A.Fake<IOrganizationRoleResolver>());
