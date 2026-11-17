@@ -103,5 +103,29 @@ public sealed class ForgeGatewayProviderTests
     Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetUserTokenProvider(Forge.Bitbucket));
   }
 
+  [Fact]
+  public void GetLinks_RegisteredForge_ShouldReturnItsLinks()
+  {
+    var links = A.Fake<IForgeLinks>();
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.GitHub, links);
+    services.AddKeyedSingleton(Forge.GitLab, A.Fake<IForgeLinks>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetLinks(Forge.GitHub).ShouldBeSameAs(links);
+  }
+
+  [Fact]
+  public void GetLinks_UnregisteredForge_ShouldThrowNotSupported()
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.GitHub, A.Fake<IForgeLinks>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetLinks(Forge.AzureDevOps));
+  }
+
   #endregion
 }

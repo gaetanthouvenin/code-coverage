@@ -27,7 +27,10 @@ using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
+using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
 
@@ -56,6 +59,7 @@ public sealed class PullRequestDetailTests : UiTestContext
   public PullRequestDetailTests()
   {
     Services.AddFakeSenderRunner(_sender);
+    Services.AddSingleton(new ForgeLinkResolver(GitHubOnly()));
 
     A.CallTo(() => _sender.Send(A<GetEffectiveConfigQuery>._, A<CancellationToken>._))
      .Returns(new ValueTask<EffectiveConfig>(new EffectiveConfig(CoverageConfig.Create(ConfigNode.FromMap()), ConfigSource.Builtin, null, null, null, [], [])));
@@ -218,7 +222,7 @@ public sealed class PullRequestDetailTests : UiTestContext
     }
   }
 
-  // The comment link is built for GitHub only: another forge with a stored comment gets none.
+  // The comment link is built by the links of the forge: a forge with no links yet, with a stored comment, gets none.
   [Fact]
   public void Render_OtherForgeWithComment_ShouldShowNoLink()
   {
@@ -355,6 +359,20 @@ public sealed class PullRequestDetailTests : UiTestContext
 
     cut.WaitForState(() => cut.RenderCount > renders);
     cut.Find(".cc-header__title").TextContent.ShouldContain("#424 second");
+  }
+
+  // The links of GitHub as the console builds them for github.com; every other forge has none yet.
+  private static IForgeGatewayProvider GitHubOnly()
+  {
+    var links = A.Fake<IForgeLinks>();
+    A.CallTo(() => links.CommentUrl(A<string>._, A<string>._, A<int>._, A<long>._))
+     .ReturnsLazily(static (string owner, string name, int number, long comment) =>
+                      new Uri(string.Create(CultureInfo.InvariantCulture, $"https://github.com/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}/pull/{number}#issuecomment-{comment}")));
+    var forges = A.Fake<IForgeGatewayProvider>();
+    A.CallTo(() => forges.GetLinks(A<Forge>._)).Throws(static () => new NotSupportedException("no links"));
+    A.CallTo(() => forges.GetLinks(Forge.GitHub)).Returns(links);
+
+    return forges;
   }
 
   private static PullRequestDetail Detail(ComparisonView? comparison, long? commentId = 987, int number = 423, string title = "feat(alerts): retry policy")
