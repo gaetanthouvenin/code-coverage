@@ -206,6 +206,7 @@ public static partial class DependencyInjection
 
     services.AddReports();
     services.AddGitHub();
+    services.AddAzureDevOps();
     services.AddCodecov();
     services.AddUploads();
     services.AddRepositories();

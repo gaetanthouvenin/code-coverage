@@ -44,6 +44,7 @@
   <data name="GitHub.RateLimited" xml:space="preserve"><value>GitHub limite pour l’instant les requêtes de cette instance. Réessayez après l’heure donnée dans le détail.</value></data>
   <data name="Forge.StatusRefused" xml:space="preserve"><value>La forge a refusé définitivement le statut du commit : vérifiez que l’application peut écrire des statuts dans ce dépôt et que le commit y existe.</value></data>
   <data name="Forge.Unavailable" xml:space="preserve"><value>La forge est indisponible. Réessayez dans quelques minutes.</value></data>
+  <data name="AzureDevOps.AccessDenied" xml:space="preserve"><value>Azure DevOps refuse à l’application de cette instance l’accès à l’organisation : ajoutez son principal de service aux utilisateurs de l’organisation, avec un accès Basic, et vérifiez que l’organisation est reliée à son tenant Microsoft Entra ID.</value></data>
   <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La livraison à traiter n’existe pas.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La livraison n’a pas d’identifiant ou d’événement valide.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>Le corps de la livraison est illisible.</value></data>
@@ -191,6 +192,7 @@
   <data name="SecretDialog_Text" xml:space="preserve"><value>La valeur actuelle n’est jamais affichée. La nouvelle est chiffrée et appliquée sans redémarrage.</value></data>
   <data name="SecretDialog_NewValue" xml:space="preserve"><value>Nouvelle valeur</value></data>
   <data name="SettingGroup_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="SettingGroup_AzureDevOps" xml:space="preserve"><value>Azure DevOps</value></data>
   <data name="SettingGroup_Urls" xml:space="preserve"><value>Adresses</value></data>
   <data name="SettingGroup_Uploads" xml:space="preserve"><value>Uploads</value></data>
   <data name="SettingGroup_Processing" xml:space="preserve"><value>Traitement</value></data>

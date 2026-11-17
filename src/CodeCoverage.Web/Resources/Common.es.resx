@@ -44,6 +44,7 @@
   <data name="GitHub.RateLimited" xml:space="preserve"><value>GitHub limita por ahora las solicitudes de esta instancia. Inténtelo de nuevo después de la hora indicada en el detalle.</value></data>
   <data name="Forge.StatusRefused" xml:space="preserve"><value>La forja rechazó definitivamente el estado del commit: compruebe que la aplicación puede escribir estados en este repositorio y que el commit existe en él.</value></data>
   <data name="Forge.Unavailable" xml:space="preserve"><value>La forja no está disponible. Inténtelo de nuevo en unos minutos.</value></data>
+  <data name="AzureDevOps.AccessDenied" xml:space="preserve"><value>Azure DevOps deniega a la aplicación de esta instancia el acceso a la organización: añada su entidad de servicio a los usuarios de la organización, con acceso Basic, y compruebe que la organización está vinculada a su inquilino de Microsoft Entra ID.</value></data>
   <data name="GitHubEvent.DeliveryNotFound" xml:space="preserve"><value>La entrega que se debe procesar no existe.</value></data>
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La entrega no tiene un identificador ni un evento válidos.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>No se puede leer el cuerpo de la entrega.</value></data>
@@ -191,6 +192,7 @@
   <data name="SecretDialog_Text" xml:space="preserve"><value>El valor actual nunca se muestra. El nuevo se cifra y se aplica sin reinicio.</value></data>
   <data name="SecretDialog_NewValue" xml:space="preserve"><value>Nuevo valor</value></data>
   <data name="SettingGroup_GitHub" xml:space="preserve"><value>GitHub</value></data>
+  <data name="SettingGroup_AzureDevOps" xml:space="preserve"><value>Azure DevOps</value></data>
   <data name="SettingGroup_Urls" xml:space="preserve"><value>Direcciones</value></data>
   <data name="SettingGroup_Uploads" xml:space="preserve"><value>Uploads</value></data>
   <data name="SettingGroup_Processing" xml:space="preserve"><value>Procesamiento</value></data>

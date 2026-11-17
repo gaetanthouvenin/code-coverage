@@ -26,6 +26,9 @@ public static class SettingDefinitions
   /// <summary>The group of the GitHub App and OAuth settings.</summary>
   public const string GitHubGroup = "GitHub";
 
+  /// <summary>The group of the Microsoft Entra ID application that reaches the Azure DevOps organizations.</summary>
+  public const string AzureDevOpsGroup = "AzureDevOps";
+
   /// <summary>The group of the public addresses of the hosts.</summary>
   public const string UrlsGroup = "Urls";
 
@@ -76,6 +79,24 @@ public static class SettingDefinitions
 
   /// <summary>The key of the base URL of the GitHub REST API.</summary>
   public const string GitHubApiBaseUrl = "GitHub:ApiBaseUrl";
+
+  /// <summary>The key of the client identifier of the multi-tenant Microsoft Entra ID application of the instance.</summary>
+  public const string AzureDevOpsClientId = "AzureDevOps:ClientId";
+
+  /// <summary>The key of the client secret of the Microsoft Entra ID application (secret).</summary>
+  public const string AzureDevOpsClientSecret = "AzureDevOps:ClientSecret";
+
+  /// <summary>
+  ///   The key of the certificate of the Microsoft Entra ID application, in PEM format with its private key, used in
+  ///   place of the client secret when it is filled (secret).
+  /// </summary>
+  public const string AzureDevOpsCertificatePem = "AzureDevOps:CertificatePem";
+
+  /// <summary>The key of the address of the Microsoft Entra ID authority that issues the tokens of the application.</summary>
+  public const string AzureDevOpsAuthority = "AzureDevOps:Authority";
+
+  /// <summary>The key of the base URL of the Azure DevOps REST API.</summary>
+  public const string AzureDevOpsApiBaseUrl = "AzureDevOps:ApiBaseUrl";
 
   /// <summary>The key of the public URL of the Api host.</summary>
   public const string UrlsApiPublicUrl = "Urls:ApiPublicUrl";
@@ -220,6 +241,12 @@ public static class SettingDefinitions
     Secret(GitHubWebhookSecret, GitHubGroup),
     Secret(GitHubWebhookSecretPrevious, GitHubGroup),
     SettingDefinition.Create(GitHubApiBaseUrl, GitHubGroup, SettingType.Url, SettingScope.Instance, "https://api.github.com"),
+
+    Text(AzureDevOpsClientId, AzureDevOpsGroup, SettingScope.Instance),
+    Secret(AzureDevOpsClientSecret, AzureDevOpsGroup),
+    Secret(AzureDevOpsCertificatePem, AzureDevOpsGroup),
+    SettingDefinition.Create(AzureDevOpsAuthority, AzureDevOpsGroup, SettingType.Url, SettingScope.Instance, "https://login.microsoftonline.com"),
+    SettingDefinition.Create(AzureDevOpsApiBaseUrl, AzureDevOpsGroup, SettingType.Url, SettingScope.Instance, "https://dev.azure.com"),
 
     SettingDefinition.Create(UrlsApiPublicUrl, UrlsGroup, SettingType.Url, SettingScope.Instance),
     SettingDefinition.Create(UrlsWebPublicUrl, UrlsGroup, SettingType.Url, SettingScope.Instance),
