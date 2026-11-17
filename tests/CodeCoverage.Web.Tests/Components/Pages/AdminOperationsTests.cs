@@ -228,7 +228,7 @@ public sealed class AdminOperationsTests : UiTestContext
     };
 
   private static WebhookDeliverySummary Delivery(string id, string @event, DateTimeOffset at, bool processed, bool error) =>
-    new(id, @event, null, null, null, null, at, processed ? at : null, error);
+    new(Forge.GitHub, id, @event, null, null, null, null, at, processed ? at : null, error);
 
   private string L(string key) => Services.GetRequiredService<IStringLocalizer<Common>>()[key];
 

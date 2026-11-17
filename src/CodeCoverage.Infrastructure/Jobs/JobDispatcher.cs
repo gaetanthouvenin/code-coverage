@@ -166,6 +166,7 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
 
       case JobTypes.HandleWebhook:
+        // The case of GitHub: the delivery is read on the forge GitHub, by its identifier.
         await sender.Send(new HandleWebhookDeliveryCommand(Read(job, static p => ReadText(p, "deliveryId"))), cancellationToken).ConfigureAwait(false);
 
         break;

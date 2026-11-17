@@ -203,9 +203,14 @@ internal sealed class RetentionRepository(CodeCoverageDbContext context) : IRete
                                       .ToListAsync(cancellationToken)
                                       .ConfigureAwait(false);
 
+        // A delivery is known by its forge and its identifier: the date keeps a recent delivery of another forge that
+        // shares an identifier with an expired one.
         return deliveries.Count == 0
                  ? 0
-                 : await context.WebhookDeliveries.Where(d => deliveries.Contains(d.DeliveryId)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+                 : await context.WebhookDeliveries
+                                .Where(d => d.ReceivedAt < before && deliveries.Contains(d.DeliveryId))
+                                .ExecuteDeleteAsync(cancellationToken)
+                                .ConfigureAwait(false);
       },
       batchSize
     );

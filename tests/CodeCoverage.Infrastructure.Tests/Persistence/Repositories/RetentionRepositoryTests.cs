@@ -13,15 +13,16 @@ using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Infrastructure.Commits;
-using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Tests.Support;
 using CodeCoverage.Infrastructure.Uploads;
+using CodeCoverage.Infrastructure.Webhooks;
 
 using static CodeCoverage.Infrastructure.Tests.Support.RepositorySeeder;
 
@@ -156,6 +157,7 @@ public sealed class RetentionRepositoryTests(DatabaseFixture database)
       context.Jobs.Add(Job(JobState.Running, null));
       context.Jobs.Add(Job(JobState.Succeeded, Now));
       context.WebhookDeliveries.Add(Delivery("recent", Now));
+      context.WebhookDeliveries.Add(Delivery("old-0", Now, Forge.Bitbucket));
       await context.SaveChangesAsync(Ct);
     }
 
@@ -183,7 +185,7 @@ public sealed class RetentionRepositoryTests(DatabaseFixture database)
 
     await using var check = seed.Organizations.ContextWithoutOrganization();
     (await check.Jobs.AsNoTracking().Select(static j => j.State).ToListAsync(Ct)).ShouldBe([JobState.Queued, JobState.Running, JobState.Succeeded], ignoreOrder: true);
-    (await check.WebhookDeliveries.AsNoTracking().Select(static d => d.DeliveryId).ToListAsync(Ct)).ShouldBe(["recent"]);
+    (await check.WebhookDeliveries.AsNoTracking().Select(static d => d.DeliveryId).ToListAsync(Ct)).ShouldBe(["recent", "old-0"], ignoreOrder: true);
   }
 
   // The purge of the first organization leaves the commits, raw files and caches of the second one.
@@ -306,8 +308,8 @@ public sealed class RetentionRepositoryTests(DatabaseFixture database)
       CompletedAt = completedAt,
     };
 
-  private static WebhookDeliveryRecord Delivery(string id, DateTimeOffset receivedAt) =>
-    new() { DeliveryId = id, Event = "push", Payload = [1], ReceivedAt = receivedAt };
+  private static WebhookDeliveryRecord Delivery(string id, DateTimeOffset receivedAt, Forge forge = Forge.GitHub) =>
+    new() { Forge = forge, DeliveryId = id, Event = "push", Payload = [1], ReceivedAt = receivedAt };
 
   #endregion
 }

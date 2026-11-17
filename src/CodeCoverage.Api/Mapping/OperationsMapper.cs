@@ -4,6 +4,8 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
 using Mediator;
 
 using CodeCoverage.Api.Contracts.Operations;
@@ -14,6 +16,7 @@ using CodeCoverage.Application.Features.Operations.Queries.GetSystemStatus;
 using CodeCoverage.Application.Features.Operations.Queries.ListJobs;
 using CodeCoverage.Application.Features.Operations.Queries.ListWebhookDeliveries;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Api.Mapping;
 
@@ -68,8 +71,8 @@ internal static class OperationsMapper
                              d.Event,
                              d.Action,
                              d.OrganizationId,
-                             d.InstallationId,
-                             d.RepositoryGitHubId,
+                             ToGitHubId(d.Forge, d.ConnectionId),
+                             ToGitHubId(d.Forge, d.RepositoryExternalId),
                              d.ReceivedAt,
                              d.ProcessedAt,
                              d.HasError)),
@@ -112,6 +115,13 @@ internal static class OperationsMapper
 
     await sender.Send(new RetryJobCommand(id), cancellationToken).ConfigureAwait(false);
   }
+
+  /// <summary>Reads a numeric GitHub identifier from the text a delivery stores, for the contract of the API.</summary>
+  /// <param name="forge">The forge of the delivery.</param>
+  /// <param name="text">The identifier in text, or <see langword="null" />.</param>
+  /// <returns>The identifier on GitHub, or <see langword="null" /> on another forge or without one.</returns>
+  private static long? ToGitHubId(Forge forge, string? text) =>
+    forge is Forge.GitHub && long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : null;
 
   private static JobResponse ToResponse(JobSummary job) =>
     new(
