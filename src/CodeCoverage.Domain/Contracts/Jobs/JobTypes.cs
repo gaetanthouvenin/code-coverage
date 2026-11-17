@@ -35,12 +35,16 @@ public static class JobTypes
   /// <summary>Lists the installations of the App and queues the reconciliation of each one, in its organization.</summary>
   public const string SyncInstallations = "SyncInstallations";
 
-  /// <summary>Reconciles the repositories of an organization with those its installation serves.</summary>
+  /// <summary>
+  ///   The former reconciliation of the repositories of an organization with those its installation serves, replaced by
+  ///   <see cref="SyncConnectionRepositories" />: nothing queues it any more, and the job dispatcher still runs, for one
+  ///   version, the jobs of this type that were queued before the deployment.
+  /// </summary>
   public const string SyncInstallationRepositories = "SyncInstallationRepositories";
 
   /// <summary>
-  ///   Reconciles the repositories of an organization with those its forge connection serves. Its command and its case in
-  ///   the job dispatcher come with the neutral synchronization of the repositories (M7.09): nothing queues it before.
+  ///   Reconciles the repositories of an organization with those its connection serves, whatever its forge: an
+  ///   installation of the App on GitHub, a forge connection on the other forges.
   /// </summary>
   public const string SyncConnectionRepositories = "SyncConnectionRepositories";
 

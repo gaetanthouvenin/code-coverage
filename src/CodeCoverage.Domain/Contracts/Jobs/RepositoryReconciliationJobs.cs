@@ -9,6 +9,8 @@ using System.Text.Json;
 
 using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Domain.Contracts.Jobs;
 
@@ -23,9 +25,18 @@ public static class RepositoryReconciliationJobs
 
   /// <summary>Builds the payload of the reconciliation of the repositories of an installation.</summary>
   /// <param name="installationId">The identifier of the installation.</param>
-  /// <returns>The payload.</returns>
-  public static string InstallationPayload(long installationId) =>
-    JsonSerializer.Serialize(new { InstallationId = installationId });
+  /// <returns>The payload: the one of the GitHub connection of the installation.</returns>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
+  /// <remarks>
+  ///   The jobs of the former type <see cref="JobTypes.SyncInstallationRepositories" /> carried
+  ///   <c>{"InstallationId":42}</c>; the job dispatcher still reads them for one version.
+  /// </remarks>
+  public static string InstallationPayload(long installationId)
+  {
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
+
+    return ConnectionPayload(Forge.GitHub, TrackedRepository.ConnectionIdOf(installationId));
+  }
 
   /// <summary>Builds the key that serializes and merges the reconciliations of an installation.</summary>
   /// <param name="installationId">The identifier of the installation.</param>
@@ -38,28 +49,30 @@ public static class RepositoryReconciliationJobs
   /// <returns>The job, merged with the one already waiting.</returns>
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="installationId" /> is not positive.</exception>
   /// <remarks>
-  ///   The GitHub form of <see cref="ForConnection" />: its key stays <c>installation:{id}</c>, the lock that the
-  ///   deliveries of the installation take.
+  ///   The GitHub form of <see cref="ForConnection" />: the same job type, but its key stays <c>installation:{id}</c>,
+  ///   the lock that the deliveries of the installation take.
   /// </remarks>
   public static JobRequest ForInstallation(long installationId)
   {
-    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(installationId);
-
+    var payload = InstallationPayload(installationId);
     var key = InstallationKey(installationId);
 
-    return JobRequest.Create(JobTypes.SyncInstallationRepositories, InstallationPayload(installationId), key, $"sync:{key}", coalesce: true);
+    return JobRequest.Create(JobTypes.SyncConnectionRepositories, payload, key, $"sync:{key}", coalesce: true);
   }
 
-  /// <summary>Builds the payload of the reconciliation of the repositories of a forge connection.</summary>
-  /// <param name="connectionId">The identifier of the connection.</param>
+  /// <summary>Builds the payload of the reconciliation of the repositories of a connection.</summary>
+  /// <param name="forge">The forge of the connection, which tells how to read its identifier.</param>
+  /// <param name="connectionId">The identifier of the connection: the installation identifier in text on GitHub.</param>
   /// <returns>The payload.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="connectionId" /> is <see langword="null" />.</exception>
   /// <exception cref="ArgumentException"><paramref name="connectionId" /> is not well formed.</exception>
-  public static string ConnectionPayload(string connectionId)
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="forge" /> is not a known forge.</exception>
+  public static string ConnectionPayload(Forge forge, string connectionId)
   {
+    ArgumentOutOfRangeException.ThrowIfUndefined(forge);
     ThrowIfInvalidConnection(connectionId);
 
-    return JsonSerializer.Serialize(new { ConnectionId = connectionId });
+    return JsonSerializer.Serialize(new { ConnectionId = connectionId, Forge = forge.ToString() });
   }
 
   /// <summary>Builds the key that serializes and merges the reconciliations of a forge connection.</summary>
@@ -75,16 +88,23 @@ public static class RepositoryReconciliationJobs
   }
 
   /// <summary>Builds the reconciliation of the repositories of a forge connection, for the organization of the scope.</summary>
+  /// <param name="forge">The forge of the connection, never GitHub.</param>
   /// <param name="connectionId">The identifier of the connection (ADR-017).</param>
   /// <returns>The job, merged with the one already waiting.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="connectionId" /> is <see langword="null" />.</exception>
-  /// <exception cref="ArgumentException"><paramref name="connectionId" /> is not well formed.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="connectionId" /> is not well formed, or <paramref name="forge" /> is GitHub.
+  /// </exception>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="forge" /> is not a known forge.</exception>
   /// <remarks>A GitHub installation keeps <see cref="ForInstallation" /> and its own key.</remarks>
-  public static JobRequest ForConnection(string connectionId)
+  public static JobRequest ForConnection(Forge forge, string connectionId)
   {
+    ArgumentException.ThrowIf(forge is Forge.GitHub, "A GitHub installation is reconciled by its own job.", nameof(forge));
+
+    var payload = ConnectionPayload(forge, connectionId);
     var key = ConnectionKey(connectionId);
 
-    return JobRequest.Create(JobTypes.SyncConnectionRepositories, ConnectionPayload(connectionId), key, $"sync:{key}", coalesce: true);
+    return JobRequest.Create(JobTypes.SyncConnectionRepositories, payload, key, $"sync:{key}", coalesce: true);
   }
 
   /// <summary>Builds the payload of the closing of a repository transferred to another account.</summary>

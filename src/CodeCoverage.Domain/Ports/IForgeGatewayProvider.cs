@@ -37,5 +37,11 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No user token provider is implemented for <paramref name="forge" />.</exception>
   IForgeUserTokenProvider GetUserTokenProvider(Forge forge);
 
+  /// <summary>Gets the gateway that reads the account and the repositories a connection of a forge serves.</summary>
+  /// <param name="forge">The forge.</param>
+  /// <returns>The directory gateway of the forge.</returns>
+  /// <exception cref="NotSupportedException">No directory gateway is implemented for <paramref name="forge" />.</exception>
+  IForgeDirectoryGateway GetDirectory(Forge forge);
+
   #endregion
 }

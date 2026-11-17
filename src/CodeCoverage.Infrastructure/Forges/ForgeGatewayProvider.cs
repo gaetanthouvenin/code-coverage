@@ -15,7 +15,8 @@ namespace CodeCoverage.Infrastructure.Forges;
 /// <param name="services">The services of the current scope, where each adapter is registered under its <see cref="Forge" />.</param>
 /// <remarks>
 ///   Each adapter registers itself as a keyed <see cref="IForgeGateway" />, as a keyed <see cref="IForgeUserGateway" />, as
-///   a keyed <see cref="IForgeUserTokenProvider" /> and as keyed <see cref="IForgeLinks" />, under its <see cref="Forge" />,
+///   a keyed <see cref="IForgeUserTokenProvider" />, as keyed <see cref="IForgeLinks" /> and as a keyed
+///   <see cref="IForgeDirectoryGateway" />, under its <see cref="Forge" />,
 ///   in the dependency injection of its forge, so a new adapter is added without touching this provider.
 /// </remarks>
 internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGatewayProvider
@@ -41,6 +42,11 @@ internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGa
   public IForgeLinks GetLinks(Forge forge) =>
     services.GetKeyedService<IForgeLinks>(forge)
     ?? throw new NotSupportedException($"No links are implemented for the forge '{forge}'.");
+
+  /// <inheritdoc />
+  public IForgeDirectoryGateway GetDirectory(Forge forge) =>
+    services.GetKeyedService<IForgeDirectoryGateway>(forge)
+    ?? throw new NotSupportedException($"No directory gateway is implemented for the forge '{forge}'.");
 
   #endregion
 }

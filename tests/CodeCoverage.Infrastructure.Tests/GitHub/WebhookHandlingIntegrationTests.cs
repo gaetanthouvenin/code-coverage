@@ -24,6 +24,7 @@ using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Domain.Tokens;
+using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.PostgreSql;
@@ -241,7 +242,7 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
 
     await using var check = seed.ContextWithoutOrganization();
     var jobs = await check.Jobs.AsNoTracking().OrderBy(static j => j.Id).ToListAsync(Ct);
-    jobs.Select(static j => j.Type).ShouldBe([JobTypes.HandleWebhook, JobTypes.SyncInstallations, JobTypes.SyncInstallationRepositories]);
+    jobs.Select(static j => j.Type).ShouldBe([JobTypes.HandleWebhook, JobTypes.SyncInstallations, JobTypes.SyncConnectionRepositories]);
     jobs.Select(static j => j.OrganizationId).ShouldBe([null, null, seed.FirstId]);
   }
 
@@ -615,6 +616,7 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
 
     var gateways = A.Fake<IForgeGatewayProvider>();
     A.CallTo(() => gateways.GetGateway(A<Forge>._)).Returns(_forge);
+    A.CallTo(() => gateways.GetDirectory(Forge.GitHub)).Returns(new GitHubDirectoryGateway(_gitHub));
     services.RemoveAll<IForgeGatewayProvider>();
     services.AddSingleton(gateways);
 

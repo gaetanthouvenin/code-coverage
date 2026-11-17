@@ -292,11 +292,11 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     await HandleAsync();
 
     var job = _queued.ShouldHaveSingleItem();
-    job.Type.ShouldBe(JobTypes.SyncInstallationRepositories);
+    job.Type.ShouldBe(JobTypes.SyncConnectionRepositories);
     // The organization of the scope, never one named by the body.
     job.OrganizationId.ShouldBeNull();
     job.IsInstance.ShouldBeFalse();
-    job.PayloadJson.ShouldBe("""{"InstallationId":42}""");
+    job.PayloadJson.ShouldBe("""{"ConnectionId":"42","Forge":"GitHub"}""");
   }
 
   [Theory]

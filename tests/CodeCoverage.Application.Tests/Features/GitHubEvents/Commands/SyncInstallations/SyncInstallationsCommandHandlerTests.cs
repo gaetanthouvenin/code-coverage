@@ -91,13 +91,13 @@ public sealed class SyncInstallationsCommandHandlerTests
 
     Children.Count.ShouldBe(2);
     Children[0].OrganizationId.ShouldBe(first.Id);
-    Children[0].Type.ShouldBe(JobTypes.SyncInstallationRepositories);
-    Children[0].PayloadJson.ShouldBe("""{"InstallationId":42}""");
+    Children[0].Type.ShouldBe(JobTypes.SyncConnectionRepositories);
+    Children[0].PayloadJson.ShouldBe("""{"ConnectionId":"42","Forge":"GitHub"}""");
     Children[0].LockKey.ShouldBe("installation:42");
     Children[0].DedupKey.ShouldBe("sync:installation:42");
     Children[0].Coalesce.ShouldBeTrue();
     Children[1].OrganizationId.ShouldBe(second.Id);
-    Children[1].PayloadJson.ShouldBe("""{"InstallationId":43}""");
+    Children[1].PayloadJson.ShouldBe("""{"ConnectionId":"43","Forge":"GitHub"}""");
   }
 
   // F19, S10. A rename learned here reaches the repositories GitHub no longer lists, inactive ones included: the

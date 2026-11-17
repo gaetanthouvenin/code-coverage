@@ -365,7 +365,8 @@ Les codes d'erreur suivent le format `Feature.Reason` et sont rangés dans `Feat
 | Notifications | `NotifyCommit`, `TriggerNotify` (re-notification manuelle), `SweepPendingCommits` | — |
 | PullRequests | `SyncPullRequest` | `ListPullRequests`, `GetPullRequestComparison` (Api : 404 `Comparison.NotComputed` sans comparaison), `GetPullRequest` (page PR : la PR et sa comparaison nullable, « en attente ») |
 | Comparisons | — | `CompareCommits` (Api : comparaison enregistrée de `head` contre `base`, SHA complets, sinon 404 `Comparison.NotComputed`), `GetCommitRange` (page `/compare` : la même comparaison, nullable, « Non calculée ») |
-| GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `SyncInstallationRepositories`, `ReconcileRepositoryTransfer` | — |
+| GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `ReconcileRepositoryTransfer` | — |
+| Connections | `SyncConnectionRepositories` (dans le worker, toute forge, par `IForgeDirectoryGateway`) | — |
 | Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken`, `StartCodecovImport` (M5.06), `ImportCodecovHistory` et `AbandonCodecovImport` (dans le worker) | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
 | Configuration | — | `ValidateCoverageYaml` |
 | UploadTokens | `CreateUploadToken` (génération ou import d'une valeur `CODECOV_TOKEN`), `RevokeUploadToken` | `ListUploadTokens` |
@@ -863,7 +864,7 @@ OUTPUT inserted.*;
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
 | `RefreshUserMemberships` | `memberships:{userId}` | `memberships:{userId}` (fusion) | `RefreshUserMembershipsCommand(userId)`, sur la voie d'instance : les appartenances d'un utilisateur couvrent plusieurs organisations |
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
-| `SyncInstallationRepositories` | `installation:{installationId}` | `sync:installation:{installationId}` (fusion) | `SyncInstallationRepositoriesCommand(installationId)`, dans l'organisation |
+| `SyncConnectionRepositories` | `installation:{installationId}` pour GitHub, `connection:{connectionId}` ailleurs | `sync:` suivi de la clé (fusion) | `SyncConnectionRepositoriesCommand(forge, connectionId)`, dans l'organisation : liste le compte et les dépôts par `IForgeDirectoryGateway`, applique le renommage du compte. Le type `SyncInstallationRepositories` (`{"InstallationId":…}`), qui l'a précédé, est encore lu une version pour les jobs en file au déploiement |
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
 | `RewriteRepositoryOwner` | `owner-rewrite` | `owner-rewrite` (fusion) | `RewriteRepositoryOwnerCommand`, dans l'organisation dont le compte a été renommé, par `installation_target` ou par le listage de `SyncInstallations` : réécrit `Repositories.Owner` par lots, lignes inactives comprises, avec le login lu dans `Organizations` à l'exécution |
 | `SweepPendingCommits` | `sweep` | `sweep` (fusion) | `SweepPendingCommitsCommand`. Sur la voie d'instance, toutes les 5 minutes : coordinateur, qui met en file un job du même type par organisation `Active`. Dans l'organisation : met en file `NotifyCommit` (`notify:{id}:sweep`) pour ses commits bloqués |

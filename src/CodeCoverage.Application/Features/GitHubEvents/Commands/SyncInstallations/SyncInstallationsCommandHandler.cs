@@ -186,7 +186,7 @@ internal sealed class SyncInstallationsCommandHandler(
       var key = RepositoryReconciliationJobs.InstallationKey(installation.Id);
       var job = JobRequest.ForOrganization(
         organization.Id,
-        JobTypes.SyncInstallationRepositories,
+        JobTypes.SyncConnectionRepositories,
         RepositoryReconciliationJobs.InstallationPayload(installation.Id),
         key,
         $"sync:{key}",

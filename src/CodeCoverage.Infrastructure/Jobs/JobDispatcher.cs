@@ -12,11 +12,11 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
+using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
-using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
@@ -26,6 +26,8 @@ using CodeCoverage.Application.Features.Repositories.Commands.AbandonCodecovImpo
 using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHistory;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Infrastructure.Jobs;
 
@@ -50,6 +52,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
   /// <param name="read">What reads the value from the root of the payload.</param>
   /// <returns>The value.</returns>
   /// <exception cref="InvalidJobException">The payload is not valid.</exception>
+  /// <remarks>
+  ///   An <see cref="ArgumentException" /> of a guard of the Domain, such as an installation that is not positive, is a
+  ///   payload that is not valid too: it is rejected, never retried.
+  /// </remarks>
   private static T Read<T>(JobRecord job, Func<JsonElement, T> read)
   {
     try
@@ -58,7 +64,7 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 
       return read(payload.RootElement);
     }
-    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+    catch (Exception exception) when (exception is JsonException or KeyNotFoundException or FormatException or InvalidOperationException or ArgumentException)
     {
       throw new InvalidJobException($"The payload of the {job.Type} job {job.Id} is not valid.");
     }
@@ -78,6 +84,35 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
   /// <returns>The text, or <see langword="null" />.</returns>
   private static string? ReadOptionalText(JsonElement payload, string name) =>
     payload.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String ? value.GetString() : null;
+
+  /// <summary>Reads the forge a payload names.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <param name="name">The name of the property.</param>
+  /// <returns>The forge.</returns>
+  /// <exception cref="FormatException">The property does not name a known forge.</exception>
+  private static Forge ReadForge(JsonElement payload, string name) =>
+    Enum.TryParse<Forge>(ReadText(payload, name), out var forge) && Enum.IsDefined(forge)
+      ? forge
+      : throw new FormatException($"'{name}' is not a known forge.");
+
+  /// <summary>Reads the reconciliation of the repositories of a forge connection.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <returns>The command of the reconciliation.</returns>
+  /// <exception cref="FormatException">The forge or the connection is missing or empty.</exception>
+  /// <exception cref="ArgumentException">The connection of the forge GitHub is not the identifier of an installation.</exception>
+  private static SyncConnectionRepositoriesCommand ReadConnectionReconciliation(JsonElement payload)
+  {
+    var forge = ReadForge(payload, "Forge");
+    var connectionId = ReadText(payload, "ConnectionId");
+
+    if (forge is Forge.GitHub)
+    {
+      // The handler reads a GitHub connection as an installation: its form is checked here, so that it is rejected.
+      _ = TrackedRepository.InstallationIdOf(connectionId);
+    }
+
+    return new SyncConnectionRepositoriesCommand(forge, connectionId);
+  }
 
   /// <summary>Reads the commit of a job.</summary>
   /// <param name="job">The job.</param>
@@ -175,8 +210,20 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
                     .ConfigureAwait(false);
 
         break;
+      case JobTypes.SyncConnectionRepositories:
+        await sender.Send(Read(job, ReadConnectionReconciliation), cancellationToken)
+                    .ConfigureAwait(false);
+
+        break;
       case JobTypes.SyncInstallationRepositories:
-        await sender.Send(new SyncInstallationRepositoriesCommand(Read(job, static p => p.GetProperty("InstallationId").GetInt64())), cancellationToken)
+        // Kept for one version: a job of the former type, queued before the deployment, runs the new command.
+        await sender.Send(
+                      Read(
+                        job,
+                        static p => new SyncConnectionRepositoriesCommand(Forge.GitHub, TrackedRepository.ConnectionIdOf(p.GetProperty("InstallationId").GetInt64()))
+                      ),
+                      cancellationToken
+                    )
                     .ConfigureAwait(false);
 
         break;
