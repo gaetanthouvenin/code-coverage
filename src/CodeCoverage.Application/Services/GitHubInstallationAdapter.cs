@@ -4,10 +4,9 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.Globalization;
-
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Repositories;
 
 namespace CodeCoverage.Application.Services;
 
@@ -24,7 +23,7 @@ internal static class GitHubInstallationAdapter
   /// <param name="accounts">The accounts, as the user gateway of GitHub reports them.</param>
   /// <returns>One installation per account, in the same order.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="accounts" /> is <see langword="null" />.</exception>
-  /// <exception cref="FormatException">The connection of an account is not the numeric identifier of an installation.</exception>
+  /// <exception cref="ArgumentException">The connection of an account is not the identifier of an installation.</exception>
   public static IReadOnlyList<GitHubInstallationInfo> ToGitHubInstallations(this IReadOnlyList<ForgeUserAccount> accounts)
   {
     ArgumentNullException.ThrowIfNull(accounts);
@@ -32,7 +31,7 @@ internal static class GitHubInstallationAdapter
     return
     [
       .. accounts.Select(static account => new GitHubInstallationInfo(
-                           long.Parse(account.ConnectionId, NumberStyles.None, CultureInfo.InvariantCulture),
+                           TrackedRepository.InstallationIdOf(account.ConnectionId),
                            account.AccountId,
                            account.AccountLogin,
                            account.AccountType,

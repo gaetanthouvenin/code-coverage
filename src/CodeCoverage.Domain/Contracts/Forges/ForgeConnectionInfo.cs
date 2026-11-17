@@ -4,10 +4,16 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Organizations;
+
 namespace CodeCoverage.Domain.Contracts.Forges;
 
 /// <summary>What a forge reports about the connection that serves a repository found by its name.</summary>
 /// <param name="ConnectionId">The connection that gives access to the repository: the installation identifier on GitHub.</param>
 /// <param name="ExternalAccountId">The identifier the forge gives the account that owns the connection.</param>
 /// <param name="RepositoryExternalId">The identifier the forge gives the repository.</param>
-public sealed record ForgeConnectionInfo(string ConnectionId, string ExternalAccountId, string RepositoryExternalId);
+/// <param name="Forge">
+///   The forge that reports the connection, which tells how to read <paramref name="ConnectionId" />: the identifier of
+///   an installation on GitHub, the default, the identifier of a forge connection on the other forges.
+/// </param>
+public sealed record ForgeConnectionInfo(string ConnectionId, string ExternalAccountId, string RepositoryExternalId, Forge Forge = Forge.GitHub);

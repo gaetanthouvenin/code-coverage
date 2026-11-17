@@ -53,19 +53,29 @@ internal sealed class RepositoryReconciler(
   /// <param name="installationId">The identifier of the installation that serves the repository.</param>
   /// <param name="info">What GitHub reports.</param>
   /// <returns>The repository, not saved yet.</returns>
+  /// <remarks>The GitHub form of <see cref="Create(ForgeConnectionInfo, ForgeRepositoryInfo)" />.</remarks>
   public TrackedRepository Create(long installationId, ForgeRepositoryInfo info)
   {
     ArgumentNullException.ThrowIfNull(info);
 
-    return TrackedRepository.Create(
-      installationId,
-      info.ExternalId,
-      RepositorySlug.Create(info.Owner, info.Namespace, info.Name),
-      info.DefaultBranch,
-      info.IsPrivate,
-      secretProtector.Protect(tokenGenerator.NewBadgeToken()),
-      clock.UtcNow
-    );
+    return Create(TrackedRepository.ConnectionIdOf(installationId), installationId, info);
+  }
+
+  /// <summary>Builds the row of a repository that a forge reports through a connection, with a new badge token.</summary>
+  /// <param name="connection">The connection that serves the repository, as its forge reports it.</param>
+  /// <param name="info">What the forge reports.</param>
+  /// <returns>
+  ///   The repository, not saved yet: under the installation of the connection on GitHub, under the connection alone on
+  ///   the other forges.
+  /// </returns>
+  public TrackedRepository Create(ForgeConnectionInfo connection, ForgeRepositoryInfo info)
+  {
+    ArgumentNullException.ThrowIfNull(connection);
+    ArgumentNullException.ThrowIfNull(info);
+
+    long? installationId = connection.Forge is Forge.GitHub ? TrackedRepository.InstallationIdOf(connection.ConnectionId) : null;
+
+    return Create(connection.ConnectionId, installationId, info);
   }
 
   /// <summary>Applies to a tracked repository what GitHub reports: name, visibility and default branch.</summary>
@@ -196,6 +206,23 @@ internal sealed class RepositoryReconciler(
       await repositories.UpdateAsync(repository, cancellationToken).ConfigureAwait(false);
     }
   }
+
+  /// <summary>Builds the row of a repository, with a new badge token.</summary>
+  /// <param name="connectionId">The identifier of the connection that serves the repository.</param>
+  /// <param name="installationId">The GitHub installation of the connection, or <see langword="null" />.</param>
+  /// <param name="info">What the forge reports.</param>
+  /// <returns>The repository, not saved yet.</returns>
+  private TrackedRepository Create(string connectionId, long? installationId, ForgeRepositoryInfo info) =>
+    TrackedRepository.Create(
+      connectionId,
+      installationId,
+      info.ExternalId,
+      RepositorySlug.Create(info.Owner, info.Namespace, info.Name),
+      info.DefaultBranch,
+      info.IsPrivate,
+      secretProtector.Protect(tokenGenerator.NewBadgeToken()),
+      clock.UtcNow
+    );
 
   /// <summary>Tells whether the account of an organization holds a repository, as its forge reports it.</summary>
   /// <param name="reported">What the forge reports.</param>

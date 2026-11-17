@@ -4,7 +4,6 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -34,6 +33,7 @@ namespace CodeCoverage.Application.Features.Uploads.Commands.ReceiveUpload;
 /// <param name="repositories">The repositories of the organization.</param>
 /// <param name="directory">The directory of the organizations.</param>
 /// <param name="installations">The installations of the GitHub App.</param>
+/// <param name="connections">The connections of the organizations to the forges other than GitHub.</param>
 /// <param name="gateways">The gateways of the forges.</param>
 /// <param name="commits">The commits of the organization.</param>
 /// <param name="rawStore">The store of the received parts.</param>
@@ -48,6 +48,7 @@ internal sealed class ReceiveUploadCommandHandler(
   IRepositoryRepository repositories,
   IOrganizationDirectory directory,
   IInstallationRepository installations,
+  IForgeConnectionRepository connections,
   IForgeGatewayProvider gateways,
   ICommitRepository commits,
   IRawUploadStore rawStore,
@@ -143,12 +144,12 @@ internal sealed class ReceiveUploadCommandHandler(
     return hashes;
   }
 
-  /// <summary>Finds the tracked repository of an upload, creating it for an account that installed the App.</summary>
+  /// <summary>Finds the tracked repository of an upload, creating it for an account that gave this instance access.</summary>
   /// <param name="authorization">What the credential proved.</param>
   /// <param name="metadata">What the text fields describe.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>The repository.</returns>
-  /// <exception cref="NotFoundException">No installation of the account of the organization serves the repository.</exception>
+  /// <exception cref="NotFoundException">No installation or connection of the account of the organization serves the repository.</exception>
   private async Task<TrackedRepository> ResolveRepositoryAsync(
     UploadAuthorization authorization,
     UploadMetadata metadata,
@@ -199,11 +200,20 @@ internal sealed class ReceiveUploadCommandHandler(
 
     NotFoundException.ThrowIfRepositoryUnreachable(info);
 
-    var installationId = long.Parse(connection.ConnectionId, NumberStyles.None, CultureInfo.InvariantCulture);
+    long? installationId = null;
 
-    await EnsureInstallationAsync(installationId, organization.Id, cancellationToken).ConfigureAwait(false);
+    if (forge is Forge.GitHub)
+    {
+      installationId = TrackedRepository.InstallationIdOf(connection.ConnectionId);
+      await EnsureInstallationAsync(installationId.Value, organization.Id, cancellationToken).ConfigureAwait(false);
+    }
+    else
+    {
+      await EnsureConnectionAsync(connection.ConnectionId, forge, organization.Id, cancellationToken).ConfigureAwait(false);
+    }
 
     var repository = TrackedRepository.Create(
+      connection.ConnectionId,
       installationId,
       info.ExternalId,
       RepositorySlug.Create(info.Owner, info.Namespace, info.Name),
@@ -254,6 +264,24 @@ internal sealed class ReceiveUploadCommandHandler(
     }
 
     NotFoundException.ThrowIfRepositoryNotReadable(installation?.OrganizationId == organizationId);
+  }
+
+  /// <summary>Checks that the forge connection that serves a repository is one of the organization of the scope.</summary>
+  /// <param name="connectionId">The identifier of the connection.</param>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="organizationId">The organization of the scope.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>A task that completes when the connection is checked.</returns>
+  /// <exception cref="NotFoundException">The connection is unknown, of another forge or of another organization.</exception>
+  /// <remarks>
+  ///   Unlike an installation, a forge connection is recorded when its organization is admitted (ADR-017): an upload never
+  ///   creates one.
+  /// </remarks>
+  private async Task EnsureConnectionAsync(string connectionId, Forge forge, long organizationId, CancellationToken cancellationToken)
+  {
+    var owner = await connections.FindOwnerAsync(connectionId, cancellationToken).ConfigureAwait(false);
+
+    NotFoundException.ThrowIfRepositoryNotReadable(owner is not null && owner.OrganizationId == organizationId && owner.Forge == forge);
   }
 
   #endregion

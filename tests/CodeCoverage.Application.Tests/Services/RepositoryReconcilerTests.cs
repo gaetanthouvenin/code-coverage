@@ -62,6 +62,39 @@ public sealed class RepositoryReconcilerTests
 
   #region Methods
 
+  [Fact]
+  public void Create_AzureDevOpsConnection_ShouldSetTheConnection()
+  {
+    var connection = new ForgeConnectionInfo("contoso-devops", "1001", "2002", Forge.AzureDevOps);
+    var info = new ForgeRepositoryInfo("2002", "contoso", "Platform", "api", "main", true);
+
+    var repository = _reconciler.Create(connection, info);
+
+    repository.ConnectionId.ShouldBe("contoso-devops");
+    repository.InstallationId.ShouldBeNull();
+    repository.Namespace.ShouldBe("Platform");
+    repository.BadgeTokenProtected.ShouldBe("protected:badge-1");
+  }
+
+  // The identifier of a forge connection can hold digits alone: only the forge tells it is no installation.
+  [Fact]
+  public void Create_NumericConnectionOfAnotherForge_ShouldKeepNoInstallation()
+  {
+    var repository = _reconciler.Create(new ForgeConnectionInfo("42", "1001", "2002", Forge.Bitbucket), new ForgeRepositoryInfo("2002", "octo", string.Empty, "app", "main", true));
+
+    repository.ConnectionId.ShouldBe("42");
+    repository.InstallationId.ShouldBeNull();
+  }
+
+  [Fact]
+  public void Create_GitHubConnection_ShouldKeepTheInstallation()
+  {
+    var repository = _reconciler.Create(new ForgeConnectionInfo("77", "1001", "2002"), new ForgeRepositoryInfo("2002", "octo", string.Empty, "app", "main", true));
+
+    repository.ConnectionId.ShouldBe("77");
+    repository.InstallationId.ShouldBe(77);
+  }
+
   // A repository deleted, then created again under the same name: the row that is no longer tracked gives the name up.
   [Fact]
   public async Task Save_NameHeldByAnInactiveRow_ShouldReleaseItFirst()

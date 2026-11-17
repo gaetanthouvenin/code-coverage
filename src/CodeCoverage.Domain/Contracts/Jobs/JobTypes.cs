@@ -38,6 +38,12 @@ public static class JobTypes
   /// <summary>Reconciles the repositories of an organization with those its installation serves.</summary>
   public const string SyncInstallationRepositories = "SyncInstallationRepositories";
 
+  /// <summary>
+  ///   Reconciles the repositories of an organization with those its forge connection serves. Its command and its case in
+  ///   the job dispatcher come with the neutral synchronization of the repositories (M7.09): nothing queues it before.
+  /// </summary>
+  public const string SyncConnectionRepositories = "SyncConnectionRepositories";
+
   /// <summary>Closes, in the organization it left, the row of a repository transferred to another account.</summary>
   public const string ReconcileRepositoryTransfer = "ReconcileRepositoryTransfer";
 

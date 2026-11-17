@@ -208,6 +208,31 @@ public sealed class TrackedRepository
     return installationId.ToString(CultureInfo.InvariantCulture);
   }
 
+  /// <summary>Gives the GitHub installation of a connection, the inverse of <see cref="ConnectionIdOf" />.</summary>
+  /// <param name="connectionId">The identifier of the connection of a GitHub repository.</param>
+  /// <returns>The identifier of the installation.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="connectionId" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="connectionId" /> is not the identifier of an installation in text, as <see cref="ConnectionIdOf" />
+  ///   writes it.
+  /// </exception>
+  /// <remarks>
+  ///   The only place outside the GitHub gateways that reads a connection as a number: it is called for a GitHub connection
+  ///   only, the identifier of a forge connection being a text that can hold digits alone (ADR-017).
+  /// </remarks>
+  public static long InstallationIdOf(string connectionId)
+  {
+    ArgumentNullException.ThrowIfNull(connectionId);
+
+    var isInstallation = long.TryParse(connectionId, NumberStyles.None, CultureInfo.InvariantCulture, out var installationId)
+                         && installationId > 0
+                         && string.Equals(connectionId, ConnectionIdOf(installationId), StringComparison.Ordinal);
+
+    ArgumentException.ThrowIf(!isInstallation, $"The connection '{connectionId}' is not a GitHub installation.", nameof(connectionId));
+
+    return installationId;
+  }
+
   /// <summary>Starts tracking a repository of GitHub, served by an installation.</summary>
   /// <param name="installationId">The GitHub installation that gives access to the repository.</param>
   /// <param name="externalId">The identifier the forge gives the repository.</param>
