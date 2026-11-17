@@ -14,6 +14,7 @@ using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Application.Features.Uploads.Commands.ReceiveUpload;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Commits;
+using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Contracts.Uploads;
@@ -62,6 +63,8 @@ public sealed class ReceiveUploadCommandHandlerTests
   private readonly IClock _clock = A.Fake<IClock>();
 
   private readonly IInstallationRepository _installations = A.Fake<IInstallationRepository>();
+
+  private readonly IForgeConnectionRepository _connections = A.Fake<IForgeConnectionRepository>();
 
   private readonly ICommitRepository _commits = A.Fake<ICommitRepository>();
 
@@ -153,6 +156,47 @@ public sealed class ReceiveUploadCommandHandlerTests
                A<CancellationToken>._
              ))
      .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_NonGitHubConnection_ShouldTrackWithoutInstallation()
+  {
+    AzureDevOps();
+    A.CallTo(() => _connections.FindOwnerAsync("contoso-devops", A<CancellationToken>._))
+     .Returns(new ForgeConnectionOwner(3, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+
+    await Handler().Handle(AzureDevOpsCommand(), Ct);
+
+    A.CallTo(_installations).MustNotHaveHappened();
+    A.CallTo(() => _repositories.AddAsync(
+               A<TrackedRepository>.That.Matches(r => r.ExternalId == RepositoryExternalId && r.ConnectionId == "contoso-devops" && r.InstallationId == null),
+               A<CancellationToken>._
+             ))
+     .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Handle_ConnectionOfOtherOrganization_ShouldThrowNotFound()
+  {
+    AzureDevOps();
+    A.CallTo(() => _connections.FindOwnerAsync("contoso-devops", A<CancellationToken>._))
+     .Returns(new ForgeConnectionOwner(8, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+
+    var exception = await Should.ThrowAsync<NotFoundException>(async () => await Handler().Handle(AzureDevOpsCommand(), Ct));
+
+    exception.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
+    A.CallTo(() => _repositories.AddAsync(A<TrackedRepository>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_UnknownConnection_ShouldThrowNotFound()
+  {
+    AzureDevOps();
+    A.CallTo(() => _connections.FindOwnerAsync(A<string>._, A<CancellationToken>._)).Returns((ForgeConnectionOwner?)null);
+
+    var exception = await Should.ThrowAsync<NotFoundException>(async () => await Handler().Handle(AzureDevOpsCommand(), Ct));
+
+    exception.ErrorCode.ShouldBe(RepositoryErrors.NotFound);
   }
 
   [Fact]
@@ -377,7 +421,7 @@ public sealed class ReceiveUploadCommandHandlerTests
   {
     var authenticator = new UploadAuthenticator(_organization, _directory, A.Fake<IOidcTokenValidator>(), _tokens, _cache, _repositories, _gateways, _hasher, _clock);
 
-    return new ReceiveUploadCommandHandler(authenticator, _repositories, _directory, _installations, _gateways, _commits, _raw, _uploads, _reports, _generator, _protector, _options, _clock);
+    return new ReceiveUploadCommandHandler(authenticator, _repositories, _directory, _installations, _connections, _gateways, _commits, _raw, _uploads, _reports, _generator, _protector, _options, _clock);
   }
 
   private async Task ShouldRefuse<TException>(string errorCode)
@@ -402,6 +446,19 @@ public sealed class ReceiveUploadCommandHandlerTests
     A.CallTo(() => _repositories.FindAsync(5, A<CancellationToken>._)).Returns(repository);
 
     return repository;
+  }
+
+  private static ReceiveUploadCommand AzureDevOpsCommand() => Command() with { Metadata = Metadata() with { Forge = Forge.AzureDevOps } };
+
+  private void AzureDevOps()
+  {
+    var organization = Organization.CreatePending(Forge.AzureDevOps, AccountId, "octo-org", OrganizationAccountType.Organization, Now);
+    typeof(Organization).GetProperty(nameof(Organization.Id))!.SetValue(organization, 3L);
+
+    A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._)).Returns(organization);
+    A.CallTo(() => _gateways.GetGateway(Forge.AzureDevOps)).Returns(_gateway);
+    Connected(new ForgeConnectionInfo("contoso-devops", AccountId, RepositoryExternalId, Forge.AzureDevOps));
+    Reports();
   }
 
   private void Connected(ForgeConnectionInfo? connection) =>

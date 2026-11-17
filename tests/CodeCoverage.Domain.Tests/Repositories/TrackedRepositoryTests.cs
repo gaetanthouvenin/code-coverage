@@ -107,6 +107,24 @@ public sealed class TrackedRepositoryTests
     Should.Throw<ArgumentException>(() => TrackedRepository.Create("contoso", 9, "42", slug, "main", false, "protected", Now));
   }
 
+  [Fact]
+  public void InstallationIdOf_GitHubConnection_ShouldGiveTheInstallation()
+  {
+    TrackedRepository.InstallationIdOf(TrackedRepository.ConnectionIdOf(1234)).ShouldBe(1234);
+  }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("0")]
+  [InlineData("0042")]
+  [InlineData("-42")]
+  [InlineData("contoso-devops")]
+  [InlineData("99999999999999999999")]
+  public void InstallationIdOf_NotAnInstallation_ShouldThrow(string connectionId)
+  {
+    Should.Throw<ArgumentException>(() => TrackedRepository.InstallationIdOf(connectionId));
+  }
+
   [Theory]
   [InlineData(Forge.GitHub)]
   [InlineData(Forge.AzureDevOps)]
