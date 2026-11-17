@@ -5,7 +5,6 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Contracts.Forges;
-using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -46,21 +45,21 @@ internal sealed class PushProcessor(
   /// <summary>Applies a push: the head of its branch, its covered head, and the configuration of the default branch.</summary>
   /// <param name="repository">The repository, read in this scope.</param>
   /// <param name="address">The address of the repository on its forge.</param>
-  /// <param name="push">What the delivery says.</param>
+  /// <param name="push">The push, translated from the delivery of its forge.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>A task that completes when the push is applied.</returns>
   /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
   public async Task ApplyAsync(
     TrackedRepository repository,
     ForgeRepositoryRef address,
-    GitHubPushEvent push,
+    ForgePushEvent push,
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repository);
     ArgumentNullException.ThrowIfNull(address);
     ArgumentNullException.ThrowIfNull(push);
 
-    // A tag, or a name no branch of the model can hold.
+    // An empty name, or one no branch of the model can hold.
     if (push.Branch is not { Length: > 0 and <= Branch.NameMaxLength } name)
     {
       return;
@@ -93,14 +92,14 @@ internal sealed class PushProcessor(
   /// <param name="repository">The repository.</param>
   /// <param name="address">The address of the repository on its forge.</param>
   /// <param name="name">The name of the branch.</param>
-  /// <param name="push">What the delivery says; its head is set.</param>
+  /// <param name="push">The push; its head is set.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>The head the branch was moved to, or <see langword="null" /> when the branch no longer exists.</returns>
   private async Task<GitSha?> MoveHeadAsync(
     TrackedRepository repository,
     ForgeRepositoryRef address,
     string name,
-    GitHubPushEvent push,
+    ForgePushEvent push,
     CancellationToken cancellationToken)
   {
     var now = clock.UtcNow;

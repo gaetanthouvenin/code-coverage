@@ -164,6 +164,22 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
     A.CallTo(() => _deliveries.MarkProcessedAsync("d-1", Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
+  // M7.19. The body is translated into a neutral change of the repository, whose description is applied as a whole.
+  [Fact]
+  public async Task Handle_RepositoryRenamed_ShouldPassANeutralEvent()
+  {
+    var repository = Tracked("octo/old-name", isPrivate: false);
+    Stored("repository", "renamed", $$"""{"action":"renamed","repository":{{RepositoryBody}}}""");
+
+    await HandleAsync();
+
+    repository.Name.ShouldBe("New-Name");
+    repository.IsPrivate.ShouldBeTrue();
+    repository.DefaultBranch.ShouldBe("trunk");
+    A.CallTo(() => _repositories.FindByExternalIdAsync("7", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _repositories.UpdateAsync(repository, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
   [Fact]
   public async Task Handle_RepositoryRenamedNotTracked_ShouldCreateNothing()
   {
@@ -806,7 +822,28 @@ public sealed class HandleWebhookDeliveryCommandHandlerTests
 
     await HandleAsync();
 
+    // A push that is not about a branch is not translated: no repository is even read.
+    A.CallTo(_repositories).MustNotHaveHappened();
     A.CallTo(_branches).MustNotHaveHappened();
+  }
+
+  // M7.19. The body is translated into a neutral push: the branch, its head and where the push started all reach it.
+  [Fact]
+  public async Task Handle_Push_ShouldPassANeutralEvent()
+  {
+    var started = GitSha.Parse("c94a8fe5ccb19ba61c4c0873d391e987982fbbd3");
+    var branch = Branch.Create(RepositoryId, "main", started, Now.AddMinutes(-1));
+    TrackedWithId("octo/repo");
+    A.CallTo(() => _branches.FindAsync(RepositoryId, "main", A<CancellationToken>._)).Returns(branch);
+    Stored("push", null, "{\"ref\":\"refs/heads/main\",\"before\":\"" + started.Value + "\",\"after\":\"" + PushedHead.Value + "\",\"commits\":[]}");
+
+    await HandleAsync();
+
+    branch.HeadSha.ShouldBe(PushedHead);
+    A.CallTo(() => _repositories.FindByExternalIdAsync("7", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    // The push starts where the branch is: the forge is not asked.
+    A.CallTo(() => _gateway.GetBranchHeadAsync(A<ForgeRepositoryRef>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _branches.UpdateAsync(branch, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
