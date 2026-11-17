@@ -8,6 +8,7 @@ using System.Reflection;
 
 using CodeCoverage.Application.Configuration;
 using CodeCoverage.Domain.Settings;
+using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Infrastructure.Tests.Settings;
@@ -28,6 +29,7 @@ public sealed class SettingsOptionsCatalogTests
     typeof(BadgeOptions),
     typeof(RetentionOptions),
     typeof(GitHubOptions),
+    typeof(AzureDevOpsOptions),
     typeof(UrlOptions),
   ];
 

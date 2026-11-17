@@ -547,13 +547,17 @@ corps compressé Brotli (qualité 5) :
 
 ### 4bis.3 Catalogue des paramètres stockés en base
 
-Le catalogue compte 41 clés. `*` = secret, `R` = `RequiresRestart`, `O` = portée `Organization` ; toute autre clé est de portée `Instance`. Aucune clé secrète n'est de portée `Organization`.
+Le catalogue compte 47 clés. `*` = secret, `R` = `RequiresRestart`, `O` = portée `Organization` ; toute autre clé est de portée `Instance`. Aucune clé secrète n'est de portée `Organization`.
 
 | Groupe | Clé | Type | Défaut |
 |---|---|---|---|
 | GitHub | `GitHub:AppId`, `GitHub:ClientId`, `GitHub:AppSlug` | string | — |
 | | `GitHub:ClientSecret`\*, `GitHub:PrivateKeyPem`\*, `GitHub:WebhookSecret`\*, `GitHub:WebhookSecretPrevious`\* (rotation) | string | — |
 | | `GitHub:ApiBaseUrl` | url | `https://api.github.com` |
+| AzureDevOps | `AzureDevOps:ClientId` (application Entra ID multi-tenant de l'instance, ADR-014) | string | — |
+| | `AzureDevOps:ClientSecret`\*, `AzureDevOps:CertificatePem`\* (certificat et clé privée PEM, préféré au secret quand il est rempli) | string | — |
+| | `AzureDevOps:Authority` | url | `https://login.microsoftonline.com` |
+| | `AzureDevOps:ApiBaseUrl` | url | `https://dev.azure.com` |
 | Urls | `Urls:ApiPublicUrl`, `Urls:WebPublicUrl` | url | — |
 | Uploads | `Uploads:MaxRequestMegabytes` | int 1–1000 | 200 |
 | | `Uploads:MaxDecompressedMegabytes` | int | 2048 |

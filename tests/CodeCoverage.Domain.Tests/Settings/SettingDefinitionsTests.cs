@@ -23,6 +23,11 @@ public sealed class SettingDefinitionsTests
     { "GitHub:WebhookSecret", SettingType.Text, null },
     { "GitHub:WebhookSecretPrevious", SettingType.Text, null },
     { "GitHub:ApiBaseUrl", SettingType.Url, "https://api.github.com" },
+    { "AzureDevOps:ClientId", SettingType.Text, null },
+    { "AzureDevOps:ClientSecret", SettingType.Text, null },
+    { "AzureDevOps:CertificatePem", SettingType.Text, null },
+    { "AzureDevOps:Authority", SettingType.Url, "https://login.microsoftonline.com" },
+    { "AzureDevOps:ApiBaseUrl", SettingType.Url, "https://dev.azure.com" },
     { "Urls:ApiPublicUrl", SettingType.Url, null },
     { "Urls:WebPublicUrl", SettingType.Url, null },
     { "Uploads:MaxRequestMegabytes", SettingType.Number, "200" },
@@ -65,6 +70,8 @@ public sealed class SettingDefinitionsTests
     "GitHub:PrivateKeyPem",
     "GitHub:WebhookSecret",
     "GitHub:WebhookSecretPrevious",
+    "AzureDevOps:ClientSecret",
+    "AzureDevOps:CertificatePem",
   ];
 
   private static readonly string[] OrganizationKeys =
@@ -94,6 +101,25 @@ public sealed class SettingDefinitionsTests
   {
     SettingDefinitions.All.Where(d => d.IsSecret)
                       .ShouldAllBe(d => d.Default == null && d.Type == SettingType.Text);
+  }
+
+  [Fact]
+  public void Catalog_AzureDevOpsGroup_ShouldHoldTheEntraApplication()
+  {
+    SettingDefinitions.All.Where(d => d.Group == SettingDefinitions.AzureDevOpsGroup)
+                      .Select(d => d.Key)
+                      .ShouldBe(
+                        [
+                          SettingDefinitions.AzureDevOpsClientId,
+                          SettingDefinitions.AzureDevOpsClientSecret,
+                          SettingDefinitions.AzureDevOpsCertificatePem,
+                          SettingDefinitions.AzureDevOpsAuthority,
+                          SettingDefinitions.AzureDevOpsApiBaseUrl,
+                        ]
+                      );
+    SettingDefinitions.Find(SettingDefinitions.AzureDevOpsClientSecret)!.IsSecret.ShouldBeTrue();
+    SettingDefinitions.Find(SettingDefinitions.AzureDevOpsCertificatePem)!.IsSecret.ShouldBeTrue();
+    SettingDefinitions.Find(SettingDefinitions.AzureDevOpsClientId)!.IsSecret.ShouldBeFalse();
   }
 
   [Fact]
@@ -127,11 +153,11 @@ public sealed class SettingDefinitionsTests
   [Fact]
   public void All_ShouldDeclareExpectedScope()
   {
-    SettingDefinitions.All.Count.ShouldBe(42);
+    SettingDefinitions.All.Count.ShouldBe(47);
     SettingDefinitions.All.Where(d => d.Scope == SettingScope.Organization)
                       .Select(d => d.Key)
                       .ShouldBe(OrganizationKeys);
-    SettingDefinitions.All.Count(d => d.Scope == SettingScope.Instance).ShouldBe(37);
+    SettingDefinitions.All.Count(d => d.Scope == SettingScope.Instance).ShouldBe(42);
   }
 
   [Fact]

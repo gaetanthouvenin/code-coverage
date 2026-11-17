@@ -39,6 +39,10 @@ public sealed partial class OrganizationIsolationTests
 
   private const string TokenProvider = Infrastructure + "GitHub/GitHubAppTokenProvider.cs";
 
+  private const string ConnectionCredentialReader = Infrastructure + "Forges/ForgeConnectionCredentialReader.cs";
+
+  private const string AzureDevOpsTokenProvider = Infrastructure + "AzureDevOps/AzureDevOpsTokenProvider.cs";
+
   private const string UploadCredentialCache = Infrastructure + "Uploads/MemoryUploadCredentialCache.cs";
 
   private const string AdminCommandLine = "src/CodeCoverage.Api/Configuration/Administration/AdminCommandLine.cs";
@@ -132,6 +136,12 @@ public sealed partial class OrganizationIsolationTests
   [
     // Caches installation tokens by installation id, which belongs to a single account.
     (TokenProvider, "IMemoryCache"),
+    // Keeps the decrypted credential of a forge connection, under a key that starts with the organization of the scope;
+    // the connection is read again at each call, so one of another organization or a suspended one is refused (ADR-017).
+    (ConnectionCredentialReader, "IMemoryCache"),
+    // Caches the Entra ID token of a connection under {tenant}:{connection}: the connection belongs to a single
+    // organization, and ForgeConnectionCredentialReader refuses it to any other before the cache is read (ADR-017).
+    (AzureDevOpsTokenProvider, "IMemoryCache"),
     // Remembers the identity of an upload token, under a key that starts with the organization of the scope.
     (UploadCredentialCache, "IMemoryCache"),
 

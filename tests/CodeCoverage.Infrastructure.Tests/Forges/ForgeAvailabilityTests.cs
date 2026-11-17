@@ -110,6 +110,31 @@ public sealed class ForgeAvailabilityTests
     availability.SignInForges.ShouldBe([Forge.GitHub]);
   }
 
+  // M7.39: the Entra ID application admits Azure DevOps organizations once its client identifier and a secret are
+  // filled, without a restart; the sign-in with Entra ID is not offered yet.
+  [Fact]
+  public async Task AdmissionForges_AzureDevOpsApplicationConfigured_ShouldListAzureDevOps()
+  {
+    var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+    await using var services = new ServiceCollection()
+                               .AddSingleton<IConfiguration>(configuration)
+                               .AddLogging()
+                               .AddInfrastructure()
+                               .BuildServiceProvider();
+    var availability = services.GetRequiredService<IForgeAvailability>();
+
+    configuration[SettingDefinitions.AzureDevOpsClientId] = "11111111-2222-3333-4444-555555555555";
+    configuration.Reload();
+
+    availability.AdmissionForges.ShouldBeEmpty();
+
+    configuration[SettingDefinitions.AzureDevOpsClientSecret] = "protected-secret";
+    configuration.Reload();
+
+    availability.AdmissionForges.ShouldBe([Forge.AzureDevOps]);
+    availability.SignInForges.ShouldBeEmpty();
+  }
+
   private static IForgeAvailability Availability(ServiceProvider provider)
   {
     return new ForgeAvailability(provider);
