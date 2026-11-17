@@ -22,11 +22,15 @@ public sealed class RefreshUserAccessCommandHandlerTests
 
   private const string Token = "ghu_user_token";
 
+  private const string RenewedToken = "ghu_renewed_token";
+
   private static readonly DateTimeOffset Now = new(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
 
   private readonly IUserRepository _users = A.Fake<IUserRepository>();
 
-  private readonly IGitHubUserTokenProvider _tokens = A.Fake<IGitHubUserTokenProvider>();
+  private readonly IForgeUserTokenProvider _tokens = A.Fake<IForgeUserTokenProvider>();
+
+  private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
 
   private readonly IGitHubUserGateway _userGateway = A.Fake<IGitHubUserGateway>();
 
@@ -48,12 +52,13 @@ public sealed class RefreshUserAccessCommandHandlerTests
     typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, UserId);
     A.CallTo(() => clock.UtcNow).Returns(Now);
     A.CallTo(() => _users.FindAsync(UserId, A<CancellationToken>._)).Returns(user);
+    A.CallTo(() => _gateways.GetUserTokenProvider(Forge.GitHub)).Returns(_tokens);
     A.CallTo(() => _tokens.GetTokenAsync(UserId, A<CancellationToken>._)).Returns(Token);
     A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._))
      .Returns([new GitHubInstallationInfo(41, "999", "other-org", OrganizationAccountType.Organization, false), new GitHubInstallationInfo(42, "1001", "octo-org", OrganizationAccountType.Organization, false)]);
     _directory.Current = _directory.Add("1001", "octo-org", admitted: true);
 
-    _handler = new RefreshUserAccessCommandHandler(_users, _tokens, _userGateway, _directory, _accesses, clock);
+    _handler = new RefreshUserAccessCommandHandler(_users, _gateways, _userGateway, _directory, _accesses, clock);
   }
 
   #endregion
@@ -77,6 +82,23 @@ public sealed class RefreshUserAccessCommandHandlerTests
     A.CallTo(() => _accesses.UpsertAsync(UserId, "100", RepositoryPermission.Admin, Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _accesses.UpsertAsync(UserId, "200", RepositoryPermission.Write, Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userGateway.ListInstallationRepositoriesAsync(Token, 41, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // The renewal of an expired token belongs to the provider of the forge of the user: the handler only uses what it gives.
+  [Fact]
+  public async Task Handle_ExpiredToken_ShouldRenewThroughTheForgeProvider()
+  {
+    A.CallTo(() => _tokens.GetTokenAsync(UserId, A<CancellationToken>._)).Returns(RenewedToken);
+    A.CallTo(() => _userGateway.ListInstallationsAsync(RenewedToken, A<CancellationToken>._))
+     .Returns([new GitHubInstallationInfo(42, "1001", "octo-org", OrganizationAccountType.Organization, false)]);
+    A.CallTo(() => _userGateway.ListInstallationRepositoriesAsync(RenewedToken, 42, A<CancellationToken>._)).Returns([new GitHubUserRepository("100", RepositoryPermission.Read)]);
+
+    await HandleAsync();
+
+    A.CallTo(() => _gateways.GetUserTokenProvider(Forge.GitHub)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _gateways.GetUserTokenProvider(A<Forge>.That.Not.IsEqualTo(Forge.GitHub))).MustNotHaveHappened();
+    A.CallTo(() => _accesses.UpsertAsync(UserId, "100", RepositoryPermission.Read, Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]

@@ -30,7 +30,9 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
   private readonly IUserRepository _users = A.Fake<IUserRepository>();
 
-  private readonly IGitHubUserTokenProvider _tokens = A.Fake<IGitHubUserTokenProvider>();
+  private readonly IForgeUserTokenProvider _tokens = A.Fake<IForgeUserTokenProvider>();
+
+  private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
 
   private readonly IGitHubUserGateway _userGateway = A.Fake<IGitHubUserGateway>();
 
@@ -60,6 +62,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, UserId);
     A.CallTo(() => clock.UtcNow).Returns(Now);
     A.CallTo(() => _users.FindAsync(UserId, A<CancellationToken>._)).Returns(user);
+    A.CallTo(() => _gateways.GetUserTokenProvider(Forge.GitHub)).Returns(_tokens);
     A.CallTo(() => _tokens.GetTokenAsync(UserId, A<CancellationToken>._)).Returns(Token);
     A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(A<long>._, A<string>._, A<string>._, A<CancellationToken>._))
      .Returns((GitHubOrganizationMembership?)null);
@@ -70,7 +73,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
     A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).Invokes((JobRequest job, CancellationToken _) => _queued.Add(job)).Returns(1L);
 
-    _handler = new RefreshUserMembershipsCommandHandler(_users, _tokens, _userGateway, updater, _jobQueue);
+    _handler = new RefreshUserMembershipsCommandHandler(_users, _gateways, _userGateway, updater, _jobQueue);
   }
 
   #endregion

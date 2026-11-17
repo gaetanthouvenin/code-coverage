@@ -11,7 +11,7 @@ namespace CodeCoverage.Domain.Ports;
 /// <summary>Calls GitHub in the name of a user, with the token GitHub issued for that user.</summary>
 /// <remarks>
 ///   Particular to GitHub (ADR-014): it serves the sign-in and the access of a user to repositories. The token is
-///   given by the caller, which gets it from <see cref="IGitHubUserTokenProvider" /> or from the sign-in itself;
+///   given by the caller, which gets it from <see cref="IForgeUserTokenProvider" /> or from the sign-in itself;
 ///   it is never kept here.
 /// </remarks>
 public interface IGitHubUserGateway

@@ -11,12 +11,13 @@ using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 
 /// <summary>Handler for the <see cref="RefreshUserMembershipsCommand" /> command.</summary>
 /// <param name="users">The repository of the users.</param>
-/// <param name="tokens">What gives the token GitHub issued for a user.</param>
+/// <param name="gateways">What resolves the provider of the token the forge of a user issued for it.</param>
 /// <param name="userGateway">The gateway that calls GitHub in the name of a user.</param>
 /// <param name="updater">What writes the memberships of a user.</param>
 /// <param name="jobQueue">The job queue.</param>
@@ -38,7 +39,7 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMembershi
 /// </remarks>
 internal sealed class RefreshUserMembershipsCommandHandler(
   IUserRepository users,
-  IGitHubUserTokenProvider tokens,
+  IForgeGatewayProvider gateways,
   IGitHubUserGateway userGateway,
   MembershipUpdater updater,
   IJobQueue jobQueue) : ICommandHandler<RefreshUserMembershipsCommand>
@@ -46,14 +47,14 @@ internal sealed class RefreshUserMembershipsCommandHandler(
   #region Methods
 
   /// <summary>Lists the installations of the App the user can reach.</summary>
-  /// <param name="userId">The identifier of the user.</param>
+  /// <param name="user">The user, whose token is renewed by the provider of its forge.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>The installations, or <see langword="null" /> when the user has no token GitHub accepts.</returns>
-  private async Task<IReadOnlyList<GitHubInstallationInfo>?> ListInstallationsAsync(long userId, CancellationToken cancellationToken)
+  private async Task<IReadOnlyList<GitHubInstallationInfo>?> ListInstallationsAsync(AppUser user, CancellationToken cancellationToken)
   {
     try
     {
-      var token = await tokens.GetTokenAsync(userId, cancellationToken).ConfigureAwait(false);
+      var token = await gateways.GetUserTokenProvider(user.Forge).GetTokenAsync(user.Id, cancellationToken).ConfigureAwait(false);
 
       return await userGateway.ListInstallationsAsync(token, cancellationToken).ConfigureAwait(false);
     }
@@ -77,7 +78,7 @@ internal sealed class RefreshUserMembershipsCommandHandler(
       return Unit.Value;
     }
 
-    var installations = await ListInstallationsAsync(user.Id, cancellationToken).ConfigureAwait(false);
+    var installations = await ListInstallationsAsync(user, cancellationToken).ConfigureAwait(false);
 
     var roles = await updater.ReplaceAsync(user, installations, cancellationToken).ConfigureAwait(false);
 

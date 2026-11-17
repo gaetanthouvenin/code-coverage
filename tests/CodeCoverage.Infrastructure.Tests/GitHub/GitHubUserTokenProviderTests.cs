@@ -458,7 +458,7 @@ public sealed class GitHubUserTokenProviderTests(DatabaseFixture database)
 
   private static StubHttpMessageHandler GitHub(Func<HttpResponseMessage> respond) => new((_, _) => Task.FromResult(respond()));
 
-  private static IGitHubUserTokenProvider Provider(ServiceProvider services) => services.GetRequiredService<IGitHubUserTokenProvider>();
+  private static IForgeUserTokenProvider Provider(ServiceProvider services) => services.GetRequiredKeyedService<IForgeUserTokenProvider>(Forge.GitHub);
 
   private static ServiceProvider Services(TwoOrganizationDatabase seed, StubHttpMessageHandler github, UserReadingHook? hook = null)
   {
@@ -491,7 +491,7 @@ public sealed class GitHubUserTokenProviderTests(DatabaseFixture database)
            .AddSingleton(options)
            .AddSingleton(clock)
            .AddSingleton(factory)
-           .AddSingleton<IGitHubUserTokenProvider, GitHubUserTokenProvider>()
+           .AddKeyedSingleton<IForgeUserTokenProvider, GitHubUserTokenProvider>(Forge.GitHub)
            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
   }
 
