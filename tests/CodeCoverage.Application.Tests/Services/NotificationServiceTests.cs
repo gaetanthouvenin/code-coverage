@@ -82,6 +82,7 @@ public sealed class NotificationServiceTests
   public NotificationServiceTests()
   {
     var gateways = A.Fake<IForgeGatewayProvider>();
+    A.CallTo(() => gateways.GetCapabilities(Forge.GitHub)).Returns(new ForgeCapabilities(60_000));
     var clock = A.Fake<IClock>();
     var processing = A.Fake<IOptionsMonitor<ProcessingOptions>>();
     var urls = A.Fake<IOptionsMonitor<UrlOptions>>();

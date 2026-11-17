@@ -26,6 +26,11 @@ internal static class CommentSamples
 
   public const long RepositoryId = 5;
 
+  // The longest comment GitHub is given, as its adapter tells it.
+  public const int MaxLength = 60_000;
+
+  public static readonly ForgeCapabilities Capabilities = new(MaxLength);
+
   public static readonly DateTimeOffset Now = new(2026, 11, 11, 8, 0, 0, TimeSpan.Zero);
 
   public static readonly GitSha HeadSha = GitSha.Parse("e4f5a6b" + new string('0', 33));
@@ -138,7 +143,8 @@ internal static class CommentSamples
       failedUploads,
       links ?? Links(),
       wrapDetails,
-      configInvalid
+      configInvalid,
+      MaxLength
     );
   }
 

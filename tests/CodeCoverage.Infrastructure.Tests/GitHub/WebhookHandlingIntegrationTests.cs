@@ -617,6 +617,7 @@ public sealed class WebhookHandlingIntegrationTests(DatabaseFixture database)
     var gateways = A.Fake<IForgeGatewayProvider>();
     A.CallTo(() => gateways.GetGateway(A<Forge>._)).Returns(_forge);
     A.CallTo(() => gateways.GetDirectory(Forge.GitHub)).Returns(new GitHubDirectoryGateway(_gitHub));
+    A.CallTo(() => gateways.GetCapabilities(A<Forge>._)).Returns(new ForgeCapabilities(60_000));
     services.RemoveAll<IForgeGatewayProvider>();
     services.AddSingleton(gateways);
 

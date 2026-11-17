@@ -6,6 +6,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Forges;
@@ -125,6 +126,30 @@ public sealed class ForgeGatewayProviderTests
     using var scope = provider.CreateScope();
 
     Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetLinks(Forge.AzureDevOps));
+  }
+
+  [Fact]
+  public void GetCapabilities_RegisteredForge_ShouldReturnItsCapabilities()
+  {
+    var capabilities = new ForgeCapabilities(1000);
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.GitHub, capabilities);
+    services.AddKeyedSingleton(Forge.GitLab, new ForgeCapabilities(2000));
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetCapabilities(Forge.GitHub).ShouldBeSameAs(capabilities);
+  }
+
+  [Fact]
+  public void GetCapabilities_UnregisteredForge_ShouldThrowNotSupported()
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.GitHub, new ForgeCapabilities(1000));
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetCapabilities(Forge.Bitbucket));
   }
 
   #endregion

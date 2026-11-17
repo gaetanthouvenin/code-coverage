@@ -23,6 +23,10 @@ namespace CodeCoverage.Application.Services.Comments;
 /// <param name="Links">The addresses of the pages of the repository in the Web console.</param>
 /// <param name="WrapDetails">Whether the tables are folded under a <c>details</c> element.</param>
 /// <param name="ConfigInvalid">Whether the configuration file of the commit could not be read and was ignored.</param>
+/// <param name="MaxLength">
+///   The longest body that is published, in characters: the
+///   <see cref="Domain.Contracts.Forges.ForgeCapabilities.CommentMaxLength" /> of the forge of the repository.
+/// </param>
 /// <remarks>
 ///   The composer reads nothing else: no repository, no option, no clock. What a section needs and the
 ///   comparison does not hold, the file counts and the failed uploads, is counted by the caller.
@@ -39,4 +43,5 @@ internal sealed record CommentContent(
   int FailedUploadCount,
   WebLinks Links,
   bool WrapDetails,
-  bool ConfigInvalid);
+  bool ConfigInvalid,
+  int MaxLength);

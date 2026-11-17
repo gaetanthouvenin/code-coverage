@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Domain.Ports;
@@ -42,6 +43,12 @@ public interface IForgeGatewayProvider
   /// <returns>The directory gateway of the forge.</returns>
   /// <exception cref="NotSupportedException">No directory gateway is implemented for <paramref name="forge" />.</exception>
   IForgeDirectoryGateway GetDirectory(Forge forge);
+
+  /// <summary>Gets what a forge accepts in what this application writes on it, such as the longest comment.</summary>
+  /// <param name="forge">The forge.</param>
+  /// <returns>The capabilities of the forge.</returns>
+  /// <exception cref="NotSupportedException">No capabilities are implemented for <paramref name="forge" />.</exception>
+  ForgeCapabilities GetCapabilities(Forge forge);
 
   #endregion
 }

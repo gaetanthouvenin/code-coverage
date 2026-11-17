@@ -567,6 +567,7 @@ public sealed class NotifyCommitCommandHandlerTests
   private NotifyCommitCommandHandler Handler()
   {
     var gateways = A.Fake<IForgeGatewayProvider>();
+    A.CallTo(() => gateways.GetCapabilities(Forge.GitHub)).Returns(new ForgeCapabilities(60_000));
     var directory = A.Fake<IOrganizationDirectory>();
     var views = A.Fake<IReportViewCache>();
     var urls = A.Fake<IOptionsMonitor<UrlOptions>>();

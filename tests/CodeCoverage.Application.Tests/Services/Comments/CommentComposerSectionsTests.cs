@@ -135,10 +135,10 @@ public sealed class CommentComposerSectionsTests
     var rows = body.Split('\n').Count(static line => line.Contains("/File", StringComparison.Ordinal));
     var row = body.Split('\n').First(static line => line.Contains("/File", StringComparison.Ordinal)).Length + 1;
 
-    body.Length.ShouldBeLessThanOrEqualTo(CommentTruncator.MaxLength);
+    body.Length.ShouldBeLessThanOrEqualTo(MaxLength);
     rows.ShouldBeInRange(1, 1499);
     // D. As many rows as fit: one more would not, so the room left is shorter than a row and its count.
-    (CommentTruncator.MaxLength - body.Length).ShouldBeLessThan(row + 10);
+    (MaxLength - body.Length).ShouldBeLessThan(row + 10);
     // The most important files stay, and those left out are counted.
     body.ShouldContain("File0001.cs");
     body.ShouldNotContain("File1500.cs");
@@ -153,7 +153,7 @@ public sealed class CommentComposerSectionsTests
 
     // One more row would not fit.
     var oneMore = 60 + "| [src//File0001.cs]() | `50.00% <0.00%> (ø)` | |".Length;
-    (body.Length + oneMore).ShouldBeGreaterThan(CommentTruncator.MaxLength - 400);
+    (body.Length + oneMore).ShouldBeGreaterThan(MaxLength - 400);
   }
 
   [Fact]
