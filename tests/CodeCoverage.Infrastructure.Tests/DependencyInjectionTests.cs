@@ -403,6 +403,15 @@ public sealed class DependencyInjectionTests
     links.CommentUrl("octo-org", "app", 423, 987).AbsoluteUri.ShouldBe("https://github.com/octo-org/app/pull/423#issuecomment-987");
   }
 
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheGitHubDirectoryByItsForge()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var scope = services.CreateAsyncScope();
+
+    scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetDirectory(Forge.GitHub).ShouldBeOfType<GitHubDirectoryGateway>();
+  }
+
   private static ServiceProvider Build(Dictionary<string, string?> settings, bool withProviders = false)
   {
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();

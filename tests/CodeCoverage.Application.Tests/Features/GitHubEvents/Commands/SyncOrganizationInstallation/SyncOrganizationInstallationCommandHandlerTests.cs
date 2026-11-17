@@ -59,7 +59,7 @@ public sealed class SyncOrganizationInstallationCommandHandlerTests
 
     await new SyncOrganizationInstallationCommandHandler(_installations, _organization, _jobs).Handle(Command(), Ct);
 
-    _queued.Select(static j => j.Type).ShouldAllBe(t => t == JobTypes.SyncInstallationRepositories);
+    _queued.Select(static j => j.Type).ShouldAllBe(t => t == JobTypes.SyncConnectionRepositories);
     _queued.Select(static j => j.DedupKey).ShouldBe(["sync:installation:11", "sync:installation:12"]);
     _queued.ShouldAllBe(j => j.Coalesce);
   }

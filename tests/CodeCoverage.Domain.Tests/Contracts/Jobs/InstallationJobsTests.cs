@@ -60,11 +60,11 @@ public sealed class InstallationJobsTests
 
     job.IsInstance.ShouldBeFalse();
     job.OrganizationId.ShouldBeNull();
-    job.Type.ShouldBe(JobTypes.SyncInstallationRepositories);
+    job.Type.ShouldBe(JobTypes.SyncConnectionRepositories);
     job.LockKey.ShouldBe("installation:42");
     job.DedupKey.ShouldBe("sync:installation:42");
     job.Coalesce.ShouldBeTrue();
-    job.PayloadJson.ShouldBe("""{"InstallationId":42}""");
+    job.PayloadJson.ShouldBe("""{"ConnectionId":"42","Forge":"GitHub"}""");
   }
 
   [Theory]

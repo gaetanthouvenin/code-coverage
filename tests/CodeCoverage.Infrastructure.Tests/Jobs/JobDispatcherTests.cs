@@ -10,11 +10,11 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
+using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
-using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallationRepositories;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
@@ -25,6 +25,7 @@ using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHisto
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Jobs;
 
 namespace CodeCoverage.Infrastructure.Tests.Jobs;
@@ -238,7 +239,7 @@ public sealed class JobDispatcherTests
   {
     var transfer = Job(JobTypes.SyncInstallations, 1);
     transfer.PayloadJson = SyncInstallationsJobs.CreateForTransfer("7", "2002").PayloadJson;
-    var listing = Job(JobTypes.SyncInstallationRepositories, 2);
+    var listing = Job(JobTypes.SyncConnectionRepositories, 2);
     listing.PayloadJson = RepositoryReconciliationJobs.InstallationPayload(42);
     var closing = Job(JobTypes.ReconcileRepositoryTransfer, 3);
     closing.PayloadJson = RepositoryReconciliationJobs.TransferPayload("7");
@@ -249,8 +250,30 @@ public sealed class JobDispatcherTests
     await dispatcher.DispatchAsync(closing, Ct);
 
     A.CallTo(() => _sender.Send(new SyncInstallationsCommand("7", "2002"), Ct)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _sender.Send(new SyncInstallationRepositoriesCommand(42), Ct)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _sender.Send(new SyncConnectionRepositoriesCommand(Forge.GitHub, "42"), Ct)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _sender.Send(new ReconcileRepositoryTransferCommand("7"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_LegacySyncInstallationRepositories_ShouldRunTheNewCommand()
+  {
+    var job = Job(JobTypes.SyncInstallationRepositories, 2);
+    job.PayloadJson = """{"InstallationId":42}""";
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new SyncConnectionRepositoriesCommand(Forge.GitHub, "42"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_SyncConnectionRepositoriesOfAConnection_ShouldNameItsForge()
+  {
+    var job = Job(JobTypes.SyncConnectionRepositories, 2);
+    job.PayloadJson = RepositoryReconciliationJobs.ForConnection(Forge.AzureDevOps, "contoso-devops").PayloadJson;
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new SyncConnectionRepositoriesCommand(Forge.AzureDevOps, "contoso-devops"), Ct)).MustHaveHappenedOnceExactly();
   }
 
   [Theory]
@@ -265,6 +288,14 @@ public sealed class JobDispatcherTests
   [InlineData(JobTypes.RefreshUserAccess, """{"UserId":"x"}""")]
   [InlineData(JobTypes.SyncInstallationRepositories, "{}")]
   [InlineData(JobTypes.SyncInstallationRepositories, """{"InstallationId":"x"}""")]
+  [InlineData(JobTypes.SyncInstallationRepositories, """{"InstallationId":0}""")]
+  [InlineData(JobTypes.SyncInstallationRepositories, """{"InstallationId":-5}""")]
+  [InlineData(JobTypes.SyncConnectionRepositories, "{}")]
+  [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"42"}""")]
+  [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"42","Forge":"Unknown"}""")]
+  [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"","Forge":"GitHub"}""")]
+  [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"abc","Forge":"GitHub"}""")]
+  [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"042","Forge":"GitHub"}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, "{}")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":""}""")]
   public async Task Dispatch_InvalidPayloadOfAReconciliation_ShouldThrowInvalidJobException(string type, string payload)
