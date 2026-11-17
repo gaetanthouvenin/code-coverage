@@ -12,7 +12,7 @@ namespace CodeCoverage.Web.ViewModels.Comparisons;
 /// <param name="Author">The login of its author, or <see langword="null" />.</param>
 /// <param name="HeadBranch">The branch it merges.</param>
 /// <param name="BaseBranch">The branch it merges into.</param>
-/// <param name="CommentUrl">The address of the comment the console posted, on GitHub only, or <see langword="null" />.</param>
+/// <param name="CommentUrl">The address of the comment the console posted, on its forge, or <see langword="null" /> when none was posted or the forge builds no link.</param>
 /// <param name="Comparison">The comparison of its head, or <see langword="null" /> while it is pending.</param>
 /// <param name="HeadSha">The full SHA of its head, the commit a re-notification is for, pending comparison included.</param>
 public sealed record PullRequestDetailViewModel(

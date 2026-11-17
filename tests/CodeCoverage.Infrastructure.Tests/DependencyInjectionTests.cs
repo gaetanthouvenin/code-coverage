@@ -391,6 +391,18 @@ public sealed class DependencyInjectionTests
     scope.ServiceProvider.GetRequiredKeyedService<IForgeGateway>(Forge.GitHub).ShouldBeSameAs(gateway);
   }
 
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheGitHubLinksByTheirForge()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var scope = services.CreateAsyncScope();
+
+    var links = scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetLinks(Forge.GitHub);
+
+    links.ShouldBeOfType<GitHubLinks>();
+    links.CommentUrl("octo-org", "app", 423, 987).AbsoluteUri.ShouldBe("https://github.com/octo-org/app/pull/423#issuecomment-987");
+  }
+
   private static ServiceProvider Build(Dictionary<string, string?> settings, bool withProviders = false)
   {
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();

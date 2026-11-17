@@ -64,6 +64,9 @@ public partial class PullRequestDetail
   [Inject]
   private IToastService Toasts { get; set; } = null!;
 
+  [Inject]
+  private ForgeLinkResolver Links { get; set; } = null!;
+
   #endregion
 
   #region Properties
@@ -137,7 +140,7 @@ public partial class PullRequestDetail
   private async Task LoadAsync()
   {
     State = PageState.Loading;
-    var (forge, owner, name, number) = (Forge, Owner, Name, Number);
+    var (links, forge, owner, name, number) = (Links, Forge, Owner, Name, Number);
     var key = $"{forge}/{owner}/{name}/{number}";
 
     // Another pull request: nothing of the previous one is shown or acted on while this one loads.
@@ -147,7 +150,7 @@ public partial class PullRequestDetail
     }
 
     var ticket = _latest.Begin();
-    var result = await Runner.RunAsync((sender, ct) => sender.GetPullRequestDetailViewModelAsync(forge, owner, name, number, ct)).ConfigureAwait(true);
+    var result = await Runner.RunAsync((sender, ct) => sender.GetPullRequestDetailViewModelAsync(links, forge, owner, name, number, ct)).ConfigureAwait(true);
 
     // A navigation to another pull request started since: its own load shows it.
     if (!_latest.IsLatest(ticket))

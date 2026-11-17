@@ -16,7 +16,7 @@ using CodeCoverage.Domain.Config;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Diffs;
 using CodeCoverage.Domain.Git;
-using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.PullRequests;
 using CodeCoverage.Web.ViewModels.Comparisons;
 
@@ -36,16 +36,21 @@ internal static class ComparisonMapper
 
   /// <summary>Reads a pull request and the comparison stored for its head, formatted as the configuration says.</summary>
   /// <param name="sender">The request sender.</param>
+  /// <param name="links">Resolves the links of the forge, for the link to the comment.</param>
   /// <param name="forge">The forge segment of the address.</param>
   /// <param name="owner">The owner segment of the address.</param>
   /// <param name="name">The name of the repository.</param>
   /// <param name="number">The number of the pull request.</param>
   /// <param name="cancellationToken">A token to cancel the reading.</param>
   /// <returns>The pull request, or <see langword="null" /> when the address is not one the console serves.</returns>
-  /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
-  /// <remarks>The database only: the comment link is built from the stored comment, never read from the forge.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="sender" /> or <paramref name="links" /> is <see langword="null" />.</exception>
+  /// <remarks>
+  ///   The database only: the comment link is built by the <see cref="IForgeLinks" /> of the forge from the stored comment,
+  ///   never read from the forge.
+  /// </remarks>
   public static async Task<PullRequestDetailViewModel?> GetPullRequestDetailViewModelAsync(
     this ISender sender,
+    ForgeLinkResolver links,
     string forge,
     string owner,
     string name,
@@ -53,6 +58,7 @@ internal static class ComparisonMapper
     CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(sender);
+    ArgumentNullException.ThrowIfNull(links);
 
     if (!RepositoryMapper.TryParseForge(forge, out var parsed) || number <= 0)
     {
@@ -62,7 +68,7 @@ internal static class ComparisonMapper
     var detail = await sender.Send(new GetPullRequestQuery(parsed, owner, name, number), cancellationToken).ConfigureAwait(false);
     var config = (await sender.Send(new GetEffectiveConfigQuery(parsed, owner, name), cancellationToken).ConfigureAwait(false)).Config;
 
-    return ToViewModel(detail, parsed, owner, name, config, RepositoryLinks.HrefOf(forge, owner, name));
+    return ToViewModel(detail, links.Find(parsed), owner, name, config, RepositoryLinks.HrefOf(forge, owner, name));
   }
 
   /// <summary>Splits the range of a free comparison into its two full SHAs.</summary>
@@ -278,7 +284,21 @@ internal static class ComparisonMapper
     );
   }
 
-  private static PullRequestDetailViewModel ToViewModel(PullRequestDetail detail, Forge forge, string owner, string name, CoverageConfig config, string root)
+  /// <summary>Converts a pull request and the comparison stored for its head as the page shows them.</summary>
+  /// <param name="detail">The pull request and its comparison.</param>
+  /// <param name="links">The links of the forge of the repository, or <see langword="null" /> for a forge with none.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="config">The configuration, for the precision and the rounding.</param>
+  /// <param name="root">The address of the repository in the console, for the links to the annotated source.</param>
+  /// <returns>The pull request.</returns>
+  internal static PullRequestDetailViewModel ToViewModel(
+    PullRequestDetail detail,
+    IForgeLinks? links,
+    string owner,
+    string name,
+    CoverageConfig config,
+    string root)
   {
     var pull = detail.PullRequest;
     var headTitle = string.Create(CultureInfo.InvariantCulture, $"#{pull.Number}");
@@ -289,7 +309,7 @@ internal static class ComparisonMapper
       pull.AuthorLogin,
       pull.HeadBranch,
       pull.BaseBranch,
-      CommentUrl(forge, owner, name, pull),
+      CommentUrl(links, owner, name, pull),
       detail.Comparison is { } view
         ? ToViewModel(view, pull.BaseBranch, headTitle, pull.ForkPointSha ?? pull.BaseShaGitHub, config, root, pull.Number, detail.IndirectHeadTotals)
         : null,
@@ -297,13 +317,9 @@ internal static class ComparisonMapper
     );
   }
 
-  // The stored comment, on GitHub only: no forge is asked, and GitHub Enterprise is not covered.
-  private static string? CommentUrl(Forge forge, string owner, string name, PullRequest pull) =>
-    forge is Forge.GitHub && pull.CommentId is { } comment
-      ? string.Create(
-        CultureInfo.InvariantCulture,
-        $"https://github.com/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}/pull/{pull.Number}#issuecomment-{comment}")
-      : null;
+  // The stored comment, built by the links of the forge: no forge is asked, and a forge with no links gets no link.
+  private static string? CommentUrl(IForgeLinks? links, string owner, string name, PullRequest pull) =>
+    links is not null && pull.CommentId is { } comment ? links.CommentUrl(owner, name, pull.Number, comment).AbsoluteUri : null;
 
   #endregion
 }
