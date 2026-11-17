@@ -111,7 +111,8 @@ internal sealed partial class CommentPublisher(
         failedUploads,
         new WebLinks(urls.CurrentValue.WebPublicUrl, forge, repository),
         WrapDetails: true,
-        configInvalid
+        configInvalid,
+        gateways.GetCapabilities(forge).CommentMaxLength
       );
 
       outcome = await WriteAsync(repository.ToForgeRef(forge), pull, commit, config, context, CommentComposer.Compose(content), cancellationToken)

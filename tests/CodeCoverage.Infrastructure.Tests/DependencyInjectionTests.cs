@@ -412,6 +412,18 @@ public sealed class DependencyInjectionTests
     scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetDirectory(Forge.GitHub).ShouldBeOfType<GitHubDirectoryGateway>();
   }
 
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheGitHubCapabilitiesByTheirForge()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var scope = services.CreateAsyncScope();
+
+    var capabilities = scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetCapabilities(Forge.GitHub);
+
+    capabilities.ShouldBeSameAs(GitHubCapabilities.Value);
+    capabilities.CommentMaxLength.ShouldBeLessThan(65_536);
+  }
+
   private static ServiceProvider Build(Dictionary<string, string?> settings, bool withProviders = false)
   {
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();

@@ -153,6 +153,7 @@ public sealed class ReceiveUploadIntegrationTests(DatabaseFixture database)
 
     var gateways = A.Fake<IForgeGatewayProvider>();
     A.CallTo(() => gateways.GetGateway(A<Forge>._)).Returns(gateway);
+    A.CallTo(() => gateways.GetCapabilities(A<Forge>._)).Returns(new ForgeCapabilities(60_000));
     services.RemoveAll<IForgeGatewayProvider>();
     services.AddSingleton(gateways);
 

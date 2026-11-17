@@ -20,7 +20,7 @@ namespace CodeCoverage.Application.Services;
 ///     the same lines).
 ///   </para>
 ///   <para>
-///     A body over <see cref="CommentTruncator.MaxLength" /> characters gives up rows of files, then the folded
+///     A body over <see cref="CommentContent.MaxLength" /> characters gives up rows of files, then the folded
 ///     sections, and says so.
 ///   </para>
 ///   <para>
@@ -49,14 +49,14 @@ internal static class CommentComposer
   /// <param name="content">What the comment is written from.</param>
   /// <returns>
   ///   The Markdown of the comment, without a final line feed and at most
-  ///   <see cref="CommentTruncator.MaxLength" /> characters long.
+  ///   <see cref="CommentContent.MaxLength" /> characters long.
   /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="content" /> is <see langword="null" />.</exception>
   public static string Compose(CommentContent content)
   {
     ArgumentNullException.ThrowIfNull(content);
 
-    return CommentTruncator.Fit(content.Config.Comment.FilesLimit, files => Write(content, files));
+    return CommentTruncator.Fit(content.Config.Comment.FilesLimit, content.MaxLength, files => Write(content, files));
   }
 
   /// <summary>Writes the body with a given number of files.</summary>
