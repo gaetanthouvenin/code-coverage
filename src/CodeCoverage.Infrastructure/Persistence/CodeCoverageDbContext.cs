@@ -32,6 +32,7 @@ using CodeCoverage.Infrastructure.Persistence.Conventions;
 using CodeCoverage.Infrastructure.Persistence.Organizations;
 using CodeCoverage.Infrastructure.Settings;
 using CodeCoverage.Infrastructure.Uploads;
+using CodeCoverage.Infrastructure.Webhooks;
 
 namespace CodeCoverage.Infrastructure.Persistence;
 

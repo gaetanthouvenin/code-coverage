@@ -7,10 +7,13 @@
 using System.Text;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
@@ -18,6 +21,7 @@ using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Tests.Support;
+using CodeCoverage.Infrastructure.Webhooks;
 
 using static CodeCoverage.Infrastructure.Tests.Support.RepositorySeeder;
 
@@ -27,6 +31,8 @@ namespace CodeCoverage.Infrastructure.Tests.Persistence.Repositories;
 public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : IDisposable
 {
   #region Fields
+
+  private const string ForgeMigration = "AddWebhookDeliveryForge";
 
   private readonly TestMeterFactory _meterFactory = new();
 
@@ -56,11 +62,12 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
     var row = await reader.WebhookDeliveries.AsNoTracking().SingleAsync(Ct);
     var job = await reader.Jobs.AsNoTracking().SingleAsync(Ct);
 
+    row.Forge.ShouldBe(Forge.GitHub);
     row.OrganizationId.ShouldBe(organizations.FirstId);
     row.Event.ShouldBe("push");
     row.Action.ShouldBe("created");
-    row.InstallationId.ShouldBe(42);
-    row.RepositoryGitHubId.ShouldBe(7);
+    row.ConnectionId.ShouldBe("42");
+    row.RepositoryExternalId.ShouldBe("7");
     row.ReceivedAt.ShouldBe(Now);
     row.ProcessedAt.ShouldBeNull();
     row.Payload.ShouldNotBe(Delivery("d-1").Payload, "the body is stored compressed");
@@ -95,6 +102,79 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
 
     (await reader.WebhookDeliveries.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
     (await reader.Jobs.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
+  }
+
+  // Two forges may send the same identifier: the primary key holds the forge, so neither delivery refuses the other,
+  // and the GitHub methods only touch the GitHub one.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task AddAsync_SameDeliveryIdOnTwoForges_ShouldKeepBoth(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+
+    await using (var context = organizations.ContextWithoutOrganization())
+    {
+      context.WebhookDeliveries.Add(
+        new WebhookDeliveryRecord
+        {
+          Forge = Forge.Bitbucket,
+          DeliveryId = "d-1",
+          OrganizationId = organizations.FirstId,
+          Event = "repo:push",
+          ConnectionId = "contoso-bitbucket",
+          RepositoryExternalId = "{2f1c}",
+          Payload = [1],
+          ReceivedAt = Now,
+        }
+      );
+      await context.SaveChangesAsync(Ct);
+    }
+
+    (await StoreAsync(organizations, Delivery("d-1"), ForOrganization(organizations.FirstId))).ShouldBeTrue();
+    await MarkAsync(organizations, "d-1", organizations.FirstId, Now.AddMinutes(1));
+
+    await using var reader = organizations.ContextWithoutOrganization();
+    var rows = await reader.WebhookDeliveries.AsNoTracking().OrderBy(static d => d.Event).ToListAsync(Ct);
+
+    rows.Select(static d => d.Forge).ShouldBe([Forge.GitHub, Forge.Bitbucket]);
+    rows[0].ProcessedAt.ShouldBe(Now.AddMinutes(1));
+    rows[1].ProcessedAt.ShouldBeNull();
+    rows[1].ConnectionId.ShouldBe("contoso-bitbucket");
+    (await FindAsync(organizations, "d-1", organizations.FirstId)).ShouldNotBeNull().Event.ShouldBe("push");
+
+    var listed = await Repository(reader, new OrganizationContext()).ListRecentAsync(10, Ct);
+
+    listed.Select(static d => d.Forge).ShouldBe([Forge.Bitbucket, Forge.GitHub], ignoreOrder: true);
+    listed.Single(static d => d.Forge is Forge.GitHub).ConnectionId.ShouldBe("42");
+    listed.Single(static d => d.Forge is Forge.GitHub).RepositoryExternalId.ShouldBe("7");
+  }
+
+  // The migration runs on databases whose deliveries all came from GitHub: each one is read back on the forge GitHub
+  // with its installation and its repository, so it can still be handled again.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Migration_ExistingGitHubDelivery_ShouldKeepItsIdentifiers(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreAsync(organizations, Delivery("d-1"), ForOrganization(organizations.FirstId));
+
+    await MigrateAsync(organizations, MigrationBefore(organizations, ForgeMigration));
+    await MigrateAsync(organizations, null);
+
+    var found = await FindAsync(organizations, "d-1", organizations.FirstId);
+
+    found.ShouldNotBeNull().Payload.ShouldBe(Delivery("d-1").Payload);
+    found.InstallationId.ShouldBe(42);
+    found.RepositoryId.ShouldBe(7);
+
+    await using var check = organizations.ContextWithoutOrganization();
+    var row = await check.WebhookDeliveries.AsNoTracking().SingleAsync(Ct);
+
+    row.Forge.ShouldBe(Forge.GitHub);
+    row.ConnectionId.ShouldBe("42");
+    row.RepositoryExternalId.ShouldBe("7");
+    row.OrganizationId.ShouldBe(organizations.FirstId);
+    (await check.Database.GetPendingMigrationsAsync(Ct)).ShouldBeEmpty();
   }
 
   [Theory]
@@ -234,6 +314,25 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
 
     (await ProcessedAtAsync(organizations, "d-1")).ShouldBe(Now.AddMinutes(1));
     (await ProcessedAtAsync(organizations, "d-2")).ShouldBeNull();
+  }
+
+  // The migration applied just before the named one.
+  private static string MigrationBefore(TwoOrganizationDatabase organizations, string migration)
+  {
+    using var context = organizations.ContextWithoutOrganization();
+    var migrations = context.Database.GetMigrations().ToList();
+    var index = migrations.FindIndex(id => id.EndsWith("_" + migration, StringComparison.Ordinal));
+
+    index.ShouldBeGreaterThan(0);
+
+    return migrations[index - 1];
+  }
+
+  private static async Task MigrateAsync(TwoOrganizationDatabase organizations, string? target)
+  {
+    await using var context = organizations.ContextWithoutOrganization();
+
+    await context.GetService<IMigrator>().MigrateAsync(target, Ct);
   }
 
   private static async Task<DateTimeOffset?> ProcessedAtAsync(TwoOrganizationDatabase organizations, string id)

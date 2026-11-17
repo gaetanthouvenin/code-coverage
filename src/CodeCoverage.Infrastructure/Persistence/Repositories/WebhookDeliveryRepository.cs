@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using System.IO.Compression;
 
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +13,11 @@ using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
+using CodeCoverage.Infrastructure.Webhooks;
 
 namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 
@@ -38,6 +40,17 @@ internal sealed class WebhookDeliveryRepository(
   #endregion
 
   #region Methods
+
+  /// <summary>Writes the identifier of a GitHub object in text, as the neutral columns hold it.</summary>
+  /// <param name="id">The identifier, or <see langword="null" />.</param>
+  /// <returns>The text, or <see langword="null" />.</returns>
+  private static string? ToText(long? id) => id?.ToString(CultureInfo.InvariantCulture);
+
+  /// <summary>Reads the identifier of a GitHub object from its text.</summary>
+  /// <param name="text">The text, or <see langword="null" />.</param>
+  /// <returns>The identifier, or <see langword="null" /> when the text holds none.</returns>
+  private static long? ToId(string? text) =>
+    long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : null;
 
   /// <summary>Compresses a body.</summary>
   /// <param name="payload">The raw body.</param>
@@ -81,12 +94,13 @@ internal sealed class WebhookDeliveryRepository(
 
     var record = new WebhookDeliveryRecord
     {
+      Forge = Forge.GitHub,
       DeliveryId = delivery.DeliveryId,
       OrganizationId = job.OrganizationId,
       Event = delivery.Event,
       Action = delivery.Action,
-      InstallationId = delivery.InstallationId,
-      RepositoryGitHubId = delivery.RepositoryId,
+      ConnectionId = ToText(delivery.InstallationId),
+      RepositoryExternalId = ToText(delivery.RepositoryId),
       Payload = Compress(delivery.Payload),
       ReceivedAt = at.ToUniversalTime(),
     };
@@ -129,14 +143,21 @@ internal sealed class WebhookDeliveryRepository(
 
     var record = await context.WebhookDeliveries
                               .AsNoTracking()
-                              .Where(d => d.DeliveryId == deliveryId)
+                              .Where(d => d.Forge == Forge.GitHub && d.DeliveryId == deliveryId)
                               .Where(d => d.OrganizationId == null || d.OrganizationId == organizationId)
                               .SingleOrDefaultAsync(cancellationToken)
                               .ConfigureAwait(false);
 
     return record is null
       ? null
-      : new GitHubWebhookEvent(record.DeliveryId, record.Event, record.Action, record.InstallationId, record.RepositoryGitHubId, Decompress(record.Payload));
+      : new GitHubWebhookEvent(
+        record.DeliveryId,
+        record.Event,
+        record.Action,
+        ToId(record.ConnectionId),
+        ToId(record.RepositoryExternalId),
+        Decompress(record.Payload)
+      );
   }
 
   /// <inheritdoc />
@@ -148,7 +169,7 @@ internal sealed class WebhookDeliveryRepository(
     var utc = at.ToUniversalTime();
 
     await context.WebhookDeliveries
-                 .Where(d => d.DeliveryId == deliveryId && d.ProcessedAt == null)
+                 .Where(d => d.Forge == Forge.GitHub && d.DeliveryId == deliveryId && d.ProcessedAt == null)
                  .Where(d => d.OrganizationId == null || d.OrganizationId == organizationId)
                  .ExecuteUpdateAsync(setters => setters.SetProperty(static d => d.ProcessedAt, utc), cancellationToken)
                  .ConfigureAwait(false);
@@ -162,15 +183,17 @@ internal sealed class WebhookDeliveryRepository(
     return await context.WebhookDeliveries
                         .AsNoTracking()
                         .OrderByDescending(static d => d.ReceivedAt)
+                        .ThenBy(static d => d.Forge)
                         .ThenBy(static d => d.DeliveryId)
                         .Take(count)
                         .Select(static d => new WebhookDeliverySummary(
+                                  d.Forge,
                                   d.DeliveryId,
                                   d.Event,
                                   d.Action,
                                   d.OrganizationId,
-                                  d.InstallationId,
-                                  d.RepositoryGitHubId,
+                                  d.ConnectionId,
+                                  d.RepositoryExternalId,
                                   d.ReceivedAt,
                                   d.ProcessedAt,
                                   d.Error != null))
