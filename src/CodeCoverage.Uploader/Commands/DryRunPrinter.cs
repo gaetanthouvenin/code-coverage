@@ -39,6 +39,7 @@ internal static class DryRunPrinter
 
     reporter.Info($"Dry run: nothing is sent to {settings.Url}. The upload would hold:");
     Field(reporter, "slug", request.Slug);
+    Field(reporter, "forge", request.Forge);
     Field(reporter, "sha", request.Sha);
     Field(reporter, "branch", request.Branch);
     Field(reporter, "pull request", request.PullRequest?.ToString(CultureInfo.InvariantCulture));

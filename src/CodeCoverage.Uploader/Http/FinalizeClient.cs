@@ -21,8 +21,8 @@ internal sealed class FinalizeClient(HttpClient client, RetryPolicy retry, Conso
 {
   #region Fields
 
-  // The uploads of this tool are those of a GitHub repository.
-  private const string ForgeSegment = "github";
+  // How the server writes an owner of several segments in its addresses: org:project, group:sub.
+  private const char OwnerSeparator = ':';
 
   #endregion
 
@@ -30,46 +30,60 @@ internal sealed class FinalizeClient(HttpClient client, RetryPolicy retry, Conso
 
   /// <summary>Builds the address of the announcement.</summary>
   /// <param name="server">The address of the server.</param>
-  /// <param name="slug">The slug of the repository, <c>owner/name</c>.</param>
+  /// <param name="forge">The forge segment of the repository: <c>github</c>, <c>azure-devops</c>, <c>bitbucket</c> or <c>gitlab</c>.</param>
+  /// <param name="slug">The slug of the repository, <c>owner/name</c> or <c>org/project/name</c>.</param>
   /// <param name="sha">The SHA of the commit.</param>
   /// <returns>The address, or <see langword="null" /> when the slug has no owner or no name.</returns>
-  public static Uri? BuildAddress(Uri server, string slug, string sha)
+  /// <remarks>
+  ///   The slug is cut at its last <c>/</c>: what comes before is the owner, whose segments are
+  ///   joined with <c>:</c>, as the server writes them.
+  /// </remarks>
+  public static Uri? BuildAddress(Uri server, string forge, string slug, string sha)
   {
     ArgumentNullException.ThrowIfNull(server);
+    ArgumentNullException.ThrowIfNull(forge);
     ArgumentNullException.ThrowIfNull(slug);
     ArgumentNullException.ThrowIfNull(sha);
 
-    var separator = slug.IndexOf('/', StringComparison.Ordinal);
+    var separator = slug.LastIndexOf('/');
 
-    if (separator <= 0 || separator == slug.Length - 1 || sha.Length == 0)
+    if (forge.Length == 0 || separator <= 0 || separator == slug.Length - 1 || sha.Length == 0)
     {
       return null;
     }
 
-    var owner = Uri.EscapeDataString(slug[..separator]);
+    var segments = slug[..separator].Split('/');
+
+    if (segments.Any(static segment => segment.Length == 0))
+    {
+      return null;
+    }
+
+    var owner = string.Join(OwnerSeparator, segments.Select(Uri.EscapeDataString));
     var name = Uri.EscapeDataString(slug[(separator + 1)..]);
 
     return new Uri(
       new Uri(server.ToString().TrimEnd('/') + "/"),
-      $"api/v1/repos/{ForgeSegment}/{owner}/{name}/commits/{Uri.EscapeDataString(sha)}/uploads-complete"
+      $"api/v1/repos/{Uri.EscapeDataString(forge)}/{owner}/{name}/commits/{Uri.EscapeDataString(sha)}/uploads-complete"
     );
   }
 
   /// <summary>Announces the end of the uploads of a commit.</summary>
   /// <param name="server">The address of the server.</param>
+  /// <param name="forge">The forge segment of the repository.</param>
   /// <param name="slug">The slug of the repository.</param>
   /// <param name="sha">The SHA of the commit.</param>
   /// <param name="credential">The credential that sent the upload.</param>
   /// <param name="cancellationToken">A token to cancel the call.</param>
   /// <returns><see langword="true" /> when the server took the announcement.</returns>
   /// <remarks>A failure is reported and never thrown: the coverage tooling does not break a build.</remarks>
-  public async Task<bool> CompleteAsync(Uri server, string slug, string sha, string credential, CancellationToken cancellationToken)
+  public async Task<bool> CompleteAsync(Uri server, string forge, string slug, string sha, string credential, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(credential);
 
-    if (BuildAddress(server, slug, sha) is not { } address)
+    if (BuildAddress(server, forge, slug, sha) is not { } address)
     {
-      reporter.Error($"The slug '{slug}' is not owner/name: the uploads cannot be declared complete.");
+      reporter.Error($"The slug '{slug}' is not owner/name or org/project/name: the uploads cannot be declared complete.");
 
       return false;
     }

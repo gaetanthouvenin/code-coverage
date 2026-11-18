@@ -66,6 +66,7 @@ internal static class CiContextDetector
 
     return detected with
     {
+      Forge = settings.Forge ?? detected.Forge ?? DetectedContext.DefaultForge,
       Slug = slug,
       Sha = ResolveSha(detected, settings.Sha, warnings),
       Branch = DetectedContext.StripBranchRef(settings.Branch) ?? detected.Branch,

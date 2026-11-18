@@ -468,6 +468,48 @@ public sealed class CiContextDetectorTests
     context.Warnings.ShouldHaveSingleItem().ShouldContain("--slug");
   }
 
+  [Theory]
+  [InlineData("https://gitlab.com/octo-group/sub/octo-repo.git")]
+  [InlineData("git@gitlab.com:octo-group/sub/octo-repo.git")]
+  [InlineData("ssh://git@gitlab.com:22/octo-group/sub/octo-repo")]
+  public void Detect_LocalThreeLevelSlug_ShouldKeepIt(string remote)
+  {
+    var context = DetectLocal(sha: HeadSha, branch: "main", remote: remote);
+
+    context.Slug.ShouldBe("octo-group/sub/octo-repo");
+    context.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_LocalWithoutDetectedForge_ShouldKeepGitHub()
+  {
+    DetectLocal(sha: HeadSha, branch: "main", remote: "git@github.com:octo-org/octo-repo.git").Forge.ShouldBe("github");
+  }
+
+  [Fact]
+  public void Detect_GitHubActions_ShouldGiveGitHub()
+  {
+    DetectFixture("gha-push.json").Forge.ShouldBe("github");
+  }
+
+  [Theory]
+  [InlineData("GitHub", "github")]
+  [InlineData("TfsGit", "azure-devops")]
+  [InlineData("Bitbucket", "bitbucket")]
+  [InlineData("Git", "github")]
+  public void Detect_AzureProvider_ShouldGiveItsForge(string provider, string expected)
+  {
+    Detect(CiEnvironmentFixture.Load("azure-ci.json").With("BUILD_REPOSITORY_PROVIDER", provider)).Forge.ShouldBe(expected);
+  }
+
+  [Fact]
+  public void Detect_ForgeOption_ShouldWinOverTheDetection()
+  {
+    var settings = new UploaderSettings { Url = new Uri("https://coverage.example.com"), Forge = "gitlab" };
+
+    Detect(CiEnvironmentFixture.Load("gha-push.json"), settings).Forge.ShouldBe("gitlab");
+  }
+
   [Fact]
   public void Detect_LocalRemoteWithCredential_ShouldNotPrintIt()
   {

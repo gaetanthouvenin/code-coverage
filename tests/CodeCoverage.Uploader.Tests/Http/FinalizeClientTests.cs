@@ -42,7 +42,7 @@ public sealed class FinalizeClientTests
   {
     _handler.Then(HttpStatusCode.OK, """{"total":3,"processed":2,"processing":1,"failed":0}""");
 
-    (await Client().CompleteAsync(Server, "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
+    (await Client().CompleteAsync(Server, "github", "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
 
     var (request, body) = _handler.Received.ShouldHaveSingleItem();
     request.Method.ShouldBe(HttpMethod.Post);
@@ -64,7 +64,7 @@ public sealed class FinalizeClientTests
   {
     _handler.Then(HttpStatusCode.OK, body);
 
-    (await Client().CompleteAsync(Server, "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
+    (await Client().CompleteAsync(Server, "github", "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
 
     _output.ToString().ShouldContain(expected);
   }
@@ -77,7 +77,7 @@ public sealed class FinalizeClientTests
   {
     _handler.Then(status, body);
 
-    (await Client().CompleteAsync(Server, "octo-org/app", Sha, Credential, Ct)).ShouldBeFalse();
+    (await Client().CompleteAsync(Server, "github", "octo-org/app", Sha, Credential, Ct)).ShouldBeFalse();
 
     _handler.Received.Count.ShouldBe(1);
     _output.ToString().ShouldContain($"The server refused to declare the uploads complete: {expected}");
@@ -88,7 +88,7 @@ public sealed class FinalizeClientTests
   {
     _handler.Then(HttpStatusCode.ServiceUnavailable).Then(HttpStatusCode.TooManyRequests).Then(HttpStatusCode.OK, """{"total":1,"processed":1,"processing":0,"failed":0}""");
 
-    (await Client().CompleteAsync(Server, "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
+    (await Client().CompleteAsync(Server, "github", "octo-org/app", Sha, Credential, Ct)).ShouldBeTrue();
 
     _handler.Received.Count.ShouldBe(3);
     _waits.Count.ShouldBe(2);
@@ -103,7 +103,7 @@ public sealed class FinalizeClientTests
       _handler.ThenThrow(new HttpRequestException("connection refused"));
     }
 
-    (await Client().CompleteAsync(Server, "octo-org/app", Sha, Credential, Ct)).ShouldBeFalse();
+    (await Client().CompleteAsync(Server, "github", "octo-org/app", Sha, Credential, Ct)).ShouldBeFalse();
 
     _handler.Received.Count.ShouldBe(RetryPolicy.MaxAttempts);
     _output.ToString().ShouldContain("The uploads could not be declared complete: connection refused");
@@ -114,9 +114,10 @@ public sealed class FinalizeClientTests
   [InlineData("/app")]
   [InlineData("octo-org/")]
   [InlineData("")]
+  [InlineData("octo-org//app")]
   public async Task Complete_SlugThatIsNotOwnerAndName_ShouldSendNothing(string slug)
   {
-    (await Client().CompleteAsync(Server, slug, Sha, Credential, Ct)).ShouldBeFalse();
+    (await Client().CompleteAsync(Server, "github", slug, Sha, Credential, Ct)).ShouldBeFalse();
 
     _handler.Received.ShouldBeEmpty();
   }
@@ -125,17 +126,36 @@ public sealed class FinalizeClientTests
   [InlineData("https://coverage.example.com", "octo-org/app", "https://coverage.example.com/api/v1/repos/github/octo-org/app/commits/abc/uploads-complete")]
   [InlineData("https://coverage.example.com/", "octo-org/app", "https://coverage.example.com/api/v1/repos/github/octo-org/app/commits/abc/uploads-complete")]
   [InlineData("https://example.com/coverage", "octo-org/app", "https://example.com/coverage/api/v1/repos/github/octo-org/app/commits/abc/uploads-complete")]
-  [InlineData("https://coverage.example.com", "octo-org/group/app", "https://coverage.example.com/api/v1/repos/github/octo-org/group%2Fapp/commits/abc/uploads-complete")]
   [InlineData("https://coverage.example.com", "octo org/a?b", "https://coverage.example.com/api/v1/repos/github/octo%20org/a%3Fb/commits/abc/uploads-complete")]
   public void BuildAddress_ShouldKeepThePathOfTheServerAndEscapeEachSegment(string server, string slug, string expected)
   {
-    FinalizeClient.BuildAddress(new Uri(server), slug, "abc").ShouldNotBeNull().AbsoluteUri.ShouldBe(expected);
+    FinalizeClient.BuildAddress(new Uri(server), "github", slug, "abc").ShouldNotBeNull().AbsoluteUri.ShouldBe(expected);
+  }
+
+  [Fact]
+  public void BuildAddress_ThreeLevels_ShouldWriteColonOwner()
+  {
+    FinalizeClient.BuildAddress(Server, "gitlab", "octo-group/sub group/app", "abc")
+                  .ShouldNotBeNull()
+                  .AbsoluteUri.ShouldBe("https://coverage.example.com/api/v1/repos/gitlab/octo-group:sub%20group/app/commits/abc/uploads-complete");
+  }
+
+  [Fact]
+  public async Task CompleteAsync_AzureDevOps_ShouldUseItsSegment()
+  {
+    _handler.Then(HttpStatusCode.OK, "{}");
+
+    (await Client().CompleteAsync(Server, "azure-devops", "fabrikam/Octo/octo-repo", Sha, Credential, Ct)).ShouldBeTrue();
+
+    _handler.Received.ShouldHaveSingleItem()
+            .Request.RequestUri!.AbsoluteUri
+            .ShouldBe($"https://coverage.example.com/api/v1/repos/azure-devops/fabrikam:Octo/octo-repo/commits/{Sha}/uploads-complete");
   }
 
   [Fact]
   public void BuildAddress_EmptySha_ShouldReturnNull()
   {
-    FinalizeClient.BuildAddress(Server, "octo-org/app", string.Empty).ShouldBeNull();
+    FinalizeClient.BuildAddress(Server, "github", "octo-org/app", string.Empty).ShouldBeNull();
   }
 
   private FinalizeClient Client()

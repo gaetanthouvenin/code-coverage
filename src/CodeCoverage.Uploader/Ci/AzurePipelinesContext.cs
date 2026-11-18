@@ -48,6 +48,7 @@ internal static class AzurePipelinesContext
     return new DetectedContext
     {
       Service = Service,
+      Forge = ForgeOf(provider),
       Slug = isGitHub ? environment("BUILD_REPOSITORY_NAME") : null,
       Sha = sha,
       Branch = ReadBranch(environment, isPullRequest),
@@ -66,6 +67,18 @@ internal static class AzurePipelinesContext
       SlugFailure = isGitHub
                       ? "BUILD_REPOSITORY_NAME is not set."
                       : $"BUILD_REPOSITORY_NAME gives an owner/repo slug only for a GitHub repository, not for '{provider ?? "an unknown provider"}'.",
+    };
+  }
+
+  // The forge that hosts the repository of the build; an other provider leaves it to --forge.
+  private static string? ForgeOf(string? provider)
+  {
+    return provider?.ToLowerInvariant() switch
+    {
+      "github" or "githubenterprise" => "github",
+      "tfsgit" => "azure-devops",
+      "bitbucket" => "bitbucket",
+      var _ => null,
     };
   }
 

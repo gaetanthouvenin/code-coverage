@@ -20,6 +20,9 @@ internal sealed record DetectedContext
   /// <summary>The prefix of the ref of a branch.</summary>
   public const string BranchRefPrefix = "refs/heads/";
 
+  /// <summary>The forge of a repository whose forge is neither given nor detected, as the server assumes it too.</summary>
+  public const string DefaultForge = "github";
+
   private const int ShaLength = 40;
 
   #endregion
@@ -29,7 +32,10 @@ internal sealed record DetectedContext
   /// <summary>Gets the CI service, one of the values of the <c>ciService</c> upload field.</summary>
   public required string Service { get; init; }
 
-  /// <summary>Gets the <c>owner/repo</c> slug, or <see langword="null" /> when unknown.</summary>
+  /// <summary>Gets the forge segment (<c>github</c>, <c>azure-devops</c>, <c>bitbucket</c>, <c>gitlab</c>), or <see langword="null" /> when unknown.</summary>
+  public string? Forge { get; init; }
+
+  /// <summary>Gets the slug, <c>owner/repo</c> or <c>org/project/repo</c>, or <see langword="null" /> when unknown.</summary>
   public string? Slug { get; init; }
 
   /// <summary>Gets the commit in lower case, or <see langword="null" /> when unknown.</summary>
@@ -74,6 +80,21 @@ internal sealed record DetectedContext
     return value is { Length: ShaLength } && value.All(char.IsAsciiHexDigit)
              ? value.ToLowerInvariant()
              : null;
+  }
+
+  /// <summary>Reads a forge, as the server reads the <c>forge</c> field of an upload.</summary>
+  /// <param name="value">A forge name or its alias, whatever its case, or <see langword="null" />.</param>
+  /// <returns>The forge segment, or <see langword="null" /> when the text names no forge.</returns>
+  public static string? NormalizeForge(string? value)
+  {
+    return value?.Trim().ToLowerInvariant() switch
+    {
+      "github" or "gh" => "github",
+      "bitbucket" or "bb" => "bitbucket",
+      "azure-devops" => "azure-devops",
+      "gitlab" or "gl" => "gitlab",
+      var _ => null,
+    };
   }
 
   /// <summary>Reads a pull request number.</summary>

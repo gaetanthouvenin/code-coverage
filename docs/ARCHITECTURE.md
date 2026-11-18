@@ -685,7 +685,7 @@ Les erreurs sont des ProblemDetails avec `errorCode`.
 
 ```text
 coverage-upload --url $COVERAGE_URL [--token $COVERAGE_TOKEN|$CODECOV_TOKEN] [-f <glob|path>]... [--flags a,b] [--name n]
-                [--slug o/r] [--sha s] [--branch b] [--pr n] [--parent-sha s] [--root dir] [--disable-search]
+                [--forge|--git-service f] [--slug o/r|org/project/r] [--sha s] [--branch b] [--pr n] [--parent-sha s] [--root dir] [--disable-search]
                 [--no-network] [--wait] [--finalize] [--dry-run] [--fail-on-error] [--verbose]
 ```
 
@@ -708,6 +708,7 @@ coverage-upload --url $COVERAGE_URL [--token $COVERAGE_TOKEN|$CODECOV_TOKEN] [-f
      - `branch = strip("refs/heads/", SYSTEM_PULLREQUEST_SOURCEBRANCH ?? BUILD_SOURCEBRANCH)` ;
      - `buildUrl = $SYSTEM_TEAMFOUNDATIONCOLLECTIONURI$SYSTEM_TEAMPROJECT/_build/results?buildId=$BUILD_BUILDID`, `root = BUILD_SOURCESDIRECTORY`.
    - **Local ou autre** : `git rev-parse HEAD`, `git branch --show-current`, slug déduit de `git remote get-url origin`.
+   - **Forge** : `--forge` (alias `--git-service` de codecov-cli : `github`, `azure-devops`, `bitbucket`, `gitlab`), sinon celle du contexte CI (`github` sur GitHub Actions, `BUILD_REPOSITORY_PROVIDER` sur Azure Pipelines), sinon `github`. Elle est envoyée dans le champ `forge` et écrite dans l'adresse de `--finalize`, où un owner à plusieurs segments (`org/project/repo`) devient `org:project`. Une forge inconnue est une erreur, code 0 sans `--fail-on-error`.
    - **Contrôle de cohérence** : si HEAD est un commit de merge dont le second parent vaut le SHA détecté, un message d'information est journalisé. Sur un build hors PR où le SHA détecté diffère de HEAD, un avertissement est émis.
 3. **SHA parent** : envoyé seulement si `git rev-parse --is-shallow-repository` vaut `false` et que HEAD n'est pas un merge.
 4. **Réseau** : `git ls-files -z` (fonctionne en profondeur 1), sauf avec `--no-network`.

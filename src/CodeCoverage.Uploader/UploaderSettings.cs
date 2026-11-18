@@ -29,7 +29,10 @@ internal sealed class UploaderSettings
   /// <summary>Gets the session name, or <see langword="null" /> when none is given.</summary>
   public string? Name { get; init; }
 
-  /// <summary>Gets the <c>owner/repo</c> slug, or <see langword="null" /> to detect it.</summary>
+  /// <summary>Gets the forge segment of the repository, or <see langword="null" /> to detect it.</summary>
+  public string? Forge { get; init; }
+
+  /// <summary>Gets the slug, <c>owner/repo</c> or <c>org/project/repo</c>, or <see langword="null" /> to detect it.</summary>
   public string? Slug { get; init; }
 
   /// <summary>Gets the commit, or <see langword="null" /> to detect it.</summary>
