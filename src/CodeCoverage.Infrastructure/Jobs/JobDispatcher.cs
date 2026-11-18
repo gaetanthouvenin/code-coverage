@@ -13,6 +13,7 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
+using CodeCoverage.Application.Features.Connections.Commands.SyncConnections;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
@@ -208,6 +209,10 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
       case JobTypes.SyncInstallations:
         await sender.Send(Read(job, static p => new SyncInstallationsCommand(ReadOptionalText(p, "TransferredRepositoryId"), ReadOptionalText(p, "PreviousOwnerAccountId"))), cancellationToken)
                     .ConfigureAwait(false);
+
+        break;
+      case JobTypes.SyncConnections:
+        await sender.Send(new SyncConnectionsCommand(), cancellationToken).ConfigureAwait(false);
 
         break;
       case JobTypes.SyncConnectionRepositories:

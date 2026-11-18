@@ -197,6 +197,15 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
     purge.DedupKey.ShouldBe(PurgeExpiredDataJobs.Key);
   }
 
+  [Fact]
+  public void Catalog_ShouldSyncConnectionsDaily()
+  {
+    var sync = RecurringJobCatalog.All.Single(static d => d.Type == JobTypes.SyncConnections);
+
+    sync.Interval.ShouldBe(TimeSpan.FromDays(1));
+    sync.DedupKey.ShouldBe(SyncConnectionsJobs.Key);
+  }
+
   [Theory]
   [InlineData("2026-11-08T10:32:15Z", 5, "2026-11-08T10:35:00Z")]
   [InlineData("2026-11-08T10:35:00Z", 5, "2026-11-08T10:40:00Z")]

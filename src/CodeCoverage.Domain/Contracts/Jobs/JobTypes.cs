@@ -36,6 +36,12 @@ public static class JobTypes
   public const string SyncInstallations = "SyncInstallations";
 
   /// <summary>
+  ///   Lists the forge connections that are not suspended and queues the reconciliation of each one, in its organization:
+  ///   the coordinator of the forges other than GitHub (ADR-017).
+  /// </summary>
+  public const string SyncConnections = "SyncConnections";
+
+  /// <summary>
   ///   The former reconciliation of the repositories of an organization with those its installation serves, replaced by
   ///   <see cref="SyncConnectionRepositories" />: nothing queues it any more, and the job dispatcher still runs, for one
   ///   version, the jobs of this type that were queued before the deployment.
