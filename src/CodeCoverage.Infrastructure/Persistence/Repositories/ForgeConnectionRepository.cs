@@ -12,14 +12,20 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Connections;
+using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Jobs;
+using CodeCoverage.Infrastructure.Persistence.Configurations;
 
 namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 
 /// <summary>Reads and writes the <c>ForgeConnections</c> table, which is global (ADR-017).</summary>
 /// <param name="context">The database context of the scope.</param>
 /// <param name="secretProtector">The protector the secrets of a connection must come from.</param>
+/// <param name="jobQueue">The queue that takes the jobs of a new connection in the transaction of the change.</param>
+/// <param name="wakeUpSignal">The signal that wakes the worker of this process once a job is committed.</param>
 /// <remarks>
 ///   <para>
 ///     The table has no query filter, so nothing here calls <c>IgnoreQueryFilters</c>: a reading by organization filters
@@ -32,12 +38,28 @@ namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 ///     be decrypted, after the key ring was lost, can still be suspended or record its failed check.
 ///   </para>
 /// </remarks>
-internal sealed class ForgeConnectionRepository(CodeCoverageDbContext context, ISecretProtector secretProtector) : IForgeConnectionRepository
+internal sealed class ForgeConnectionRepository(
+  CodeCoverageDbContext context,
+  ISecretProtector secretProtector,
+  SqlJobQueue jobQueue,
+  JobWakeUpSignal wakeUpSignal) : IForgeConnectionRepository
 {
   #region Fields
 
   /// <summary>The name of the primary key, which reports a connection added twice.</summary>
   private const string PrimaryKeyName = "PK_ForgeConnections";
+
+  /// <summary>The message of the refusal of an organization that is already saved.</summary>
+  private const string SavedOrganizationMessage = "The organization of a new connection must not be saved yet.";
+
+  /// <summary>The message of the refusal of a connection that does not belong to the new organization.</summary>
+  private const string OtherOrganizationMessage = "The connection must name the new organization and its forge.";
+
+  /// <summary>The message of the refusal of a job that does not belong to the new organization.</summary>
+  private const string OtherLaneMessage = "A job of a new connection names its new organization or runs on the lane of the instance.";
+
+  /// <summary>The message of the conflict of an organization or a connection that exists.</summary>
+  private const string TakenMessage = "An organization of that account or login, or a connection of that identifier, exists.";
 
   /// <summary>The message of the refusal of a connection that this context did not read.</summary>
   private const string NotReadMessage = "A connection must be read in this scope before it can be updated.";
@@ -48,6 +70,71 @@ internal sealed class ForgeConnectionRepository(CodeCoverageDbContext context, I
   #endregion
 
   #region Methods
+
+  /// <summary>Tells whether a failed save met an organization or a connection that exists.</summary>
+  /// <param name="exception">The failure of the save.</param>
+  /// <returns><see langword="true" /> for an account, a login or a connection identifier taken.</returns>
+  private static bool IsTaken(Exception exception) =>
+    UniqueIndexViolation.Is(exception, OrganizationConfiguration.AccountIndexName)
+    || UniqueIndexViolation.Is(exception, OrganizationConfiguration.LoginIndexName)
+    || UniqueIndexViolation.Is(exception, PrimaryKeyName);
+
+  /// <summary>Stops tracking the entities of a rolled back transaction: nothing is left for a later save of the scope.</summary>
+  /// <param name="added">The entities added to the context.</param>
+  /// <remarks>
+  ///   An organization gives back the identifier its rolled back row received, so the instance of the caller reads as not
+  ///   saved again.
+  /// </remarks>
+  private void Detach(List<object> added)
+  {
+    foreach (var entity in added)
+    {
+      var entry = context.Entry(entity);
+      entry.State = EntityState.Detached;
+
+      if (entity is Organization)
+      {
+        entry.Property(nameof(Organization.Id)).CurrentValue = 0L;
+      }
+    }
+  }
+
+  /// <summary>Saves an organization, its connection and their jobs in the open transaction of the context.</summary>
+  /// <param name="organization">The organization, not saved yet.</param>
+  /// <param name="connectionFactory">Builds the connection once the organization has its identifier.</param>
+  /// <param name="jobsFactory">Builds the jobs once the organization has its identifier.</param>
+  /// <param name="added">Collects the entities added to the context, detached on a failure.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>The connection and the identifiers of the queued jobs.</returns>
+  /// <exception cref="InvalidOperationException">The connection or a job does not belong to the new organization.</exception>
+  private async Task<(ForgeConnection Connection, List<long> JobIds)> SaveWithOrganizationAsync(
+    Organization organization,
+    Func<Organization, ForgeConnection> connectionFactory,
+    Func<Organization, IReadOnlyList<JobRequest>> jobsFactory,
+    List<object> added,
+    CancellationToken cancellationToken)
+  {
+    context.Organizations.Add(organization);
+    added.Add(organization);
+    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+    var connection = connectionFactory(organization);
+    InvalidOperationException.ThrowIf(connection.OrganizationId != organization.Id || connection.Forge != organization.Forge, OtherOrganizationMessage);
+    ThrowIfNotProtected(connection);
+    context.ForgeConnections.Add(connection);
+    added.Add(connection);
+    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+    var jobIds = new List<long>();
+
+    foreach (var job in jobsFactory(organization))
+    {
+      InvalidOperationException.ThrowIf(!job.IsInstance && job.OrganizationId != organization.Id, OtherLaneMessage);
+      jobIds.Add(await jobQueue.EnqueueInTransactionAsync(context, job, cancellationToken).ConfigureAwait(false));
+    }
+
+    return (connection, jobIds);
+  }
 
   /// <summary>Refuses a connection whose secrets the protector cannot read back.</summary>
   /// <param name="connection">The connection.</param>
@@ -165,6 +252,52 @@ internal sealed class ForgeConnectionRepository(CodeCoverageDbContext context, I
 
       throw new ConflictException(GeneralErrors.ConcurrentChange, "A connection of that identifier exists.", exception);
     }
+  }
+
+  /// <inheritdoc />
+  public async Task<ForgeConnection> AddWithOrganizationAsync(
+    Organization organization,
+    Func<Organization, ForgeConnection> connection,
+    Func<Organization, IReadOnlyList<JobRequest>> jobs,
+    CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(organization);
+    ArgumentNullException.ThrowIfNull(connection);
+    ArgumentNullException.ThrowIfNull(jobs);
+    ArgumentException.ThrowIf(organization.Id != 0, SavedOrganizationMessage, nameof(organization));
+
+    var added = new List<object>();
+    (ForgeConnection Connection, List<long> JobIds) saved;
+    var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+    await using (transaction.ConfigureAwait(false))
+    {
+      try
+      {
+        saved = await SaveWithOrganizationAsync(organization, connection, jobs, added, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch (DbUpdateException exception) when (IsTaken(exception))
+      {
+        Detach(added);
+
+        throw new ConflictException(GeneralErrors.ConcurrentChange, TakenMessage, exception);
+      }
+      catch
+      {
+        Detach(added);
+
+        throw;
+      }
+    }
+
+    // Committed: a worker of this process may claim the jobs at once instead of at their next poll.
+    foreach (var jobId in saved.JobIds)
+    {
+      wakeUpSignal.Notify(jobId);
+    }
+
+    return saved.Connection;
   }
 
   /// <inheritdoc />
