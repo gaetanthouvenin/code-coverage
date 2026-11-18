@@ -12,6 +12,7 @@ using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -95,16 +96,96 @@ public sealed class AzureDevOpsRateLimitHandlerTests : IDisposable
     _azure.Server.LogEntries.Count().ShouldBe(4, "one attempt and three retries");
   }
 
-  private void Given(IResponseBuilder response)
+  [Fact]
+  public async Task SendAsync_TooManyRequestsWithRetryAfterDate_ShouldWaitUntilTheDate()
   {
-    _azure.Server.Given(Request.Create().WithPath(Path).UsingGet()).RespondWith(response);
+    var date = AzureDevOpsApiHarness.Now.AddMinutes(10);
+    Given(
+      Response.Create()
+              .WithStatusCode(429)
+              .WithHeader("Retry-After", date.ToString("R", CultureInfo.InvariantCulture))
+              .WithBody(ThrottledBody)
+    );
+
+    var exception = await Should.ThrowAsync<ForgeRateLimitedException>(() => SendAsync());
+
+    exception.RetryAfter.ShouldBe(date);
   }
 
-  private async Task<HttpResponseMessage> SendAsync()
+  [Fact]
+  public async Task SendAsync_TooManyRequestsWithoutDelay_ShouldWaitOneMinute()
+  {
+    Given(Response.Create().WithStatusCode(429).WithBody(ThrottledBody));
+
+    var exception = await Should.ThrowAsync<ForgeRateLimitedException>(() => SendAsync());
+
+    exception.RetryAfter.ShouldBe(AzureDevOpsApiHarness.Now.AddMinutes(1));
+  }
+
+  [Fact]
+  public async Task SendAsync_AzureDevOpsDoesNotAnswer_ShouldThrowBadGateway()
+  {
+    _azure.Server.Stop();
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(() => SendAsync());
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    exception.InnerException.ShouldBeAssignableTo<HttpRequestException>();
+  }
+
+  [Fact]
+  public async Task SendAsync_PostServerError_ShouldNotRetry()
+  {
+    Given(Response.Create().WithStatusCode(503));
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(() => PostAsync(repeatable: null));
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    _azure.Server.LogEntries.Count().ShouldBe(1, "Azure DevOps may have done the POST and lost its answer");
+  }
+
+  [Fact]
+  public async Task SendAsync_RepeatablePostServerError_ShouldRetry()
+  {
+    Given(Response.Create().WithStatusCode(503));
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(() => PostAsync(repeatable: true));
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    _azure.Server.LogEntries.Count().ShouldBe(4, "one attempt and three retries");
+  }
+
+  [Fact]
+  public async Task SendAsync_GetMarkedNotRepeatable_ShouldNotRetry()
+  {
+    Given(Response.Create().WithStatusCode(503));
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(() => SendAsync(repeatable: false));
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    _azure.Server.LogEntries.Count().ShouldBe(1);
+  }
+
+  private void Given(IResponseBuilder response)
+  {
+    _azure.Server.Given(Request.Create().WithPath(Path).UsingAnyMethod()).RespondWith(response);
+  }
+
+  private Task<HttpResponseMessage> SendAsync(bool? repeatable = null) => SendAsync(HttpMethod.Get, repeatable);
+
+  private Task<HttpResponseMessage> PostAsync(bool? repeatable) => SendAsync(HttpMethod.Post, repeatable);
+
+  private async Task<HttpResponseMessage> SendAsync(HttpMethod method, bool? repeatable)
   {
     using var client = _azure.CreateClient();
+    using var request = new HttpRequestMessage(method, new Uri(Path.TrimStart('/'), UriKind.Relative));
 
-    return await client.GetAsync(new Uri(Path.TrimStart('/'), UriKind.Relative), Cancellation);
+    if (repeatable is { } value)
+    {
+      request.Options.Set(AzureDevOpsHttpClientConfiguration.Repeatable, value);
+    }
+
+    return await client.SendAsync(request, Cancellation);
   }
 
   #endregion

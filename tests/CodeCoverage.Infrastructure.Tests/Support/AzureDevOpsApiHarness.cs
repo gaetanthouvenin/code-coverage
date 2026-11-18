@@ -113,7 +113,7 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
 
   #region Properties
 
-  public ForgeConnection Connection { get; }
+  public ForgeConnection Connection { get; set; }
 
   public AzureDevOpsOptions Options { get; }
 
