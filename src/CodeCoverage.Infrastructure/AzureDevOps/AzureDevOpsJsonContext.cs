@@ -21,4 +21,8 @@ namespace CodeCoverage.Infrastructure.AzureDevOps;
   RespectNullableAnnotations = true,
   RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(EntraTokenResponse))]
+[JsonSerializable(typeof(AzureDevOpsCommit))]
+[JsonSerializable(typeof(AzureDevOpsList<AzureDevOpsRef>))]
+[JsonSerializable(typeof(AzureDevOpsPullRequest))]
+[JsonSerializable(typeof(AzureDevOpsRepository))]
 internal sealed partial class AzureDevOpsJsonContext : JsonSerializerContext;

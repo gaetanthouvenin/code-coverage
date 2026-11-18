@@ -93,7 +93,25 @@ internal sealed class AzureDevOpsTokenProvider(
 
     var connection = await credentials.ReadAsync(connectionId, cancellationToken).ConfigureAwait(false);
 
-    BadGatewayException.ThrowIfConnectionUnusable(connection.Forge is not Forge.AzureDevOps || connection.TenantId is null, connectionId);
+    return await GetTokenAsync(connection, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Gets the token of the application for a connection already read, from the memory cache when it is not about to expire.</summary>
+  /// <param name="connection">The connection, read by <see cref="ForgeConnectionCredentialReader" /> in this scope.</param>
+  /// <param name="cancellationToken">A token to cancel the call.</param>
+  /// <returns>The access token, which is never persisted.</returns>
+  /// <remarks>A gateway that needs the connection as well reads it once, then asks for its token here.</remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="connection" /> is <see langword="null" />.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   The connection is not an Azure DevOps connection with a tenant, or Microsoft Entra ID refused the token or
+  ///   answered with an unreadable payload (<see cref="ForgeErrors.Unavailable" />).
+  /// </exception>
+  /// <exception cref="InvalidOperationException">The client identifier, or both the secret and the certificate, are not configured.</exception>
+  public async Task<string> GetTokenAsync(ForgeConnectionCredential connection, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(connection);
+
+    BadGatewayException.ThrowIfConnectionUnusable(connection.Forge is not Forge.AzureDevOps || connection.TenantId is null, connection.ConnectionId);
 
     var tenantId = connection.TenantId.Value;
     var settings = options.CurrentValue;
