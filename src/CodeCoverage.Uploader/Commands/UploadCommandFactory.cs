@@ -8,6 +8,7 @@ using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Globalization;
 
+using CodeCoverage.Uploader.Ci;
 using CodeCoverage.Uploader.Output;
 
 namespace CodeCoverage.Uploader.Commands;
@@ -28,6 +29,8 @@ internal static class UploadCommandFactory
   private const string FileOption = "--file";
   private const string FlagsOption = "--flags";
   private const string NameOption = "--name";
+  private const string ForgeOption = "--forge";
+  private const string GitServiceAlias = "--git-service";
   private const string SlugOption = "--slug";
   private const string ShaOption = "--sha";
   private const string BranchOption = "--branch";
@@ -81,7 +84,12 @@ internal static class UploadCommandFactory
       },
       Text(FlagsOption, "The flags of the upload, separated by commas."),
       Text(NameOption, "The session name."),
-      Text(SlugOption, "The owner/repo slug."),
+      new Option<string>(ForgeOption, GitServiceAlias)
+      {
+        Description = "The forge of the repository: github, azure-devops, bitbucket or gitlab; "
+                      + $"detected from the CI service, else github. Environment: {VariableOf(ForgeOption)}.",
+      },
+      Text(SlugOption, "owner/repo, or org/project/repo."),
       Text(ShaOption, "The commit."),
       Text(BranchOption, "The head branch."),
       new Option<int?>(PullRequestOption)
@@ -189,6 +197,7 @@ internal static class UploadCommandFactory
       Files = ReadFiles(parseResult, environment),
       Flags = Split(ReadText(parseResult, FlagsOption, environment), ','),
       Name = ReadText(parseResult, NameOption, environment),
+      Forge = ReadForge(parseResult, environment),
       Slug = ReadText(parseResult, SlugOption, environment),
       Sha = ReadText(parseResult, ShaOption, environment),
       Branch = ReadText(parseResult, BranchOption, environment),
@@ -217,6 +226,22 @@ internal static class UploadCommandFactory
 
     throw new InvalidOperationException(
       $"An absolute http(s) address is required: pass {UrlOption} or set {VariableOf(UrlOption)}.");
+  }
+
+  // A forge the server does not know would lose the upload: it is refused here, and the exit code
+  // follows the policy.
+  private static string? ReadForge(ParseResult parseResult, Func<string, string?> environment)
+  {
+    var value = ReadText(parseResult, ForgeOption, environment);
+
+    if (value is null)
+    {
+      return null;
+    }
+
+    return DetectedContext.NormalizeForge(value)
+           ?? throw new InvalidOperationException(
+             $"The forge '{value}' is not known: pass github, azure-devops, bitbucket or gitlab to {ForgeOption}.");
   }
 
   private static string? ReadText(

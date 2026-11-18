@@ -67,8 +67,10 @@ internal sealed class UploadRunner(UploadClient client, UploadStatusPoller polle
 
     ConsistencyChecker.Check(context, Git, reporter);
 
+    var forge = context.Forge ?? DetectedContext.DefaultForge;
     var request = new UploadRequest
     {
+      Forge = forge,
       Slug = context.Slug,
       Sha = context.Sha,
       Branch = context.Branch,
@@ -124,7 +126,7 @@ internal sealed class UploadRunner(UploadClient client, UploadStatusPoller polle
     // After the wait, and whatever it gave: the commit is notified with what the server could process.
     if (settings.Finalize)
     {
-      succeeded &= await finalizer.CompleteAsync(settings.Url, context.Slug, context.Sha, receipt.Credential, cancellationToken).ConfigureAwait(false);
+      succeeded &= await finalizer.CompleteAsync(settings.Url, forge, context.Slug, context.Sha, receipt.Credential, cancellationToken).ConfigureAwait(false);
     }
 
     return succeeded;

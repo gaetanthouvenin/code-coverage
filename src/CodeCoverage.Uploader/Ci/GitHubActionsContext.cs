@@ -23,6 +23,8 @@ internal static partial class GitHubActionsContext
 
   private const string Service = "github-actions";
 
+  private const string ForgeSegment = "github";
+
   // Prefix of the branches of a merge queue: gh-readonly-queue/<branch>/pr-<number>-<sha>.
   private const string MergeQueuePrefix = "gh-readonly-queue/";
 
@@ -95,6 +97,7 @@ internal static partial class GitHubActionsContext
     return new DetectedContext
     {
       Service = Service,
+      Forge = ForgeSegment,
       Slug = repository,
       BuildUrl = server is null || repository is null || runId is null
                    ? null

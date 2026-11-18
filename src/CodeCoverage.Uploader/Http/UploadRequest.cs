@@ -11,7 +11,10 @@ internal sealed record UploadRequest
 {
   #region Properties
 
-  /// <summary>Gets the <c>owner/repo</c> slug.</summary>
+  /// <summary>Gets the forge segment, or <see langword="null" /> to let the server assume <c>github</c>.</summary>
+  public string? Forge { get; init; }
+
+  /// <summary>Gets the slug, <c>owner/repo</c> or <c>org/project/repo</c>.</summary>
   public required string Slug { get; init; }
 
   /// <summary>Gets the commit.</summary>

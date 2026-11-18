@@ -48,6 +48,7 @@ public sealed class UploadCommandFactoryTests
       ("COVERAGE_FILE", "a/lcov.info; b/**/*.xml"),
       ("COVERAGE_FLAGS", "backend, net10"),
       ("COVERAGE_NAME", "session"),
+      ("COVERAGE_FORGE", "gl"),
       ("COVERAGE_SLUG", "owner/repo"),
       ("COVERAGE_SHA", "abc"),
       ("COVERAGE_BRANCH", "main"),
@@ -69,6 +70,7 @@ public sealed class UploadCommandFactoryTests
     _captured.Files.ShouldBe(["a/lcov.info", "b/**/*.xml"]);
     _captured.Flags.ShouldBe(["backend", "net10"]);
     _captured.Name.ShouldBe("session");
+    _captured.Forge.ShouldBe("gitlab");
     _captured.Slug.ShouldBe("owner/repo");
     _captured.Sha.ShouldBe("abc");
     _captured.Branch.ShouldBe("main");
@@ -126,6 +128,50 @@ public sealed class UploadCommandFactoryTests
 
     _captured.ShouldNotBeNull();
     _captured.Name.ShouldBe("@session");
+  }
+
+  [Theory]
+  [InlineData("gitlab", "gitlab")]
+  [InlineData("GitHub", "github")]
+  [InlineData("bitbucket", "bitbucket")]
+  public async Task Create_GitServiceAlias_ShouldSetTheForge(string value, string expected)
+  {
+    await RunAsync(["--url", Url, "--git-service", value], EnvironmentOf());
+
+    _captured.ShouldNotBeNull();
+    _captured.Forge.ShouldBe(expected);
+  }
+
+  [Fact]
+  public async Task Parse_ForgeOption_ShouldWinOverEnvironment()
+  {
+    await RunAsync(["--url", Url, "--forge", "azure-devops"], EnvironmentOf(("COVERAGE_FORGE", "gitlab")));
+
+    _captured.ShouldNotBeNull();
+    _captured.Forge.ShouldBe("azure-devops");
+  }
+
+  [Fact]
+  public async Task Parse_NoForge_ShouldLeaveItToTheDetection()
+  {
+    await RunAsync(["--url", Url], EnvironmentOf());
+
+    _captured.ShouldNotBeNull();
+    _captured.Forge.ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(false, ExitCodePolicy.Success)]
+  [InlineData(true, ExitCodePolicy.Failure)]
+  public async Task Run_UnknownForge_ShouldFollowThePolicy(bool failOnError, int expected)
+  {
+    var exitCode = await RunAsync(
+      ["--url", Url, "--forge", "sourcehut", .. failOnError ? new[] { "--fail-on-error" } : []],
+      EnvironmentOf());
+
+    exitCode.ShouldBe(expected);
+    _captured.ShouldBeNull();
+    _output.ToString().ShouldContain("The forge 'sourcehut' is not known");
   }
 
   [Fact]
@@ -254,7 +300,7 @@ public sealed class UploadCommandFactoryTests
 
     foreach (var option in new[]
              {
-               "--url", "--token", "-f", "--file", "--flags", "--name", "--slug", "--sha", "--branch",
+               "--url", "--token", "-f", "--file", "--flags", "--name", "--forge", "--git-service", "--slug", "--sha", "--branch",
                "--pr", "--parent-sha", "--root", "--disable-search", "--no-network", "--wait",
                "--finalize", "--dry-run", "--fail-on-error", "--verbose",
              })

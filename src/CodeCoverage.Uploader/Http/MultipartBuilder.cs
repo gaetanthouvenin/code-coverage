@@ -27,6 +27,7 @@ internal static class MultipartBuilder
     var content = boundary is null ? new MultipartFormDataContent() : new MultipartFormDataContent(boundary);
 
     Field(content, "slug", request.Slug);
+    Field(content, "forge", request.Forge);
     Field(content, "sha", request.Sha);
     Field(content, "branch", request.Branch);
     Field(content, "pr", request.PullRequest?.ToString(CultureInfo.InvariantCulture));

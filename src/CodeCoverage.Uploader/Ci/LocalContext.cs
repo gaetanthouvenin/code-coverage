@@ -56,17 +56,26 @@ internal static partial class LocalContext
   /// <exception cref="ArgumentNullException"><paramref name="arguments" /> is <see langword="null" />.</exception>
   public static string? RunGit(string[] arguments, string? workingDirectory) => GitRunner.Run(arguments, workingDirectory);
 
-  // Exactly two segments, like the parse_slug of the Codecov CLI. The address is never printed: it
-  // can hold a credential.
+  // Two segments or more: owner/repo, or group/sub/repo on GitLab. The address of an Azure Repos
+  // remote holds more than the slug (_git, v3), so it is not read: --slug gives it. The address is
+  // never printed: it can hold a credential.
   private static string? ParseSlug(string? remote)
   {
     var match = RemoteAddress().Match(remote ?? string.Empty);
 
-    return match.Success ? match.Groups["slug"].Value : null;
+    return match.Success && !IsAzureRepos(match.Groups["host"].Value) ? match.Groups["slug"].Value : null;
   }
 
+  private static bool IsAzureRepos(string host)
+  {
+    return host.EndsWith("dev.azure.com", StringComparison.OrdinalIgnoreCase)
+           || host.EndsWith("visualstudio.com", StringComparison.OrdinalIgnoreCase);
+  }
+
+  // An address with a scheme (https://, ssh://), or the scp form user@host:path, whose host has two
+  // characters at least so that a Windows drive is not read as one, and whose path is relative.
   [GeneratedRegex(
-    @"^(?:[a-zA-Z][a-zA-Z0-9+.-]*://)?(?:[^@/]+@)?[^/:.][^/:]*(?::\d+/|[:/])/*(?<slug>[^/\s:]+/[^/\s]+?)(?:\.git)?/?$",
+    @"^(?:[a-zA-Z][a-zA-Z0-9+.-]*://(?:[^@/]+@)?(?<host>[^/:.][^/:]*)(?::\d+/|[:/])/*|(?:[^@/\\]+@)?(?<host>[^/:.\\][^/:\\]+):(?!/))(?<slug>[^/\s:]+(?:/[^/\s:]+)*/[^/\s]+?)(?:\.git)?/?$",
     RegexOptions.CultureInvariant)]
   private static partial Regex RemoteAddress();
 
