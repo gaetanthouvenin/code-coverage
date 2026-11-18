@@ -366,7 +366,7 @@ Les codes d'erreur suivent le format `Feature.Reason` et sont rangés dans `Feat
 | PullRequests | `SyncPullRequest` | `ListPullRequests`, `GetPullRequestComparison` (Api : 404 `Comparison.NotComputed` sans comparaison), `GetPullRequest` (page PR : la PR et sa comparaison nullable, « en attente ») |
 | Comparisons | — | `CompareCommits` (Api : comparaison enregistrée de `head` contre `base`, SHA complets, sinon 404 `Comparison.NotComputed`), `GetCommitRange` (page `/compare` : la même comparaison, nullable, « Non calculée ») |
 | GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `ReconcileRepositoryTransfer` | — |
-| Connections | `SyncConnectionRepositories` (dans le worker, toute forge, par `IForgeDirectoryGateway`) | — |
+| Connections | `SyncConnections` (coordinateur des forges à connexion, voie d'instance), `SyncConnectionRepositories` (dans le worker, toute forge, par `IForgeDirectoryGateway`) | — |
 | Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken`, `StartCodecovImport` (M5.06), `ImportCodecovHistory` et `AbandonCodecovImport` (dans le worker) | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
 | Configuration | — | `ValidateCoverageYaml` |
 | UploadTokens | `CreateUploadToken` (génération ou import d'une valeur `CODECOV_TOKEN`), `RevokeUploadToken` | `ListUploadTokens` |
@@ -818,9 +818,9 @@ steps:
 **Organisation d'un job (ADR-013)** : chaque job appartient à une voie, choisie par la fabrique de son `JobRequest`.
 - `JobRequest.Create` prend l'organisation de la portée courante et lève sans elle.
 - `JobRequest.ForInstance` reste hors de toute organisation : `Jobs.OrganizationId` est nul, et une lecture d'une table d'organisation y lève.
-- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`) : la réception d'un webhook (`ReceiveWebhookCommandHandler`), les coordinateurs (`SyncInstallationsCommandHandler`, `SweepPendingCommitsCommandHandler`, `PurgeExpiredDataCommandHandler`) et le rafraîchissement des appartenances (`RefreshUserMembershipsCommandHandler`), qui met en file `RefreshUserAccess` dans chaque organisation active de l'utilisateur.
+- `JobRequest.ForOrganization` nomme une organisation par identifiant. Ses sources sont limitées à une liste nommée (`OrganizationIsolationTests`) : la réception d'un webhook (`ReceiveWebhookCommandHandler`), les coordinateurs (`SyncInstallationsCommandHandler`, `SyncConnectionsCommandHandler`, `SweepPendingCommitsCommandHandler`, `PurgeExpiredDataCommandHandler`) et le rafraîchissement des appartenances (`RefreshUserMembershipsCommandHandler`), qui met en file `RefreshUserAccess` dans chaque organisation active de l'utilisateur.
 - `SqlJobQueue` préfixe `LockKey` et `DedupKey` par la voie, `o{id}:` ou `i:`, en tête d'`EnqueueInTransactionAsync`. Une même clé métier dans deux voies ne fusionne ni ne sérialise. `KeyMaxLength` vaut 178 pour que la clé préfixée tienne dans la colonne de 200 caractères.
-- **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SweepPendingCommits`, `PurgeExpiredData`).
+- **Coordinateurs** : le travail inter-organisations ne lit jamais plusieurs organisations dans une portée. Un job `ForInstance` lit `Organizations` et met en file un enfant par organisation (`SyncInstallations`, `SyncConnections`, `SweepPendingCommits`, `PurgeExpiredData`).
 
 **Réclamation** (dialecte fourni par l'assembly de migrations) :
 
@@ -868,6 +868,7 @@ OUTPUT inserted.*;
 | `RefreshUserAccess` | `user:{id}` | `access:{id}` | `RefreshUserAccessCommand` |
 | `RefreshUserMemberships` | `memberships:{userId}` | `memberships:{userId}` (fusion) | `RefreshUserMembershipsCommand(userId)`, sur la voie d'instance : les appartenances d'un utilisateur couvrent plusieurs organisations |
 | `SyncInstallations` | `installations` | `installations` (quotidien), `installations:event` (événement d'installation), `installations:transfer:{githubRepoId}:{compte d'origine}` (transfert), tous fusionnés | `SyncInstallationsCommand`, coordinateur de la voie d'instance |
+| `SyncConnections` | `connections` | `connections` (quotidien, fusion) | `SyncConnectionsCommand`, coordinateur de la voie d'instance des forges à connexion (ADR-017) : lit `ForgeConnections` et `Organizations`, met en file un `SyncConnectionRepositories` par connexion non suspendue d'une organisation active |
 | `SyncConnectionRepositories` | `installation:{installationId}` pour GitHub, `connection:{connectionId}` ailleurs | `sync:` suivi de la clé (fusion) | `SyncConnectionRepositoriesCommand(forge, connectionId)`, dans l'organisation : liste le compte et les dépôts par `IForgeDirectoryGateway`, applique le renommage du compte. Le type `SyncInstallationRepositories` (`{"InstallationId":…}`), qui l'a précédé, est encore lu une version pour les jobs en file au déploiement |
 | `ReconcileRepositoryTransfer` | `repo:{githubRepoId}` | `transfer:{githubRepoId}` (fusion) | `ReconcileRepositoryTransferCommand(githubRepoId)`, dans l'organisation d'origine |
 | `RewriteRepositoryOwner` | `owner-rewrite` | `owner-rewrite` (fusion) | `RewriteRepositoryOwnerCommand`, dans l'organisation dont le compte a été renommé, par `installation_target` ou par le listage de `SyncInstallations` : réécrit `Repositories.Owner` par lots, lignes inactives comprises, avec le login lu dans `Organizations` à l'exécution |

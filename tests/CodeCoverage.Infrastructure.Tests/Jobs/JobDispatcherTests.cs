@@ -11,6 +11,7 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
+using CodeCoverage.Application.Features.Connections.Commands.SyncConnections;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
@@ -365,6 +366,14 @@ public sealed class JobDispatcherTests
     await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.SweepPendingCommits, 42), Ct);
 
     A.CallTo(() => _sender.Send(new SweepPendingCommitsCommand(), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_SyncConnections_ShouldRunTheCoordinator()
+  {
+    await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.SyncConnections, 42), Ct);
+
+    A.CallTo(() => _sender.Send(new SyncConnectionsCommand(), Ct)).MustHaveHappenedOnceExactly();
   }
 
   // The coordinator and the purge of an organization are the same job: the lane of the worker tells them apart.

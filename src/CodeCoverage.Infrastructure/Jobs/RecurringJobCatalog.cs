@@ -16,6 +16,7 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///   </para>
 ///   <list type="bullet">
 ///     <item><description><c>SyncInstallations</c>, daily (lock and dedup <c>installations</c>);</description></item>
+///     <item><description><c>SyncConnections</c>, daily (lock and dedup <c>connections</c>);</description></item>
 ///     <item><description><c>SweepPendingCommits</c>, every 5 minutes (lock and dedup <c>sweep</c>);</description></item>
 ///     <item><description><c>PurgeExpiredData</c>, daily (lock and dedup <c>purge</c>).</description></item>
 ///   </list>
@@ -32,6 +33,7 @@ internal static class RecurringJobCatalog
   public static IReadOnlyList<RecurringJobDefinition> All { get; } =
   [
     new(JobTypes.SyncInstallations, TimeSpan.FromDays(1), SyncInstallationsJobs.Key, SyncInstallationsJobs.Key),
+    new(JobTypes.SyncConnections, TimeSpan.FromDays(1), SyncConnectionsJobs.Key, SyncConnectionsJobs.Key),
     new(JobTypes.SweepPendingCommits, TimeSpan.FromMinutes(5), SweepPendingCommitsJobs.Key, SweepPendingCommitsJobs.Key),
     new(JobTypes.PurgeExpiredData, TimeSpan.FromDays(1), PurgeExpiredDataJobs.Key, PurgeExpiredDataJobs.Key),
   ];
