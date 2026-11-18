@@ -7,6 +7,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -15,6 +16,8 @@ using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Connections;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -173,6 +176,64 @@ public sealed class AzureDevOpsTokenProviderTests : IDisposable
 
     exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
     exception.Message.ShouldNotContain("secret-1");
+  }
+
+  [Theory]
+  [InlineData(Forge.Bitbucket, true)]
+  [InlineData(Forge.AzureDevOps, false)]
+  public async Task GetTokenAsync_NotAnAzureDevOpsTenantConnection_ShouldThrowUnavailableWithoutAskingEntra(Forge forge, bool withTenant)
+  {
+    GivenToken("eyJ.unusable");
+    _azure.Connection = ForgeConnection.Create(
+      AzureDevOpsApiHarness.ConnectionId,
+      AzureDevOpsApiHarness.OrganizationId,
+      forge,
+      ForgeConnectionKind.AzureDevOpsEntraApplication,
+      "0f6b6c4e-3d1a-4a52-9b0e-3c2d1e0f9a8b",
+      new Uri("https://dev.azure.com/contoso/"),
+      withTenant ? AzureDevOpsApiHarness.TenantId : null,
+      null,
+      AzureDevOpsApiHarness.ProtectedPrefix + "entra-application",
+      AzureDevOpsApiHarness.ProtectedPrefix + "webhook",
+      null,
+      AzureDevOpsApiHarness.Now
+    );
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(
+      () => _azure.TokenProvider.GetTokenAsync(AzureDevOpsApiHarness.ConnectionId, Cancellation)
+    );
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    _azure.Server.LogEntries.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task GetTokenAsync_EntraDoesNotAnswer_ShouldThrowUnavailable()
+  {
+    _azure.Server.Stop();
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(
+      () => _azure.TokenProvider.GetTokenAsync(AzureDevOpsApiHarness.ConnectionId, Cancellation)
+    );
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    exception.InnerException.ShouldBeAssignableTo<HttpRequestException>();
+  }
+
+  [Theory]
+  [InlineData("not a token")]
+  [InlineData("null")]
+  public async Task GetTokenAsync_UnreadablePayload_ShouldThrowUnavailable(string body)
+  {
+    _azure.Server.Given(Request.Create().WithPath(TokenPath).UsingPost())
+          .RespondWith(Response.Create().WithStatusCode(200).WithHeader("Content-Type", "application/json").WithBody(body));
+
+    var exception = await Should.ThrowAsync<BadGatewayException>(
+      () => _azure.TokenProvider.GetTokenAsync(AzureDevOpsApiHarness.ConnectionId, Cancellation)
+    );
+
+    exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+    exception.InnerException.ShouldBeAssignableTo<JsonException>();
   }
 
   private static X509Certificate2 CreateCertificate(string subject)
