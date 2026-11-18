@@ -15,6 +15,7 @@ using CodeCoverage.Application;
 using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
@@ -389,6 +390,21 @@ public sealed class DependencyInjectionTests
 
     gateway.ShouldBeOfType<GitHubAppGateway>();
     scope.ServiceProvider.GetRequiredKeyedService<IForgeGateway>(Forge.GitHub).ShouldBeSameAs(gateway);
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheAzureDevOpsGatewayByItsForge()
+  {
+    await using var services = Build(
+      new Dictionary<string, string?> { ["ConnectionStrings:CodeCoverage"] = "Server=localhost;Database=unused" },
+      withProviders: true
+    );
+    await using var scope = services.CreateAsyncScope();
+
+    var gateway = scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>().GetGateway(Forge.AzureDevOps);
+
+    gateway.ShouldBeOfType<AzureDevOpsGateway>();
+    scope.ServiceProvider.GetRequiredKeyedService<IForgeGateway>(Forge.AzureDevOps).ShouldBeSameAs(gateway);
   }
 
   [Fact]

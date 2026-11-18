@@ -10,6 +10,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Connections;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Infrastructure.Forges;
@@ -69,15 +70,49 @@ internal sealed class ForgeConnectionCredentialReader(
       connectionId
     );
 
-    return new ForgeConnectionCredential(
+    return ToCredential(connection);
+  }
+
+  /// <summary>Lists the connections of the organization of the scope to a forge that can be used, with their credentials decrypted.</summary>
+  /// <param name="forge">The forge.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>
+  ///   The connections that are not suspended, by identifier; empty when the scope has entered no organization. The
+  ///   caller must not keep them.
+  /// </returns>
+  /// <remarks>It serves a reading by name, such as the first upload of a repository, which comes with no connection.</remarks>
+  /// <exception cref="System.Security.Cryptography.CryptographicException">A credential cannot be decrypted.</exception>
+  public async Task<IReadOnlyList<ForgeConnectionCredential>> ListAsync(Forge forge, CancellationToken cancellationToken)
+  {
+    if (!organization.IsKnown)
+    {
+      return [];
+    }
+
+    var all = await connections.ListForOrganizationAsync(organization.Id, cancellationToken).ConfigureAwait(false);
+
+    return
+    [
+      .. all.Where(connection => connection.Forge == forge
+                                 && connection.OrganizationId == organization.Id
+                                 && connection.Status is not ForgeConnectionStatus.Suspended)
+            .Select(ToCredential),
+    ];
+  }
+
+  /// <summary>Builds the credential of a connection of the organization of the scope.</summary>
+  /// <param name="connection">The connection.</param>
+  /// <returns>The connection, with its credential decrypted.</returns>
+  private ForgeConnectionCredential ToCredential(ForgeConnection connection) =>
+    new(
       connection.Id,
       connection.Forge,
       connection.Kind,
+      connection.ExternalAccountId,
       connection.BaseAddress,
       connection.TenantId,
       Decrypt(connection)
     );
-  }
 
   /// <summary>Decrypts the credential of a connection, or takes it from the cache when it did not change.</summary>
   /// <param name="connection">The connection, of the organization of the scope.</param>

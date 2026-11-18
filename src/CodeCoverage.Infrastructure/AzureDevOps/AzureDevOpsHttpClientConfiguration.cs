@@ -76,6 +76,8 @@ internal static class AzureDevOpsHttpClientConfiguration
               }
             );
 
+    services.AddHttpClient<AzureDevOpsGateway>(ClientName);
+
     services.AddHttpClient(
               EntraClientName,
               static client =>

@@ -13,6 +13,7 @@ namespace CodeCoverage.Infrastructure.Forges;
 /// <param name="connectionId">The identifier of the connection.</param>
 /// <param name="forge">The forge of the connection.</param>
 /// <param name="kind">The kind of credential.</param>
+/// <param name="externalAccountId">The identifier the forge gives the account of the organization, in lower case.</param>
 /// <param name="baseAddress">The address of the API of the forge for the account of the connection.</param>
 /// <param name="tenantId">The directory tenant that issues the credential, or <see langword="null" />.</param>
 /// <param name="credential">The decrypted credential.</param>
@@ -24,6 +25,7 @@ internal sealed class ForgeConnectionCredential(
   string connectionId,
   Forge forge,
   ForgeConnectionKind kind,
+  string externalAccountId,
   Uri baseAddress,
   Guid? tenantId,
   string credential)
@@ -38,6 +40,9 @@ internal sealed class ForgeConnectionCredential(
 
   /// <summary>Gets the kind of credential.</summary>
   public ForgeConnectionKind Kind { get; } = kind;
+
+  /// <summary>Gets the identifier the forge gives the account of the organization, in lower case.</summary>
+  public string ExternalAccountId { get; } = externalAccountId;
 
   /// <summary>Gets the address of the API of the forge for the account of the connection.</summary>
   public Uri BaseAddress { get; } = baseAddress;

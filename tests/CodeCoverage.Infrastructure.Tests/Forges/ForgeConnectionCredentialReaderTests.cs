@@ -140,12 +140,40 @@ public sealed class ForgeConnectionCredentialReaderTests : IDisposable
     exception.ErrorCode.ShouldBe(ForgeErrors.Unavailable);
   }
 
-  private static ForgeConnection Connection(long organizationId)
+  [Fact]
+  public async Task ListAsync_ConnectionsOfTheOrganization_ShouldKeepTheUsableOnesOfTheForge()
+  {
+    var usable = Connection(OrganizationId);
+    var suspended = Connection(OrganizationId, "contoso-old");
+    suspended.Suspend(Now);
+    var other = Connection(OrganizationId, "contoso-bitbucket", Forge.Bitbucket);
+    A.CallTo(() => _connections.ListForOrganizationAsync(OrganizationId, A<CancellationToken>._)).Returns([usable, suspended, other]);
+
+    var credentials = await Reader().ListAsync(Forge.AzureDevOps, Cancellation);
+
+    var credential = credentials.ShouldHaveSingleItem();
+    credential.ConnectionId.ShouldBe(ConnectionId);
+    credential.ExternalAccountId.ShouldBe("0f6b6c4e-3d1a-4a52-9b0e-3c2d1e0f9a8b");
+    credential.Credential.ShouldBe("entra-application");
+  }
+
+  [Fact]
+  public async Task ListAsync_OutsideAnOrganization_ShouldBeEmpty()
+  {
+    A.CallTo(() => _organization.IsKnown).Returns(false);
+
+    var credentials = await Reader().ListAsync(Forge.AzureDevOps, Cancellation);
+
+    credentials.ShouldBeEmpty();
+    A.CallTo(() => _connections.ListForOrganizationAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  private static ForgeConnection Connection(long organizationId, string id = ConnectionId, Forge forge = Forge.AzureDevOps)
   {
     return ForgeConnection.Create(
-      ConnectionId,
+      id,
       organizationId,
-      Forge.AzureDevOps,
+      forge,
       ForgeConnectionKind.AzureDevOpsEntraApplication,
       "0f6b6c4e-3d1a-4a52-9b0e-3c2d1e0f9a8b",
       new Uri("https://dev.azure.com/contoso/"),

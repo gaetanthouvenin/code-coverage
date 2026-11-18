@@ -1,0 +1,21 @@
+{
+  "id": "1701bc47-1145-4739-a805-64b02e40dbe7",
+  "name": "api",
+  "url": "https://dev.azure.com/contoso/1fec3816-a6f6-4d90-97eb-3bc4630ac416/_apis/git/repositories/1701bc47-1145-4739-a805-64b02e40dbe7",
+  "project": {
+    "id": "1fec3816-a6f6-4d90-97eb-3bc4630ac416",
+    "name": "Projet A",
+    "url": "https://dev.azure.com/contoso/_apis/projects/1fec3816-a6f6-4d90-97eb-3bc4630ac416",
+    "state": "wellFormed",
+    "revision": 411,
+    "visibility": "private",
+    "lastUpdateTime": "2026-10-02T08:12:44.137Z"
+  },
+  "defaultBranch": "refs/heads/main",
+  "size": 731,
+  "remoteUrl": "https://contoso@dev.azure.com/contoso/Projet%20A/_git/api",
+  "sshUrl": "git@ssh.dev.azure.com:v3/contoso/Projet%20A/api",
+  "webUrl": "https://dev.azure.com/contoso/Projet%20A/_git/api",
+  "isDisabled": false,
+  "isInMaintenance": false
+}

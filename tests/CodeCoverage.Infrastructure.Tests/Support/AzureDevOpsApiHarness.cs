@@ -61,7 +61,7 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
       Forge.AzureDevOps,
       ForgeConnectionKind.AzureDevOpsEntraApplication,
       "0f6b6c4e-3d1a-4a52-9b0e-3c2d1e0f9a8b",
-      new Uri("https://dev.azure.com/contoso/"),
+      new Uri($"{Server.Url}/contoso/"),
       TenantId,
       null,
       ProtectedPrefix + "entra-application",
@@ -81,6 +81,8 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
 
     var connections = A.Fake<IForgeConnectionRepository>();
     A.CallTo(() => connections.FindAsync(ConnectionId, A<CancellationToken>._)).ReturnsLazily(() => Connection);
+    A.CallTo(() => connections.ListForOrganizationAsync(OrganizationId, A<CancellationToken>._))
+     .ReturnsLazily(() => (IReadOnlyList<ForgeConnection>)[Connection]);
 
     var organization = A.Fake<ICurrentOrganization>();
     A.CallTo(() => organization.IsKnown).Returns(true);
@@ -114,6 +116,8 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
   #region Properties
 
   public ForgeConnection Connection { get; set; }
+
+  public AzureDevOpsGateway Gateway => _scope.ServiceProvider.GetRequiredService<AzureDevOpsGateway>();
 
   public AzureDevOpsOptions Options { get; }
 
