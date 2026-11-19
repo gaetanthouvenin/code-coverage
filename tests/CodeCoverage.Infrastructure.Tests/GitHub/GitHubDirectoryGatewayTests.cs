@@ -53,6 +53,10 @@ public sealed class GitHubDirectoryGatewayTests : IDisposable
 
   private static ForgeConnectionRef Connection => new(Forge.GitHub, "42");
 
+  private static ForgeAccountInfo OctoOrg => new("1001", "octo-org");
+
+  private static ForgeUser Octocat => new("583231", "octocat", null);
+
   private GitHubDirectoryGateway Gateway => new(_github.Gateway);
 
   #endregion
@@ -114,6 +118,37 @@ public sealed class GitHubDirectoryGatewayTests : IDisposable
   public async Task GetAccountAsync_ConnectionNotAnInstallation_ShouldThrow()
   {
     await Should.ThrowAsync<ArgumentException>(() => Gateway.GetAccountAsync(new ForgeConnectionRef(Forge.GitHub, "contoso"), Cancellation));
+  }
+
+  [Fact]
+  public async Task GetMembershipAsync_ActiveAdmin_ShouldMapTheMembershipOfTheUser()
+  {
+    _github.Server
+           .Given(Request.Create().WithPath("/orgs/octo-org/memberships/octocat").UsingGet())
+           .RespondWith(Response.Create().WithStatusCode(200).WithBody("""{"state":"active","role":"admin","user":{"id":583231,"login":"octocat"}}"""));
+
+    var membership = await Gateway.GetMembershipAsync(Connection, OctoOrg, Octocat, Cancellation);
+
+    membership.ShouldBe(new ForgeMembership(true, true, "583231"));
+  }
+
+  [Fact]
+  public async Task GetMembershipAsync_NotAMember_ShouldReturnNull()
+  {
+    _github.Server.Given(Request.Create().WithPath("/orgs/octo-org/memberships/octocat").UsingGet()).RespondWith(Response.Create().WithStatusCode(404).WithBody("{}"));
+
+    (await Gateway.GetMembershipAsync(Connection, OctoOrg, Octocat, Cancellation)).ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task GetMembershipAsync_InvalidArguments_ShouldThrowWithoutCallingGitHub()
+  {
+    await Should.ThrowAsync<ArgumentException>(() => Gateway.GetMembershipAsync(new ForgeConnectionRef(Forge.AzureDevOps, "42"), OctoOrg, Octocat, Cancellation));
+    await Should.ThrowAsync<ArgumentNullException>(() => Gateway.GetMembershipAsync(null!, OctoOrg, Octocat, Cancellation));
+    await Should.ThrowAsync<ArgumentNullException>(() => Gateway.GetMembershipAsync(Connection, null!, Octocat, Cancellation));
+    await Should.ThrowAsync<ArgumentNullException>(() => Gateway.GetMembershipAsync(Connection, OctoOrg, null!, Cancellation));
+
+    _github.Server.LogEntries.ShouldBeEmpty();
   }
 
   #endregion

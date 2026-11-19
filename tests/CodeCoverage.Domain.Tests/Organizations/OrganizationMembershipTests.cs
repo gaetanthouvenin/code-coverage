@@ -4,7 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Users;
@@ -112,7 +112,7 @@ public sealed class OrganizationMembershipTests
   {
     var organization = Organization.CreatePending(Forge.GitHub, "1001", "octo-org", OrganizationAccountType.Organization, Now);
 
-    OrganizationRoles.Of(User("583231"), organization, new GitHubOrganizationMembership(active, admin, "583231")).ShouldBe(expected);
+    OrganizationRoles.Of(User("583231"), organization, new ForgeMembership(active, admin, "583231")).ShouldBe(expected);
   }
 
   // F11. The membership is read by login: a user renamed on GitHub, whose former login an owner of the organization
@@ -124,7 +124,7 @@ public sealed class OrganizationMembershipTests
   {
     var organization = Organization.CreatePending(Forge.GitHub, "1001", "octo-org", OrganizationAccountType.Organization, Now);
 
-    OrganizationRoles.Of(User("583231"), organization, new GitHubOrganizationMembership(true, true, describedAccount)).ShouldBe(OrganizationRole.Participant);
+    OrganizationRoles.Of(User("583231"), organization, new ForgeMembership(true, true, describedAccount)).ShouldBe(OrganizationRole.Participant);
   }
 
   // An outside collaborator of a repository is not a member of the organization.
@@ -143,8 +143,8 @@ public sealed class OrganizationMembershipTests
 
     OrganizationRoles.Of(User("583231"), account, null).ShouldBe(OrganizationRole.Admin);
     OrganizationRoles.Of(User("999"), account, null).ShouldBe(OrganizationRole.Participant);
-    // What GitHub would say of a membership means nothing for a personal account.
-    OrganizationRoles.Of(User("999"), account, new GitHubOrganizationMembership(true, true, "999")).ShouldBe(OrganizationRole.Participant);
+    // What the forge would say of a membership means nothing for a personal account.
+    OrganizationRoles.Of(User("999"), account, new ForgeMembership(true, true, "999")).ShouldBe(OrganizationRole.Participant);
   }
 
   [Fact]
