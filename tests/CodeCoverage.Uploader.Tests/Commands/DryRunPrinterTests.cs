@@ -93,6 +93,28 @@ public sealed class DryRunPrinterTests
     _output.ToString().ShouldContain("--wait: the processing would then be waited for.");
   }
 
+  [Fact]
+  public void Print_AzureRepos_ShouldShowTheForge()
+  {
+    var request = new UploadRequest
+    {
+      Forge = "azure-devops",
+      Slug = "fabrikam/Octo Project/octo-repo",
+      Sha = new string('a', 40),
+      PullRequest = 12,
+      CiService = "azure-pipelines",
+      Reports = [],
+    };
+
+    Print(Settings(Token), request, hasOidc: false);
+
+    var output = _output.ToString();
+
+    output.ShouldContain("  forge: azure-devops");
+    output.ShouldContain("  slug: fabrikam/Octo Project/octo-repo");
+    output.ShouldContain("  ci service: azure-pipelines");
+  }
+
   private static UploaderSettings Settings(string? token, bool wait = false) =>
     new() { Url = new Uri("https://coverage.example.com"), Token = token, DryRun = true, Wait = wait };
 

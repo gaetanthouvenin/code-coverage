@@ -23,6 +23,14 @@
 #         url: https://coverage-api.example.com
 #         files: $(Agent.TempDirectory)/**/coverage.cobertura.xml
 #         flags: unit
+#
+# The same step serves a repository hosted on GitHub and one hosted on Azure Repos (M7.56): the
+# uploader reads the predefined variables of the build. For Azure Repos (BUILD_REPOSITORY_PROVIDER
+# TfsGit) it sends the forge azure-devops, the slug organization/project/repo (from
+# SYSTEM_TEAMFOUNDATIONCOLLECTIONURI, SYSTEM_TEAMPROJECT and BUILD_REPOSITORY_NAME) and, on a pull
+# request, SYSTEM_PULLREQUEST_SOURCECOMMITID and SYSTEM_PULLREQUEST_PULLREQUESTID, never the merge
+# commit of BUILD_SOURCEVERSION. COVERAGE_TOKEN then comes from a variable group whose value is
+# secret; a missing variable is a warning and the step still exits 0.
 # ------------------------------------------------------------------------------------------------
 parameters:
   - name: version

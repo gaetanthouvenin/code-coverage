@@ -384,7 +384,7 @@ public sealed class CiContextDetectorTests
   }
 
   [Theory]
-  [InlineData("TfsGit")]
+  [InlineData("Bitbucket")]
   [InlineData("Git")]
   [InlineData("")]
   public void Detect_AzureNonGitHubProvider_ShouldRequireSlug(string provider)
@@ -400,6 +400,115 @@ public sealed class CiContextDetectorTests
     withoutOption.Warnings.ShouldHaveSingleItem().ShouldContain("--slug");
     withOption.Slug.ShouldBe("fabrikam/octo-repo");
     withOption.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_AzureReposPullRequest_ShouldUseTheSourceCommit()
+  {
+    var context = DetectFixture("azure-repos-pr.json");
+
+    context.Sha.ShouldBe(HeadSha);
+    context.Sha.ShouldNotBe(MergeSha);
+    context.Service.ShouldBe("azure-pipelines");
+    context.Forge.ShouldBe("azure-devops");
+    context.Slug.ShouldBe("fabrikam/OctoProject/octo-repo");
+    context.Branch.ShouldBe("feature/login");
+    context.PullRequest.ShouldBe(12);
+    context.BuildUrl.ShouldBe("https://dev.azure.com/fabrikam/OctoProject/_build/results?buildId=4324");
+    context.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_AzureReposForkPullRequest_ShouldKeepTheTargetSlugAndUseTheForkHead()
+  {
+    var context = DetectFixture("azure-repos-pr-fork.json");
+
+    context.Sha.ShouldBe(OtherSha);
+    context.Forge.ShouldBe("azure-devops");
+    context.Slug.ShouldBe("fabrikam/OctoProject/octo-repo");
+    context.Branch.ShouldBe("main");
+    context.PullRequest.ShouldBe(13);
+    context.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_AzureReposPullRequest_WithoutSourceCommit_ShouldWarnAndNeverUseTheMergeCommit()
+  {
+    var context = Detect(CiEnvironmentFixture.Load("azure-repos-pr.json").With("SYSTEM_PULLREQUEST_SOURCECOMMITID", string.Empty));
+
+    context.Sha.ShouldBeNull();
+    context.Slug.ShouldBe("fabrikam/OctoProject/octo-repo");
+    context.Warnings.ShouldHaveSingleItem().ShouldContain("SYSTEM_PULLREQUEST_SOURCECOMMITID");
+  }
+
+  [Fact]
+  public void Detect_AzureReposPush_ShouldUseBuildSourceVersion()
+  {
+    var context = DetectFixture("azure-repos-push.json");
+
+    context.Sha.ShouldBe(BranchSha);
+    context.Forge.ShouldBe("azure-devops");
+    context.Slug.ShouldBe("fabrikam/OctoProject/octo-repo");
+    context.Branch.ShouldBe("release/1.0");
+    context.PullRequest.ShouldBeNull();
+    context.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_AzureReposProjectWithSpace_ShouldKeepIt()
+  {
+    var context = Detect(CiEnvironmentFixture.Load("azure-repos-push.json").With("SYSTEM_TEAMPROJECT", "Octo Project"));
+
+    context.Slug.ShouldBe("fabrikam/Octo Project/octo-repo");
+    context.BuildUrl.ShouldBe("https://dev.azure.com/fabrikam/Octo%20Project/_build/results?buildId=4323");
+    context.Warnings.ShouldBeEmpty();
+  }
+
+  [Theory]
+  [InlineData("https://dev.azure.com/fabrikam")]
+  [InlineData("https://DEV.AZURE.COM/fabrikam/")]
+  [InlineData("https://fabrikam.visualstudio.com/")]
+  [InlineData("https://fabrikam.VisualStudio.com/DefaultCollection/")]
+  public void Detect_AzureReposCollection_ShouldGiveTheOrganization(string collection)
+  {
+    var context = Detect(
+      CiEnvironmentFixture.Load("azure-repos-push.json").With("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", collection));
+
+    context.Slug.ShouldBe("fabrikam/OctoProject/octo-repo");
+  }
+
+  [Theory]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "")]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "not an address")]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "https://dev.azure.com/")]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "https://.visualstudio.com/")]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "https://visualstudio.com/")]
+  [InlineData("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "https://tfs.example.com/tfs/DefaultCollection/")]
+  [InlineData("SYSTEM_TEAMPROJECT", "")]
+  [InlineData("BUILD_REPOSITORY_NAME", "")]
+  public void Detect_AzureReposMissingVariable_ShouldWarnAboutTheSlug(string name, string value)
+  {
+    var fixture = CiEnvironmentFixture.Load("azure-repos-push.json").With(name, value);
+
+    var withoutOption = Detect(fixture);
+    var withOption = Detect(fixture, Settings(slug: "fabrikam/Octo/octo-repo"));
+
+    withoutOption.Slug.ShouldBeNull();
+    withoutOption.Forge.ShouldBe("azure-devops");
+    withoutOption.Sha.ShouldBe(BranchSha);
+    withoutOption.Warnings.ShouldHaveSingleItem().ShouldContain("--slug");
+    withoutOption.Warnings[0].ShouldContain("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI");
+    withOption.Slug.ShouldBe("fabrikam/Octo/octo-repo");
+    withOption.Warnings.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Detect_GitHubRepositoryOnAzurePipelines_ShouldKeepItsSlug()
+  {
+    var context = DetectFixture("azure-ci.json");
+
+    context.Forge.ShouldBe("github");
+    context.Slug.ShouldBe(Slug);
   }
 
   [Fact]

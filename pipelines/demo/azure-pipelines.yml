@@ -8,6 +8,16 @@
 #   - a variable group "code-coverage": COVERAGE_URL, COVERAGE_TOKEN (secret: a token of the
 #     organization, or the imported CODECOV_TOKEN), and optionally UPLOADER_SHA256_LINUX_X64 (the sum
 #     of the release, pinned; changed with the version below).
+#
+# Azure Repos variant (M7.56): for a repository hosted on Azure Repos, the pipeline is the same with
+# two differences, the "pr:" trigger replaced by a build validation branch policy (Azure Repos ignores
+# it) and the variable group holding the token of the Azure DevOps organization:
+#   - "code-coverage" variable group: COVERAGE_URL, and COVERAGE_TOKEN with the lock set (secret), so
+#     that it is never printed and reaches the step only through its explicit env: mapping;
+#   - checkout: self, with fetchDepth: 1 as well: the commit is SYSTEM_PULLREQUEST_SOURCECOMMITID and
+#     the diff is read from Azure DevOps.
+# The uploader detects BUILD_REPOSITORY_PROVIDER TfsGit and sends the forge azure-devops and the slug
+# organization/project/repo, a project name with spaces included: no --slug and no --forge to add.
 # ------------------------------------------------------------------------------------------------
 trigger:
   branches:

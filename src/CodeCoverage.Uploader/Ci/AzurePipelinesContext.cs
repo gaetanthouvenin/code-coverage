@@ -8,15 +8,26 @@ namespace CodeCoverage.Uploader.Ci;
 
 /// <summary>Reads the context of an Azure Pipelines build.</summary>
 /// <remarks>
-///   On a pull request build <c>BUILD_SOURCEVERSION</c> is the synthetic merge commit, and
-///   <c>SYSTEM_PULLREQUEST_SOURCECOMMITID</c>, the head, is not always set: without it the commit is
-///   left unknown.
+///   <para>
+///     On a pull request build <c>BUILD_SOURCEVERSION</c> is the synthetic merge commit, and
+///     <c>SYSTEM_PULLREQUEST_SOURCECOMMITID</c>, the head, is not always set: without it the commit is
+///     left unknown.
+///   </para>
+///   <para>
+///     The slug is detected for a GitHub repository (<c>owner/repo</c>, from <c>BUILD_REPOSITORY_NAME</c>)
+///     and for an Azure Repos one (<c>organization/project/repo</c>, the organization read from
+///     <c>SYSTEM_TEAMFOUNDATIONCOLLECTIONURI</c>); any other provider needs <c>--slug</c>.
+///   </para>
 /// </remarks>
 internal static class AzurePipelinesContext
 {
   #region Fields
 
   private const string Service = "azure-pipelines";
+
+  private const string AzureDevOpsHost = "dev.azure.com";
+
+  private const string LegacyHostSuffix = ".visualstudio.com";
 
   #endregion
 
@@ -32,6 +43,7 @@ internal static class AzurePipelinesContext
 
     var provider = environment("BUILD_REPOSITORY_PROVIDER");
     var isGitHub = string.Equals(provider, "GitHub", StringComparison.OrdinalIgnoreCase);
+    var isAzureRepos = string.Equals(provider, "TfsGit", StringComparison.OrdinalIgnoreCase);
     var pullRequestId = environment("SYSTEM_PULLREQUEST_PULLREQUESTID");
     var pullRequestNumber = environment("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER");
     var isPullRequest = pullRequestId is not null
@@ -49,7 +61,11 @@ internal static class AzurePipelinesContext
     {
       Service = Service,
       Forge = ForgeOf(provider),
-      Slug = isGitHub ? environment("BUILD_REPOSITORY_NAME") : null,
+      Slug = isGitHub
+               ? environment("BUILD_REPOSITORY_NAME")
+               : isAzureRepos
+                 ? AzureReposSlug(environment)
+                 : null,
       Sha = sha,
       Branch = ReadBranch(environment, isPullRequest),
       PullRequest = DetectedContext.ParseNumber(pullRequestNumber)
@@ -66,7 +82,12 @@ internal static class AzurePipelinesContext
                        : "BUILD_SOURCEVERSION is missing or is not a full commit SHA.",
       SlugFailure = isGitHub
                       ? "BUILD_REPOSITORY_NAME is not set."
-                      : $"BUILD_REPOSITORY_NAME gives an owner/repo slug only for a GitHub repository, not for '{provider ?? "an unknown provider"}'.",
+                      : isAzureRepos
+                        ? "The organization/project/repo slug of an Azure Repos repository needs "
+                          + "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI on dev.azure.com or visualstudio.com, "
+                          + "SYSTEM_TEAMPROJECT and BUILD_REPOSITORY_NAME."
+                        : "BUILD_REPOSITORY_NAME gives a slug only for a GitHub or an Azure Repos repository, "
+                          + $"not for '{provider ?? "an unknown provider"}'.",
     };
   }
 
@@ -96,6 +117,42 @@ internal static class AzurePipelinesContext
     return reference is not null
            && reference.StartsWith(DetectedContext.BranchRefPrefix, StringComparison.Ordinal)
              ? DetectedContext.StripBranchRef(reference)
+             : null;
+  }
+
+  // organization/project/repo; the project keeps its spaces, which a slug allows.
+  private static string? AzureReposSlug(Func<string, string?> environment)
+  {
+    var organization = OrganizationOf(environment("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI"));
+    var project = environment("SYSTEM_TEAMPROJECT");
+    var repository = environment("BUILD_REPOSITORY_NAME");
+
+    return organization is null || project is null || repository is null
+             ? null
+             : $"{organization}/{project}/{repository}";
+  }
+
+  // https://dev.azure.com/{organization}/ or the former https://{organization}.visualstudio.com/; an
+  // Azure DevOps Server collection names no organization of the cloud, so it is left to --slug.
+  private static string? OrganizationOf(string? collection)
+  {
+    if (!Uri.TryCreate(collection, UriKind.Absolute, out var address))
+    {
+      return null;
+    }
+
+    var host = address.Host;
+
+    if (string.Equals(host, AzureDevOpsHost, StringComparison.OrdinalIgnoreCase))
+    {
+      var segments = address.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+      return segments.Length == 0 ? null : Uri.UnescapeDataString(segments[0]);
+    }
+
+    // A host cannot start with a dot: the organization before the suffix is never empty.
+    return host.EndsWith(LegacyHostSuffix, StringComparison.OrdinalIgnoreCase)
+             ? host[..^LegacyHostSuffix.Length]
              : null;
   }
 
