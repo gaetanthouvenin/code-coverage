@@ -94,8 +94,15 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
     services.AddScoped<ForgeConnectionCredentialReader>();
     services.AddScoped<AzureDevOpsTokenProvider>();
     services.AddAzureDevOpsHttpClient();
+    // The profile service has a fixed address of its own: the same server plays it.
+    services.AddHttpClient(AzureDevOpsHttpClientConfiguration.ProfileClientName).ConfigureHttpClient(client => client.BaseAddress = new Uri($"{Server.Url}/"));
 
-    foreach (var client in new[] { AzureDevOpsHttpClientConfiguration.ClientName, AzureDevOpsHttpClientConfiguration.EntraClientName })
+    foreach (var client in new[]
+             {
+               AzureDevOpsHttpClientConfiguration.ClientName,
+               AzureDevOpsHttpClientConfiguration.ProfileClientName,
+               AzureDevOpsHttpClientConfiguration.EntraClientName,
+             })
     {
       services.PostConfigure<HttpStandardResilienceOptions>(
         $"{client}-standard",
@@ -124,6 +131,8 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
   public WireMockServer Server { get; }
 
   public AzureDevOpsTokenProvider TokenProvider => _scope.ServiceProvider.GetRequiredService<AzureDevOpsTokenProvider>();
+
+  public AzureDevOpsUserGateway UserGateway => _scope.ServiceProvider.GetRequiredService<AzureDevOpsUserGateway>();
 
   #endregion
 

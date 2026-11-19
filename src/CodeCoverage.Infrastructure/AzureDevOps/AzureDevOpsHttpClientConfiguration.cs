@@ -15,7 +15,10 @@ using Polly;
 
 namespace CodeCoverage.Infrastructure.AzureDevOps;
 
-/// <summary>Registers the <c>azure-devops</c> HTTP client, its pipeline, and the client of Microsoft Entra ID.</summary>
+/// <summary>
+///   Registers the <c>azure-devops</c> HTTP client, its pipeline, the client of the profile service and the client of
+///   Microsoft Entra ID.
+/// </summary>
 internal static class AzureDevOpsHttpClientConfiguration
 {
   #region Fields
@@ -24,11 +27,23 @@ internal static class AzureDevOpsHttpClientConfiguration
   public const string ClientName = "azure-devops";
 
   /// <summary>
-  ///   The name of the client of Microsoft Entra ID, where the application asks for its tokens. A client credentials
-  ///   request may be sent twice without harm: it is retried like any transient failure. Its timeout is
-  ///   <see cref="EntraTimeout" />.
+  ///   The name of the client of Microsoft Entra ID, where the application asks for its tokens and renews the tokens
+  ///   of the users. A client credentials request, or the renewal of a user token, may be sent twice without harm: it
+  ///   is retried like any transient failure. Its timeout is <see cref="EntraTimeout" />.
   /// </summary>
   public const string EntraClientName = "azure-devops-entra";
+
+  /// <summary>
+  ///   The name of the client of the profile service of Azure DevOps, where a user reads its profile and its
+  ///   organizations with its own token. It has the pipeline of <see cref="ClientName" />.
+  /// </summary>
+  public const string ProfileClientName = "azure-devops-profile";
+
+  /// <summary>
+  ///   The address of the profile service of Azure DevOps, which serves the profile and the organizations of a user
+  ///   outside any organization: <c>dev.azure.com</c> does not.
+  /// </summary>
+  public static readonly Uri ProfileBaseAddress = new("https://app.vssps.visualstudio.com/", UriKind.Absolute);
 
   /// <summary>How long a token request to Microsoft Entra ID may take.</summary>
   public static readonly TimeSpan EntraTimeout = TimeSpan.FromSeconds(30);
@@ -46,8 +61,8 @@ internal static class AzureDevOpsHttpClientConfiguration
   #region Methods
 
   /// <summary>
-  ///   Registers the <c>azure-devops</c> client, from the outside in: the rate limit handler, then the resilience
-  ///   pipeline; and the client of Microsoft Entra ID.
+  ///   Registers the <c>azure-devops</c> client and the client of the profile service, from the outside in: the rate
+  ///   limit handler, then the resilience pipeline; and the client of Microsoft Entra ID.
   /// </summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
@@ -57,26 +72,19 @@ internal static class AzureDevOpsHttpClientConfiguration
   ///   without a restart. The pipeline keeps the 3 retries on a 5xx or a timeout and the circuit breaker of the standard
   ///   handler, but a 429 is a limit to wait for, which neither retries nor counts as a failure of Azure DevOps. A POST
   ///   that is not marked <see cref="Repeatable" /> is never retried: Azure DevOps may have done it and lost its answer.
-  ///   The gateways of Azure DevOps are the typed clients of this client.
+  ///   The gateway of the application is the typed client of <c>azure-devops</c>, the gateway of a user the typed
+  ///   client of the profile service.
   /// </remarks>
   public static IServiceCollection AddAzureDevOpsHttpClient(this IServiceCollection services)
   {
     ArgumentNullException.ThrowIfNull(services);
 
     services.AddTransient<AzureDevOpsRateLimitHandler>();
-    services.AddHttpClient(ClientName, static (provider, client) => Configure(provider, client))
-            .AddHttpMessageHandler<AzureDevOpsRateLimitHandler>()
-            .AddStandardResilienceHandler(
-              static resilience =>
-              {
-                resilience.Retry.ShouldHandle = static arguments => ValueTask.FromResult(
-                                                  IsTransient(arguments.Outcome) && CanBeSentAgain(arguments.Context.GetRequestMessage())
-                                                );
-                resilience.CircuitBreaker.ShouldHandle = static arguments => ValueTask.FromResult(IsTransient(arguments.Outcome));
-              }
-            );
-
+    AddPipeline(services.AddHttpClient(ClientName, static (provider, client) => Configure(provider, client)));
     services.AddHttpClient<AzureDevOpsGateway>(ClientName);
+
+    AddPipeline(services.AddHttpClient(ProfileClientName, static client => Configure(client, ProfileBaseAddress)));
+    services.AddHttpClient<AzureDevOpsUserGateway>(ProfileClientName);
 
     services.AddHttpClient(
               EntraClientName,
@@ -92,12 +100,32 @@ internal static class AzureDevOpsHttpClientConfiguration
     return services;
   }
 
+  /// <summary>Adds the rate limit handler, then the resilience pipeline, to a client of the Azure DevOps REST API.</summary>
+  /// <param name="builder">The builder of the client.</param>
+  private static void AddPipeline(IHttpClientBuilder builder) =>
+    builder.AddHttpMessageHandler<AzureDevOpsRateLimitHandler>()
+           .AddStandardResilienceHandler(
+             static resilience =>
+             {
+               resilience.Retry.ShouldHandle = static arguments => ValueTask.FromResult(
+                                                 IsTransient(arguments.Outcome) && CanBeSentAgain(arguments.Context.GetRequestMessage())
+                                               );
+               resilience.CircuitBreaker.ShouldHandle = static arguments => ValueTask.FromResult(IsTransient(arguments.Outcome));
+             }
+           );
+
   /// <summary>Points a new client at the API and sets the headers that every request carries.</summary>
   /// <param name="provider">The services of the host.</param>
   /// <param name="client">The new client.</param>
-  private static void Configure(IServiceProvider provider, HttpClient client)
+  private static void Configure(IServiceProvider provider, HttpClient client) =>
+    Configure(client, provider.GetRequiredService<IOptionsMonitor<AzureDevOpsOptions>>().CurrentValue.GetApiBaseAddress());
+
+  /// <summary>Points a new client at an address and sets the headers that every request carries.</summary>
+  /// <param name="client">The new client.</param>
+  /// <param name="baseAddress">The address to which the relative request paths are appended.</param>
+  private static void Configure(HttpClient client, Uri baseAddress)
   {
-    client.BaseAddress = provider.GetRequiredService<IOptionsMonitor<AzureDevOpsOptions>>().CurrentValue.GetApiBaseAddress();
+    client.BaseAddress = baseAddress;
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
   }
