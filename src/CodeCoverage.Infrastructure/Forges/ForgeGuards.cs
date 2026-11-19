@@ -7,6 +7,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Security;
 
 namespace CodeCoverage.Infrastructure.Forges;
 
@@ -58,6 +59,29 @@ internal static class ForgeGuards
     /// <returns>The exception, for the caller to throw.</returns>
     public static BadGatewayException ForgeUnavailable(string message, Exception innerException) =>
       new(ForgeErrors.Unavailable, message, innerException);
+  }
+
+  extension(UnauthorizedException)
+  {
+    /// <summary>Throws when a forge no longer accepts the token of a user.</summary>
+    /// <param name="refused">Whether the forge refused the token.</param>
+    /// <param name="forgeName">The name of the forge, for the message.</param>
+    /// <exception cref="UnauthorizedException"><paramref name="refused" /> is <see langword="true" />.</exception>
+    /// <remarks>The session of the user is over: it signs in again (<see cref="SecurityErrors.Unauthenticated" />).</remarks>
+    public static void ThrowIfUserTokenRefused([DoesNotReturnIf(true)] bool refused, string forgeName)
+    {
+      if (refused)
+      {
+        throw new UnauthorizedException(SecurityErrors.Unauthenticated, $"{forgeName} no longer accepts the token of the user.");
+      }
+    }
+
+    /// <summary>Creates the refusal of a user that has no token left that the forge accepts.</summary>
+    /// <param name="forgeName">The name of the forge, for the message.</param>
+    /// <returns>The exception, for the caller to throw.</returns>
+    /// <remarks>The user signs in again (<see cref="SecurityErrors.Unauthenticated" />).</remarks>
+    public static UnauthorizedException UserSessionExpired(string forgeName) =>
+      new(SecurityErrors.Unauthenticated, $"The session with {forgeName} has expired: sign in again.");
   }
 
   #endregion

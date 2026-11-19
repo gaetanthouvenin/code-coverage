@@ -7,14 +7,11 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
 
 using Polly;
 
@@ -22,7 +19,6 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.AzureDevOps.Models;
 using CodeCoverage.Infrastructure.Forges;
 
@@ -63,15 +59,8 @@ internal sealed class AzureDevOpsTokenProvider(
   /// <summary>The scope of the Azure DevOps resource, for an application token.</summary>
   public const string Scope = "499b84ac-1321-427f-aa17-267ca6975798/.default";
 
-  private const string ClientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
-
   /// <summary>How long before its expiry a token stops being served from the cache.</summary>
   private static readonly TimeSpan RenewalMargin = TimeSpan.FromMinutes(5);
-
-  /// <summary>The time a client assertion stays valid.</summary>
-  private static readonly TimeSpan AssertionLifetime = TimeSpan.FromMinutes(10);
-
-  private static readonly JsonWebTokenHandler JwtHandler = new() { SetDefaultTimesOnTokenCreation = false };
 
   #endregion
 
@@ -168,40 +157,6 @@ internal sealed class AzureDevOpsTokenProvider(
     }
   }
 
-  /// <summary>Creates the client assertion that authenticates the application with its certificate.</summary>
-  /// <param name="settings">The <c>AzureDevOps</c> settings.</param>
-  /// <param name="tokenEndpoint">The token endpoint, the audience of the assertion.</param>
-  /// <returns>The assertion, signed in RS256 with the private key of the certificate.</returns>
-  private string CreateClientAssertion(AzureDevOpsOptions settings, Uri tokenEndpoint)
-  {
-    var pem = settings.GetCertificatePem(protector);
-
-    using var certificate = X509Certificate2.CreateFromPem(pem, pem);
-
-    var now = clock.UtcNow;
-
-    return JwtHandler.CreateToken(
-      new SecurityTokenDescriptor
-      {
-        Issuer = settings.ClientId,
-        Audience = tokenEndpoint.AbsoluteUri,
-        Claims = new Dictionary<string, object>
-        {
-          [JwtRegisteredClaimNames.Sub] = settings.ClientId!,
-          [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture),
-        },
-        IssuedAt = now.UtcDateTime,
-        NotBefore = now.UtcDateTime,
-        Expires = (now + AssertionLifetime).UtcDateTime,
-        // The certificate dies with this method: a cached signature provider would outlive it.
-        SigningCredentials = new X509SigningCredentials(certificate, SecurityAlgorithms.RsaSha256)
-        {
-          CryptoProviderFactory = new CryptoProviderFactory { CacheSignatureProviders = false },
-        },
-      }
-    );
-  }
-
   /// <summary>Builds the form of a client credentials request.</summary>
   /// <param name="settings">The <c>AzureDevOps</c> settings.</param>
   /// <param name="tokenEndpoint">The token endpoint.</param>
@@ -209,27 +164,13 @@ internal sealed class AzureDevOpsTokenProvider(
   /// <exception cref="InvalidOperationException">The client identifier, or both the secret and the certificate, are not configured.</exception>
   private Dictionary<string, string> CreateForm(AzureDevOpsOptions settings, Uri tokenEndpoint)
   {
-    InvalidOperationException.ThrowIf(
-      string.IsNullOrWhiteSpace(settings.ClientId),
-      $"The setting '{SettingDefinitions.AzureDevOpsClientId}' is not configured."
-    );
-
     var form = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-      ["client_id"] = settings.ClientId,
       ["scope"] = Scope,
       ["grant_type"] = "client_credentials",
     };
 
-    if (string.IsNullOrWhiteSpace(settings.CertificatePem))
-    {
-      form["client_secret"] = settings.GetClientSecret(protector);
-    }
-    else
-    {
-      form["client_assertion_type"] = ClientAssertionType;
-      form["client_assertion"] = CreateClientAssertion(settings, tokenEndpoint);
-    }
+    EntraClientAuthentication.AddTo(form, settings, tokenEndpoint, protector, clock.UtcNow);
 
     return form;
   }

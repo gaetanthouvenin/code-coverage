@@ -21,8 +21,11 @@ namespace CodeCoverage.Infrastructure.AzureDevOps;
   RespectNullableAnnotations = true,
   RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(EntraTokenResponse))]
+[JsonSerializable(typeof(EntraUserTokenResponse))]
 [JsonSerializable(typeof(AzureDevOpsCommit))]
+[JsonSerializable(typeof(AzureDevOpsList<AzureDevOpsAccount>))]
 [JsonSerializable(typeof(AzureDevOpsList<AzureDevOpsRef>))]
+[JsonSerializable(typeof(AzureDevOpsProfile))]
 [JsonSerializable(typeof(AzureDevOpsPullRequest))]
 [JsonSerializable(typeof(AzureDevOpsRepository))]
 [JsonSerializable(typeof(AzureDevOpsTree))]
