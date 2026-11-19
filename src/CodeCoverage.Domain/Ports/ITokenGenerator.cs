@@ -23,5 +23,9 @@ public interface ITokenGenerator
   /// <returns>The value in clear: <c>cvp_</c> followed by 43 base64url characters.</returns>
   string NewApiToken();
 
+  /// <summary>Generates the secret that signs the webhooks of a forge connection.</summary>
+  /// <returns>The value in clear: 43 base64url characters.</returns>
+  string NewWebhookSecret();
+
   #endregion
 }

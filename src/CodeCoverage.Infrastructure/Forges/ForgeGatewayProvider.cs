@@ -17,7 +17,8 @@ namespace CodeCoverage.Infrastructure.Forges;
 /// <remarks>
 ///   Each adapter registers itself as a keyed <see cref="IForgeGateway" />, as a keyed <see cref="IForgeUserGateway" />, as
 ///   a keyed <see cref="IForgeUserTokenProvider" />, as keyed <see cref="IForgeLinks" />, as a keyed
-///   <see cref="IForgeDirectoryGateway" /> and as keyed <see cref="ForgeCapabilities" />, under its <see cref="Forge" />,
+///   <see cref="IForgeDirectoryGateway" />, as a keyed <see cref="IForgeConnectionVerifier" /> when its accounts are
+///   connected, and as keyed <see cref="ForgeCapabilities" />, under its <see cref="Forge" />,
 ///   in the dependency injection of its forge, so a new adapter is added without touching this provider.
 /// </remarks>
 internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGatewayProvider
@@ -48,6 +49,11 @@ internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGa
   public IForgeDirectoryGateway GetDirectory(Forge forge) =>
     services.GetKeyedService<IForgeDirectoryGateway>(forge)
     ?? throw new NotSupportedException($"No directory gateway is implemented for the forge '{forge}'.");
+
+  /// <inheritdoc />
+  public IForgeConnectionVerifier GetVerifier(Forge forge) =>
+    services.GetKeyedService<IForgeConnectionVerifier>(forge)
+    ?? throw new NotSupportedException($"No connection verifier is implemented for the forge '{forge}'.");
 
   /// <inheritdoc />
   public ForgeCapabilities GetCapabilities(Forge forge) =>

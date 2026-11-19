@@ -35,6 +35,9 @@
   <data name="Commit.Compacted" xml:space="preserve"><value>The coverage of an upload of this commit no longer exists.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>This commit was finalized in the meantime. Finalize it again.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>The raw files of an upload of this commit are no longer kept: it cannot be processed again.</value></data>
+  <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket or GitLab refuses this connection access to the account: check the account name, the tenant and the credential, then try again.</value></data>
+  <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>This forge is not offered for an admission on this instance: register its application in the settings first.</value></data>
+  <data name="Connection.UseInstallation" xml:space="preserve"><value>A GitHub organization is admitted through the installation of the GitHub App, not through a connection.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Request identifier</value></data>
   <data name="Error_Title" xml:space="preserve"><value>An error occurred</value></data>
@@ -77,6 +80,7 @@
   <data name="Organization.NotFound" xml:space="preserve"><value>This organization does not exist, or you do not have access to it.</value></data>
   <data name="Organization.NotPending" xml:space="preserve"><value>This organization was already admitted or is suspended.</value></data>
   <data name="Organization.UnknownGitHubLogin" xml:space="preserve"><value>GitHub knows no account with this login.</value></data>
+  <data name="Organization.UseConnection" xml:space="preserve"><value>This account is not a GitHub one: admit it through its connection.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>This repository does not exist, or you do not have access to it.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>This repository is known and its coverage is not tracked.</value></data>

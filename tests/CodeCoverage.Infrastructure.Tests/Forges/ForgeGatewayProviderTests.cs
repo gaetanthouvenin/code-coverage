@@ -129,6 +129,32 @@ public sealed class ForgeGatewayProviderTests
   }
 
   [Fact]
+  public void GetVerifier_RegisteredForge_ShouldReturnItsVerifier()
+  {
+    var verifier = A.Fake<IForgeConnectionVerifier>();
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(Forge.AzureDevOps, (_, _) => verifier);
+    services.AddKeyedScoped(Forge.Bitbucket, (_, _) => A.Fake<IForgeConnectionVerifier>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetVerifier(Forge.AzureDevOps).ShouldBeSameAs(verifier);
+  }
+
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.GitLab)]
+  public void GetVerifier_UnregisteredForge_ShouldThrowNotSupported(Forge forge)
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedScoped(Forge.AzureDevOps, (_, _) => A.Fake<IForgeConnectionVerifier>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetVerifier(forge));
+  }
+
+  [Fact]
   public void GetCapabilities_RegisteredForge_ShouldReturnItsCapabilities()
   {
     var capabilities = new ForgeCapabilities(1000);

@@ -119,17 +119,18 @@ public sealed class AdmitOrganizationCommandHandlerTests
      .MustNotHaveHappened();
   }
 
-  [Fact]
-  public async Task Handle_AccountOfAnotherForge_ShouldQueueNoListingOfGitHubInstallations()
+  [Theory]
+  [InlineData(Forge.AzureDevOps)]
+  [InlineData(Forge.Bitbucket)]
+  [InlineData(Forge.GitLab)]
+  public async Task Handle_ConnectionForge_ShouldThrowUseConnection(Forge forge)
   {
-    var pending = Organization.CreatePending(Forge.Bitbucket, AccountId, Login, OrganizationAccountType.Organization, Now);
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.Bitbucket, AccountId, A<CancellationToken>._)).Returns(pending);
-    Upserts(pending);
-    Changes(pending);
+    var exception = await Should.ThrowAsync<BadRequestException>(async () => await Handler().Handle(new AdmitOrganizationCommand(forge, Login, AccountId), Ct));
 
-    var admitted = await Handler().Handle(new AdmitOrganizationCommand(Forge.Bitbucket, Login, AccountId), Ct);
-
-    admitted.State.ShouldBe(OrganizationState.Active);
+    // ConnectOrganization verifies the access of the connection before anything is saved: nothing is written here.
+    exception.ErrorCode.ShouldBe(OrganizationErrors.UseConnection);
+    A.CallTo(_directory).MustNotHaveHappened();
+    A.CallTo(_audit).MustNotHaveHappened();
     A.CallTo(_jobQueue).MustNotHaveHappened();
   }
 

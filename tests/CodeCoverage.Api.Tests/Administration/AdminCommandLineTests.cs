@@ -269,25 +269,18 @@ public sealed class AdminCommandLineTests
   }
 
   [Fact]
-  public async Task Run_AdmitOrganization_OtherForge_ShouldAdmitOnThatForge()
+  public async Task Run_AdmitOrganization_OtherForge_ShouldRefuseUseConnection()
   {
-    var created = Organization("team", 9, active: false, Forge.Bitbucket);
-
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.Bitbucket, "{abc}", A<CancellationToken>._)).Returns((Organization?)null);
-    A.CallTo(() => _directory.UpsertFromForgeAsync(Forge.Bitbucket, "{abc}", "team", A<OrganizationAccountType>._, A<CancellationToken>._)).Returns(created);
-    A.CallTo(() => _directory.ChangeAsync(Forge.Bitbucket, A<string>._, A<Action<Organization>>._, A<CancellationToken>._))
-     .ReturnsLazily((Forge _, string _, Action<Organization> change, CancellationToken _) =>
-       {
-         change(created);
-         return created;
-       });
-
     var exit = await RunAsync("", "admin", "admit-organization", "--forge", "bitbucket", "--login", "team", "--account-id", "{abc}");
 
-    exit.ShouldBe(AdminCommandLine.Success);
-    _error.ToString().ShouldContain("Organization bitbucket/team is Active");
+    // M7.12: an account of a forge with connections is admitted by ConnectOrganization, which verifies its access.
+    exit.ShouldBe(AdminCommandLine.Refused);
+    _error.ToString().ShouldContain("Organization.UseConnection");
     A.CallTo(_jobQueue).MustNotHaveHappened();
-    A.CallTo(() => _directory.FindByAccountIdAsync(Forge.GitHub, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(
+       () => _directory.UpsertFromForgeAsync(A<Forge>._, A<string>._, A<string>._, A<OrganizationAccountType>._, A<CancellationToken>._)
+     )
+     .MustNotHaveHappened();
   }
 
   [Fact]

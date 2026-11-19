@@ -38,5 +38,8 @@ internal sealed class TokenGenerator : ITokenGenerator
   /// <inheritdoc />
   public string NewUploadToken() => UploadTokenPrefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
 
+  /// <inheritdoc />
+  public string NewWebhookSecret() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(RandomBytes));
+
   #endregion
 }

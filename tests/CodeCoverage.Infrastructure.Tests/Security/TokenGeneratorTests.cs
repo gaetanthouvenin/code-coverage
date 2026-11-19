@@ -28,5 +28,19 @@ public sealed class TokenGeneratorTests
     generator.NewUploadToken().ShouldNotBe(generator.NewUploadToken());
   }
 
+  [Fact]
+  public void NewWebhookSecret_ShouldHave43Base64UrlCharacters()
+  {
+    Regex.IsMatch(new TokenGenerator().NewWebhookSecret(), "^[A-Za-z0-9_-]{43}$").ShouldBeTrue();
+  }
+
+  [Fact]
+  public void NewWebhookSecret_ShouldDifferEachTime()
+  {
+    var generator = new TokenGenerator();
+
+    generator.NewWebhookSecret().ShouldNotBe(generator.NewWebhookSecret());
+  }
+
   #endregion
 }
