@@ -4,10 +4,12 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Buffers;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -39,8 +41,8 @@ namespace CodeCoverage.Infrastructure.AzureDevOps;
 ///     absence of what was asked for is an answer no caller can use: it surfaces as a <see cref="BadGatewayException" />.
 ///   </para>
 ///   <para>
-///     The comparison and the files of a pull request (M7.46), the trees and the contents (M7.45), the statuses (M7.47)
-///     and the comments (M7.48) are not built yet: they are refused with a <see cref="NotSupportedException" />.
+///     The comparison and the files of a pull request (M7.46), the statuses (M7.47) and the comments (M7.48) are not
+///     built yet: they are refused with a <see cref="NotSupportedException" />.
 ///   </para>
 /// </remarks>
 internal sealed class AzureDevOpsGateway(
@@ -293,13 +295,42 @@ internal sealed class AzureDevOpsGateway(
   }
 
   /// <inheritdoc />
-  /// <exception cref="NotSupportedException">The trees of Azure DevOps are not built yet (M7.45).</exception>
-  public Task<ForgeTree?> GetTreeAsync(ForgeRepositoryRef repository, GitSha sha, bool recursive, CancellationToken cancellationToken)
+  /// <exception cref="ArgumentException">The reference does not designate an Azure DevOps repository.</exception>
+  /// <exception cref="BadGatewayException">
+  ///   The connection cannot be used, or Azure DevOps refused the reading, does not answer or answered with an unreadable
+  ///   payload.
+  /// </exception>
+  /// <exception cref="ForgeRateLimitedException">Azure DevOps rate limited the request.</exception>
+  /// <remarks>
+  ///   Unlike GitHub, the trees of Azure DevOps are read by the SHA of a tree only: the SHA is first read as a commit,
+  ///   whose root tree is then listed; a SHA that is not a commit is listed as the tree of a directory, the SHA
+  ///   <see cref="ForgeTreeEntry.Sha" /> gives to one. The paths of a recursive reading are relative to the tree read.
+  /// </remarks>
+  public async Task<ForgeTree?> GetTreeAsync(ForgeRepositoryRef repository, GitSha sha, bool recursive, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repository);
     ArgumentNullException.ThrowIfNull(sha);
 
-    return NotBuiltYet<ForgeTree?>("tree", "M7.45");
+    var root = Locate(repository);
+    var connection = await credentials.ReadAsync(repository.ConnectionId, cancellationToken).ConfigureAwait(false);
+    var treeSha = await GetAsync(
+                    connection,
+                    $"{root}/commits/{sha.Value}?api-version={ApiVersion}",
+                    AzureDevOpsJsonContext.Default.AzureDevOpsCommit,
+                    NotFound,
+                    AzureDevOpsGatewayMapper.ToTreeSha,
+                    cancellationToken
+                  ).ConfigureAwait(false)
+                  ?? sha;
+
+    return await GetAsync(
+             connection,
+             $"{root}/trees/{treeSha.Value}?recursive={(recursive ? "true" : "false")}&api-version={ApiVersion}",
+             AzureDevOpsJsonContext.Default.AzureDevOpsTree,
+             NotFound,
+             tree => tree.ToForgeTree(sha),
+             cancellationToken
+           ).ConfigureAwait(false);
   }
 
   /// <inheritdoc />
@@ -352,19 +383,44 @@ internal sealed class AzureDevOpsGateway(
   }
 
   /// <inheritdoc />
-  /// <exception cref="NotSupportedException">The contents of Azure DevOps are not built yet (M7.45).</exception>
-  public Task<string?> GetContentAsync(ForgeRepositoryRef repository, string path, GitSha sha, CancellationToken cancellationToken)
+  /// <exception cref="ArgumentException">The reference does not designate an Azure DevOps repository.</exception>
+  /// <exception cref="BadGatewayException">The connection cannot be used, or Azure DevOps refused the reading or does not answer.</exception>
+  /// <exception cref="ForgeRateLimitedException">Azure DevOps rate limited the request.</exception>
+  /// <remarks>
+  ///   The file is read raw through <c>items</c> at the commit (<c>versionDescriptor.versionType=commit</c>); a path
+  ///   with an empty, <c>.</c> or <c>..</c> segment names no file and is answered <see langword="null" /> without asking.
+  /// </remarks>
+  public async Task<string?> GetContentAsync(ForgeRepositoryRef repository, string path, GitSha sha, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(repository);
     ArgumentNullException.ThrowIfNull(path);
     ArgumentNullException.ThrowIfNull(sha);
 
-    return NotBuiltYet<string?>("contents", "M7.45");
+    var root = Locate(repository);
+
+    if (ContentAddress(root, path, sha) is not { } address)
+    {
+      return null;
+    }
+
+    var connection = await credentials.ReadAsync(repository.ConnectionId, cancellationToken).ConfigureAwait(false);
+
+    using var response = await SendAsync(connection, address, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+
+    return IsAbsent(response, address, NotFound)
+             ? null
+             : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
   }
 
   /// <inheritdoc />
-  /// <exception cref="NotSupportedException">The contents of Azure DevOps are not built yet (M7.45).</exception>
-  public Task<ForgeFileContent?> GetBoundedContentAsync(
+  /// <exception cref="ArgumentException">The reference does not designate an Azure DevOps repository.</exception>
+  /// <exception cref="BadGatewayException">The connection cannot be used, or Azure DevOps refused the reading or does not answer.</exception>
+  /// <exception cref="ForgeRateLimitedException">Azure DevOps rate limited the request.</exception>
+  /// <remarks>
+  ///   The file is read raw through <c>items</c> at the commit (<c>versionDescriptor.versionType=commit</c>): the length
+  ///   announced by Azure DevOps is checked first, then the body is read up to the bound.
+  /// </remarks>
+  public async Task<ForgeFileContent?> GetBoundedContentAsync(
     ForgeRepositoryRef repository,
     string path,
     GitSha sha,
@@ -374,9 +430,71 @@ internal sealed class AzureDevOpsGateway(
     ArgumentNullException.ThrowIfNull(repository);
     ArgumentNullException.ThrowIfNull(path);
     ArgumentNullException.ThrowIfNull(sha);
+    ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
 
-    return NotBuiltYet<ForgeFileContent?>("contents", "M7.45");
+    var root = Locate(repository);
+
+    if (ContentAddress(root, path, sha) is not { } address)
+    {
+      return null;
+    }
+
+    var connection = await credentials.ReadAsync(repository.ConnectionId, cancellationToken).ConfigureAwait(false);
+
+    // Only the headers are awaited: the length they announce, then the body read up to the bound, decide.
+    using var response = await SendAsync(connection, address, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+
+    if (IsAbsent(response, address, NotFound))
+    {
+      return null;
+    }
+
+    if (response.Content.Headers.ContentLength > maxBytes)
+    {
+      return ForgeFileContent.TooLarge;
+    }
+
+    var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+
+    // One byte beyond the bound tells a file too large; an announced length, which the stream never exceeds, sizes the
+    // buffer below the bound.
+    var size = (int)Math.Min((response.Content.Headers.ContentLength ?? maxBytes) + 1, maxBytes + 1L);
+    var buffer = ArrayPool<byte>.Shared.Rent(size);
+
+    try
+    {
+      await using (stream.ConfigureAwait(false))
+      {
+        var length = 0;
+        int read;
+
+        while (length < size && (read = await stream.ReadAsync(buffer.AsMemory(length, size - length), cancellationToken).ConfigureAwait(false)) > 0)
+        {
+          length += read;
+        }
+
+        return length > maxBytes ? ForgeFileContent.TooLarge : new ForgeFileContent(Encoding.UTF8.GetString(buffer, 0, length));
+      }
+    }
+    finally
+    {
+      ArrayPool<byte>.Shared.Return(buffer);
+    }
   }
+
+  /// <summary>Builds the address of the raw content of a file at a commit.</summary>
+  /// <param name="root">The root of the routes of the repository.</param>
+  /// <param name="path">The path of the file, relative to the root of the repository.</param>
+  /// <param name="sha">The SHA of the commit.</param>
+  /// <returns>
+  ///   The address, or <see langword="null" /> when a segment of the path is empty, <c>.</c> or <c>..</c>: such a path
+  ///   names no file.
+  /// </returns>
+  private static string? ContentAddress(string root, string path, GitSha sha) =>
+    Array.TrueForAll(path.Split('/'), IsPathSegment)
+      ? $"{root}/items?path={Uri.EscapeDataString("/" + path)}&versionDescriptor.version={sha.Value}"
+        + $"&versionDescriptor.versionType=commit&$format=octetStream&api-version={ApiVersion}"
+      : null;
 
   /// <summary>Tells whether a text can stand as one segment of an address.</summary>
   /// <param name="value">The text.</param>
@@ -525,14 +643,29 @@ internal sealed class AzureDevOpsGateway(
     where TModel : class
     where TResult : class
   {
+    using var response = await SendAsync(connection, address, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+
+    return await ReadAsync(response, address, type, absent, map, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <summary>Sends a reading with the token of the application for a connection.</summary>
+  /// <param name="connection">The connection.</param>
+  /// <param name="address">The address to read, relative to the address of the organization of the connection.</param>
+  /// <param name="completion">When the sending completes: once the whole answer, or only its headers, are read.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The response, which the caller disposes of.</returns>
+  private async Task<HttpResponseMessage> SendAsync(
+    ForgeConnectionCredential connection,
+    string address,
+    HttpCompletionOption completion,
+    CancellationToken cancellationToken)
+  {
     var token = await tokens.GetTokenAsync(connection, cancellationToken).ConfigureAwait(false);
 
     using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(RootOf(connection), address));
     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-    using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-    return await ReadAsync(response, address, type, absent, map, cancellationToken).ConfigureAwait(false);
+    return await client.SendAsync(request, completion, cancellationToken).ConfigureAwait(false);
   }
 
   #endregion

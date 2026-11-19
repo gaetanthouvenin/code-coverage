@@ -125,6 +125,43 @@ internal static class AzureDevOpsGatewayMapper
     return head is null ? null : ToSha(head.ObjectId);
   }
 
+  /// <summary>Reads the root tree of a commit.</summary>
+  /// <param name="commit">The commit.</param>
+  /// <returns>The SHA of its root tree.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="commit" /> is <see langword="null" />.</exception>
+  /// <exception cref="JsonException">The commit reports no tree, or its SHA is malformed.</exception>
+  public static GitSha ToTreeSha(this AzureDevOpsCommit commit)
+  {
+    ArgumentNullException.ThrowIfNull(commit);
+
+    return ToSha(commit.TreeId ?? throw new JsonException($"The commit '{commit.CommitId}' has no tree."));
+  }
+
+  /// <summary>Converts a tree.</summary>
+  /// <param name="tree">The tree.</param>
+  /// <param name="sha">The SHA that was asked for, a commit or a tree.</param>
+  /// <returns>
+  ///   The tree of the port, with its files and its directories; the submodules are left out. Azure DevOps never cuts
+  ///   the entries of a tree, so the tree is never truncated.
+  /// </returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <exception cref="JsonException">The SHA of an entry is malformed.</exception>
+  public static ForgeTree ToForgeTree(this AzureDevOpsTree tree, GitSha sha)
+  {
+    ArgumentNullException.ThrowIfNull(tree);
+    ArgumentNullException.ThrowIfNull(sha);
+
+    return new ForgeTree(
+      sha,
+      [
+        .. tree.TreeEntries
+               .Where(static entry => entry.GitObjectType is "blob" or "tree")
+               .Select(static entry => new ForgeTreeEntry(entry.RelativePath, ToSha(entry.ObjectId), entry.GitObjectType is "tree")),
+      ],
+      Truncated: false
+    );
+  }
+
   /// <summary>Removes the prefix of the full name of a branch.</summary>
   /// <param name="refName">The full name, <c>refs/heads/main</c>.</param>
   /// <returns>The name of the branch, <c>main</c>; a name without the prefix is returned as it is.</returns>

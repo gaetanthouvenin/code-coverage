@@ -6,6 +6,7 @@
 
 using System.Text.Json;
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.AzureDevOps.Models;
@@ -212,6 +213,40 @@ public sealed class AzureDevOpsGatewayMapperTests
     var refs = new AzureDevOpsList<AzureDevOpsRef>(1, [new AzureDevOpsRef("refs/heads/main", "not-a-sha")]);
 
     Should.Throw<JsonException>(() => refs.ToBranchHead("main"));
+  }
+
+  [Fact]
+  public void ToTreeSha_ShouldReadTheRootTree()
+  {
+    new AzureDevOpsCommit(Head, TreeId: Base).ToTreeSha().ShouldBe(GitSha.Parse(Base));
+  }
+
+  [Fact]
+  public void ToTreeSha_NoTree_ShouldThrowJson()
+  {
+    Should.Throw<JsonException>(() => new AzureDevOpsCommit(Head).ToTreeSha());
+  }
+
+  [Fact]
+  public void ToForgeTree_Submodule_ShouldLeaveItOut()
+  {
+    var tree = new AzureDevOpsTree(
+      Base,
+      [new AzureDevOpsTreeEntry(Head, "vendor/shared", "commit"), new AzureDevOpsTreeEntry(Base, "src", "tree")]
+    );
+
+    var mapped = tree.ToForgeTree(GitSha.Parse(Head));
+
+    mapped.Entries.ShouldHaveSingleItem().ShouldBe(new ForgeTreeEntry("src", GitSha.Parse(Base), true));
+    mapped.Truncated.ShouldBeFalse();
+  }
+
+  [Fact]
+  public void ToForgeTree_MalformedSha_ShouldThrowJson()
+  {
+    var tree = new AzureDevOpsTree(Base, [new AzureDevOpsTreeEntry("not-a-sha", "README.md", "blob")]);
+
+    Should.Throw<JsonException>(() => tree.ToForgeTree(GitSha.Parse(Head)));
   }
 
   #endregion
