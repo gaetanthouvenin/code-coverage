@@ -25,4 +25,5 @@ namespace CodeCoverage.Infrastructure.AzureDevOps;
 [JsonSerializable(typeof(AzureDevOpsList<AzureDevOpsRef>))]
 [JsonSerializable(typeof(AzureDevOpsPullRequest))]
 [JsonSerializable(typeof(AzureDevOpsRepository))]
+[JsonSerializable(typeof(AzureDevOpsTree))]
 internal sealed partial class AzureDevOpsJsonContext : JsonSerializerContext;

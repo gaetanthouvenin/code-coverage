@@ -313,12 +313,6 @@ public sealed class AzureDevOpsGatewayReadTests : IDisposable
   }
 
   [Fact]
-  public async Task GetTreeAsync_ShouldNotBeBuiltYet()
-  {
-    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.GetTreeAsync(Repository, Head, true, Cancellation));
-  }
-
-  [Fact]
   public async Task CreateStatusAsync_ShouldNotBeBuiltYet()
   {
     var status = new CommitStatus("coverage/patch", StatusState.Success, "ok");
@@ -348,20 +342,6 @@ public sealed class AzureDevOpsGatewayReadTests : IDisposable
   public async Task DeleteIssueCommentAsync_ShouldNotBeBuiltYet()
   {
     await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.DeleteIssueCommentAsync(Repository, 1, Cancellation));
-  }
-
-  [Fact]
-  public async Task GetContentAsync_ShouldNotBeBuiltYet()
-  {
-    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.GetContentAsync(Repository, "codecov.yml", Head, Cancellation));
-  }
-
-  [Fact]
-  public async Task GetBoundedContentAsync_ShouldNotBeBuiltYet()
-  {
-    await Should.ThrowAsync<NotSupportedException>(
-      () => _azure.Gateway.GetBoundedContentAsync(Repository, "codecov.yml", Head, 1024, Cancellation)
-    );
   }
 
   private static string Fixture(string name) =>
