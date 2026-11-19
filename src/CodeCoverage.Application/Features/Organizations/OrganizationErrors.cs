@@ -29,5 +29,8 @@ public static class OrganizationErrors
   /// <summary>GitHub knows no account of the login an administrator typed.</summary>
   public const string UnknownGitHubLogin = "Organization.UnknownGitHubLogin";
 
+  /// <summary>An account of a forge other than GitHub is admitted by its connection, never by the installation of the GitHub App.</summary>
+  public const string UseConnection = "Organization.UseConnection";
+
   #endregion
 }

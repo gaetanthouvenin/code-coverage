@@ -35,6 +35,9 @@
   <data name="Commit.Compacted" xml:space="preserve"><value>La copertura di un upload di questo commit non esiste più.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Questo commit è stato finalizzato nel frattempo. Finalizzalo di nuovo.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>I file grezzi di un upload di questo commit non sono più conservati: non può essere rielaborato.</value></data>
+  <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket o GitLab nega a questa connessione l’accesso all’account: verifica il nome dell’account, il tenant e la credenziale, poi riprova.</value></data>
+  <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>Questa forge non è proposta per l’ammissione su questa istanza: registra prima la sua applicazione nelle impostazioni.</value></data>
+  <data name="Connection.UseInstallation" xml:space="preserve"><value>Un’organizzazione GitHub viene ammessa tramite l’installazione della GitHub App, non tramite una connessione.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>Non è stato possibile visualizzare la pagina. Riprova tra un momento; se il problema persiste, comunica a un amministratore l’identificativo della richiesta riportato qui sotto.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identificativo della richiesta</value></data>
   <data name="Error_Title" xml:space="preserve"><value>Si è verificato un errore</value></data>
@@ -77,6 +80,7 @@
   <data name="Organization.NotFound" xml:space="preserve"><value>Questa organizzazione non esiste, oppure non hai accesso.</value></data>
   <data name="Organization.NotPending" xml:space="preserve"><value>Questa organizzazione è già stata ammessa oppure è sospesa.</value></data>
   <data name="Organization.UnknownGitHubLogin" xml:space="preserve"><value>GitHub non conosce alcun account con questo login.</value></data>
+  <data name="Organization.UseConnection" xml:space="preserve"><value>Questo account non è un account GitHub: ammettilo tramite la sua connessione.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>Questo repository non esiste, oppure non hai accesso.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>Questo repository è noto ma la sua copertura non viene tracciata.</value></data>

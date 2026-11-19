@@ -55,7 +55,9 @@ public sealed partial class OrganizationIsolationTests
 
   private const string ConnectionCoordinator = "src/CodeCoverage.Application/Features/Connections/Commands/SyncConnections/SyncConnectionsCommandHandler.cs";
 
-  private const string SweepCoordinator = "src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
+  private const string ConnectionAdmission = "src/CodeCoverage.Application/Features/Connections/Commands/ConnectOrganization/ConnectOrganizationCommandHandler.cs";
+
+  private const string SweepCoordinator ="src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
 
   private const string PurgeCoordinator = "src/CodeCoverage.Application/Features/Operations/Commands/PurgeExpiredData/PurgeExpiredDataCommandHandler.cs";
 
@@ -123,6 +125,12 @@ public sealed partial class OrganizationIsolationTests
     // The coordinator of the forge connections (ADR-017, M7.10): on the lane of the instance, it reads ForgeConnections
     // and Organizations only and queues one reconciliation per connection that is not suspended, in its active organization.
     (ConnectionCoordinator, "ForOrganization"),
+
+    // The admission of an organization by its connection (ADR-017, M7.12): an administrator of the instance, in no
+    // organization, queues the reconciliation of the repositories of the organization it has just created, by the
+    // identifier the database gave it, in the transaction of IForgeConnectionRepository.AddWithOrganizationAsync, which
+    // refuses a job of any other organization.
+    (ConnectionAdmission, "ForOrganization"),
 
     // The coordinator of the sweep of the stuck commits (ADR-013, ARCHITECTURE §6.1): on the lane of the instance, it
     // reads Organizations only and queues one sweep per active organization.

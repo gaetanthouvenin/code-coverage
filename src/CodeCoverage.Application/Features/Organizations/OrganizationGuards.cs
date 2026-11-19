@@ -73,6 +73,23 @@ internal static class OrganizationGuards
     }
   }
 
+  extension(BadRequestException)
+  {
+    /// <summary>
+    ///   Throws when an account of a forge other than GitHub is admitted as a GitHub one: it is admitted by its connection
+    ///   (<c>ConnectOrganization</c>), which verifies the access before it saves the organization.
+    /// </summary>
+    /// <param name="forge">The forge of the account.</param>
+    /// <exception cref="BadRequestException"><paramref name="forge" /> is not GitHub.</exception>
+    public static void ThrowIfConnectionForge(Forge forge)
+    {
+      if (forge is not Forge.GitHub)
+      {
+        throw new BadRequestException(OrganizationErrors.UseConnection, $"An account of {forge} is admitted by its connection, not by an installation.");
+      }
+    }
+  }
+
   extension(UnprocessableEntityException)
   {
     /// <summary>Throws when GitHub knows no account of the login an administrator typed.</summary>

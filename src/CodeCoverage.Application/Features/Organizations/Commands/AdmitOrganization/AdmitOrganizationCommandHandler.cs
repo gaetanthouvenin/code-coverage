@@ -30,12 +30,16 @@ internal sealed class AdmitOrganizationCommandHandler(
   #region Implementation of ICommandHandler<AdmitOrganizationCommand,Organization>
 
   /// <inheritdoc />
+  /// <exception cref="BadRequestException">The account is not a GitHub one: it is admitted by its connection.</exception>
   /// <exception cref="UnprocessableEntityException">The login is reserved.</exception>
   /// <exception cref="ConflictException">The organization was already admitted or is suspended.</exception>
   /// <exception cref="NotFoundException">The organization disappeared while it was admitted.</exception>
   public async ValueTask<Organization> Handle(AdmitOrganizationCommand command, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(command);
+
+    // The other forges verify the access of their connection before saving anything: ConnectOrganization admits them.
+    BadRequestException.ThrowIfConnectionForge(command.Forge);
 
     var existing = await directory.FindByAccountIdAsync(command.Forge, command.ExternalAccountId, cancellationToken).ConfigureAwait(false);
 
@@ -58,17 +62,14 @@ internal sealed class AdmitOrganizationCommandHandler(
 
     // The admission knows no installation: the coordinator lists them and queues the listing of the repositories of
     // this organization, now that it is active. The admission is saved already; the daily reconciliation does the
-    // same if this job is never queued. Only GitHub has installations to list.
-    if (command.Forge is Forge.GitHub)
-    {
-      await jobQueue.EnqueueAsync(SyncInstallationsJobs.Create(), cancellationToken).ConfigureAwait(false);
+    // same if this job is never queued.
+    await jobQueue.EnqueueAsync(SyncInstallationsJobs.Create(), cancellationToken).ConfigureAwait(false);
 
-      // The administrator who admits the account sees it without signing in again: its memberships are read from the
-      // installations it reaches, now that the organization is active. The system admits for no user.
-      if (currentUser.UserId is { } userId)
-      {
-        await jobQueue.EnqueueAsync(RefreshUserMembershipsJobs.Create(userId), cancellationToken).ConfigureAwait(false);
-      }
+    // The administrator who admits the account sees it without signing in again: its memberships are read from the
+    // installations it reaches, now that the organization is active. The system admits for no user.
+    if (currentUser.UserId is { } userId)
+    {
+      await jobQueue.EnqueueAsync(RefreshUserMembershipsJobs.Create(userId), cancellationToken).ConfigureAwait(false);
     }
 
     return admitted;

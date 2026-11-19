@@ -35,6 +35,9 @@
   <data name="Commit.Compacted" xml:space="preserve"><value>La cobertura de un upload de este commit ya no existe.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Este commit se finalizó mientras tanto. Finalícelo de nuevo.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>Los archivos sin procesar de un upload de este commit ya no se conservan: no se puede volver a procesar.</value></data>
+  <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket o GitLab niega a esta conexión el acceso a la cuenta: compruebe el nombre de la cuenta, el tenant y la credencial, y vuelva a intentarlo.</value></data>
+  <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>Esta forja no se ofrece para la admisión en esta instancia: registre primero su aplicación en los ajustes.</value></data>
+  <data name="Connection.UseInstallation" xml:space="preserve"><value>Una organización de GitHub se admite mediante la instalación de la App de GitHub, no mediante una conexión.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>No se pudo mostrar la página. Inténtelo de nuevo en un momento; si el problema persiste, facilite a un administrador el identificador de solicitud que aparece abajo.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identificador de solicitud</value></data>
   <data name="Error_Title" xml:space="preserve"><value>Se ha producido un error</value></data>
@@ -77,6 +80,7 @@
   <data name="Organization.NotFound" xml:space="preserve"><value>Esta organización no existe o no tiene acceso a ella.</value></data>
   <data name="Organization.NotPending" xml:space="preserve"><value>Esta organización ya fue admitida o está suspendida.</value></data>
   <data name="Organization.UnknownGitHubLogin" xml:space="preserve"><value>GitHub no conoce ninguna cuenta con este login.</value></data>
+  <data name="Organization.UseConnection" xml:space="preserve"><value>Esta cuenta no es de GitHub: admítala mediante su conexión.</value></data>
   <data name="PageTitle_Format" xml:space="preserve"><value>{0} · Coverage</value></data>
   <data name="Repository.NotFound" xml:space="preserve"><value>Este repositorio no existe o no tiene acceso a él.</value></data>
   <data name="Repository.Inactive" xml:space="preserve"><value>Este repositorio es conocido y su cobertura no se sigue.</value></data>

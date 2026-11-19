@@ -44,6 +44,12 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No directory gateway is implemented for <paramref name="forge" />.</exception>
   IForgeDirectoryGateway GetDirectory(Forge forge);
 
+  /// <summary>Gets what verifies, by a light call to a forge, that a connection reaches the account it names.</summary>
+  /// <param name="forge">The forge, never GitHub, whose installations are not connections.</param>
+  /// <returns>The connection verifier of the forge.</returns>
+  /// <exception cref="NotSupportedException">No connection verifier is implemented for <paramref name="forge" />.</exception>
+  IForgeConnectionVerifier GetVerifier(Forge forge);
+
   /// <summary>Gets what a forge accepts in what this application writes on it, such as the longest comment.</summary>
   /// <param name="forge">The forge.</param>
   /// <returns>The capabilities of the forge.</returns>
