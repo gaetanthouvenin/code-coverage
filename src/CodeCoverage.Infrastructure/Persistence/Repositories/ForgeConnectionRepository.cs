@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
@@ -250,7 +249,7 @@ internal sealed class ForgeConnectionRepository(
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(connection).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, "A connection of that identifier exists.", exception);
+      throw ConflictException.ConcurrentChange("A connection of that identifier exists.", exception);
     }
   }
 
@@ -281,7 +280,7 @@ internal sealed class ForgeConnectionRepository(
       {
         Detach(added);
 
-        throw new ConflictException(GeneralErrors.ConcurrentChange, TakenMessage, exception);
+        throw ConflictException.ConcurrentChange(TakenMessage, exception);
       }
       catch
       {
