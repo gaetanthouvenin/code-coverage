@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Security;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -164,6 +165,168 @@ public sealed class AzureDevOpsUserTokenProviderTests
     await Should.ThrowAsync<ArgumentOutOfRangeException>(() => Provider(services).GetTokenAsync(0, Ct));
   }
 
+  // Without an expiry, the stored token is given as long as it is there.
+  [Fact]
+  public async Task GetTokenAsync_StoredWithoutExpiry_ShouldGiveTheStoredTokenWithoutAskingEntra()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.current", null, "rt.current", null);
+    var entra = Entra(static () => StubHttpMessageHandler.Json(Issued));
+    using var services = Services(entra);
+
+    (await Provider(services).GetTokenAsync(1, Ct)).ShouldBe("eyJ.current");
+
+    entra.Calls.ShouldBe(0);
+  }
+
+  // The caller that held the lock renewed the token meanwhile: the reading under the lock gives it.
+  [Fact]
+  public async Task GetTokenAsync_RenewedMeanwhile_ShouldGiveTheRenewedTokenWithoutAskingEntra()
+  {
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._))
+     .ReturnsNextFromSequence(User("eyJ.old", Now.AddMinutes(-1), "rt.old"), User("eyJ.renewed", Now.AddHours(1), "rt.renewed"));
+    var entra = Entra(static () => StubHttpMessageHandler.Json(Issued));
+    using var services = Services(entra);
+
+    (await Provider(services).GetTokenAsync(1, Ct)).ShouldBe("eyJ.renewed");
+
+    entra.Calls.ShouldBe(0);
+  }
+
+  [Fact]
+  public async Task GetTokenAsync_RefreshTokenExpired_ShouldClearTheTokensWithoutAskingEntra()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", Now.AddMinutes(-1));
+    var entra = Entra(static () => StubHttpMessageHandler.Json(Issued));
+    using var services = Services(entra);
+
+    (await Should.ThrowAsync<UnauthorizedException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(SecurityErrors.Unauthenticated);
+
+    entra.Calls.ShouldBe(0);
+    _user.RefreshTokenProtected.ShouldBeNull();
+  }
+
+  // Entra ID unreachable, or out of time while the caller still waits, signs nobody out.
+  [Theory]
+  [InlineData(false)]
+  [InlineData(true)]
+  public async Task GetTokenAsync_EntraDoesNotAnswer_ShouldThrowBadGatewayAndKeepTheTokens(bool timedOut)
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", null);
+    using var services = Services(
+      Entra(() => timedOut ? throw new TaskCanceledException("The request timed out.") : throw new HttpRequestException("No route to host."))
+    );
+
+    (await Should.ThrowAsync<BadGatewayException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(ForgeErrors.Unavailable);
+
+    _user.RefreshTokenProtected.ShouldBe(Prefix + "rt.old");
+  }
+
+  [Fact]
+  public async Task GetTokenAsync_RenewedWithoutLifetime_ShouldStoreTheTokenWithoutExpiry()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", null);
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json("""{"access_token":"eyJ.new","refresh_token":"rt.new"}""")));
+
+    (await Provider(services).GetTokenAsync(1, Ct)).ShouldBe("eyJ.new");
+
+    _user.AccessTokenExpiresAt.ShouldBeNull();
+  }
+
+  // Another save won: the renewed pair is written again on what it wrote.
+  [Fact]
+  public async Task GetTokenAsync_RenewedPairSavedConcurrently_ShouldSaveItAgain()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", null);
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).Throws(Concurrent()).Once();
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    (await Provider(services).GetTokenAsync(1, Ct)).ShouldBe("eyJ.new");
+
+    A.CallTo(() => _users.UpdateAsync(_user, A<CancellationToken>._)).MustHaveHappenedTwiceExactly();
+  }
+
+  [Fact]
+  public async Task GetTokenAsync_RenewedPairAlwaysSavedConcurrently_ShouldThrowConflictAfterThreeAttempts()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", null);
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).Throws(Concurrent());
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    (await Should.ThrowAsync<ConflictException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
+
+    A.CallTo(() => _users.UpdateAsync(_user, A<CancellationToken>._)).MustHaveHappened(3, Times.Exactly);
+  }
+
+  // A conflict that is not a concurrent save is not tried again.
+  [Fact]
+  public async Task GetTokenAsync_RenewedPairInOtherConflict_ShouldThrowItWithoutTryingAgain()
+  {
+    _user.ReplaceTokens(Protector(), "eyJ.old", Now.AddMinutes(-1), "rt.old", null);
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).Throws(new ConflictException(GeneralErrors.Unexpected, "Another conflict."));
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    (await Should.ThrowAsync<ConflictException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(GeneralErrors.Unexpected);
+
+    A.CallTo(() => _users.UpdateAsync(_user, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  // A user who never signed in through Azure DevOps has nothing to renew.
+  [Fact]
+  public async Task GetTokenAsync_NoTokens_ShouldThrowUnauthenticatedWithoutAskingEntra()
+  {
+    var entra = Entra(static () => StubHttpMessageHandler.Json(Issued));
+    using var services = Services(entra);
+
+    (await Should.ThrowAsync<UnauthorizedException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(SecurityErrors.Unauthenticated);
+
+    entra.Calls.ShouldBe(0);
+  }
+
+  [Fact]
+  public async Task GetTokenAsync_UserRemovedBeforeTheClearing_ShouldThrowUnauthenticated()
+  {
+    var expired = User("eyJ.old", Now.AddMinutes(-1), null);
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._)).ReturnsNextFromSequence(expired, expired, null);
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    (await Should.ThrowAsync<UnauthorizedException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(SecurityErrors.Unauthenticated);
+
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // A sign-in stored a pair after the last reading: it is kept, and given while it lasts.
+  [Theory]
+  [InlineData(60, "eyJ.signin")]
+  [InlineData(-1, null)]
+  public async Task GetTokenAsync_PairStoredBeforeTheClearing_ShouldKeepIt(int lifetimeMinutes, string? expected)
+  {
+    var expired = User("eyJ.old", Now.AddMinutes(-1), null);
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._))
+     .ReturnsNextFromSequence(expired, expired, User("eyJ.signin", Now.AddMinutes(lifetimeMinutes), "rt.signin"));
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    await ShouldGiveAsync(services, expected);
+
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  // The row changed while it was cleared: what was stored meanwhile is kept, and given while it lasts.
+  [Theory]
+  [InlineData(60, "eyJ.signin")]
+  [InlineData(-1, null)]
+  public async Task GetTokenAsync_ClearingSavedConcurrently_ShouldGiveThePairStoredMeanwhile(int lifetimeMinutes, string? expected)
+  {
+    var expired = User("eyJ.old", Now.AddMinutes(-1), null);
+    A.CallTo(() => _users.FindAsync(A<long>._, A<CancellationToken>._))
+     .ReturnsNextFromSequence(expired, expired, expired, User("eyJ.signin", Now.AddMinutes(lifetimeMinutes), "rt.signin"));
+    A.CallTo(() => _users.UpdateAsync(A<AppUser>._, A<CancellationToken>._)).Throws(Concurrent());
+    using var services = Services(Entra(static () => StubHttpMessageHandler.Json(Issued)));
+
+    await ShouldGiveAsync(services, expected);
+
+    A.CallTo(() => _users.UpdateAsync(expired, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
   // Logged by mistake, the answer of Entra ID does not show the tokens.
   [Fact]
   public void TokenResponse_ToString_ShouldNotShowTheTokens()
@@ -173,6 +336,15 @@ public sealed class AzureDevOpsUserTokenProviderTests
     text.ShouldNotContain("eyJ.secret_access");
     text.ShouldNotContain("rt.secret_refresh");
     text.ShouldContain("4199");
+  }
+
+  [Fact]
+  public void TokenResponse_ToStringWithoutTokens_ShouldMaskNothing()
+  {
+    var text = new EntraUserTokenResponse(Error: "invalid_grant").ToString();
+
+    text.ShouldNotContain("***");
+    text.ShouldContain("invalid_grant");
   }
 
   [Fact]
@@ -189,6 +361,8 @@ public sealed class AzureDevOpsUserTokenProviderTests
 
     new ForgeGatewayProvider(provider).GetUserTokenProvider(Forge.AzureDevOps).ShouldBeOfType<AzureDevOpsUserTokenProvider>();
   }
+
+  private static ConflictException Concurrent() => new(GeneralErrors.ConcurrentChange, "Another save won.");
 
   private StubHttpMessageHandler Entra(Func<HttpResponseMessage> respond) =>
     new(
@@ -209,6 +383,26 @@ public sealed class AzureDevOpsUserTokenProviderTests
     A.CallTo(() => protector.Unprotect(A<string>._)).ReturnsLazily((string value) => value[Prefix.Length..]);
 
     return protector;
+  }
+
+  private static async Task ShouldGiveAsync(ServiceProvider services, string? expected)
+  {
+    if (expected is null)
+    {
+      (await Should.ThrowAsync<UnauthorizedException>(() => Provider(services).GetTokenAsync(1, Ct))).ErrorCode.ShouldBe(SecurityErrors.Unauthenticated);
+    }
+    else
+    {
+      (await Provider(services).GetTokenAsync(1, Ct)).ShouldBe(expected);
+    }
+  }
+
+  private static AppUser User(string accessToken, DateTimeOffset accessTokenExpiresAt, string? refreshToken)
+  {
+    var user = AppUser.Create(Forge.AzureDevOps, "6c1e8a0b-3f4d-4e5a-9b7c-2d1e0f9a8b7c", "Ada Lovelace", null);
+    user.ReplaceTokens(Protector(), accessToken, accessTokenExpiresAt, refreshToken, null);
+
+    return user;
   }
 
   private ServiceProvider Services(StubHttpMessageHandler entra)
