@@ -8,7 +8,7 @@ using Mediator;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Services;
-using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Users;
@@ -17,8 +17,7 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMembershi
 
 /// <summary>Handler for the <see cref="RefreshUserMembershipsCommand" /> command.</summary>
 /// <param name="users">The repository of the users.</param>
-/// <param name="gateways">What resolves the provider of the token the forge of a user issued for it.</param>
-/// <param name="userGateway">The gateway that calls GitHub in the name of a user.</param>
+/// <param name="gateways">What resolves the token provider and the user gateway of the forge of a user.</param>
 /// <param name="updater">What writes the memberships of a user.</param>
 /// <param name="jobQueue">The job queue.</param>
 /// <remarks>
@@ -26,9 +25,9 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMembershi
 ///     The rule of the memberships is the one of <see cref="MembershipUpdater" />, shared with the sign-in.
 ///   </para>
 ///   <para>
-///     It fails closed. When GitHub cannot be asked, nothing is written: the rows keep their date and stop granting
-///     anything once <c>Access:HardExpiryMinutes</c> has passed. When the user has no token GitHub accepts any
-///     more, its memberships are removed at once.
+///     It fails closed. When the forge of the user cannot be asked, nothing is written: the rows keep their date and
+///     stop granting anything once <c>Access:HardExpiryMinutes</c> has passed. When the user has no token its forge
+///     accepts any more, its memberships are removed at once.
 ///   </para>
 ///   <para>
 ///     It reads and writes global tables only, so it runs outside any organization. For each organization the user is
@@ -40,23 +39,22 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserMembershi
 internal sealed class RefreshUserMembershipsCommandHandler(
   IUserRepository users,
   IForgeGatewayProvider gateways,
-  IGitHubUserGateway userGateway,
   MembershipUpdater updater,
   IJobQueue jobQueue) : ICommandHandler<RefreshUserMembershipsCommand>
 {
   #region Methods
 
-  /// <summary>Lists the installations of the App the user can reach.</summary>
+  /// <summary>Lists the accounts the user reaches through the access its forge gives this instance.</summary>
   /// <param name="user">The user, whose token is renewed by the provider of its forge.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>The installations, or <see langword="null" /> when the user has no token GitHub accepts.</returns>
-  private async Task<IReadOnlyList<GitHubInstallationInfo>?> ListInstallationsAsync(AppUser user, CancellationToken cancellationToken)
+  /// <returns>The accounts, or <see langword="null" /> when the user has no token its forge accepts.</returns>
+  private async Task<IReadOnlyList<ForgeUserAccount>?> ListAccountsAsync(AppUser user, CancellationToken cancellationToken)
   {
     try
     {
       var token = await gateways.GetUserTokenProvider(user.Forge).GetTokenAsync(user.Id, cancellationToken).ConfigureAwait(false);
 
-      return await userGateway.ListInstallationsAsync(token, cancellationToken).ConfigureAwait(false);
+      return await gateways.GetUserGateway(user.Forge).ListAccountsAsync(token, cancellationToken).ConfigureAwait(false);
     }
     catch (UnauthorizedException)
     {
@@ -78,9 +76,9 @@ internal sealed class RefreshUserMembershipsCommandHandler(
       return Unit.Value;
     }
 
-    var installations = await ListInstallationsAsync(user, cancellationToken).ConfigureAwait(false);
+    var accounts = await ListAccountsAsync(user, cancellationToken).ConfigureAwait(false);
 
-    var roles = await updater.ReplaceAsync(user, installations, cancellationToken).ConfigureAwait(false);
+    var roles = await updater.ReplaceAsync(user, accounts, cancellationToken).ConfigureAwait(false);
 
     foreach (var organizationId in roles.Keys.Order())
     {

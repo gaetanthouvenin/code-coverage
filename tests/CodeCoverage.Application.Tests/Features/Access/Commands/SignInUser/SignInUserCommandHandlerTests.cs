@@ -16,7 +16,6 @@ using CodeCoverage.Application.Features.Access.Commands.SignInUser;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Contracts.Forges;
-using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -44,7 +43,7 @@ public sealed class SignInUserCommandHandlerTests
 
   private readonly IUserRepository _users = A.Fake<IUserRepository>();
 
-  private readonly IGitHubAppGateway _appGateway = A.Fake<IGitHubAppGateway>();
+  private readonly IForgeDirectoryGateway _forgeDirectory = A.Fake<IForgeDirectoryGateway>();
 
   private readonly InMemoryOrganizationDirectory _directory = new(Now);
 
@@ -90,13 +89,14 @@ public sealed class SignInUserCommandHandlerTests
        _added = user;
        return true;
      });
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(A<long>._, A<string>._, A<string>._, A<CancellationToken>._))
-     .Returns((GitHubOrganizationMembership?)null);
+    A.CallTo(() => _forges.GetDirectory(Forge.GitHub)).Returns(_forgeDirectory);
+    A.CallTo(() => _forgeDirectory.GetMembershipAsync(A<ForgeConnectionRef>._, A<ForgeAccountInfo>._, A<ForgeUser>._, A<CancellationToken>._))
+     .Returns((ForgeMembership?)null);
     A.CallTo(() => _memberships.ReplaceAsync(UserId, A<IReadOnlyDictionary<long, OrganizationRole>>._, Now, A<CancellationToken>._))
      .Invokes((long _, IReadOnlyDictionary<long, OrganizationRole> roles, DateTimeOffset _, CancellationToken _) => _saved = roles);
     A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).Invokes((JobRequest job, CancellationToken _) => _queued.Add(job)).Returns(1L);
 
-    var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
+    var updater = new MembershipUpdater(_forges, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
 
     _handler = new SignInUserCommandHandler(_forges, _users, protector, updater, _directory, _jobQueue, access, bootstrap, clock);
   }
@@ -337,7 +337,7 @@ public sealed class SignInUserCommandHandlerTests
     created.Login.ShouldBe("octocat");
   }
 
-  // Until M7.17, the memberships read GitHub organizations only: an account of another forge never links to one.
+  // The memberships are read on the forge of the user: an account of another forge never links to a GitHub organization.
   [Fact]
   public async Task Handle_OtherForgeAccountMatchingAGitHubOrganization_ShouldLinkNoMembership()
   {
@@ -350,7 +350,7 @@ public sealed class SignInUserCommandHandlerTests
 
     exception.ErrorCode.ShouldBe(AccessErrors.NoRepository);
     _saved.ShouldNotBeNull().ShouldBeEmpty();
-    A.CallTo(_appGateway).MustNotHaveHappened();
+    A.CallTo(_forgeDirectory).MustNotHaveHappened();
   }
 
   [Fact]

@@ -48,6 +48,27 @@ internal sealed class GitHubDirectoryGateway(IGitHubAppGateway gitHub) : IForgeD
   }
 
   /// <inheritdoc />
+  /// <remarks>
+  ///   GitHub reads the membership by the logins of the organization and of the user, with the token of the
+  ///   installation; the answer names the account it describes, which <see cref="OrganizationRoles.Of" /> checks.
+  /// </remarks>
+  public async Task<ForgeMembership?> GetMembershipAsync(
+    ForgeConnectionRef connection,
+    ForgeAccountInfo account,
+    ForgeUser user,
+    CancellationToken cancellationToken)
+  {
+    var installationId = InstallationOf(connection);
+
+    ArgumentNullException.ThrowIfNull(account);
+    ArgumentNullException.ThrowIfNull(user);
+
+    var membership = await gitHub.GetOrganizationMembershipAsync(installationId, account.Login, user.Login, cancellationToken).ConfigureAwait(false);
+
+    return membership is null ? null : new ForgeMembership(membership.Active, membership.Admin, membership.UserExternalId);
+  }
+
+  /// <inheritdoc />
   public async Task<IReadOnlyList<ForgeRepositoryInfo>> ListRepositoriesAsync(ForgeConnectionRef connection, CancellationToken cancellationToken) =>
     await gitHub.ListInstallationRepositoriesAsync(InstallationOf(connection), cancellationToken).ConfigureAwait(false);
 

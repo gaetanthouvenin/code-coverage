@@ -4,13 +4,17 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+
+using FakeItEasy.Configuration;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Application.Tests.Support;
-using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -34,9 +38,9 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
   private readonly IForgeGatewayProvider _gateways = A.Fake<IForgeGatewayProvider>();
 
-  private readonly IGitHubUserGateway _userGateway = A.Fake<IGitHubUserGateway>();
+  private readonly IForgeUserGateway _userGateway = A.Fake<IForgeUserGateway>();
 
-  private readonly IGitHubAppGateway _appGateway = A.Fake<IGitHubAppGateway>();
+  private readonly IForgeDirectoryGateway _forgeDirectory = A.Fake<IForgeDirectoryGateway>();
 
   private readonly InMemoryOrganizationDirectory _directory = new(Now);
 
@@ -64,16 +68,18 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     A.CallTo(() => _users.FindAsync(UserId, A<CancellationToken>._)).Returns(user);
     A.CallTo(() => _gateways.GetUserTokenProvider(Forge.GitHub)).Returns(_tokens);
     A.CallTo(() => _tokens.GetTokenAsync(UserId, A<CancellationToken>._)).Returns(Token);
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(A<long>._, A<string>._, A<string>._, A<CancellationToken>._))
-     .Returns((GitHubOrganizationMembership?)null);
+    A.CallTo(() => _gateways.GetUserGateway(Forge.GitHub)).Returns(_userGateway);
+    A.CallTo(() => _gateways.GetDirectory(Forge.GitHub)).Returns(_forgeDirectory);
+    A.CallTo(() => _forgeDirectory.GetMembershipAsync(A<ForgeConnectionRef>._, A<ForgeAccountInfo>._, A<ForgeUser>._, A<CancellationToken>._))
+     .Returns((ForgeMembership?)null);
     A.CallTo(() => _memberships.ReplaceAsync(UserId, A<IReadOnlyDictionary<long, OrganizationRole>>._, Now, A<CancellationToken>._))
      .Invokes((long _, IReadOnlyDictionary<long, OrganizationRole> roles, DateTimeOffset _, CancellationToken _) => _saved = roles);
 
-    var updater = new MembershipUpdater(_appGateway, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
+    var updater = new MembershipUpdater(_gateways, _directory, _memberships, clock, NullLogger<MembershipUpdater>.Instance);
 
     A.CallTo(() => _jobQueue.EnqueueAsync(A<JobRequest>._, A<CancellationToken>._)).Invokes((JobRequest job, CancellationToken _) => _queued.Add(job)).Returns(1L);
 
-    _handler = new RefreshUserMembershipsCommandHandler(_users, _gateways, _userGateway, updater, _jobQueue);
+    _handler = new RefreshUserMembershipsCommandHandler(_users, _gateways, updater, _jobQueue);
   }
 
   #endregion
@@ -96,9 +102,9 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     await HandleAsync();
 
     _saved.ShouldNotBeNull().ShouldBe(new Dictionary<long, OrganizationRole> { [organization.Id] = OrganizationRole.Admin });
-    // Asked with the token of the installation, for the login of the user.
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(42, "octo-org", "octocat", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    // Asked through the connection of the account, for the user.
+    MembershipOf("42", "octo-org").MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userGateway.ListAccountsAsync(Token, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   // F11. GitHub describes the account that holds the login today: another one than the user, who was renamed.
@@ -107,8 +113,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
   {
     var organization = _directory.Add("1001", "octo-org", admitted: true);
     Reaches(Installed(42, "1001", "octo-org"));
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(42, "octo-org", "octocat", A<CancellationToken>._))
-     .Returns(new GitHubOrganizationMembership(true, true, "999"));
+    MembershipOf("42", "octo-org").Returns(new ForgeMembership(true, true, "999"));
 
     await HandleAsync();
 
@@ -122,8 +127,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     var refusing = _directory.Add("1001", "refusing-org", admitted: true);
     var other = _directory.Add("2002", "other-org", admitted: true);
     Reaches(Installed(42, "1001", "refusing-org"), Installed(43, "2002", "other-org"));
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(42, "refusing-org", "octocat", A<CancellationToken>._))
-     .Throws(new ForbiddenException("Security.Forbidden", "SAML enforcement"));
+    MembershipOf("42", "refusing-org").Throws(new ForbiddenException("Security.Forbidden", "SAML enforcement"));
     Membership(43, "other-org", active: true, admin: true);
 
     await HandleAsync();
@@ -197,7 +201,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
     _saved.ShouldNotBeNull().Keys.ShouldBe([active.Id]);
     // Nothing is asked about an organization that gets no row, and nothing here creates an organization.
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(A<long>._, A<string>._, A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _forgeDirectory.GetMembershipAsync(A<ForgeConnectionRef>._, A<ForgeAccountInfo>._, A<ForgeUser>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     _directory.Upserts.ShouldBe(0);
     _directory.All.Count.ShouldBe(3);
   }
@@ -211,7 +215,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     await HandleAsync();
 
     _saved.ShouldNotBeNull().ShouldBeEmpty();
-    A.CallTo(_appGateway).MustNotHaveHappened();
+    A.CallTo(_forgeDirectory).MustNotHaveHappened();
   }
 
   // GitHub has no membership for a personal account: its owner administers it, a collaborator takes part.
@@ -228,7 +232,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     await HandleAsync();
 
     _saved.ShouldNotBeNull().ShouldBe(new Dictionary<long, OrganizationRole> { [own.Id] = OrganizationRole.Admin, [other.Id] = OrganizationRole.Participant }, ignoreOrder: true);
-    A.CallTo(_appGateway).MustNotHaveHappened();
+    A.CallTo(_forgeDirectory).MustNotHaveHappened();
   }
 
   // Fail closed: the session with GitHub is over, so nothing proves a link any more.
@@ -247,7 +251,7 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
   [Fact]
   public async Task Handle_TokenRefusedByGitHubWhileListing_ShouldRemoveEveryMembership()
   {
-    A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._)).Throws(new UnauthorizedException("Access.Unauthenticated", "revoked"));
+    A.CallTo(() => _userGateway.ListAccountsAsync(Token, A<CancellationToken>._)).Throws(new UnauthorizedException("Access.Unauthenticated", "revoked"));
 
     await HandleAsync();
 
@@ -267,11 +271,11 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
 
     if (whileListing)
     {
-      A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._)).Throws(failure);
+      A.CallTo(() => _userGateway.ListAccountsAsync(Token, A<CancellationToken>._)).Throws(failure);
     }
     else
     {
-      A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(A<long>._, A<string>._, A<string>._, A<CancellationToken>._)).Throws(failure);
+      A.CallTo(() => _forgeDirectory.GetMembershipAsync(A<ForgeConnectionRef>._, A<ForgeAccountInfo>._, A<ForgeUser>._, A<CancellationToken>._)).Throws(failure);
     }
 
     await Should.ThrowAsync<BadGatewayException>(async () => await HandleAsync());
@@ -315,32 +319,76 @@ public sealed class RefreshUserMembershipsCommandHandlerTests
     A.CallTo(_memberships).MustNotHaveHappened();
   }
 
+  // The accounts, the organizations and the membership are those of the forge of the user, read through neutral ports.
+  [Fact]
+  public async Task Handle_ForgeMembership_ShouldUpdateTheRole()
+  {
+    var user = AppUser.Create(Forge.GitLab, "77", "octocat", null);
+    var userGateway = A.Fake<IForgeUserGateway>();
+    var forgeDirectory = A.Fake<IForgeDirectoryGateway>();
+    var gitHubTwin = _directory.Add("1001", "octo-group", admitted: true);
+    var organization = Organization.CreatePending(Forge.GitLab, "1001", "octo-group", OrganizationAccountType.Organization, Now);
+
+    organization.Admit("tests", Now);
+    _directory.Add(organization);
+    typeof(AppUser).GetProperty(nameof(AppUser.Id))!.SetValue(user, UserId);
+    A.CallTo(() => _users.FindAsync(UserId, A<CancellationToken>._)).Returns(user);
+    A.CallTo(() => _gateways.GetUserTokenProvider(Forge.GitLab)).Returns(_tokens);
+    A.CallTo(() => _gateways.GetUserGateway(Forge.GitLab)).Returns(userGateway);
+    A.CallTo(() => _gateways.GetDirectory(Forge.GitLab)).Returns(forgeDirectory);
+    A.CallTo(() => userGateway.ListAccountsAsync(Token, A<CancellationToken>._))
+     .Returns([new ForgeUserAccount("gitlab-connection-5", "1001", "octo-group", OrganizationAccountType.Organization, false)]);
+    A.CallTo(() => forgeDirectory.GetMembershipAsync(
+               A<ForgeConnectionRef>.That.Matches(static c => c.Forge == Forge.GitLab && c.ConnectionId == "gitlab-connection-5"),
+               A<ForgeAccountInfo>.That.Matches(static a => a.ExternalAccountId == "1001" && a.Login == "octo-group"),
+               A<ForgeUser>.That.Matches(static u => u.ExternalId == "77" && u.Login == "octocat"),
+               A<CancellationToken>._
+             )
+      )
+     .Returns(new ForgeMembership(true, true, "77"));
+
+    await HandleAsync();
+
+    _saved.ShouldNotBeNull().ShouldBe(new Dictionary<long, OrganizationRole> { [organization.Id] = OrganizationRole.Admin });
+    _saved.ShouldNotContainKey(gitHubTwin.Id);
+    A.CallTo(_forgeDirectory).MustNotHaveHappened();
+    A.CallTo(_userGateway).MustNotHaveHappened();
+  }
+
   [Fact]
   public async Task Handle_Null_ShouldThrow()
   {
     await Should.ThrowAsync<ArgumentNullException>(async () => await _handler.Handle(null!, Ct));
   }
 
-  private static GitHubInstallationInfo Installed(
+  private static ForgeUserAccount Installed(
     long id,
     string accountId,
     string login,
     OrganizationAccountType accountType = OrganizationAccountType.Organization,
     bool suspended = false) =>
-    new(id, accountId, login, accountType, suspended);
+    new(id.ToString(CultureInfo.InvariantCulture), accountId, login, accountType, suspended);
 
   private async Task HandleAsync() => await _handler.Handle(new RefreshUserMembershipsCommand(UserId), Ct);
 
-  private void Reaches(params GitHubInstallationInfo[] installations)
+  private void Reaches(params ForgeUserAccount[] accounts)
   {
-    A.CallTo(() => _userGateway.ListInstallationsAsync(Token, A<CancellationToken>._)).Returns(installations);
+    A.CallTo(() => _userGateway.ListAccountsAsync(Token, A<CancellationToken>._)).Returns(accounts);
   }
 
   private void Membership(long installationId, string organization, bool active, bool admin)
   {
-    A.CallTo(() => _appGateway.GetOrganizationMembershipAsync(installationId, organization, "octocat", A<CancellationToken>._))
-     .Returns(new GitHubOrganizationMembership(active, admin, "583231"));
+    MembershipOf(installationId.ToString(CultureInfo.InvariantCulture), organization).Returns(new ForgeMembership(active, admin, "583231"));
   }
+
+  private IReturnValueArgumentValidationConfiguration<Task<ForgeMembership?>> MembershipOf(string connectionId, string organization) =>
+    A.CallTo(() => _forgeDirectory.GetMembershipAsync(
+               A<ForgeConnectionRef>.That.Matches(c => c.Forge == Forge.GitHub && c.ConnectionId == connectionId),
+               A<ForgeAccountInfo>.That.Matches(a => a.Login == organization),
+               A<ForgeUser>.That.Matches(static u => u.ExternalId == "583231" && u.Login == "octocat"),
+               A<CancellationToken>._
+             )
+    );
 
   #endregion
 }

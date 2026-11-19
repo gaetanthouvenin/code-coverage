@@ -38,12 +38,12 @@ namespace CodeCoverage.Application.Features.Access.Commands.SignInUser;
 ///     again, once.
 ///   </para>
 ///   <para>
-///     The memberships follow the rule of <see cref="MembershipUpdater" />, which reads only the organizations of GitHub
-///     until M7.17: the accounts of another forge link to no organization yet. An account linked to no active organization
-///     is refused, unless <c>Access:AdminUserIds</c> or <c>CodeCoverage__Bootstrap__AdminUserIds</c> names it:
-///     an administrator of the instance may enter without any organization, and gains no access to one by it. The stored
-///     <see cref="AppUser.IsAdmin" /> flag is not written. The refusal tells apart an account whose installations only
-///     name organizations that wait for their admission: it has nothing to install, only to wait.
+///     The memberships follow the rule of <see cref="MembershipUpdater" />, from the accounts the forge of the command
+///     lists for the user. An account linked to no active organization is refused, unless <c>Access:AdminUserIds</c> or
+///     <c>CodeCoverage__Bootstrap__AdminUserIds</c> names it: an administrator of the instance may enter without any
+///     organization, and gains no access to one by it. The stored <see cref="AppUser.IsAdmin" /> flag is not written. The
+///     refusal tells apart an account whose installations only name organizations that wait for their admission: it has
+///     nothing to install, only to wait.
 ///   </para>
 ///   <para>
 ///     A signed-in user gets one <c>RefreshUserMemberships</c> job on the lane of the instance, which keeps its links up
@@ -190,11 +190,7 @@ internal sealed class SignInUserCommandHandler(
     var user = await SaveAsync(account, command, cancellationToken).ConfigureAwait(false);
 
     var accounts = await userGateway.ListAccountsAsync(command.AccessToken, cancellationToken).ConfigureAwait(false);
-
-    // MembershipUpdater still reads the installations and the organizations of GitHub until its neutral contracts
-    // (M7.17): the accounts of another forge would be matched against GitHub organizations, so they link to none yet.
-    var installations = command.Forge is Forge.GitHub ? accounts.ToGitHubInstallations() : [];
-    var roles = await updater.ReplaceAsync(user, installations, cancellationToken).ConfigureAwait(false);
+    var roles = await updater.ReplaceAsync(user, accounts, cancellationToken).ConfigureAwait(false);
 
     // The row and its tokens stay: a later refresh may let the user in, without asking the forge to consent again.
     if (roles.Count == 0 && !IsInstanceAdministrator(user))

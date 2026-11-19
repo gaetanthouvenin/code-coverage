@@ -7,7 +7,7 @@
 using Mediator;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
@@ -17,59 +17,65 @@ namespace CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 
 /// <summary>Handler for the <see cref="RefreshUserAccessCommand" /> command.</summary>
 /// <param name="users">The repository of the users.</param>
-/// <param name="gateways">What resolves the provider of the token the forge of a user issued for it.</param>
-/// <param name="userGateway">The gateway that calls GitHub in the name of a user.</param>
+/// <param name="gateways">What resolves the token provider and the user gateway of the forge of a user.</param>
 /// <param name="directory">The directory of the organizations, which gives the one of the scope.</param>
 /// <param name="accesses">The cache of the accesses of the organization of the scope.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
 ///   <para>
-///     The repositories are those GitHub lists for the user in the installation of the account of the organization,
-///     with the permission it reports (<c>admin</c>, <c>push</c>, <c>pull</c>). Each listed repository is written with
+///     The repositories are those the forge of the user lists for it in the account of the organization, through the
+///     neutral <see cref="IForgeUserGateway" />, with the permission it reports. Each listed repository is written with
 ///     the current date; a repository no longer listed loses its row.
 ///   </para>
 ///   <para>
-///     It fails closed. When the user has no token GitHub accepts any more, or no longer reaches the installation, its
-///     rows in the organization are removed. When GitHub cannot be asked, nothing is written: the rows keep their date
-///     and stop granting anything once <c>Access:HardExpiryMinutes</c> has passed.
+///     It fails closed. When the user has no token its forge accepts any more, no longer reaches the account, or
+///     belongs to another forge than the organization, its rows in the organization are removed. When the forge cannot
+///     be asked, nothing is written: the rows keep their date and stop granting anything once
+///     <c>Access:HardExpiryMinutes</c> has passed.
 ///   </para>
 /// </remarks>
 internal sealed class RefreshUserAccessCommandHandler(
   IUserRepository users,
   IForgeGatewayProvider gateways,
-  IGitHubUserGateway userGateway,
   IOrganizationDirectory directory,
   IUserRepositoryAccessRepository accesses,
   IClock clock) : ICommandHandler<RefreshUserAccessCommand>
 {
   #region Methods
 
-  /// <summary>Lists the repositories of the installation of an organization that a user can reach.</summary>
+  /// <summary>Lists the repositories of the account of an organization that a user can reach.</summary>
   /// <param name="user">The user, whose token is renewed by the provider of its forge.</param>
   /// <param name="organization">The organization.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
   /// <returns>
-  ///   The repositories, empty when the user no longer reaches the installation, or <see langword="null" /> when the user
-  ///   has no token GitHub accepts.
+  ///   The repositories, empty when the user no longer reaches the account or belongs to another forge, or
+  ///   <see langword="null" /> when the user has no token its forge accepts.
   /// </returns>
-  private async Task<IReadOnlyList<GitHubUserRepository>?> ListRepositoriesAsync(
+  private async Task<IReadOnlyList<ForgeRepositoryPermission>?> ListRepositoriesAsync(
     AppUser user,
     Organization organization,
     CancellationToken cancellationToken)
   {
+    // The accounts of a forge never grant anything in an organization of another one.
+    if (organization.Forge != user.Forge)
+    {
+      return [];
+    }
+
     try
     {
       var token = await gateways.GetUserTokenProvider(user.Forge).GetTokenAsync(user.Id, cancellationToken).ConfigureAwait(false);
-      var installations = await userGateway.ListInstallationsAsync(token, cancellationToken).ConfigureAwait(false);
+      var userGateway = gateways.GetUserGateway(user.Forge);
+      var accounts = await userGateway.ListAccountsAsync(token, cancellationToken).ConfigureAwait(false);
       var accountId = Organization.NormalizeExternalAccountId(organization.ExternalAccountId);
 
-      // GitHub refuses every call made for a suspended installation: it grants nothing.
-      if (installations.FirstOrDefault(i => !i.Suspended && Organization.NormalizeExternalAccountId(i.AccountId) == accountId) is not { } installation)
+      // The forge refuses every call made through a suspended access: it grants nothing.
+      if (accounts.FirstOrDefault(a => !a.Suspended && Organization.NormalizeExternalAccountId(a.AccountId) == accountId) is not { } account)
       {
         return [];
       }
 
-      return await userGateway.ListInstallationRepositoriesAsync(token, installation.Id, cancellationToken).ConfigureAwait(false);
+      return await userGateway.ListRepositoryPermissionsAsync(token, account, cancellationToken).ConfigureAwait(false);
     }
     catch (UnauthorizedException)
     {
@@ -98,8 +104,8 @@ internal sealed class RefreshUserAccessCommandHandler(
 
     foreach (var repository in listed)
     {
-      await accesses.UpsertAsync(user.Id, repository.ExternalId, repository.Permission, now, cancellationToken).ConfigureAwait(false);
-      kept.Add(TrackedRepository.NormalizeExternalId(repository.ExternalId));
+      await accesses.UpsertAsync(user.Id, repository.RepositoryExternalId, repository.Permission, now, cancellationToken).ConfigureAwait(false);
+      kept.Add(TrackedRepository.NormalizeExternalId(repository.RepositoryExternalId));
     }
 
     foreach (var stale in await accesses.ListOfUserAsync(user.Id, cancellationToken).ConfigureAwait(false))

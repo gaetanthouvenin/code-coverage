@@ -4,7 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using CodeCoverage.Domain.Contracts.GitHub;
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Users;
 
 namespace CodeCoverage.Domain.Organizations;
@@ -32,18 +32,18 @@ public static class OrganizationRoles
            && string.Equals(organization.ExternalAccountId, Organization.NormalizeExternalAccountId(user.ExternalId), StringComparison.Ordinal);
   }
 
-  /// <summary>Gives the role of a user that is linked to an organization on GitHub.</summary>
+  /// <summary>Gives the role of a user that is linked to an organization on its forge.</summary>
   /// <param name="user">The user.</param>
   /// <param name="organization">The organization.</param>
-  /// <param name="membership">What GitHub says of the user in the organization, or <see langword="null" /> when it is not a member.</param>
+  /// <param name="membership">What the forge says of the user in the organization, or <see langword="null" /> when it is not a member.</param>
   /// <returns>
   ///   <see cref="OrganizationRole.Admin" /> for the owner of a personal account, and for an active membership with
   ///   the admin role that describes the account of the user; otherwise <see cref="OrganizationRole.Participant" />: a
-  ///   member, an outside collaborator, someone whose invitation is still pending, or a membership GitHub gave for
+  ///   member, an outside collaborator, someone whose invitation is still pending, or a membership the forge gave for
   ///   another account, which holds the login of the user today.
   /// </returns>
   /// <exception cref="ArgumentNullException"><paramref name="user" /> or <paramref name="organization" /> is <see langword="null" />.</exception>
-  public static OrganizationRole Of(AppUser user, Organization organization, GitHubOrganizationMembership? membership)
+  public static OrganizationRole Of(AppUser user, Organization organization, ForgeMembership? membership)
   {
     if (Owns(user, organization))
     {
