@@ -702,7 +702,7 @@ coverage-upload --url $COVERAGE_URL [--token $COVERAGE_TOKEN|$CODECOV_TOKEN] [-f
      - sinon : `sha = GITHUB_SHA`, `branch = GITHUB_REF_NAME` ;
      - `buildUrl = $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT`, `buildId = GITHUB_RUN_ID`, `jobId = GITHUB_JOB`, `root = GITHUB_WORKSPACE`.
    - **Azure Pipelines** (`TF_BUILD=True`) :
-     - slug = `BUILD_REPOSITORY_NAME` si `BUILD_REPOSITORY_PROVIDER=GitHub`, sinon `--slug` est obligatoire ;
+     - slug = `BUILD_REPOSITORY_NAME` si `BUILD_REPOSITORY_PROVIDER=GitHub` ; `org/project/repo` et forge `azure-devops` si `BUILD_REPOSITORY_PROVIDER=TfsGit` (Azure Repos, M7.56), l'organisation lue dans `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` (`dev.azure.com/{org}` ou `{org}.visualstudio.com`), le projet dans `SYSTEM_TEAMPROJECT`, espaces compris ; sinon `--slug` est obligatoire ;
      - **`sha = SYSTEM_PULLREQUEST_SOURCECOMMITID ?? BUILD_SOURCEVERSION`** ;
      - `pr = SYSTEM_PULLREQUEST_PULLREQUESTNUMBER ?? SYSTEM_PULLREQUEST_PULLREQUESTID` ;
      - `branch = strip("refs/heads/", SYSTEM_PULLREQUEST_SOURCEBRANCH ?? BUILD_SOURCEBRANCH)` ;
