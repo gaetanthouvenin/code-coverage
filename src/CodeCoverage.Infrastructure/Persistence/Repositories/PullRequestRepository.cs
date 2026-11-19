@@ -110,7 +110,7 @@ internal sealed class PullRequestRepository(CodeCoverageDbContext context) : IPu
       context.Entry(added).State = EntityState.Detached;
 
       var winner = await FindByNumberAsync(repositoryId, pull.Number, cancellationToken).ConfigureAwait(false)
-                   ?? throw new ConflictException(GeneralErrors.ConcurrentChange, PullRequestGoneMessage, exception);
+                   ?? throw ConflictException.ConcurrentChange(PullRequestGoneMessage, exception);
 
       return await RefreshAsync(winner, pull, at, cancellationToken).ConfigureAwait(false);
     }

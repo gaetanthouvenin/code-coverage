@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
@@ -85,7 +84,7 @@ internal sealed class UserRepository(CodeCoverageDbContext context) : IUserRepos
       // The stale row is not kept: a later save of the scope would fail the same way.
       context.Entry(user).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, ConcurrentChangeMessage, exception);
+      throw ConflictException.ConcurrentChange(ConcurrentChangeMessage, exception);
     }
   }
 

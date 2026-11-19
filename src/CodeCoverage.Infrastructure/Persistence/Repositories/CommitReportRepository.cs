@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Application.Exceptions.ErrorCodes;
-using CodeCoverage.Application.Features.Commits;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Contracts.Commits;
 using CodeCoverage.Domain.Contracts.Jobs;
@@ -188,10 +187,8 @@ internal sealed class CommitReportRepository(
     // The unique index does not hold the organization: a row for the commit of another organization would take its key.
     var commitId = upload.CommitId;
 
-    if (!await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false))
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, "The commit was changed or removed in the meantime; reload it and try again.");
-    }
+    var known = await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false);
+    ConflictException.ThrowIfConcurrentChange(!known, "The commit was changed or removed in the meantime; reload it and try again.");
 
     long jobId;
     var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
@@ -352,14 +349,14 @@ internal sealed class CommitReportRepository(
       {
         Forget(commit, stored, sessions, flagTotals, branch);
 
-        throw new ConflictException(CommitErrors.ConcurrentSave, ConcurrentSaveMessage, exception);
+        throw ConflictException.CommitConcurrentSave(ConcurrentSaveMessage, exception);
       }
       catch (DbUpdateException exception) when (UniqueIndexViolation.Is(exception, BranchConfiguration.PrimaryKeyName))
       {
         // A push created the branch meanwhile: the finalization, run again, reads its row.
         Forget(commit, stored, sessions, flagTotals, branch);
 
-        throw new ConflictException(CommitErrors.ConcurrentSave, ConcurrentSaveMessage, exception);
+        throw ConflictException.CommitConcurrentSave(ConcurrentSaveMessage, exception);
       }
       catch (Exception exception) when (IsDeadlock(exception))
       {

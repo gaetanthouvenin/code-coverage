@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Comparisons;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Comparisons;
@@ -116,10 +115,8 @@ internal sealed class ComparisonRepository(CodeCoverageDbContext context) : ICom
     var number = comparison.PullNumber ?? 0;
 
     // The unique index does not hold the organization: a row for the commit of another organization would take its key.
-    if (!await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false))
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitNotFoundMessage);
-    }
+    var known = await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false);
+    ConflictException.ThrowIfConcurrentChange(!known, CommitNotFoundMessage);
 
     // Twice at most: a row a concurrent save added between the reading and the insert is then found and replaced.
     for (var attempt = 0; ; attempt++)

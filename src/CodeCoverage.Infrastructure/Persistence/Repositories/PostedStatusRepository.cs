@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Notifications;
@@ -54,10 +53,8 @@ internal sealed class PostedStatusRepository(CodeCoverageDbContext context) : IP
     var statusContext = status.Status.Context;
 
     // The primary key does not hold the organization: a row for the commit of another organization would take its key.
-    if (!await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false))
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitNotFoundMessage);
-    }
+    var known = await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false);
+    ConflictException.ThrowIfConcurrentChange(!known, CommitNotFoundMessage);
 
     // Twice at most: a row a concurrent save added between the reading and the insert is then found and replaced.
     for (var attempt = 0; ; attempt++)

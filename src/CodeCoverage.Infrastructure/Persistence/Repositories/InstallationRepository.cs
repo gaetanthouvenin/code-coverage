@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 
@@ -68,7 +67,7 @@ internal sealed class InstallationRepository(CodeCoverageDbContext context) : II
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(installation).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, "The installation was added in the meantime.", exception);
+      throw ConflictException.ConcurrentChange("The installation was added in the meantime.", exception);
     }
   }
 

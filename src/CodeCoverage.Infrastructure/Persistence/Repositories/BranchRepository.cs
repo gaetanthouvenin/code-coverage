@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
@@ -89,7 +88,7 @@ internal sealed class BranchRepository(CodeCoverageDbContext context) : IBranchR
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(branch).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, DuplicateMessage, exception);
+      throw ConflictException.ConcurrentChange(DuplicateMessage, exception);
     }
   }
 

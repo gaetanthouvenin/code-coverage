@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 using CodeCoverage.Domain.Users;
@@ -108,7 +107,7 @@ internal sealed class UserRepositoryAccessRepository(CodeCoverageDbContext conte
       context.Entry(added).State = EntityState.Detached;
 
       var winner = await FindTrackedAsync(userId, normalized, cancellationToken).ConfigureAwait(false)
-                   ?? throw new ConflictException(GeneralErrors.ConcurrentChange, AccessGoneMessage, exception);
+                   ?? throw ConflictException.ConcurrentChange(AccessGoneMessage, exception);
 
       return await RefreshAsync(winner, permission, at, cancellationToken).ConfigureAwait(false);
     }
