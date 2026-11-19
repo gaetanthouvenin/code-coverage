@@ -117,6 +117,8 @@ internal sealed class AzureDevOpsApiHarness : IDisposable
 
   public ForgeConnection Connection { get; set; }
 
+  public ForgeConnectionCredentialReader Credentials => _scope.ServiceProvider.GetRequiredService<ForgeConnectionCredentialReader>();
+
   public AzureDevOpsGateway Gateway => _scope.ServiceProvider.GetRequiredService<AzureDevOpsGateway>();
 
   public AzureDevOpsOptions Options { get; }

@@ -14,6 +14,7 @@ using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.AzureDevOps;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -203,6 +204,54 @@ public sealed class AzureDevOpsGatewayContentTests : IDisposable
     content.ShouldNotBeNull().IsTooLarge.ShouldBeTrue();
   }
 
+  // The length Azure DevOps announces is enough to refuse: a body that fails on its first read is never read.
+  [Fact]
+  public async Task GetBoundedContentAsync_AnnouncedOverTheBound_ShouldNotReadTheBody()
+  {
+    var body = new GeneratedReadStream(5000, 1, static _ => throw new InvalidOperationException("The body was read."));
+    using var handler = AnnouncedBody(body, 5000);
+    using var client = new HttpClient(handler);
+
+    var content = await Gateway(client).GetBoundedContentAsync(Repository, "src/Program.cs", Head, 1024, Cancellation);
+
+    content.ShouldBe(ForgeFileContent.TooLarge);
+    handler.Calls.ShouldBe(1);
+  }
+
+  // A length announced within the bound sizes the buffer to the file.
+  [Fact]
+  public async Task GetBoundedContentAsync_AnnouncedWithinTheBound_ShouldReturnTheText()
+  {
+    using var handler = AnnouncedBody(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(Yaml)), Yaml.Length);
+    using var client = new HttpClient(handler);
+
+    var content = await Gateway(client).GetBoundedContentAsync(Repository, "src/Program.cs", Head, 1024, Cancellation);
+
+    content.ShouldNotBeNull().Text.ShouldBe(Yaml);
+  }
+
+  // A body broken while it is read is not taken for a file: the failure reaches the caller.
+  [Fact]
+  public async Task GetBoundedContentAsync_BodyBrokenWhileRead_ShouldThrow()
+  {
+    var body = new GeneratedReadStream(100, 1, static _ => throw new IOException("The connection was reset."));
+    using var handler = AnnouncedBody(body, 100);
+    using var client = new HttpClient(handler);
+
+    await Should.ThrowAsync<IOException>(() => Gateway(client).GetBoundedContentAsync(Repository, "src/Program.cs", Head, 1024, Cancellation));
+  }
+
+  [Theory]
+  [InlineData("../codecov.yml")]
+  [InlineData("dev//codecov.yml")]
+  public async Task GetBoundedContentAsync_PathLeavingTheRepository_ShouldReturnNullWithoutAsking(string path)
+  {
+    var content = await _azure.Gateway.GetBoundedContentAsync(Repository, path, Head, 1024, Cancellation);
+
+    content.ShouldBeNull();
+    ForgeRequests.ShouldBeEmpty();
+  }
+
   [Fact]
   public async Task GetBoundedContentAsync_Missing_ShouldReturnNull()
   {
@@ -213,8 +262,19 @@ public sealed class AzureDevOpsGatewayContentTests : IDisposable
     content.ShouldBeNull();
   }
 
+  private static StubHttpMessageHandler AnnouncedBody(Stream body, long length) =>
+    new((_, _) =>
+    {
+      var content = new StreamContent(body);
+      content.Headers.ContentLength = length;
+
+      return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content });
+    });
+
   private static string Fixture(string name) =>
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "azure-devops", name));
+
+  private AzureDevOpsGateway Gateway(HttpClient client) => new(client, _azure.Credentials, _azure.TokenProvider);
 
   private void GivenBody(string path, string body) =>
     _azure.Server
