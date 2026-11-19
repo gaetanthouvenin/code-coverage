@@ -356,6 +356,70 @@ public sealed class ForgeConnectionRepositoryTests(DatabaseFixture database) : I
     (await reader.Jobs.AsNoTracking().CountAsync(Ct)).ShouldBe(2);
   }
 
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task AddWithOrganizationAsync_ExistingLogin_ShouldThrowConflictAndStoreNothing(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+
+    await using (var writer = organizations.ContextWithoutOrganization())
+    {
+      await Repository(writer).AddWithOrganizationAsync(NewOrganization(), o => Connection("first-conn", o.Id), Jobs, Ct);
+    }
+
+    var other = NewOrganization("account-other", "contoso-new");
+
+    await using (var context = organizations.ContextWithoutOrganization())
+    {
+      await Should.ThrowAsync<ConflictException>(() =>
+        Repository(context).AddWithOrganizationAsync(other, o => Connection("second-conn", o.Id), Jobs, Ct));
+
+      context.ChangeTracker.Entries().ShouldBeEmpty();
+      other.Id.ShouldBe(0);
+    }
+
+    await using var reader = organizations.ContextWithoutOrganization();
+    (await reader.Organizations.AsNoTracking().CountAsync(o => o.ExternalAccountId == "account-other", Ct)).ShouldBe(0);
+    (await reader.ForgeConnections.AsNoTracking().Select(static c => c.Id).ToListAsync(Ct)).ShouldBe(["first-conn"]);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task AddWithOrganizationAsync_ConnectionOfAnotherOrganization_ShouldThrowAndStoreNothing(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    var organization = NewOrganization();
+
+    await using (var context = organizations.ContextWithoutOrganization())
+    {
+      await Should.ThrowAsync<InvalidOperationException>(() =>
+        Repository(context).AddWithOrganizationAsync(organization, _ => Connection("new-conn", organizations.FirstId), Jobs, Ct));
+
+      context.ChangeTracker.Entries().ShouldBeEmpty();
+      organization.Id.ShouldBe(0);
+    }
+
+    await using var reader = organizations.ContextWithoutOrganization();
+    (await reader.Organizations.AsNoTracking().CountAsync(o => o.NormalizedLogin == "contoso-new", Ct)).ShouldBe(0);
+    (await reader.ForgeConnections.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+    (await reader.Jobs.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task AddWithOrganizationAsync_SavedOrganization_ShouldThrowAndStoreNothing(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+
+    await using var context = organizations.ContextWithoutOrganization();
+    var saved = await context.Organizations.SingleAsync(o => o.Id == organizations.FirstId, Ct);
+
+    await Should.ThrowAsync<ArgumentException>(() =>
+      Repository(context).AddWithOrganizationAsync(saved, o => Connection("new-conn", o.Id), Jobs, Ct));
+
+    (await context.ForgeConnections.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+  }
+
   private static Organization NewOrganization(string account = "account-contoso-new", string login = "contoso-new") =>
     Organization.CreatePending(Forge.AzureDevOps, account, login, OrganizationAccountType.Organization, Now);
 
