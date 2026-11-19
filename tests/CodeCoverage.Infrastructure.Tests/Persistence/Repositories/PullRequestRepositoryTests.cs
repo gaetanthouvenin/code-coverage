@@ -12,6 +12,7 @@ using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.PullRequests;
+using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Repositories;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -320,6 +321,32 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
     (await reader.PullRequests.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
   }
 
+  // The other writer inserts the pull request between the read and the insert, then removes it before the row that
+  // refused the insertion is read again: there is nothing left to update, reported as a concurrent change.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task Upsert_WinnerRemovedBeforeTheReadAgain_ShouldThrowConflictAndKeepNothing(DatabaseProvider provider)
+  {
+    var seed = await AddRepositoriesAsync(database, provider, Ct);
+    var competing = new CompetingSaveChangesInterceptor(_ => UpsertAsync(seed, Info(7)), cancellationToken => RemoveAsync(seed, 7, cancellationToken));
+    var organization = new OrganizationContext();
+    organization.Enter(seed.Organizations.FirstId);
+    var options = new DbContextOptionsBuilder<CodeCoverageDbContext>();
+    options.UseCodeCoverageDatabase(provider, seed.Organizations.ConnectionString).AddInterceptors(competing);
+
+    await using var context = new CodeCoverageDbContext(options.Options, organization);
+
+    var exception = await Should.ThrowAsync<ConflictException>(() => new PullRequestRepository(context).UpsertAsync(seed.FirstRepository, Info(7), Now, Ct));
+
+    exception.ErrorCode.ShouldBe(GeneralErrors.ConcurrentChange);
+    exception.InnerException.ShouldBeOfType<DbUpdateException>();
+    competing.Failed.ShouldBeTrue();
+    context.ChangeTracker.Entries().ShouldBeEmpty("nothing is left for a later save of the scope");
+
+    await using var reader = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+    (await reader.PullRequests.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+  }
+
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public async Task ListPage_ShouldFilterByStateAndGiveTheMostRecentlyUpdatedFirst(DatabaseProvider provider)
@@ -390,6 +417,13 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
     await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
 
     return await new PullRequestRepository(context).UpsertAsync(seed.FirstRepository, pull, Now, Ct);
+  }
+
+  private static async Task RemoveAsync(BranchSeed seed, int number, CancellationToken cancellationToken)
+  {
+    await using var context = seed.Organizations.ContextOf(seed.Organizations.FirstId);
+
+    (await context.PullRequests.Where(p => p.Number == number).ExecuteDeleteAsync(cancellationToken)).ShouldBe(1);
   }
 
   #endregion
