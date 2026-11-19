@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Codecov;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Config;
@@ -324,7 +323,7 @@ public sealed class CodeCoverageDbContext(
   ///   organization, so the caller gets one refusal for the three, and nothing tells them apart.
   /// </remarks>
   private static ConflictException NoRowAffected(DbUpdateConcurrencyException exception) =>
-    new(GeneralErrors.ConcurrentChange, NoRowAffectedMessage, exception);
+    ConflictException.ConcurrentChange(NoRowAffectedMessage, exception);
 
   /// <summary>Stamps the added rows of the organization tables and refuses the rows of another organization.</summary>
   /// <exception cref="InvalidOperationException">

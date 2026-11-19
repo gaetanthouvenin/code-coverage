@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Organizations;
@@ -154,7 +153,7 @@ internal sealed class RepositoryRepository(CodeCoverageDbContext context, SqlJob
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(repository).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, DuplicateMessage, exception);
+      throw ConflictException.ConcurrentChange(DuplicateMessage, exception);
     }
   }
 
@@ -173,7 +172,7 @@ internal sealed class RepositoryRepository(CodeCoverageDbContext context, SqlJob
     {
       Revert(repository);
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, NameTakenMessage, exception);
+      throw ConflictException.ConcurrentChange(NameTakenMessage, exception);
     }
   }
 
@@ -206,13 +205,13 @@ internal sealed class RepositoryRepository(CodeCoverageDbContext context, SqlJob
         // Nothing is left for a later save of the scope, which would fail the same way.
         context.Entry(repository).State = EntityState.Detached;
 
-        throw new ConflictException(GeneralErrors.ConcurrentChange, DuplicateMessage, exception);
+        throw ConflictException.ConcurrentChange(DuplicateMessage, exception);
       }
       catch (DbUpdateException exception) when (IsDuplicate(exception))
       {
         Revert(repository);
 
-        throw new ConflictException(GeneralErrors.ConcurrentChange, NameTakenMessage, exception);
+        throw ConflictException.ConcurrentChange(NameTakenMessage, exception);
       }
       catch when (added)
       {

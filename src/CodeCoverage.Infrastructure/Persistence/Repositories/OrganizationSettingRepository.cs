@@ -71,7 +71,7 @@ internal sealed class OrganizationSettingRepository(CodeCoverageDbContext contex
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(row).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, "The setting was changed at the same time.", exception);
+      throw ConflictException.ConcurrentChange("The setting was changed at the same time.", exception);
     }
   }
 

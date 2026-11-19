@@ -7,8 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
-using CodeCoverage.Application.Features.Uploads;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Git;
 using CodeCoverage.Domain.Guards;
@@ -116,7 +114,7 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
       entry.CurrentValues.SetValues(entry.OriginalValues);
       entry.State = EntityState.Unchanged;
 
-      throw new ConflictException(UploadErrors.Duplicate, AlreadyOnTargetMessage, exception);
+      throw ConflictException.UploadDuplicate(AlreadyOnTargetMessage, exception);
     }
 
     return target;
@@ -135,10 +133,7 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
     var commitId = upload.CommitId;
     var known = await context.Commits.AnyAsync(c => c.Id == commitId, cancellationToken).ConfigureAwait(false);
 
-    if (!known)
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage);
-    }
+    ConflictException.ThrowIfConcurrentChange(!known, CommitGoneMessage);
 
     context.Uploads.Add(upload);
 
@@ -151,7 +146,7 @@ internal sealed class UploadRepository(CodeCoverageDbContext context) : IUploadR
       // Nothing is left for a later save of the scope, which would fail the same way.
       context.Entry(upload).State = EntityState.Detached;
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, DuplicateMessage, exception);
+      throw ConflictException.ConcurrentChange(DuplicateMessage, exception);
     }
   }
 

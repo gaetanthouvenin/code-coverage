@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Application.Features.Repositories;
 using CodeCoverage.Domain.Commits;
 using CodeCoverage.Domain.Git;
@@ -231,7 +230,7 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
       context.Entry(commit).State = EntityState.Detached;
 
       return await FindByShaAsync(repositoryId, sha, cancellationToken).ConfigureAwait(false)
-             ?? throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage, exception);
+             ?? throw ConflictException.ConcurrentChange(CommitGoneMessage, exception);
     }
   }
 
@@ -273,10 +272,7 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
                                 )
                                 .ConfigureAwait(false);
 
-    if (affected == 0)
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage);
-    }
+    ConflictException.ThrowIfConcurrentChange(affected == 0, CommitGoneMessage);
 
     // Written outside the tracker: a later save of this scope must not send the same change again.
     entry.State = EntityState.Unchanged;
@@ -323,10 +319,7 @@ internal sealed class CommitRepository(CodeCoverageDbContext context) : ICommitR
                                .ExecuteUpdateAsync(static s => s.SetProperty(static c => c.UploadSequence, static c => c.UploadSequence + 1), cancellationToken)
                                .ConfigureAwait(false);
 
-    if (updated == 0)
-    {
-      throw new ConflictException(GeneralErrors.ConcurrentChange, CommitGoneMessage);
-    }
+    ConflictException.ThrowIfConcurrentChange(updated == 0, CommitGoneMessage);
 
     return await context.Commits
                         .AsNoTracking()

@@ -7,7 +7,6 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Exceptions.ErrorCodes;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
@@ -90,7 +89,7 @@ internal sealed class OrganizationMembershipRepository(CodeCoverageDbContext con
         context.Entry(membership).State = EntityState.Detached;
       }
 
-      throw new ConflictException(GeneralErrors.ConcurrentChange, ConcurrentRefreshMessage, exception);
+      throw ConflictException.ConcurrentChange(ConcurrentRefreshMessage, exception);
     }
   }
 
