@@ -14,6 +14,7 @@ using WireMock.ResponseBuilders;
 using CodeCoverage.Application.Exceptions;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Git;
+using CodeCoverage.Domain.Notifications;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Tests.Support;
@@ -290,9 +291,77 @@ public sealed class AzureDevOpsGatewayReadTests : IDisposable
   }
 
   [Fact]
+  public async Task GetBranchHeadAsync_MissingRepository_ShouldReturnNull()
+  {
+    GivenStatus($"{Root}/refs", 404);
+
+    var head = await _azure.Gateway.GetBranchHeadAsync(Repository, "main", Cancellation);
+
+    head.ShouldBeNull();
+  }
+
+  [Fact]
   public async Task CompareAsync_ShouldNotBeBuiltYet()
   {
     await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.CompareAsync(Repository, Head, Head, Cancellation));
+  }
+
+  [Fact]
+  public async Task ListPullFilesAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.ListPullFilesAsync(Repository, 22, Cancellation));
+  }
+
+  [Fact]
+  public async Task GetTreeAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.GetTreeAsync(Repository, Head, true, Cancellation));
+  }
+
+  [Fact]
+  public async Task CreateStatusAsync_ShouldNotBeBuiltYet()
+  {
+    var status = new CommitStatus("coverage/patch", StatusState.Success, "ok");
+
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.CreateStatusAsync(Repository, Head, status, null, Cancellation));
+  }
+
+  [Fact]
+  public async Task ListIssueCommentsAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.ListIssueCommentsAsync(Repository, 22, Cancellation));
+  }
+
+  [Fact]
+  public async Task CreateIssueCommentAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.CreateIssueCommentAsync(Repository, 22, "body", Cancellation));
+  }
+
+  [Fact]
+  public async Task UpdateIssueCommentAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.UpdateIssueCommentAsync(Repository, 1, "body", Cancellation));
+  }
+
+  [Fact]
+  public async Task DeleteIssueCommentAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.DeleteIssueCommentAsync(Repository, 1, Cancellation));
+  }
+
+  [Fact]
+  public async Task GetContentAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(() => _azure.Gateway.GetContentAsync(Repository, "codecov.yml", Head, Cancellation));
+  }
+
+  [Fact]
+  public async Task GetBoundedContentAsync_ShouldNotBeBuiltYet()
+  {
+    await Should.ThrowAsync<NotSupportedException>(
+      () => _azure.Gateway.GetBoundedContentAsync(Repository, "codecov.yml", Head, 1024, Cancellation)
+    );
   }
 
   private static string Fixture(string name) =>
