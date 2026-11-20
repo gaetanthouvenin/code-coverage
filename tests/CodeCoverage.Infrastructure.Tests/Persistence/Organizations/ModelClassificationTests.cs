@@ -68,7 +68,9 @@ public sealed class ModelClassificationTests
   }
 
   // The acceptance of the micro-feature: a unique index serves the foreign key, and the convention adds no other.
-  // A table may hold several unique indexes that start with the organization, Repositories does.
+  // A table may hold several unique indexes that start with the organization, Repositories does. An alternate key on
+  // the organization and the identifier is such a unique index too: ForgeConnections holds one, the principal key of
+  // the composite foreign key of ForgeHooks.
   [Theory]
   [ClassData(typeof(ProviderTheoryData))]
   public void Model_OrganizationForeignKey_ShouldBeServedByTheUniqueIndex(DatabaseProvider provider)
@@ -85,13 +87,21 @@ public sealed class ModelClassificationTests
       var indexes = entity.GetIndexes()
                           .Where(static i => i.Properties[0].Name == OrganizationOwnedExtensions.ColumnName)
                           .ToList();
+      var alternateKeys = entity.GetKeys()
+                                .Where(static k => !k.IsPrimaryKey() && k.Properties[0].Name == OrganizationOwnedExtensions.ColumnName)
+                                .ToList();
 
-      indexes.ShouldNotBeEmpty(entity.DisplayName());
+      (indexes.Count + alternateKeys.Count).ShouldBeGreaterThan(0, entity.DisplayName());
 
       foreach (var index in indexes)
       {
         index.IsUnique.ShouldBeTrue(entity.DisplayName());
         index.Properties.Count.ShouldBeGreaterThan(1, entity.DisplayName());
+      }
+
+      foreach (var key in alternateKeys)
+      {
+        key.Properties.Count.ShouldBeGreaterThan(1, entity.DisplayName());
       }
     }
   }

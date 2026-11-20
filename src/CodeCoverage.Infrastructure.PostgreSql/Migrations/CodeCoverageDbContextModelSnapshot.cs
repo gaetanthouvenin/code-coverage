@@ -602,11 +602,64 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId", "Id")
-                        .IsUnique()
-                        .HasDatabaseName("UX_ForgeConnections_OrganizationId_Id");
+                    b.HasAlternateKey("OrganizationId", "Id")
+                        .HasName("UX_ForgeConnections_OrganizationId_Id");
 
                     b.ToTable("ForgeConnections", (string)null);
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeHook", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ConnectionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("LastCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<long>("OrganizationId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ScopeExternalId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ScopeKind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "ConnectionId", "ScopeKind", "ScopeExternalId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ForgeHooks_OrganizationId_ConnectionId_Scope");
+
+                    b.ToTable("ForgeHooks", (string)null);
+
+                    b.HasAnnotation("CodeCoverage:OrganizationOwned", true);
                 });
 
             modelBuilder.Entity("CodeCoverage.Domain.Operations.AuditEntry", b =>
@@ -1968,6 +2021,22 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CodeCoverage.Domain.Connections.ForgeHook", b =>
+                {
+                    b.HasOne("CodeCoverage.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CodeCoverage.Domain.Connections.ForgeConnection", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "ConnectionId")
+                        .HasPrincipalKey("OrganizationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

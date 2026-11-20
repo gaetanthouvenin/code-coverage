@@ -21,8 +21,9 @@ namespace CodeCoverage.Infrastructure.Persistence.Configurations;
 ///   </para>
 ///   <para>
 ///     The kind and the status are stored as text, so a new value needs no migration. The protected secrets have no
-///     maximum length: the size of a protected value depends on the key ring. The unique index on the organization and
-///     the key serves the foreign key in place of the index of the convention.
+///     maximum length: the size of a protected value depends on the key ring. The alternate key on the organization and
+///     the identifier serves the foreign key in place of the index of the convention, and the composite foreign key of
+///     <c>ForgeHooks</c> refers to it, so a hook only points to a connection of its own organization.
 ///   </para>
 /// </remarks>
 internal sealed class ForgeConnectionConfiguration : IEntityTypeConfiguration<ForgeConnection>
@@ -32,8 +33,11 @@ internal sealed class ForgeConnectionConfiguration : IEntityTypeConfiguration<Fo
   /// <summary>The name of the <c>ForgeConnections</c> table.</summary>
   private const string TableName = "ForgeConnections";
 
-  /// <summary>The unique index that serves the foreign key to the organization.</summary>
-  private const string OrganizationIndexName = "UX_ForgeConnections_OrganizationId_Id";
+  /// <summary>
+  ///   The alternate key on the organization and the identifier: it serves the foreign key to the organization and is the
+  ///   principal key of the hooks of a connection.
+  /// </summary>
+  private const string OrganizationKeyName = "UX_ForgeConnections_OrganizationId_Id";
 
   #endregion
 
@@ -65,7 +69,7 @@ internal sealed class ForgeConnectionConfiguration : IEntityTypeConfiguration<Fo
     builder.Property(static c => c.LastCheckedAt);
     builder.Property(static c => c.LastError).HasMaxLength(ForgeConnection.LastErrorMaxLength);
 
-    builder.HasIndex(static c => new { c.OrganizationId, c.Id }).IsUnique().HasDatabaseName(OrganizationIndexName);
+    builder.HasAlternateKey(static c => new { c.OrganizationId, c.Id }).HasName(OrganizationKeyName);
     builder.HasOne<Organization>().WithMany().HasForeignKey(static c => c.OrganizationId).OnDelete(DeleteBehavior.Restrict);
   }
 
