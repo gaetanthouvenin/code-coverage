@@ -59,8 +59,10 @@ public sealed class ForgeConnectionRepositoryTests(DatabaseFixture database) : I
   public async Task FindOwnerAsync_AnyOrganization_ShouldReturnItsOwner(DatabaseProvider provider)
   {
     var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
-    await AddAsync(organizations, Connection("first-conn", organizations.FirstId));
+    var active = Connection("first-conn", organizations.FirstId);
+    await AddAsync(organizations, active);
     var suspended = Connection("second-conn", organizations.SecondId);
+    suspended.RotateWebhookSecret(_protector.Protect("next-webhook-secret"));
     suspended.Suspend(Now);
     await AddAsync(organizations, suspended);
 
@@ -75,9 +77,22 @@ public sealed class ForgeConnectionRepositoryTests(DatabaseFixture database) : I
     var repository = Repository(context);
 
     (await repository.FindOwnerAsync("first-conn", Ct)).ShouldBe(
-      new ForgeConnectionOwner(organizations.FirstId, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+      new ForgeConnectionOwner(
+        organizations.FirstId,
+        Forge.AzureDevOps,
+        OrganizationState.Active,
+        ForgeConnectionStatus.Active,
+        active.WebhookSecretProtected,
+        null));
     (await repository.FindOwnerAsync("second-conn", Ct)).ShouldBe(
-      new ForgeConnectionOwner(organizations.SecondId, Forge.AzureDevOps, OrganizationState.Pending, ForgeConnectionStatus.Suspended));
+      new ForgeConnectionOwner(
+        organizations.SecondId,
+        Forge.AzureDevOps,
+        OrganizationState.Pending,
+        ForgeConnectionStatus.Suspended,
+        suspended.WebhookSecretProtected,
+        suspended.WebhookSecretPreviousProtected));
+    suspended.WebhookSecretPreviousProtected.ShouldNotBeNull();
     (await repository.FindOwnerAsync("unknown", Ct)).ShouldBeNull();
   }
 

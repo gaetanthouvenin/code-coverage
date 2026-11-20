@@ -62,5 +62,11 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No event translator is implemented for <paramref name="forge" />.</exception>
   IForgeEventTranslator GetEventTranslator(Forge forge);
 
+  /// <summary>Gets what authenticates the webhook deliveries of a forge with connections by the secret of their connection.</summary>
+  /// <param name="forge">The forge, never GitHub, whose deliveries keep the secret of its App.</param>
+  /// <returns>The webhook validator of the forge.</returns>
+  /// <exception cref="NotSupportedException">No webhook validator is implemented for <paramref name="forge" />.</exception>
+  IForgeWebhookValidator GetWebhookValidator(Forge forge);
+
   #endregion
 }

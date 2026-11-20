@@ -163,7 +163,7 @@ public sealed class ReceiveUploadCommandHandlerTests
   {
     AzureDevOps();
     A.CallTo(() => _connections.FindOwnerAsync("contoso-devops", A<CancellationToken>._))
-     .Returns(new ForgeConnectionOwner(3, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+     .Returns(new ForgeConnectionOwner(3, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active, "protected-secret", null));
 
     await Handler().Handle(AzureDevOpsCommand(), Ct);
 
@@ -180,7 +180,7 @@ public sealed class ReceiveUploadCommandHandlerTests
   {
     AzureDevOps();
     A.CallTo(() => _connections.FindOwnerAsync("contoso-devops", A<CancellationToken>._))
-     .Returns(new ForgeConnectionOwner(8, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+     .Returns(new ForgeConnectionOwner(8, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active, "protected-secret", null));
 
     var exception = await Should.ThrowAsync<NotFoundException>(async () => await Handler().Handle(AzureDevOpsCommand(), Ct));
 

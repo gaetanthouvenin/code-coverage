@@ -13,4 +13,15 @@ namespace CodeCoverage.Domain.Connections;
 /// <param name="Forge">The forge of the connection.</param>
 /// <param name="State">The place of the organization in its lifecycle.</param>
 /// <param name="Status">The health of the connection.</param>
-public sealed record ForgeConnectionOwner(long OrganizationId, Forge Forge, OrganizationState State, ForgeConnectionStatus Status);
+/// <param name="WebhookSecretProtected">The current secret of the webhooks, protected by <c>ISecretProtector</c>.</param>
+/// <param name="WebhookSecretPreviousProtected">
+///   The previous secret of the webhooks, protected by <c>ISecretProtector</c>, or <see langword="null" /> when the
+///   secret was never rotated: a delivery signed with it is still accepted while the forge catches up.
+/// </param>
+public sealed record ForgeConnectionOwner(
+  long OrganizationId,
+  Forge Forge,
+  OrganizationState State,
+  ForgeConnectionStatus Status,
+  string WebhookSecretProtected,
+  string? WebhookSecretPreviousProtected);

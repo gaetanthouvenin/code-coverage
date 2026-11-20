@@ -204,5 +204,31 @@ public sealed class ForgeGatewayProviderTests
     Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetEventTranslator(forge));
   }
 
+  [Fact]
+  public void GetWebhookValidator_RegisteredForge_ShouldReturnItsValidator()
+  {
+    var validator = A.Fake<IForgeWebhookValidator>();
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.AzureDevOps, validator);
+    services.AddKeyedSingleton(Forge.Bitbucket, A.Fake<IForgeWebhookValidator>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetWebhookValidator(Forge.AzureDevOps).ShouldBeSameAs(validator);
+  }
+
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.GitLab)]
+  public void GetWebhookValidator_UnregisteredForge_ShouldThrowNotSupported(Forge forge)
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.AzureDevOps, A.Fake<IForgeWebhookValidator>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetWebhookValidator(forge));
+  }
+
   #endregion
 }

@@ -381,6 +381,85 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
     rows.Single(static d => d.Forge is Forge.GitHub).ProcessedAt.ShouldBeNull();
   }
 
+  // M7.21. A delivery of a forge with connections is stored with its forge and its connection, in the organization of
+  // its job, and read back by the job of that organization.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryStoreForgeDelivery_ForOrganization_ShouldStoreTheRowAndQueueInItsLane(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+
+    (await StoreForgeDeliveryAsync(organizations, ConnectionDelivery("d-1"), ForgeJob(organizations.FirstId, "d-1"))).ShouldBeTrue();
+
+    await using (var reader = organizations.ContextWithoutOrganization())
+    {
+      var row = await reader.WebhookDeliveries.AsNoTracking().SingleAsync(Ct);
+      var job = await reader.Jobs.AsNoTracking().SingleAsync(Ct);
+
+      row.Forge.ShouldBe(Forge.AzureDevOps);
+      row.DeliveryId.ShouldBe("d-1");
+      row.OrganizationId.ShouldBe(organizations.FirstId);
+      row.Event.ShouldBe("git.push");
+      row.Action.ShouldBeNull();
+      row.ConnectionId.ShouldBe("contoso-devops");
+      row.RepositoryExternalId.ShouldBeNull();
+      row.ReceivedAt.ShouldBe(Now);
+      row.ProcessedAt.ShouldBeNull();
+      job.OrganizationId.ShouldBe(organizations.FirstId);
+      job.Type.ShouldBe(JobTypes.HandleForgeDelivery);
+    }
+
+    var found = await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizations.FirstId);
+
+    found.ShouldNotBeNull().ConnectionId.ShouldBe("contoso-devops");
+    found.Payload.ShouldBe(ForgePayload);
+    (await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizations.SecondId)).ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryStoreForgeDelivery_KnownDelivery_ShouldReturnFalseAndQueueNothing(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreForgeDeliveryAsync(organizations, ConnectionDelivery("d-1"), ForgeJob(organizations.FirstId, "d-1"));
+
+    (await StoreForgeDeliveryAsync(organizations, ConnectionDelivery("d-1"), ForgeJob(organizations.FirstId, "d-1"))).ShouldBeFalse();
+
+    await using var reader = organizations.ContextWithoutOrganization();
+
+    (await reader.WebhookDeliveries.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
+    (await reader.Jobs.AsNoTracking().CountAsync(Ct)).ShouldBe(1);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task TryStoreForgeDelivery_GitHubOrJobWithoutOrganization_ShouldThrow(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    var gitHub = new ForgeDelivery(Forge.GitHub, "d-1", "push", null, "42", null, ForgePayload);
+
+    await Should.ThrowAsync<ArgumentException>(() => StoreForgeDeliveryAsync(organizations, gitHub, ForgeJob(organizations.FirstId, "d-1")));
+    await Should.ThrowAsync<ArgumentException>(
+      () => StoreForgeDeliveryAsync(organizations, ConnectionDelivery("d-1"), JobRequest.ForInstance(JobTypes.HandleForgeDelivery, "{}"))
+    );
+
+    await using var reader = organizations.ContextWithoutOrganization();
+
+    (await reader.WebhookDeliveries.AsNoTracking().CountAsync(Ct)).ShouldBe(0);
+  }
+
+  private static ForgeDelivery ConnectionDelivery(string id) => new(Forge.AzureDevOps, id, "git.push", null, "contoso-devops", null, ForgePayload);
+
+  private static JobRequest ForgeJob(long organizationId, string id) =>
+    JobRequest.ForOrganization(organizationId, JobTypes.HandleForgeDelivery, ForgeDeliveryJobs.Payload(Forge.AzureDevOps, id));
+
+  private async Task<bool> StoreForgeDeliveryAsync(TwoOrganizationDatabase organizations, ForgeDelivery delivery, JobRequest job)
+  {
+    await using var context = organizations.ContextWithoutOrganization();
+
+    return await Repository(context, new OrganizationContext()).TryStoreForgeDeliveryAsync(delivery, job, Now, Ct);
+  }
+
   private static async Task AddForgeDeliveryAsync(TwoOrganizationDatabase organizations, string id, long organizationId, string? connectionId)
   {
     using var output = new MemoryStream();

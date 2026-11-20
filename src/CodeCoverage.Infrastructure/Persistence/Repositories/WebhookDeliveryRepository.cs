@@ -82,30 +82,13 @@ internal sealed class WebhookDeliveryRepository(
     return output.ToArray();
   }
 
-  #endregion
-
-  #region Implementation of IWebhookDeliveryRepository
-
-  /// <inheritdoc />
-  public async Task<bool> TryStoreAsync(GitHubWebhookEvent delivery, JobRequest job, DateTimeOffset at, CancellationToken cancellationToken)
+  /// <summary>Saves a delivery and queues its job in one transaction.</summary>
+  /// <param name="record">The row of the delivery, not saved yet.</param>
+  /// <param name="job">The job that handles it.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns><see langword="true" /> when the delivery is new; <see langword="false" /> when its forge already sent it.</returns>
+  private async Task<bool> StoreAsync(WebhookDeliveryRecord record, JobRequest job, CancellationToken cancellationToken)
   {
-    ArgumentNullException.ThrowIfNull(delivery);
-    ArgumentNullException.ThrowIfNull(job);
-    ArgumentException.ThrowIf(job.OrganizationId is null && !job.IsInstance, NoLaneMessage, nameof(job));
-
-    var record = new WebhookDeliveryRecord
-    {
-      Forge = Forge.GitHub,
-      DeliveryId = delivery.DeliveryId,
-      OrganizationId = job.OrganizationId,
-      Event = delivery.Event,
-      Action = delivery.Action,
-      ConnectionId = ToText(delivery.InstallationId),
-      RepositoryExternalId = ToText(delivery.RepositoryId),
-      Payload = Compress(delivery.Payload),
-      ReceivedAt = at.ToUniversalTime(),
-    };
-
     long jobId;
     var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
@@ -133,6 +116,57 @@ internal sealed class WebhookDeliveryRepository(
     wakeUpSignal.Notify(jobId);
 
     return true;
+  }
+
+  #endregion
+
+  #region Implementation of IWebhookDeliveryRepository
+
+  /// <inheritdoc />
+  public async Task<bool> TryStoreAsync(GitHubWebhookEvent delivery, JobRequest job, DateTimeOffset at, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(delivery);
+    ArgumentNullException.ThrowIfNull(job);
+    ArgumentException.ThrowIf(job.OrganizationId is null && !job.IsInstance, NoLaneMessage, nameof(job));
+
+    var record = new WebhookDeliveryRecord
+    {
+      Forge = Forge.GitHub,
+      DeliveryId = delivery.DeliveryId,
+      OrganizationId = job.OrganizationId,
+      Event = delivery.Event,
+      Action = delivery.Action,
+      ConnectionId = ToText(delivery.InstallationId),
+      RepositoryExternalId = ToText(delivery.RepositoryId),
+      Payload = Compress(delivery.Payload),
+      ReceivedAt = at.ToUniversalTime(),
+    };
+
+    return await StoreAsync(record, job, cancellationToken).ConfigureAwait(false);
+  }
+
+  /// <inheritdoc />
+  public async Task<bool> TryStoreForgeDeliveryAsync(ForgeDelivery delivery, JobRequest job, DateTimeOffset at, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(delivery);
+    ArgumentNullException.ThrowIfNull(job);
+    ArgumentException.ThrowIf(delivery.Forge is Forge.GitHub, "A delivery of GitHub is stored with its installation.", nameof(delivery));
+    ArgumentException.ThrowIf(job.OrganizationId is null, "The job of a delivery of a connection names its organization.", nameof(job));
+
+    var record = new WebhookDeliveryRecord
+    {
+      Forge = delivery.Forge,
+      DeliveryId = delivery.DeliveryId,
+      OrganizationId = job.OrganizationId,
+      Event = delivery.Event,
+      Action = delivery.Action,
+      ConnectionId = delivery.ConnectionId,
+      RepositoryExternalId = delivery.RepositoryExternalId,
+      Payload = Compress(delivery.Payload),
+      ReceivedAt = at.ToUniversalTime(),
+    };
+
+    return await StoreAsync(record, job, cancellationToken).ConfigureAwait(false);
   }
 
   /// <inheritdoc />
