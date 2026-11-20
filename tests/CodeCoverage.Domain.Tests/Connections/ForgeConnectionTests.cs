@@ -155,6 +155,91 @@ public sealed class ForgeConnectionTests
   }
 
   [Fact]
+  public void RotateCredential_New_ShouldReplaceTheCredentialAndItsExpiry()
+  {
+    var connection = Create(credential: "first", secret: "secret", expiresAt: Now.AddDays(10));
+    var expiresAt = new DateTimeOffset(2027, 5, 1, 10, 0, 0, TimeSpan.FromHours(2));
+
+    connection.RotateCredential("second", "service-account", expiresAt);
+
+    connection.CredentialProtected.ShouldBe("second");
+    connection.ServiceAccountExternalId.ShouldBe("service-account");
+    connection.ExpiresAt.ShouldBe(expiresAt);
+    connection.ExpiresAt!.Value.Offset.ShouldBe(TimeSpan.Zero);
+    connection.WebhookSecretProtected.ShouldBe("secret");
+    connection.WebhookSecretPreviousProtected.ShouldBeNull();
+  }
+
+  [Fact]
+  public void RotateCredential_NoServiceAccountNorExpiry_ShouldKeepTheAccountAndClearTheExpiry()
+  {
+    var connection = Create(expiresAt: Now.AddDays(10));
+    connection.RotateCredential("second", "service-account", null);
+
+    connection.RotateCredential("third", null, null);
+
+    connection.CredentialProtected.ShouldBe("third");
+    connection.ServiceAccountExternalId.ShouldBe("service-account");
+    connection.ExpiresAt.ShouldBeNull();
+  }
+
+  [Fact]
+  public void RotateCredential_Failing_ShouldClearTheFailure()
+  {
+    var connection = Create();
+    connection.RecordCheck(Now, "TF400813: the identity is not authorized.", Warning);
+
+    connection.RotateCredential("second", null, null);
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Active);
+    connection.LastError.ShouldBeNull();
+    connection.LastCheckedAt.ShouldBe(Now);
+  }
+
+  [Fact]
+  public void RotateCredential_Expiring_ShouldMarkActive()
+  {
+    var connection = Create(expiresAt: Now.AddDays(10));
+    connection.RecordCheck(Now, null, Warning);
+
+    connection.RotateCredential("second", null, Now.AddDays(90));
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Active);
+  }
+
+  [Fact]
+  public void RotateCredential_Suspended_ShouldStaySuspended()
+  {
+    var connection = Create();
+    connection.RecordCheck(Now, "failure", Warning);
+    connection.Suspend(Now.AddHours(1));
+
+    connection.RotateCredential("second", null, null);
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Suspended);
+    connection.LastError.ShouldBeNull();
+  }
+
+  [Theory]
+  [InlineData(" ", null)]
+  [InlineData("credential", " ")]
+  public void RotateCredential_Blank_ShouldThrow(string credential, string? serviceAccount)
+  {
+    var connection = Create();
+
+    Should.Throw<ArgumentException>(() => connection.RotateCredential(credential, serviceAccount, null));
+    connection.CredentialProtected.ShouldBe("protected-credential");
+  }
+
+  [Fact]
+  public void RotateCredential_ServiceAccountTooLong_ShouldThrow()
+  {
+    var tooLong = new string('a', ForgeConnection.ServiceAccountExternalIdMaxLength + 1);
+
+    Should.Throw<ArgumentException>(() => Create().RotateCredential("credential", tooLong, null));
+  }
+
+  [Fact]
   public void RecordCheck_Error_ShouldMarkFailing()
   {
     var connection = Create();

@@ -11,6 +11,9 @@ public static class ConnectionErrors
 {
   #region Fields
 
+  /// <summary>The forge refuses the new credential of a connection, or it reaches another account: the old one is kept.</summary>
+  public const string CredentialRefused = "Connection.CredentialRefused";
+
   /// <summary>The forge refuses the connection access to the account it names.</summary>
   public const string ForgeAccessDenied = "Connection.ForgeAccessDenied";
 
@@ -22,6 +25,9 @@ public static class ConnectionErrors
   ///   is nothing to read again.
   /// </summary>
   public const string NotConnected = "Connection.NotConnected";
+
+  /// <summary>The organization of the scope has no such connection: a connection of another organization is not seen.</summary>
+  public const string NotFound = "Connection.NotFound";
 
   /// <summary>A GitHub account is admitted by the installation of the GitHub App, never by a connection.</summary>
   public const string UseInstallation = "Connection.UseInstallation";

@@ -35,9 +35,11 @@
   <data name="Commit.Compacted" xml:space="preserve"><value>La copertura di un upload di questo commit non esiste più.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Questo commit è stato finalizzato nel frattempo. Finalizzalo di nuovo.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>I file grezzi di un upload di questo commit non sono più conservati: non può essere rielaborato.</value></data>
+  <data name="Connection.CredentialRefused" xml:space="preserve"><value>La forge rifiuta la nuova credenziale, o dà accesso a un altro account: la credenziale precedente è mantenuta. Verifica la credenziale, poi riprova.</value></data>
   <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket o GitLab nega a questa connessione l’accesso all’account: verifica il nome dell’account, il tenant e la credenziale, poi riprova.</value></data>
   <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>Questa forge non è proposta per l’ammissione su questa istanza: registra prima la sua applicazione nelle impostazioni.</value></data>
   <data name="Connection.NotConnected" xml:space="preserve"><value>Né un’installazione della App né una connessione serve questa organizzazione: installa la App o connetti l’organizzazione, poi sincronizza.</value></data>
+  <data name="Connection.NotFound" xml:space="preserve"><value>Questa connessione non esiste in questa organizzazione.</value></data>
   <data name="Connection.UseInstallation" xml:space="preserve"><value>Un’organizzazione GitHub viene ammessa tramite l’installazione della GitHub App, non tramite una connessione.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>Non è stato possibile visualizzare la pagina. Riprova tra un momento; se il problema persiste, comunica a un amministratore l’identificativo della richiesta riportato qui sotto.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identificativo della richiesta</value></data>

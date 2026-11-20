@@ -35,9 +35,11 @@
   <data name="Commit.Compacted" xml:space="preserve"><value>La cobertura de un upload de este commit ya no existe.</value></data>
   <data name="Commit.ConcurrentSave" xml:space="preserve"><value>Este commit se finalizó mientras tanto. Finalícelo de nuevo.</value></data>
   <data name="Commit.RawExpired" xml:space="preserve"><value>Los archivos sin procesar de un upload de este commit ya no se conservan: no se puede volver a procesar.</value></data>
+  <data name="Connection.CredentialRefused" xml:space="preserve"><value>La forja rechaza la nueva credencial, o da acceso a otra cuenta: se conserva la credencial anterior. Compruebe la credencial y vuelva a intentarlo.</value></data>
   <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket o GitLab niega a esta conexión el acceso a la cuenta: compruebe el nombre de la cuenta, el tenant y la credencial, y vuelva a intentarlo.</value></data>
   <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>Esta forja no se ofrece para la admisión en esta instancia: registre primero su aplicación en los ajustes.</value></data>
   <data name="Connection.NotConnected" xml:space="preserve"><value>Ni una instalación de la App ni una conexión da servicio a esta organización: instale la App o conecte la organización y luego sincronice.</value></data>
+  <data name="Connection.NotFound" xml:space="preserve"><value>Esta conexión no existe en esta organización.</value></data>
   <data name="Connection.UseInstallation" xml:space="preserve"><value>Una organización de GitHub se admite mediante la instalación de la App de GitHub, no mediante una conexión.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>No se pudo mostrar la página. Inténtelo de nuevo en un momento; si el problema persiste, facilite a un administrador el identificador de solicitud que aparece abajo.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identificador de solicitud</value></data>

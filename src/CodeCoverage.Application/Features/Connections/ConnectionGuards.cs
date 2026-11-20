@@ -7,6 +7,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Application.Features.Connections;
@@ -19,8 +20,40 @@ internal static class ConnectionGuards
 {
   #region Methods
 
+  extension(NotFoundException)
+  {
+    /// <summary>Throws when the connection is unknown or belongs to another organization than the one of the scope.</summary>
+    /// <param name="connection">The connection, read from the global table, or <see langword="null" />.</param>
+    /// <param name="organizationId">The identifier of the organization of the scope.</param>
+    /// <remarks>A connection of another organization is refused like an unknown one, so that its existence is not told.</remarks>
+    /// <exception cref="NotFoundException">
+    ///   <paramref name="connection" /> is <see langword="null" /> or names another organization.
+    /// </exception>
+    public static void ThrowIfNotInOrganization([NotNull] ForgeConnection? connection, long organizationId)
+    {
+      if (connection is null || connection.OrganizationId != organizationId)
+      {
+        throw new NotFoundException(ConnectionErrors.NotFound, "The organization has no such connection.");
+      }
+    }
+  }
+
   extension(UnprocessableEntityException)
   {
+    /// <summary>Throws when the forge refuses the new credential of a connection.</summary>
+    /// <param name="isRefused">Whether the forge refuses the credential.</param>
+    /// <param name="refusal">Why the forge refuses it, never a secret, or <see langword="null" />.</param>
+    /// <param name="forge">The forge of the connection.</param>
+    /// <param name="login">The login of the organization of the connection.</param>
+    /// <exception cref="UnprocessableEntityException"><paramref name="isRefused" /> is <see langword="true" />.</exception>
+    public static void ThrowIfCredentialRefused([DoesNotReturnIf(true)] bool isRefused, string? refusal, Forge forge, string login)
+    {
+      if (isRefused)
+      {
+        throw new UnprocessableEntityException(ConnectionErrors.CredentialRefused, $"{forge} refuses the new credential of '{login}': {refusal}");
+      }
+    }
+
     /// <summary>Throws when the forge refuses a connection access to the account it names.</summary>
     /// <param name="isRefused">Whether the forge refuses the connection.</param>
     /// <param name="refusal">Why the forge refuses it, never a secret, or <see langword="null" />.</param>
