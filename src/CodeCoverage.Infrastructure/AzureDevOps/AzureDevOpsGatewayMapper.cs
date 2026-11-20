@@ -165,8 +165,13 @@ internal static class AzureDevOpsGatewayMapper
   /// <summary>Removes the prefix of the full name of a branch.</summary>
   /// <param name="refName">The full name, <c>refs/heads/main</c>.</param>
   /// <returns>The name of the branch, <c>main</c>; a name without the prefix is returned as it is.</returns>
-  private static string ToBranchName(string refName) =>
-    refName.StartsWith(BranchPrefix, StringComparison.Ordinal) ? refName[BranchPrefix.Length..] : refName;
+  /// <exception cref="ArgumentNullException"><paramref name="refName" /> is <see langword="null" />.</exception>
+  public static string ToBranchName(string refName)
+  {
+    ArgumentNullException.ThrowIfNull(refName);
+
+    return refName.StartsWith(BranchPrefix, StringComparison.Ordinal) ? refName[BranchPrefix.Length..] : refName;
+  }
 
   /// <summary>Converts the status of a pull request.</summary>
   /// <param name="status">The status Azure DevOps reports.</param>

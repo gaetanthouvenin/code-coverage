@@ -16,6 +16,7 @@ using CodeCoverage.Domain.Coverage;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.AzureDevOps;
+using CodeCoverage.Infrastructure.AzureDevOps.Events;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.GitHub;
 using CodeCoverage.Infrastructure.Identity;
@@ -405,6 +406,17 @@ public sealed class DependencyInjectionTests
 
     gateway.ShouldBeOfType<AzureDevOpsGateway>();
     scope.ServiceProvider.GetRequiredKeyedService<IForgeGateway>(Forge.AzureDevOps).ShouldBeSameAs(gateway);
+  }
+
+  [Fact]
+  public async Task AddInfrastructure_ShouldResolveTheAzureDevOpsEventTranslatorByItsForge()
+  {
+    await using var services = Build(new Dictionary<string, string?>());
+    await using var scope = services.CreateAsyncScope();
+
+    scope.ServiceProvider.GetRequiredService<IForgeGatewayProvider>()
+         .GetEventTranslator(Forge.AzureDevOps)
+         .ShouldBeOfType<AzureDevOpsEventTranslator>();
   }
 
   [Fact]
