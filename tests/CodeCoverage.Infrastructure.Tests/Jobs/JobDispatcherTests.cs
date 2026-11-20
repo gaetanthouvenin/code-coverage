@@ -24,6 +24,7 @@ using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHisto
 using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
+using CodeCoverage.Application.Features.Webhooks.Commands.HandleForgeDelivery;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
@@ -185,6 +186,32 @@ public sealed class JobDispatcherTests
     await new JobDispatcher(_sender).DispatchAsync(job, Ct);
 
     A.CallTo(() => _sender.Send(new HandleWebhookDeliveryCommand("d-1"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_HandleForgeDelivery_ShouldRouteByForge()
+  {
+    var job = Job(JobTypes.HandleForgeDelivery, 42);
+    job.PayloadJson = ForgeDeliveryJobs.Payload(Forge.AzureDevOps, "d-1");
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new HandleForgeDeliveryCommand(Forge.AzureDevOps, "d-1"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  // A delivery of GitHub keeps the HandleWebhook job: named here, the payload is rejected, never retried.
+  [Theory]
+  [InlineData("""{"Forge":"GitHub","DeliveryId":"d-1"}""")]
+  [InlineData("""{"Forge":"Gitea","DeliveryId":"d-1"}""")]
+  [InlineData("""{"Forge":"AzureDevOps","DeliveryId":""}""")]
+  [InlineData("""{"Forge":"AzureDevOps"}""")]
+  public async Task DispatchAsync_HandleForgeDeliveryWithInvalidPayload_ShouldThrowInvalidJobException(string payload)
+  {
+    var job = Job(JobTypes.HandleForgeDelivery, 42);
+    job.PayloadJson = payload;
+
+    await Should.ThrowAsync<InvalidJobException>(() => new JobDispatcher(_sender).DispatchAsync(job, Ct));
+    A.CallTo(_sender).MustNotHaveHappened();
   }
 
   [Theory]

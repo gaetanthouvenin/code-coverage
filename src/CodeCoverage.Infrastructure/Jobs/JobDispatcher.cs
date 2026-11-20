@@ -26,6 +26,7 @@ using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHisto
 using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
+using CodeCoverage.Application.Features.Webhooks.Commands.HandleForgeDelivery;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Repositories;
@@ -113,6 +114,21 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
     }
 
     return new SyncConnectionRepositoriesCommand(forge, connectionId);
+  }
+
+  /// <summary>Reads the handling of a delivery of a forge with connections.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <returns>The command of the handling.</returns>
+  /// <exception cref="FormatException">
+  ///   The delivery is missing or empty, the forge is not a known one, or it is GitHub, whose deliveries keep their own job.
+  /// </exception>
+  private static HandleForgeDeliveryCommand ReadForgeDelivery(JsonElement payload)
+  {
+    var forge = ReadForge(payload, "Forge");
+
+    return forge is Forge.GitHub
+      ? throw new FormatException("A delivery of GitHub is handled by the HandleWebhook job.")
+      : new HandleForgeDeliveryCommand(forge, ReadText(payload, "DeliveryId"));
   }
 
   /// <summary>Reads the closing of a repository transferred to another account.</summary>
@@ -216,6 +232,11 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
       case JobTypes.HandleWebhook:
         // The case of GitHub: the delivery is read on the forge GitHub, by its identifier.
         await sender.Send(new HandleWebhookDeliveryCommand(Read(job, static p => ReadText(p, "deliveryId"))), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.HandleForgeDelivery:
+        // The case of every forge but GitHub: the translator of the forge of the payload reads the delivery.
+        await sender.Send(Read(job, ReadForgeDelivery), cancellationToken).ConfigureAwait(false);
 
         break;
       case JobTypes.SyncInstallations:

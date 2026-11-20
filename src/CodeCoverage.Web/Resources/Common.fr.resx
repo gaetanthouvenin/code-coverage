@@ -110,6 +110,7 @@
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un jeton importé doit être un jeton Codecov (un UUID).</value></data>
   <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Donnez au jeton un nom de 128 caractères au plus.</value></data>
   <data name="UploadToken.NotFound" xml:space="preserve"><value>Ce jeton n’existe pas.</value></data>
+  <data name="Webhook.DeliveryNotFound" xml:space="preserve"><value>La livraison à traiter n’existe pas.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>La valeur ne correspond pas au type du paramètre.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>Ce paramètre est un secret : remplacez-le au lieu de le modifier.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>Ce paramètre n’est pas un secret : modifiez plutôt sa valeur.</value></data>

@@ -110,6 +110,7 @@
   <data name="UploadToken.InvalidImportedValue" xml:space="preserve"><value>Un token importado debe ser un token de Codecov (un UUID).</value></data>
   <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Asigne al token un nombre de 128 caracteres como máximo.</value></data>
   <data name="UploadToken.NotFound" xml:space="preserve"><value>Este token no existe.</value></data>
+  <data name="Webhook.DeliveryNotFound" xml:space="preserve"><value>La entrega que se debe procesar no existe.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>El valor no corresponde al tipo del ajuste.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>Este ajuste es un secreto: reemplácelo en lugar de modificarlo.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>Este ajuste no es un secreto: modifique su valor en su lugar.</value></data>

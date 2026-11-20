@@ -178,5 +178,31 @@ public sealed class ForgeGatewayProviderTests
     Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetCapabilities(Forge.Bitbucket));
   }
 
+  [Fact]
+  public void GetEventTranslator_RegisteredForge_ShouldReturnItsTranslator()
+  {
+    var translator = A.Fake<IForgeEventTranslator>();
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.AzureDevOps, translator);
+    services.AddKeyedSingleton(Forge.Bitbucket, A.Fake<IForgeEventTranslator>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    new ForgeGatewayProvider(scope.ServiceProvider).GetEventTranslator(Forge.AzureDevOps).ShouldBeSameAs(translator);
+  }
+
+  [Theory]
+  [InlineData(Forge.GitHub)]
+  [InlineData(Forge.GitLab)]
+  public void GetEventTranslator_UnregisteredForge_ShouldThrowNotSupported(Forge forge)
+  {
+    var services = new ServiceCollection();
+    services.AddKeyedSingleton(Forge.AzureDevOps, A.Fake<IForgeEventTranslator>());
+    using var provider = services.BuildServiceProvider(validateScopes: true);
+    using var scope = provider.CreateScope();
+
+    Should.Throw<NotSupportedException>(() => new ForgeGatewayProvider(scope.ServiceProvider).GetEventTranslator(forge));
+  }
+
   #endregion
 }

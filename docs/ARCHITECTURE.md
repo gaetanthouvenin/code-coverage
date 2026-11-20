@@ -367,6 +367,7 @@ Les codes d'erreur suivent le format `Feature.Reason` et sont rangés dans `Feat
 | Comparisons | — | `CompareCommits` (Api : comparaison enregistrée de `head` contre `base`, SHA complets, sinon 404 `Comparison.NotComputed`), `GetCommitRange` (page `/compare` : la même comparaison, nullable, « Non calculée ») |
 | GitHubEvents | `ReceiveWebhook` (enregistrement et mise en file), `HandleWebhookDelivery` (dans le worker), `SyncInstallations` (coordinateur), `ReconcileRepositoryTransfer` | — |
 | Connections | `SyncConnections` (coordinateur des forges à connexion, voie d'instance), `SyncConnectionRepositories` (dans le worker, toute forge, par `IForgeDirectoryGateway`) | — |
+| Webhooks | `HandleForgeDelivery` (dans le worker, toute forge à connexion : le traducteur `IForgeEventTranslator` de la forge lit la livraison, le cas d'usage ne voit que l'événement neutre) | — |
 | Repositories | `ActivateRepository`, `DeactivateRepository`, `RotateBadgeToken`, `ImportBadgeToken`, `StartCodecovImport` (M5.06), `ImportCodecovHistory` et `AbandonCodecovImport` (dans le worker) | `ListRepositories`, `GetRepository`, `ListBranches`, `GetEffectiveConfig`, `GetCoverageHistory`, `GetBadge` |
 | Configuration | — | `ValidateCoverageYaml` |
 | UploadTokens | `CreateUploadToken` (génération ou import d'une valeur `CODECOV_TOKEN`), `RevokeUploadToken` | `ListUploadTokens` |
@@ -863,6 +864,7 @@ OUTPUT inserted.*;
 | `FinalizeCommit` | `commit:{id}` | `finalize:{id}` (fusion) | `FinalizeCommitCommand(commitId)` |
 | `NotifyCommit` | `commit:{id}` | `notify:{id}` (anti-rebond de 20 s, délai maximal de 300 s) ; `notify:{id}:forced` (fusion, sans délai) pour `uploads-complete` et la re-notification manuelle ; `notify:{id}:sweep` (fusion, sans délai) pour un commit bloqué | `NotifyCommitCommand(commitId, force, partial)` |
 | `HandleWebhook` | `repo:{githubRepoId}` | — | `HandleWebhookDeliveryCommand(deliveryId)` |
+| `HandleForgeDelivery` | posé par la réception | — | `HandleForgeDeliveryCommand(forge, deliveryId)`, toute forge sauf GitHub, dans l'organisation de la connexion : push vers `PushProcessor`, pull request vers `SyncPullRequest`, dépôt vers `SyncConnectionRepositories` ou, pour un dépôt parti vers un autre compte, `ReconcileRepositoryTransfer` ; un événement ignoré ou inconnu est marqué traité |
 | `SyncPullRequest` | `pull:{repoId}:{n}` | `syncpr:{repoId}:{n}` | `SyncPullRequestCommand` |
 | `ReprocessCommit` | `commit:{id}` | `reprocess:{id}` (fusion) | `RequeueCommitUploadsCommand(commitId)` |
 | `ImportCodecovHistory` | `codecov-import:{repoId}` | `codecov-import:{importId}` | `ImportCodecovHistoryCommand(importId)`, dans l'organisation (M5.06). Lit l'API v2 de Codecov page par page (100 commits), écrit les commits inconnus sans blob ni réveil ni notification, enregistre la page suivante, puis supprime la ligne `CodecovImports`. S'il échoue définitivement ou meurt, le worker envoie `AbandonCodecovImportCommand(importId)`, qui supprime le credential. |

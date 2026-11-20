@@ -32,6 +32,12 @@ public static class JobTypes
   /// <summary>Handles a webhook delivery of GitHub that was stored at its reception.</summary>
   public const string HandleWebhook = "HandleWebhook";
 
+  /// <summary>
+  ///   Handles a webhook delivery of a forge with connections, any forge but GitHub, that was stored at its reception
+  ///   (ADR-017).
+  /// </summary>
+  public const string HandleForgeDelivery = "HandleForgeDelivery";
+
   /// <summary>Lists the installations of the App and queues the reconciliation of each one, in its organization.</summary>
   public const string SyncInstallations = "SyncInstallations";
 
