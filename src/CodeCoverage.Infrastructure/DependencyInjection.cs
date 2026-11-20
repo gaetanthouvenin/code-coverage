@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using CodeCoverage.Domain.Guards;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.HealthChecks;
 using CodeCoverage.Infrastructure.Identity;
 using CodeCoverage.Infrastructure.Jobs;
@@ -88,6 +89,7 @@ public static partial class DependencyInjection
     services.TryAddSingleton<JobWakeUpSignal>();
     services.TryAddSingleton<JobHeartbeat>();
     services.TryAddSingleton<WorkerPulse>();
+    services.TryAddSingleton<ForgeQuotaTracker>();
     services.TryAddScoped<IJobDispatcher, JobDispatcher>();
     services.AddHostedService<JobWorker>();
     services.AddHostedService<LeaseSweeper>();

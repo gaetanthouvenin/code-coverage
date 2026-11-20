@@ -51,7 +51,7 @@ public sealed class AdminOperationsTests : UiTestContext
     typeof(Organization).GetProperty(nameof(Organization.Id))!.SetValue(organization, 7L);
 
     A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
-     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 11204, 15000, Now.AddMinutes(38), Now), GitHubQuota.Create(GitHubQuota.AppInstallation, 4999, 5000, null, Now))));
+     .Returns(new ValueTask<SystemStatus>(Status(6, ForgeQuota.Create(Forge.GitHub, "42", 11204, 15000, Now.AddMinutes(38), Now), ForgeQuota.Create(Forge.GitHub, ForgeQuota.AppConnection, 4999, 5000, null, Now))));
     A.CallTo(() => _sender.Send(A<ListJobsQuery>.That.Matches(q => q.State == JobState.Dead), A<CancellationToken>._))
      .Returns(new ValueTask<JobPage>(new JobPage([Job(12, "ProcessUpload", 7, JobState.Dead)], 1, 25, 1)));
     A.CallTo(() => _sender.Send(A<ListJobsQuery>.That.Matches(q => q.State == JobState.Failed), A<CancellationToken>._))
@@ -135,10 +135,25 @@ public sealed class AdminOperationsTests : UiTestContext
   public void Render_ExpiredQuota_ShouldNotDriveTheGauge()
   {
     A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
-     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), GitHubQuota.Create("7", 9000, 15000, Now.AddMinutes(30), Now))));
+     .Returns(new ValueTask<SystemStatus>(Status(6, ForgeQuota.Create(Forge.GitHub, "42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), ForgeQuota.Create(Forge.GitHub, "7", 9000, 15000, Now.AddMinutes(30), Now))));
 
     var cut = Render<AdminOperations>();
 
+    cut.Find("[data-panel=quota] svg.cc-gauge").GetAttribute("aria-label")!.ShouldContain("60");
+    cut.FindAll(".cc-kpi")[2].QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe(9000.ToString("N0", CultureInfo.CurrentCulture));
+  }
+
+  // The page shows the GitHub quotas only: a quota of another forge, even the most consumed and under the same key, is
+  // neither listed nor drives the gauge.
+  [Fact]
+  public void Render_QuotaOfAnotherForge_ShouldIgnoreIt()
+  {
+    A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
+     .Returns(new ValueTask<SystemStatus>(Status(6, ForgeQuota.Create(Forge.GitHub, "42", 9000, 15000, Now.AddMinutes(30), Now), ForgeQuota.Create(Forge.GitHub, "7", 12000, 15000, Now.AddMinutes(30), Now), ForgeQuota.Create(Forge.Bitbucket, "42", 1, 1000, Now.AddMinutes(30), Now))));
+
+    var cut = Render<AdminOperations>();
+
+    cut.FindAll(".cc-quota-list dt").Select(static d => d.TextContent.Trim()).ShouldBe(["42", "7"]);
     cut.Find("[data-panel=quota] svg.cc-gauge").GetAttribute("aria-label")!.ShouldContain("60");
     cut.FindAll(".cc-kpi")[2].QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe(9000.ToString("N0", CultureInfo.CurrentCulture));
   }
@@ -148,7 +163,7 @@ public sealed class AdminOperationsTests : UiTestContext
   public void Render_ExpiredQuota_ShouldShowItRefilledInTheList()
   {
     A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
-     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), GitHubQuota.Create("7", 9000, 15000, Now.AddMinutes(30), Now))));
+     .Returns(new ValueTask<SystemStatus>(Status(6, ForgeQuota.Create(Forge.GitHub, "42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), ForgeQuota.Create(Forge.GitHub, "7", 9000, 15000, Now.AddMinutes(30), Now))));
 
     var cut = Render<AdminOperations>();
 
@@ -162,7 +177,7 @@ public sealed class AdminOperationsTests : UiTestContext
   public void Render_AllQuotasExpired_ShouldShowRefilled()
   {
     A.CallTo(() => _sender.Send(A<GetSystemStatusQuery>._, A<CancellationToken>._))
-     .Returns(new ValueTask<SystemStatus>(Status(6, GitHubQuota.Create("42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), GitHubQuota.Create("7", 200, 15000, Now.AddMinutes(-2), Now.AddHours(-1)))));
+     .Returns(new ValueTask<SystemStatus>(Status(6, ForgeQuota.Create(Forge.GitHub, "42", 100, 15000, Now.AddMinutes(-5), Now.AddHours(-1)), ForgeQuota.Create(Forge.GitHub, "7", 200, 15000, Now.AddMinutes(-2), Now.AddHours(-1)))));
 
     var cut = Render<AdminOperations>();
 
@@ -198,7 +213,7 @@ public sealed class AdminOperationsTests : UiTestContext
     cut.FindAll(".cc-kpi")[0].QuerySelector(".cc-kpi__value")!.TextContent.ShouldBe("9");
   }
 
-  private static SystemStatus Status(int queued, params GitHubQuota[] quotas) =>
+  private static SystemStatus Status(int queued, params ForgeQuota[] quotas) =>
     new(
       queued,
       1,
@@ -206,7 +221,7 @@ public sealed class AdminOperationsTests : UiTestContext
       1,
       TimeSpan.FromSeconds(14),
       Now.AddSeconds(-2),
-      quotas.ToDictionary(static q => q.Installation, static q => q.Remaining),
+      quotas.Where(static q => q.Forge is Forge.GitHub).ToDictionary(static q => q.Connection, static q => q.Remaining),
       [WorkerHeartbeat.Create("api-1:42", Now.AddHours(-1), Now.AddSeconds(-2)), WorkerHeartbeat.Create("api-2:7", Now.AddHours(-3), Now.AddMinutes(-10))],
       quotas);
 

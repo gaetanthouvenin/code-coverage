@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Settings;
 using CodeCoverage.Infrastructure.Diagnostics;
@@ -315,7 +316,7 @@ internal sealed class SqlJobQueue(
   ///   The number of queued jobs by type, how long the oldest job that may run (<c>RunAfter</c> passed) has waited
   ///   since its <c>RunAfter</c> (a debounced or delayed job does not wait before its time), the number of dead jobs,
   ///   the age of the last beat of a worker (<c>WorkerHeartbeats</c>) and the size and the remaining requests of the
-  ///   GitHub quota of each installation (<c>GitHubQuotas</c>, a quota past its reset counted as full). Operational tables only, without query filter (ADR-013).
+  ///   GitHub quota of each installation (the <c>ForgeQuotas</c> rows of GitHub, a quota past its reset counted as full). Operational tables only, without query filter (ADR-013).
   /// </returns>
   internal async Task<JobQueueSnapshot> MeasureAsync(CancellationToken cancellationToken)
   {
@@ -338,10 +339,10 @@ internal sealed class SqlJobQueue(
                                 .Select(static h => (DateTimeOffset?)h.LastBeatAt)
                                 .MaxAsync(cancellationToken)
                                 .ConfigureAwait(false);
-    var quotas = await context.GitHubQuotas
+    var quotas = await context.ForgeQuotas
                               .AsNoTracking()
-                              .Where(static q => q.Limit != null)
-                              .Select(static q => new { q.Installation, q.Remaining, q.Limit, q.ResetAt })
+                              .Where(static q => q.Forge == Forge.GitHub && q.Limit != null)
+                              .Select(static q => new { Installation = q.Connection, q.Remaining, q.Limit, q.ResetAt })
                               .ToListAsync(cancellationToken)
                               .ConfigureAwait(false);
     var limits = quotas.ToDictionary(static q => q.Installation, static q => q.Limit!.Value, StringComparer.Ordinal);

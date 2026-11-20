@@ -14,6 +14,8 @@ using Microsoft.Extensions.Options;
 
 using Polly;
 
+using CodeCoverage.Infrastructure.Forges;
+
 namespace CodeCoverage.Infrastructure.GitHub;
 
 /// <summary>Registers the <c>github</c> HTTP client and its pipeline (ARCHITECTURE §8.2).</summary>
@@ -73,6 +75,7 @@ internal static class GitHubHttpClientConfiguration
   {
     ArgumentNullException.ThrowIfNull(services);
 
+    services.TryAddSingleton<ForgeQuotaTracker>();
     services.TryAddSingleton<GitHubQuotaTracker>();
     services.AddTransient<RateLimitHandler>();
     services.AddHttpClient(ClientName, static (provider, client) => Configure(provider, client))

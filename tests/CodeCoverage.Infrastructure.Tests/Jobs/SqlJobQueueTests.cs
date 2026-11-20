@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
@@ -341,10 +342,12 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
         WorkerHeartbeat.Create("api-1", Start.AddHours(-1), Start.AddSeconds(-40)),
         WorkerHeartbeat.Create("api-2", Start.AddHours(-1), Start.AddSeconds(-300))
       );
-      seed.GitHubQuotas.AddRange(
-        GitHubQuota.Create("101", 450, 5000, Start.AddMinutes(30), Start),
-        GitHubQuota.Create("202", 10, null, null, Start),
-        GitHubQuota.Create("303", 3, 5000, Start.AddMinutes(-1), Start.AddMinutes(-20))
+      // Only the quotas of GitHub feed these gauges: the one of another forge is left out.
+      seed.ForgeQuotas.AddRange(
+        ForgeQuota.Create(Forge.GitHub, "101", 450, 5000, Start.AddMinutes(30), Start),
+        ForgeQuota.Create(Forge.GitHub, "202", 10, null, null, Start),
+        ForgeQuota.Create(Forge.GitHub, "303", 3, 5000, Start.AddMinutes(-1), Start.AddMinutes(-20)),
+        ForgeQuota.Create(Forge.GitLab, "404", 1900, 2000, Start.AddMinutes(30), Start)
       );
       await seed.SaveChangesAsync(Ct);
     }

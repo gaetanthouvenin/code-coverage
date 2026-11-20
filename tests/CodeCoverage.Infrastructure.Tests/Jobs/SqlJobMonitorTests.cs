@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Identity;
@@ -75,9 +76,10 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
       writer.WorkerHeartbeats.AddRange(
         WorkerHeartbeat.Create("api-1:42", Now.AddHours(-1), Now.AddSeconds(-2)),
         WorkerHeartbeat.Create("api-2:7", Now.AddHours(-2), Now.AddMinutes(-10)));
-      writer.GitHubQuotas.AddRange(
-        GitHubQuota.Create("42", 4321, 5000, Now.AddMinutes(30), Now.AddSeconds(-5)),
-        GitHubQuota.Create(GitHubQuota.AppInstallation, 4999, null, null, Now.AddSeconds(-5)));
+      writer.ForgeQuotas.AddRange(
+        ForgeQuota.Create(Forge.GitHub, "42", 4321, 5000, Now.AddMinutes(30), Now.AddSeconds(-5)),
+        ForgeQuota.Create(Forge.GitHub, ForgeQuota.AppConnection, 4999, null, null, Now.AddSeconds(-5)),
+        ForgeQuota.Create(Forge.Bitbucket, "connection-1", 900, 1000, null, Now.AddSeconds(-5)));
       await writer.SaveChangesAsync(Ct);
     }
 
@@ -86,8 +88,10 @@ public sealed class SqlJobMonitorTests(DatabaseFixture database) : IDisposable
 
     status.WorkerLastSeenAt.ShouldBe(Now.AddSeconds(-2));
     status.Workers.Select(static w => w.Host).ShouldBe(["api-1:42", "api-2:7"]);
-    status.GitHubRemaining.ShouldBe(new Dictionary<string, long> { ["42"] = 4321, [GitHubQuota.AppInstallation] = 4999 });
-    var quota = status.GitHubQuotas.Single(static q => q.Installation == "42");
+    // The remaining requests of GitHub only; the quotas of every forge, by forge then by connection.
+    status.GitHubRemaining.ShouldBe(new Dictionary<string, long> { ["42"] = 4321, [ForgeQuota.AppConnection] = 4999 });
+    status.ForgeQuotas.Select(static q => (q.Forge, q.Connection)).ShouldBe([(Forge.Bitbucket, "connection-1"), (Forge.GitHub, "42"), (Forge.GitHub, ForgeQuota.AppConnection)]);
+    var quota = status.ForgeQuotas.Single(static q => q.Connection == "42");
     (quota.Limit, quota.ResetAt).ShouldBe(((long?)5000, (DateTimeOffset?)Now.AddMinutes(30)));
   }
 

@@ -99,7 +99,7 @@ internal static class OperationsMapper
       status.WorkerLastSeenAt,
       status.GitHubRemaining,
       [.. status.Workers.Select(static w => new WorkerHeartbeatModel(w.Host, w.StartedAt, w.LastBeatAt))],
-      [.. status.GitHubQuotas.Select(static q => new GitHubQuotaModel(q.Installation, q.Remaining, q.Limit, q.ResetAt, q.ObservedAt))]
+      [.. status.ForgeQuotas.Where(static q => q.Forge is Forge.GitHub).Select(static q => new GitHubQuotaModel(q.Connection, q.Remaining, q.Limit, q.ResetAt, q.ObservedAt))]
     );
   }
 

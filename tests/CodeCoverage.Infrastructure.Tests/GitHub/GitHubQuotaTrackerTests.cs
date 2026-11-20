@@ -4,48 +4,97 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Infrastructure.Tests.GitHub;
 
-// The quotas kept in memory between two passes of the publisher (M3.13a).
+// The rate limit headers of GitHub, handed to the tracker of every forge under the forge GitHub (M7.28).
 public sealed class GitHubQuotaTrackerTests
 {
   #region Fields
 
   private static readonly DateTimeOffset Now = new(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
 
+  private readonly ForgeQuotaTracker _quotas = new();
+
+  private readonly GitHubQuotaTracker _tracker;
+
+  #endregion
+
+  #region Ctors
+
+  public GitHubQuotaTrackerTests()
+  {
+    var clock = A.Fake<IClock>();
+    A.CallTo(() => clock.UtcNow).Returns(Now);
+    _tracker = new GitHubQuotaTracker(_quotas, clock);
+  }
+
   #endregion
 
   #region Methods
 
-  // Two answers of the same installation may end in any order: the older one, ending last, never replaces the newer.
   [Fact]
-  public void Report_OlderAfterNewer_ShouldKeepTheNewer()
+  public void Report_AllHeaders_ShouldReportTheQuotaUnderGitHub()
   {
-    var tracker = new GitHubQuotaTracker();
+    using var response = Response(("x-ratelimit-remaining", "4321"), ("x-ratelimit-limit", "5000"), ("x-ratelimit-reset", "1893456000"));
 
-    tracker.Report("42", 4300, 5000, Now.AddMinutes(30), Now.AddSeconds(2));
-    tracker.Report("42", 4321, 5000, Now.AddMinutes(30), Now);
+    var remaining = _tracker.Report("42", response.Headers);
 
-    var quota = tracker.ChangedSince(0).Changed.ShouldHaveSingleItem();
-    (quota.Remaining, quota.ObservedAt).ShouldBe((4300L, Now.AddSeconds(2)));
+    remaining.ShouldBe(4321);
+    var quota = _quotas.ChangedSince(0).Changed.ShouldHaveSingleItem();
+    (quota.Forge, quota.Connection, quota.Remaining, quota.Limit).ShouldBe((Forge.GitHub, "42", 4321L, (long?)5000));
+    quota.ResetAt.ShouldBe(DateTimeOffset.FromUnixTimeSeconds(1893456000));
+    quota.ObservedAt.ShouldBe(Now);
   }
 
-  // Each report is listed once: by the first call after it, never by a later one.
   [Fact]
-  public void ChangedSince_ShouldListEachReportOnce()
+  public void Report_RemainingOnly_ShouldReportNoLimitNorReset()
   {
-    var tracker = new GitHubQuotaTracker();
-    tracker.Report("42", 4321, 5000, null, Now);
-    var (first, version) = tracker.ChangedSince(0);
+    using var response = Response(("x-ratelimit-remaining", "4999"));
 
-    tracker.Report("7", 100, 5000, null, Now);
-    var (second, next) = tracker.ChangedSince(version);
+    _tracker.Report(ForgeQuota.AppConnection, response.Headers).ShouldBe(4999);
 
-    first.Select(static q => q.Installation).ShouldBe(["42"]);
-    second.Select(static q => q.Installation).ShouldBe(["7"]);
-    tracker.ChangedSince(next).Changed.ShouldBeEmpty();
+    var quota = _quotas.ChangedSince(0).Changed.ShouldHaveSingleItem();
+    (quota.Connection, quota.Limit, quota.ResetAt).ShouldBe((ForgeQuota.AppConnection, (long?)null, (DateTimeOffset?)null));
+  }
+
+  [Fact]
+  public void Report_WithoutRemaining_ShouldReportNothing()
+  {
+    using var response = Response(("x-ratelimit-remaining", "many"), ("x-ratelimit-limit", "5000"));
+
+    _tracker.Report("42", response.Headers).ShouldBeNull();
+
+    _quotas.ChangedSince(0).Changed.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public void Report_NullHeaders_ShouldThrow()
+  {
+    Should.Throw<ArgumentNullException>(() => _tracker.Report("42", null!));
+  }
+
+  [Fact]
+  public void ReadNumber_NullHeaders_ShouldThrow()
+  {
+    Should.Throw<ArgumentNullException>(() => GitHubQuotaTracker.ReadNumber(null!, GitHubQuotaTracker.RemainingHeader));
+  }
+
+  private static HttpResponseMessage Response(params (string Name, string Value)[] headers)
+  {
+    var response = new HttpResponseMessage();
+
+    foreach (var (name, value) in headers)
+    {
+      response.Headers.TryAddWithoutValidation(name, value);
+    }
+
+    return response;
   }
 
   #endregion

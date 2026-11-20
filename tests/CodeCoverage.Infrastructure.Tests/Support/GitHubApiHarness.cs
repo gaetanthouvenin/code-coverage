@@ -17,6 +17,7 @@ using WireMock.Server;
 
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
 
 namespace CodeCoverage.Infrastructure.Tests.Support;
@@ -93,7 +94,7 @@ internal sealed class GitHubApiHarness : IDisposable
 
   public GitHubUserGateway UserGateway => _services.GetRequiredService<GitHubUserGateway>();
 
-  public GitHubQuotaTracker Quotas => _services.GetRequiredService<GitHubQuotaTracker>();
+  public ForgeQuotaTracker Quotas => _services.GetRequiredService<ForgeQuotaTracker>();
 
   #endregion
 

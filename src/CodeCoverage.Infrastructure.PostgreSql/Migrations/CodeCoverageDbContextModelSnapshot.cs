@@ -702,11 +702,15 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.ToTable("AuditEntries", (string)null);
                 });
 
-            modelBuilder.Entity("CodeCoverage.Domain.Operations.GitHubQuota", b =>
+            modelBuilder.Entity("CodeCoverage.Domain.Operations.ForgeQuota", b =>
                 {
-                    b.Property<string>("Installation")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                    b.Property<string>("Forge")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Connection")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<long?>("Limit")
                         .HasColumnType("bigint");
@@ -720,10 +724,10 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTimeOffset?>("ResetAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("Installation")
-                        .HasName("PK_GitHubQuotas");
+                    b.HasKey("Forge", "Connection")
+                        .HasName("PK_ForgeQuotas");
 
-                    b.ToTable("GitHubQuotas", (string)null);
+                    b.ToTable("ForgeQuotas", (string)null);
                 });
 
             modelBuilder.Entity("CodeCoverage.Domain.Operations.WorkerHeartbeat", b =>

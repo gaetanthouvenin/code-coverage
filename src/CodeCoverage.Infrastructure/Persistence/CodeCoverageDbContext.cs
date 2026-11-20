@@ -194,8 +194,8 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the heartbeats of the worker processes (operational).</summary>
   public DbSet<WorkerHeartbeat> WorkerHeartbeats => Set<WorkerHeartbeat>();
 
-  /// <summary>Gets the last GitHub quotas of the installations (operational).</summary>
-  public DbSet<GitHubQuota> GitHubQuotas => Set<GitHubQuota>();
+  /// <summary>Gets the last quotas of the connections of each forge (operational).</summary>
+  public DbSet<ForgeQuota> ForgeQuotas => Set<ForgeQuota>();
 
   /// <summary>Gets the users who signed in (<c>Users</c>).</summary>
   public DbSet<AppUser> Users => Set<AppUser>();

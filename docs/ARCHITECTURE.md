@@ -414,7 +414,7 @@ Retours : objet du Domain, `IReadOnlyList<T>` du Domain, `Unit` ou identifiant. 
 | Classe | Tables |
 |---|---|
 | **D'organisation, filtrées (23)** | `Repositories`, `RepositoryFlags`, `Branches`, `GitCommits`, `Commits`, `CommitFlagTotals`, `PullRequests`, `CommitConfigs`, `DiffCache`, `RepositoryTrees`, `Uploads`, `CommitSessions`, `CommitReports`, `Comparisons`, `PostedStatuses`, `UploadRawFiles`, `UploadRawChunks`, `UploadCoverages`, `UploadTokens`, `UserRepositoryAccess`, `OrganizationSettings`, `CodecovImports` (à partir de M5.06), `CarryforwardWaits` (#165) |
-| **Opérationnelles, sans filtre (5)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` (`OrganizationId` nullable) ; `WorkerHeartbeats`, `GitHubQuotas` (sans colonne d'organisation, M3.13a) |
+| **Opérationnelles, sans filtre (5)** | `Jobs`, `AuditEntries`, `WebhookDeliveries` (`OrganizationId` nullable) ; `WorkerHeartbeats`, `ForgeQuotas` (sans colonne d'organisation, M3.13a, renommée en M7.28) |
 | **Globales, sans donnée métier (8)** | `Organizations`, `Installations`, `OrganizationMemberships`, `Users`, `ApiTokens`, `Settings`, `SettingsRevision`, `DataProtectionKeys` |
 
 **État à ce jour.** Ce classement et le tableau des colonnes décrivent le modèle cible. Seules `Organizations`, `OrganizationSettings`, `Jobs`, `AuditEntries`, `Settings`, `SettingsRevision` et `DataProtectionKeys` existent en base, et `TableClassification` ne liste que celles-là : chaque micro-feature y ajoute ses tables (M1.17 pour `Repositories`, `Branches` et `Installations`).
@@ -464,7 +464,7 @@ La colonne `OrganizationId` n'est pas répétée dans le tableau ci-dessous pour
 | **DataProtectionKeys** | table EF standard | Partagée par les deux hôtes. |
 | **AuditEntries** | **Id**, OrganizationId?, At, Actor, Action, Target, Details (json) | Jetons, paramètres, secrets, relances manuelles. |
 | **WorkerHeartbeats** (M3.13a) | **Host** (machine et processus), StartedAt, LastBeatAt | Écrite toutes les 15 s par le worker de l'Api ; lignes de plus de 24 h supprimées. Lue par `GetSystemStatus` depuis n'importe quel processus. |
-| **GitHubQuotas** (M3.13a) | **Installation** (`app` pour l'App), Remaining, Limit?, ResetAt?, ObservedAt | Quotas changés écrits toutes les 15 s, jamais une écriture par requête GitHub. |
+| **ForgeQuotas** (M3.13a, M7.28) | **Forge**, **Connection** (l'installation sur GitHub, `app` pour l'App ; l'identifiant de la connexion ailleurs), Remaining, Limit?, ResetAt?, ObservedAt | Quotas changés écrits toutes les 15 s, jamais une écriture par requête à une forge ; `ForgeQuotaTracker` est le seul suivi, que le gestionnaire de limitation de débit de chaque forge alimente. |
 | **CarryforwardWaits** (#165) | **CommitId**, **AncestorId** (deux commits du même dépôt) | PK(CommitId, AncestorId) ; IX(AncestorId). Les ancêtres `Pending` qu'un commit `AncestorPending` a passés, remplacés à chacune de ses finalisations : un ancêtre qui se complète ne réveille qu'eux. |
 | **CodecovImports** (M5.06) | **Id**, RepositoryId, ProtectedToken (jeton API Codecov chiffré par `ISecretProtector`), CreatedAt, NextPage (page suivante, reprise après un échec), ImportedCommits | IX(CreatedAt). Référencée par identifiant depuis le payload de `ImportCodecovHistory`, jamais par le jeton ; supprimée en fin d'import, sur un refus définitif de Codecov (401, 403, 404), quand le job échoue définitivement ou meurt (`AbandonCodecovImport`), ou par la purge au-delà de 7 jours (`PurgeExpiredData`, dans l'organisation). |
 
@@ -1857,7 +1857,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
   - `parse_duration_seconds{format}` ;
   - `unresolved_paths_total` ;
   - `jobs_queued{type}`, `job_oldest_queued_age_seconds`, `jobs_dead_total` ;
-  - `jobs_dead` (jobs morts en base), `worker_heartbeat_age_seconds` (âge du dernier battement de `WorkerHeartbeats`), `github_ratelimit_limit{installation}` (taille du quota, de `GitHubQuotas`) et `github_ratelimit_recorded_remaining{installation}` (requêtes restantes des mêmes lignes, quota plein une fois l'heure de remise passée), lues avec `jobs_queued` par l'échantillonneur (`JobQueueMetricsSampler`, toutes les 30 s, seulement quand un écouteur collecte ces jauges) sur les tables opérationnelles, jamais dans un rappel de collecte (M4.04) ;
+  - `jobs_dead` (jobs morts en base), `worker_heartbeat_age_seconds` (âge du dernier battement de `WorkerHeartbeats`), `github_ratelimit_limit{installation}` (taille du quota, des lignes GitHub de `ForgeQuotas`) et `github_ratelimit_recorded_remaining{installation}` (requêtes restantes des mêmes lignes, quota plein une fois l'heure de remise passée), lues avec `jobs_queued` par l'échantillonneur (`JobQueueMetricsSampler`, toutes les 30 s, seulement quand un écouteur collecte ces jauges) sur les tables opérationnelles, jamais dans un rappel de collecte (M4.04) ;
   - `notify_latency_seconds` (du dernier upload au statut publié) ;
   - `github_ratelimit_remaining{installation}`, `github_requests_total{endpoint,status}` ;
   - `webhook_signature_failures_total`.
@@ -1866,7 +1866,7 @@ volumes: { db: {}, api-data: {}, web-data: {} }
   - plus ancien job en file > 10 minutes (`job_oldest_queued_age_seconds`) ;
   - pas de heartbeat du worker depuis 2 minutes (`worker_heartbeat_age_seconds`), aucun battement enregistré alors que les jauges des jobs sont exportées (aucun worker n'a jamais battu, ou son dernier battement a été purgé après 24 h), et aucune métrique exportée depuis 5 minutes ;
   - échecs de signature de webhook (`increase(webhook_signature_failures_total[10m])`) ;
-  - quota GitHub < 10 % (`github_ratelimit_recorded_remaining / github_ratelimit_limit`, les deux lus des mêmes lignes de `GitHubQuotas`).
+  - quota GitHub < 10 % (`github_ratelimit_recorded_remaining / github_ratelimit_limit`, les deux lus des mêmes lignes GitHub de `ForgeQuotas`).
   Le récepteur des alertes reste un choix d'exploitation hors dépôt (`docs/operations.md`).
 - Les mêmes indicateurs sont visibles dans `/admin/operations`.
 - **Exposition opérateur (ADR-013).** Les journaux, les traces et les métriques ne sont pas cloisonnés par organisation : qui y accède voit toutes les organisations. La console d'instance n'expose que des métadonnées.

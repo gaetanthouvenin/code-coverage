@@ -13,26 +13,26 @@ using Microsoft.Extensions.Logging;
 
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
-using CodeCoverage.Infrastructure.GitHub;
+using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Persistence;
 using CodeCoverage.Infrastructure.Persistence.Configurations;
 
 namespace CodeCoverage.Infrastructure.Jobs;
 
 /// <summary>
-///   Writes the heartbeat of the worker of this process and the changed GitHub quotas every 15 seconds, so that a process
+///   Writes the heartbeat of the worker of this process and the changed quotas of the forges every 15 seconds, so that a process
 ///   without worker (the Web) reads them; removes the heartbeats older than 24 hours. Hosted by the Api only.
 /// </summary>
 /// <param name="scopes">Creates the scope of each pass.</param>
 /// <param name="pulse">The beat of the worker of this process.</param>
-/// <param name="quotas">The quotas reported by the answers of GitHub.</param>
+/// <param name="quotas">The quotas reported by the answers of the forges.</param>
 /// <param name="clock">The clock.</param>
 /// <param name="timeProvider">The time of the delays.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class OperationalStatusPublisher(
   IServiceScopeFactory scopes,
   WorkerPulse pulse,
-  GitHubQuotaTracker quotas,
+  ForgeQuotaTracker quotas,
   IClock clock,
   TimeProvider timeProvider,
   ILogger<OperationalStatusPublisher> logger) : BackgroundService
@@ -130,10 +130,10 @@ internal sealed partial class OperationalStatusPublisher(
 
   // The row keeps the newest observation: an older one, from another replica or a late pass, changes nothing, and its
   // insertion then fails on the existing row, which stands.
-  private static async Task UpsertQuotaAsync(CodeCoverageDbContext context, GitHubQuota quota, CancellationToken cancellationToken)
+  private static async Task UpsertQuotaAsync(CodeCoverageDbContext context, ForgeQuota quota, CancellationToken cancellationToken)
   {
-    var updated = await context.GitHubQuotas
-                               .Where(q => q.Installation == quota.Installation && q.ObservedAt < quota.ObservedAt)
+    var updated = await context.ForgeQuotas
+                               .Where(q => q.Forge == quota.Forge && q.Connection == quota.Connection && q.ObservedAt < quota.ObservedAt)
                                .ExecuteUpdateAsync(
                                  s => s.SetProperty(static q => q.Remaining, quota.Remaining)
                                        .SetProperty(static q => q.Limit, quota.Limit)
@@ -144,11 +144,11 @@ internal sealed partial class OperationalStatusPublisher(
 
     if (updated == 0)
     {
-      await InsertAsync(context, quota, GitHubQuotaConfiguration.PrimaryKeyName, cancellationToken).ConfigureAwait(false);
+      await InsertAsync(context, quota, ForgeQuotaConfiguration.PrimaryKeyName, cancellationToken).ConfigureAwait(false);
     }
   }
 
-  // Only this process writes its own heartbeat; two processes reporting the same installation race only on the first
+  // Only this process writes its own heartbeat; two processes reporting the same connection race only on the first
   // insertion, which the next pass corrects.
   private static async Task InsertAsync<T>(CodeCoverageDbContext context, T row, string primaryKeyName, CancellationToken cancellationToken)
     where T : class
