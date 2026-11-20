@@ -140,6 +140,9 @@ public sealed class CodeCoverageDbContext(
   /// <summary>Gets the connections of the organizations to the forges other than GitHub (<c>ForgeConnections</c>).</summary>
   public DbSet<ForgeConnection> ForgeConnections => Set<ForgeConnection>();
 
+  /// <summary>Gets the hooks the forge connections created at their forge (<c>ForgeHooks</c>).</summary>
+  public DbSet<ForgeHook> ForgeHooks => Set<ForgeHook>();
+
   /// <summary>Gets the cache of the commit metadata read from the forges (<c>GitCommits</c>).</summary>
   public DbSet<GitCommit> GitCommits => Set<GitCommit>();
 
