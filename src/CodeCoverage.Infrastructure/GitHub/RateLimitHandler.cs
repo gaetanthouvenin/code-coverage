@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Polly;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Forges;
@@ -23,7 +24,7 @@ namespace CodeCoverage.Infrastructure.GitHub;
 ///   pipeline could not absorb into the exceptions of the application.
 /// </summary>
 /// <param name="meter">The metrics of the application.</param>
-/// <param name="quotas">The last quotas reported, with their limit and reset, which the publisher writes to the database.</param>
+/// <param name="quotas">Reads the quota of each answer and reports it to the tracker the publisher writes to the database.</param>
 /// <param name="clock">The clock.</param>
 /// <param name="logger">The logger.</param>
 /// <remarks>
@@ -39,7 +40,7 @@ internal sealed partial class RateLimitHandler(
   #region Fields
 
   /// <summary>The value of the <c>installation</c> tag for the requests authenticated as the App itself.</summary>
-  public const string AppQuota = "app";
+  public const string AppQuota = ForgeQuota.AppConnection;
 
   /// <summary>
   ///   The request option that names the installation whose token authenticates the request; left unset for the
@@ -52,12 +53,6 @@ internal sealed partial class RateLimitHandler(
   ///   published under the installation nor under the App.
   /// </summary>
   public static readonly HttpRequestOptionsKey<bool> UserToken = new("CodeCoverage.GitHub.UserToken");
-
-  private const string RemainingHeader = "x-ratelimit-remaining";
-
-  private const string LimitHeader = "x-ratelimit-limit";
-
-  private const string ResetHeader = "x-ratelimit-reset";
 
   /// <summary>The wait GitHub asks for when a limit is signalled without any delay.</summary>
   private static readonly TimeSpan DefaultWait = TimeSpan.FromMinutes(1);
@@ -104,16 +99,6 @@ internal sealed partial class RateLimitHandler(
     return response;
   }
 
-  /// <summary>Reads a numeric response header.</summary>
-  /// <param name="response">The response.</param>
-  /// <param name="name">The name of the header.</param>
-  /// <returns>The value, or <see langword="null" /> when the header is missing or is not a number.</returns>
-  private static long? ReadNumber(HttpResponseMessage response, string name) =>
-    response.Headers.TryGetValues(name, out var values)
-    && long.TryParse(values.FirstOrDefault(), NumberStyles.None, CultureInfo.InvariantCulture, out var value)
-      ? value
-      : null;
-
   /// <summary>Tells whether a response is a refusal because of a primary or a secondary rate limit.</summary>
   /// <param name="response">The response.</param>
   /// <param name="cancellationToken">A token to cancel the reading of the body.</param>
@@ -130,7 +115,7 @@ internal sealed partial class RateLimitHandler(
       return false;
     }
 
-    if (response.Headers.RetryAfter is not null || ReadNumber(response, RemainingHeader) is 0)
+    if (response.Headers.RetryAfter is not null || GitHubQuotaTracker.ReadNumber(response.Headers, GitHubQuotaTracker.RemainingHeader) is 0)
     {
       return true;
     }
@@ -170,20 +155,15 @@ internal sealed partial class RateLimitHandler(
       return;
     }
 
-    if (ReadNumber(response, RemainingHeader) is not { } remaining)
-    {
-      return;
-    }
-
     var installation = request.Options.TryGetValue(InstallationId, out var id)
                          ? id.ToString(CultureInfo.InvariantCulture)
                          : AppQuota;
 
-    meter.ReportGitHubRateLimit(installation, remaining);
-
     // In memory only: the publisher writes the changed quotas every 15 seconds, never one row per request.
-    var reset = ReadNumber(response, ResetHeader) is { } seconds ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
-    quotas.Report(installation, remaining, ReadNumber(response, LimitHeader), reset, clock.UtcNow);
+    if (quotas.Report(installation, response.Headers) is { } remaining)
+    {
+      meter.ReportGitHubRateLimit(installation, remaining);
+    }
   }
 
   /// <summary>Works out when GitHub accepts requests again, following the order documented by GitHub.</summary>
@@ -207,7 +187,7 @@ internal sealed partial class RateLimitHandler(
       }
     }
 
-    return ReadNumber(response, RemainingHeader) is 0 && ReadNumber(response, ResetHeader) is { } reset
+    return GitHubQuotaTracker.ReadNumber(response.Headers, GitHubQuotaTracker.RemainingHeader) is 0 && GitHubQuotaTracker.ReadNumber(response.Headers, GitHubQuotaTracker.ResetHeader) is { } reset
              ? DateTimeOffset.FromUnixTimeSeconds(reset)
              : clock.UtcNow + DefaultWait;
   }

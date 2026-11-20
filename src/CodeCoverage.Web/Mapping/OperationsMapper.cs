@@ -14,6 +14,7 @@ using CodeCoverage.Application.Features.Operations.Queries.ListWebhookDeliveries
 using CodeCoverage.Application.Features.Organizations.Queries.ListOrganizations;
 using CodeCoverage.Domain.Audit;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Web.ViewModels.Operations;
 
 namespace CodeCoverage.Web.Mapping;
@@ -137,7 +138,8 @@ internal static class OperationsMapper
       [.. status.Workers.Select(w => new WorkerViewModel(w.Host, w.LastBeatAt, now - w.LastBeatAt <= HeartbeatThreshold))],
       [
         // The current quotas first, the most consumed first; a quota whose window started again since is refilled, last.
-        .. status.GitHubQuotas.Select(q => new QuotaViewModel(q.Installation, q.Remaining, q.Limit, q.ResetAt, q.ResetAt <= now))
+        .. status.ForgeQuotas.Where(static q => q.Forge is Forge.GitHub)
+                 .Select(q => new QuotaViewModel(q.Connection, q.Remaining, q.Limit, q.ResetAt, q.ResetAt <= now))
                  .OrderBy(static q => q.IsExpired)
                  .ThenBy(static q => q.RemainingPercent ?? double.MaxValue)
                  .ThenBy(static q => q.Installation, StringComparer.Ordinal),

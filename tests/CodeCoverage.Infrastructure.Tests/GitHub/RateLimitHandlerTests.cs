@@ -16,6 +16,7 @@ using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Forges;
@@ -175,7 +176,7 @@ public sealed class RateLimitHandlerTests : IDisposable
     using var response = await SendAsync(42);
 
     var quota = _github.Quotas.ChangedSince(0).Changed.ShouldHaveSingleItem();
-    (quota.Installation, quota.Remaining, quota.Limit).ShouldBe(("42", 4321L, (long?)5000));
+    (quota.Forge, quota.Connection, quota.Remaining, quota.Limit).ShouldBe((Forge.GitHub, "42", 4321L, (long?)5000));
     quota.ResetAt.ShouldBe(DateTimeOffset.FromUnixTimeSeconds(1893456000));
     _github.Quotas.ChangedSince(_github.Quotas.ChangedSince(0).Version).Changed.ShouldBeEmpty();
   }
@@ -226,7 +227,7 @@ public sealed class RateLimitHandlerTests : IDisposable
     var inner = A.Fake<HttpMessageHandler>();
     A.CallTo(inner).WithReturnType<Task<HttpResponseMessage>>().Throws(failure);
     using var invoker = new HttpMessageInvoker(
-      new RateLimitHandler(new CodeCoverageMeter(meters), new GitHubQuotaTracker(), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
+      new RateLimitHandler(new CodeCoverageMeter(meters), new GitHubQuotaTracker(new ForgeQuotaTracker(), A.Fake<IClock>()), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
     );
     using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("https://github.test/repositories/1"));
 

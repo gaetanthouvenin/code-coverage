@@ -7,12 +7,13 @@
 using Microsoft.EntityFrameworkCore;
 
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.Persistence;
 
 namespace CodeCoverage.Infrastructure.Jobs;
 
-/// <summary>Reads the job queue for the administrators, from the <c>Jobs</c>, <c>WorkerHeartbeats</c> and <c>GitHubQuotas</c> tables.</summary>
+/// <summary>Reads the job queue for the administrators, from the <c>Jobs</c>, <c>WorkerHeartbeats</c> and <c>ForgeQuotas</c> tables.</summary>
 /// <param name="context">The database context of the scope.</param>
 /// <param name="clock">The clock.</param>
 /// <remarks>
@@ -68,7 +69,7 @@ internal sealed class SqlJobMonitor(CodeCoverageDbContext context, IClock clock)
 
     // Read from the operational tables, whichever process answers: the worker of the Api writes them every 15 seconds.
     var workers = await context.WorkerHeartbeats.AsNoTracking().OrderByDescending(static h => h.LastBeatAt).ToListAsync(cancellationToken).ConfigureAwait(false);
-    var quotas = await context.GitHubQuotas.AsNoTracking().OrderBy(static q => q.Installation).ToListAsync(cancellationToken).ConfigureAwait(false);
+    var quotas = await context.ForgeQuotas.AsNoTracking().OrderBy(static q => q.Forge).ThenBy(static q => q.Connection).ToListAsync(cancellationToken).ConfigureAwait(false);
 
     int Count(JobState state) => counts.FirstOrDefault(c => c.State == state)?.Count ?? 0;
 
@@ -79,7 +80,7 @@ internal sealed class SqlJobMonitor(CodeCoverageDbContext context, IClock clock)
       Count(JobState.Dead),
       oldest is { } runAfter ? now - runAfter : null,
       workers.Count == 0 ? null : workers[0].LastBeatAt,
-      new SortedDictionary<string, long>(quotas.ToDictionary(static q => q.Installation, static q => q.Remaining, StringComparer.Ordinal), StringComparer.Ordinal),
+      new SortedDictionary<string, long>(quotas.Where(static q => q.Forge is Forge.GitHub).ToDictionary(static q => q.Connection, static q => q.Remaining, StringComparer.Ordinal), StringComparer.Ordinal),
       workers,
       quotas
     );

@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using CodeCoverage.Api.Tests.Support;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 
 namespace CodeCoverage.Api.Tests.Operations;
@@ -67,7 +68,7 @@ public sealed class OperationsControllerTests
                Now,
                new Dictionary<string, long> { ["42"] = 4000 },
                [WorkerHeartbeat.Create("api-1:42", Now.AddHours(-1), Now)],
-               [GitHubQuota.Create("42", 4000, 5000, Now.AddMinutes(30), Now)]));
+               [ForgeQuota.Create(Forge.Bitbucket, "connection-1", 900, 1000, null, Now), ForgeQuota.Create(Forge.GitHub, "42", 4000, 5000, Now.AddMinutes(30), Now)]));
   }
 
   #endregion
@@ -109,6 +110,8 @@ public sealed class OperationsControllerTests
     body.RootElement.GetProperty("gitHubRemaining").GetProperty("42").GetInt64().ShouldBe(4000);
     body.RootElement.GetProperty("workerLastSeenAt").GetDateTimeOffset().ShouldBe(Now);
     body.RootElement.GetProperty("workers")[0].GetProperty("host").GetString().ShouldBe("api-1:42");
+    // The contract keeps the quotas of GitHub only.
+    body.RootElement.GetProperty("gitHubQuotas").GetArrayLength().ShouldBe(1);
     var quota = body.RootElement.GetProperty("gitHubQuotas")[0];
     quota.GetProperty("limit").GetInt64().ShouldBe(5000);
     quota.GetProperty("remaining").GetInt64().ShouldBe(4000);

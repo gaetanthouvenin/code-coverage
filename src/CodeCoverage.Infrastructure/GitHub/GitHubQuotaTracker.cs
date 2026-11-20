@@ -4,63 +4,72 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.Globalization;
+using System.Net.Http.Headers;
+
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Forges;
 
 namespace CodeCoverage.Infrastructure.GitHub;
 
 /// <summary>
-///   Keeps in memory the last GitHub quota of each installation as the answers report it, with its limit and its reset;
-///   the publisher writes the changed ones to the database every 15 seconds, never once per request.
+///   Reads the quota of the rate limit headers of an answer of GitHub and hands it to the <see cref="ForgeQuotaTracker" />
+///   under the forge <see cref="Forge.GitHub" />: it keeps no quota of its own.
 /// </summary>
-/// <remarks>
-///   A report takes its version and stores its entry under one lock, and a read lists the entries and the version under
-///   the same lock: a read never returns a version an entry not yet stored will carry, so no report is skipped for good.
-/// </remarks>
-internal sealed class GitHubQuotaTracker
+/// <param name="quotas">The tracker of the quotas of every forge.</param>
+/// <param name="clock">The clock that dates the observations.</param>
+internal sealed class GitHubQuotaTracker(ForgeQuotaTracker quotas, IClock clock)
 {
   #region Fields
 
-  private readonly Lock _gate = new();
+  /// <summary>The header of the requests left.</summary>
+  public const string RemainingHeader = "x-ratelimit-remaining";
 
-  private readonly Dictionary<string, (GitHubQuota Quota, long Version)> _quotas = new(StringComparer.Ordinal);
+  /// <summary>The header of the requests of the whole window.</summary>
+  public const string LimitHeader = "x-ratelimit-limit";
 
-  private long _version;
+  /// <summary>The header of the moment the window starts again, in seconds since the Unix epoch.</summary>
+  public const string ResetHeader = "x-ratelimit-reset";
 
   #endregion
 
   #region Methods
 
-  /// <summary>Records the quota an answer of GitHub reported.</summary>
-  /// <param name="installation">The installation, or <see cref="GitHubQuota.AppInstallation" />.</param>
-  /// <param name="remaining">The requests left.</param>
-  /// <param name="limit">The requests of the window, or <see langword="null" />.</param>
-  /// <param name="resetAt">When the window starts again, or <see langword="null" />.</param>
-  /// <param name="observedAt">When the answer came.</param>
-  public void Report(string installation, long remaining, long? limit, DateTimeOffset? resetAt, DateTimeOffset observedAt)
+  /// <summary>Reads a numeric header.</summary>
+  /// <param name="headers">The headers of the answer.</param>
+  /// <param name="name">The name of the header.</param>
+  /// <returns>The value, or <see langword="null" /> when the header is missing or is not a number.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="headers" /> is <see langword="null" />.</exception>
+  public static long? ReadNumber(HttpResponseHeaders headers, string name)
   {
-    var quota = GitHubQuota.Create(installation, remaining, limit, resetAt, observedAt);
+    ArgumentNullException.ThrowIfNull(headers);
 
-    lock (_gate)
-    {
-      // Two answers may end in any order: an older one ending last never replaces the newer.
-      if (_quotas.TryGetValue(installation, out var known) && known.Quota.ObservedAt > observedAt)
-      {
-        return;
-      }
-
-      _quotas[installation] = (quota, ++_version);
-    }
+    return headers.TryGetValues(name, out var values)
+           && long.TryParse(values.FirstOrDefault(), NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+             ? value
+             : null;
   }
 
-  /// <summary>Lists the quotas reported after a version, and the version to ask from the next time.</summary>
-  /// <param name="since">The version of the previous call, 0 the first time.</param>
-  /// <returns>The quotas changed since then, and the current version.</returns>
-  public (IReadOnlyList<GitHubQuota> Changed, long Version) ChangedSince(long since)
+  /// <summary>Reports the quota an answer of GitHub carries, under its installation.</summary>
+  /// <param name="installation">The installation, or <see cref="ForgeQuota.AppConnection" /> for the App itself.</param>
+  /// <param name="headers">The headers of the answer.</param>
+  /// <returns>The requests left, or <see langword="null" /> when the answer says nothing of them: nothing is reported then.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="headers" /> is <see langword="null" />.</exception>
+  public long? Report(string installation, HttpResponseHeaders headers)
   {
-    lock (_gate)
+    ArgumentNullException.ThrowIfNull(headers);
+
+    if (ReadNumber(headers, RemainingHeader) is not { } remaining)
     {
-      return ([.. _quotas.Values.Where(e => e.Version > since).Select(static e => e.Quota)], _version);
+      return null;
     }
+
+    var reset = ReadNumber(headers, ResetHeader) is { } seconds ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
+    quotas.Report(Forge.GitHub, installation, remaining, ReadNumber(headers, LimitHeader), reset, clock.UtcNow);
+
+    return remaining;
   }
 
   #endregion
