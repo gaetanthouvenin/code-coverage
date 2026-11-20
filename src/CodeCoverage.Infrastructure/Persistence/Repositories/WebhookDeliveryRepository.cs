@@ -9,6 +9,7 @@ using System.IO.Compression;
 
 using Microsoft.EntityFrameworkCore;
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Guards;
@@ -25,7 +26,7 @@ namespace CodeCoverage.Infrastructure.Persistence.Repositories;
 /// <param name="context">The database context of the scope.</param>
 /// <param name="jobQueue">The queue that takes a job in the transaction of the change.</param>
 /// <param name="wakeUpSignal">The signal that wakes the worker of this process once a job is committed.</param>
-/// <param name="currentOrganization">The organization of the scope, read by <see cref="FindForProcessingAsync" /> only.</param>
+/// <param name="currentOrganization">The organization of the scope, read by the reading and the marking of a delivery to handle.</param>
 internal sealed class WebhookDeliveryRepository(
   CodeCoverageDbContext context,
   SqlJobQueue jobQueue,
@@ -161,7 +162,38 @@ internal sealed class WebhookDeliveryRepository(
   }
 
   /// <inheritdoc />
-  public async Task MarkProcessedAsync(string deliveryId, DateTimeOffset at, CancellationToken cancellationToken)
+  public Task MarkProcessedAsync(string deliveryId, DateTimeOffset at, CancellationToken cancellationToken) =>
+    MarkForgeDeliveryProcessedAsync(Forge.GitHub, deliveryId, at, cancellationToken);
+
+  /// <inheritdoc />
+  public async Task<ForgeDelivery?> FindForgeDeliveryForProcessingAsync(Forge forge, string deliveryId, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(deliveryId);
+
+    long? organizationId = currentOrganization.IsKnown ? currentOrganization.Id : null;
+
+    var record = await context.WebhookDeliveries
+                              .AsNoTracking()
+                              .Where(d => d.Forge == forge && d.DeliveryId == deliveryId && d.ConnectionId != null)
+                              .Where(d => d.OrganizationId == null || d.OrganizationId == organizationId)
+                              .SingleOrDefaultAsync(cancellationToken)
+                              .ConfigureAwait(false);
+
+    return record is null
+      ? null
+      : new ForgeDelivery(
+        record.Forge,
+        record.DeliveryId,
+        record.Event,
+        record.Action,
+        record.ConnectionId!,
+        record.RepositoryExternalId,
+        Decompress(record.Payload)
+      );
+  }
+
+  /// <inheritdoc />
+  public async Task MarkForgeDeliveryProcessedAsync(Forge forge, string deliveryId, DateTimeOffset at, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(deliveryId);
 
@@ -169,7 +201,7 @@ internal sealed class WebhookDeliveryRepository(
     var utc = at.ToUniversalTime();
 
     await context.WebhookDeliveries
-                 .Where(d => d.Forge == Forge.GitHub && d.DeliveryId == deliveryId && d.ProcessedAt == null)
+                 .Where(d => d.Forge == forge && d.DeliveryId == deliveryId && d.ProcessedAt == null)
                  .Where(d => d.OrganizationId == null || d.OrganizationId == organizationId)
                  .ExecuteUpdateAsync(setters => setters.SetProperty(static d => d.ProcessedAt, utc), cancellationToken)
                  .ConfigureAwait(false);

@@ -16,4 +16,4 @@ namespace CodeCoverage.Domain.Contracts.Forges;
 ///   The identifier of the account that owned the repository before a transfer, or <see langword="null" /> when the
 ///   change is not a transfer or the forge does not say.
 /// </param>
-public sealed record ForgeRepositoryEvent(ForgeRepositoryEventKind Kind, ForgeRepositoryInfo Repository, string? PreviousOwnerExternalId = null);
+public sealed record ForgeRepositoryEvent(ForgeRepositoryEventKind Kind, ForgeRepositoryInfo Repository, string? PreviousOwnerExternalId = null) : ForgeEvent;

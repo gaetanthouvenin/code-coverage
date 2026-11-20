@@ -56,5 +56,11 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No capabilities are implemented for <paramref name="forge" />.</exception>
   ForgeCapabilities GetCapabilities(Forge forge);
 
+  /// <summary>Gets what reads the deliveries of a forge with connections into neutral events.</summary>
+  /// <param name="forge">The forge, never GitHub, whose deliveries keep their own use case.</param>
+  /// <returns>The event translator of the forge.</returns>
+  /// <exception cref="NotSupportedException">No event translator is implemented for <paramref name="forge" />.</exception>
+  IForgeEventTranslator GetEventTranslator(Forge forge);
+
   #endregion
 }

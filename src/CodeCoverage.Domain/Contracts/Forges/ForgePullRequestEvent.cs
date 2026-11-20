@@ -13,4 +13,4 @@ namespace CodeCoverage.Domain.Contracts.Forges;
 ///   Only the pull request is named: its state, its head and its base always come from the forge, which is the
 ///   reference. A change that records nothing, a label or a review request for instance, is never translated.
 /// </remarks>
-public sealed record ForgePullRequestEvent(string RepositoryExternalId, int Number);
+public sealed record ForgePullRequestEvent(string RepositoryExternalId, int Number) : ForgeEvent;

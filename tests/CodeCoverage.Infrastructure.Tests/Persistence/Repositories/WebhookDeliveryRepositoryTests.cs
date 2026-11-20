@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using System.IO.Compression;
 using System.Text;
 
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
@@ -33,6 +35,8 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
   #region Fields
 
   private const string ForgeMigration = "AddWebhookDeliveryForge";
+
+  private static readonly byte[] ForgePayload = Encoding.UTF8.GetBytes("""{"eventType":"git.push","resource":{"refUpdates":[]}}""");
 
   private readonly TestMeterFactory _meterFactory = new();
 
@@ -314,6 +318,119 @@ public sealed class WebhookDeliveryRepositoryTests(DatabaseFixture database) : I
 
     (await ProcessedAtAsync(organizations, "d-1")).ShouldBe(Now.AddMinutes(1));
     (await ProcessedAtAsync(organizations, "d-2")).ShouldBeNull();
+  }
+
+  // M7.20. A delivery of a forge with connections is read back on its forge, with its connection and its body.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindForgeDeliveryForProcessing_SameOrganization_ShouldGiveTheDeliveryBack(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await AddForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, "contoso-devops");
+
+    var found = await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizations.FirstId);
+
+    found.ShouldNotBeNull().Forge.ShouldBe(Forge.AzureDevOps);
+    found.DeliveryId.ShouldBe("d-1");
+    found.Event.ShouldBe("git.push");
+    found.Action.ShouldBe("updated");
+    found.ConnectionId.ShouldBe("contoso-devops");
+    found.RepositoryExternalId.ShouldBe("repo-guid");
+    found.Payload.ShouldBe(ForgePayload);
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindForgeDeliveryForProcessing_OtherOrganizationOrForge_ShouldReturnNull(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await AddForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, "contoso-devops");
+
+    (await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizations.SecondId)).ShouldBeNull();
+    (await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizationId: null)).ShouldBeNull();
+    (await FindForgeDeliveryAsync(organizations, Forge.Bitbucket, "d-1", organizations.FirstId)).ShouldBeNull();
+  }
+
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task FindForgeDeliveryForProcessing_WithoutConnection_ShouldReturnNull(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await AddForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, connectionId: null);
+
+    (await FindForgeDeliveryAsync(organizations, Forge.AzureDevOps, "d-1", organizations.FirstId)).ShouldBeNull();
+  }
+
+  // The GitHub delivery of the same identifier is left alone, and a delivery handled again keeps its first date.
+  [Theory]
+  [ClassData(typeof(ProviderTheoryData))]
+  public async Task MarkForgeDeliveryProcessed_ShouldMarkOnlyTheDeliveryOfThatForge(DatabaseProvider provider)
+  {
+    var organizations = await TwoOrganizationDatabase.CreateAsync(database, provider, Ct);
+    await StoreAsync(organizations, Delivery("d-1"), ForOrganization(organizations.FirstId));
+    await AddForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, "contoso-devops");
+
+    await MarkForgeDeliveryAsync(organizations, "d-1", organizations.SecondId, Now.AddMinutes(1));
+    await MarkForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, Now.AddMinutes(2));
+    await MarkForgeDeliveryAsync(organizations, "d-1", organizations.FirstId, Now.AddMinutes(5));
+
+    await using var reader = organizations.ContextWithoutOrganization();
+    var rows = await reader.WebhookDeliveries.AsNoTracking().ToListAsync(Ct);
+
+    rows.Single(static d => d.Forge is Forge.AzureDevOps).ProcessedAt.ShouldBe(Now.AddMinutes(2));
+    rows.Single(static d => d.Forge is Forge.GitHub).ProcessedAt.ShouldBeNull();
+  }
+
+  private static async Task AddForgeDeliveryAsync(TwoOrganizationDatabase organizations, string id, long organizationId, string? connectionId)
+  {
+    using var output = new MemoryStream();
+
+    await using (var gzip = new GZipStream(output, CompressionLevel.Fastest, leaveOpen: true))
+    {
+      await gzip.WriteAsync(ForgePayload, Ct);
+    }
+
+    await using var context = organizations.ContextWithoutOrganization();
+
+    context.WebhookDeliveries.Add(
+      new WebhookDeliveryRecord
+      {
+        Forge = Forge.AzureDevOps,
+        DeliveryId = id,
+        OrganizationId = organizationId,
+        Event = "git.push",
+        Action = "updated",
+        ConnectionId = connectionId,
+        RepositoryExternalId = "repo-guid",
+        Payload = output.ToArray(),
+        ReceivedAt = Now,
+      }
+    );
+    await context.SaveChangesAsync(Ct);
+  }
+
+  private async Task<ForgeDelivery?> FindForgeDeliveryAsync(TwoOrganizationDatabase organizations, Forge forge, string id, long? organizationId)
+  {
+    var organization = new OrganizationContext();
+
+    if (organizationId is { } value)
+    {
+      organization.Enter(value);
+    }
+
+    await using var context = organizationId is { } entered ? organizations.ContextOf(entered) : organizations.ContextWithoutOrganization();
+
+    return await Repository(context, organization).FindForgeDeliveryForProcessingAsync(forge, id, Ct);
+  }
+
+  private async Task MarkForgeDeliveryAsync(TwoOrganizationDatabase organizations, string id, long organizationId, DateTimeOffset at)
+  {
+    var organization = new OrganizationContext();
+    organization.Enter(organizationId);
+
+    await using var context = organizations.ContextOf(organizationId);
+
+    await Repository(context, organization).MarkForgeDeliveryProcessedAsync(Forge.AzureDevOps, id, at, Ct);
   }
 
   // The migration applied just before the named one.

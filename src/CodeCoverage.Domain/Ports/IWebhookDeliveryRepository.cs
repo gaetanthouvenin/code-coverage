@@ -4,9 +4,11 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Contracts.GitHub;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
+using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Domain.Ports;
 
@@ -15,8 +17,8 @@ namespace CodeCoverage.Domain.Ports;
 ///   <para>An operational table, never filtered: the reception runs before a scope enters an organization.</para>
 ///   <para>
 ///     A delivery is known by its forge and its identifier: the same identifier on two forges designates two
-///     deliveries. Storing, reading and marking work on the deliveries of GitHub, whose connection is the installation;
-///     the listing gives the deliveries of every forge.
+///     deliveries. Storing works on the deliveries of GitHub, whose connection is the installation; reading and marking
+///     have a form for GitHub and one for the forges with connections; the listing gives the deliveries of every forge.
 ///   </para>
 /// </remarks>
 public interface IWebhookDeliveryRepository
@@ -47,6 +49,26 @@ public interface IWebhookDeliveryRepository
   /// <returns>A task that completes when the date is saved; a delivery handled again keeps its first date.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="deliveryId" /> is <see langword="null" />.</exception>
   Task MarkProcessedAsync(string deliveryId, DateTimeOffset at, CancellationToken cancellationToken);
+
+  /// <summary>
+  ///   Reads a delivery of a forge with connections to handle it, when it belongs to the organization of the scope or
+  ///   to none.
+  /// </summary>
+  /// <param name="forge">The forge that sent the delivery.</param>
+  /// <param name="deliveryId">The identifier of the delivery on its forge.</param>
+  /// <param name="cancellationToken">A token to cancel the reading.</param>
+  /// <returns>The delivery, or <see langword="null" />, also when it names no connection.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="deliveryId" /> is <see langword="null" />.</exception>
+  Task<ForgeDelivery?> FindForgeDeliveryForProcessingAsync(Forge forge, string deliveryId, CancellationToken cancellationToken);
+
+  /// <summary>Records that a delivery of a forge was handled, when it belongs to the organization of the scope or to none.</summary>
+  /// <param name="forge">The forge that sent the delivery.</param>
+  /// <param name="deliveryId">The identifier of the delivery on its forge.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns>A task that completes when the date is saved; a delivery handled again keeps its first date.</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="deliveryId" /> is <see langword="null" />.</exception>
+  Task MarkForgeDeliveryProcessedAsync(Forge forge, string deliveryId, DateTimeOffset at, CancellationToken cancellationToken);
 
   /// <summary>Lists the latest deliveries of every forge, without their bodies.</summary>
   /// <param name="count">How many deliveries to list.</param>

@@ -31,4 +31,4 @@ public sealed record ForgePushEvent(
   GitSha? Head,
   bool Deleted,
   bool TouchesConfig,
-  GitSha? Before = null);
+  GitSha? Before = null) : ForgeEvent;

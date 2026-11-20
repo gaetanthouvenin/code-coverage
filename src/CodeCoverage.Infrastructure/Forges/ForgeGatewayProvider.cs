@@ -17,8 +17,9 @@ namespace CodeCoverage.Infrastructure.Forges;
 /// <remarks>
 ///   Each adapter registers itself as a keyed <see cref="IForgeGateway" />, as a keyed <see cref="IForgeUserGateway" />, as
 ///   a keyed <see cref="IForgeUserTokenProvider" />, as keyed <see cref="IForgeLinks" />, as a keyed
-///   <see cref="IForgeDirectoryGateway" />, as a keyed <see cref="IForgeConnectionVerifier" /> when its accounts are
-///   connected, and as keyed <see cref="ForgeCapabilities" />, under its <see cref="Forge" />,
+///   <see cref="IForgeDirectoryGateway" />, as a keyed <see cref="IForgeConnectionVerifier" /> and a keyed
+///   <see cref="IForgeEventTranslator" /> when its accounts are connected, and as keyed <see cref="ForgeCapabilities" />,
+///   under its <see cref="Forge" />,
 ///   in the dependency injection of its forge, so a new adapter is added without touching this provider.
 /// </remarks>
 internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGatewayProvider
@@ -59,6 +60,11 @@ internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGa
   public ForgeCapabilities GetCapabilities(Forge forge) =>
     services.GetKeyedService<ForgeCapabilities>(forge)
     ?? throw new NotSupportedException($"No capabilities are implemented for the forge '{forge}'.");
+
+  /// <inheritdoc />
+  public IForgeEventTranslator GetEventTranslator(Forge forge) =>
+    services.GetKeyedService<IForgeEventTranslator>(forge)
+    ?? throw new NotSupportedException($"No event translator is implemented for the forge '{forge}'.");
 
   #endregion
 }
