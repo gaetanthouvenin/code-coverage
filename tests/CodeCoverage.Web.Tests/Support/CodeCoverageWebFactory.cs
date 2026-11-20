@@ -66,6 +66,11 @@ public sealed class CodeCoverageWebFactory : WebApplicationFactory<Program>
   {
     builder.UseEnvironment("Testing");
 
+    // No configuration file watcher: every host built by WithWebHostBuilder lives until the shared factory is
+    // disposed, and each watcher holds an inotify instance on Linux (128 per user by default on the CI runners).
+    // UseSetting reaches the host configuration, read by WebApplication.CreateBuilder before the JSON files.
+    builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
+
     // Never write the log files next to the sources.
     builder.UseSetting(SerilogConfiguration.FilePathKey, Path.Combine(_dataPath, "logs", "codecoverage-web-.log"));
 
