@@ -288,7 +288,29 @@ public sealed class ForgeConnection
   ///   <see cref="ForgeConnectionStatus.Active" />. A check never suspends a connection, nor lifts its suspension.
   /// </remarks>
   /// <exception cref="ArgumentOutOfRangeException"><paramref name="expiryWarning" /> is negative.</exception>
-  public void RecordCheck(DateTimeOffset at, string? error, TimeSpan expiryWarning)
+  public void RecordCheck(DateTimeOffset at, string? error, TimeSpan expiryWarning) => RecordCheck(at, error, expiryWarning, null);
+
+  /// <summary>Records the result of a check of the connection against its forge, with the expiry the forge reported.</summary>
+  /// <param name="at">The time of the check; converted to UTC.</param>
+  /// <param name="error">Why the check failed, or <see langword="null" /> when it succeeded; cut to <see cref="LastErrorMaxLength" />.</param>
+  /// <param name="expiryWarning">How long before <see cref="ExpiresAt" /> a successful check marks the connection expiring.</param>
+  /// <param name="reportedExpiresAt">
+  ///   When the forge says the credential expires, or <see langword="null" /> when it does not say; converted to UTC.
+  /// </param>
+  /// <remarks>
+  ///   <para>
+  ///     A successful check that reports an expiry replaces <see cref="ExpiresAt" /> before the expiry is compared, so
+  ///     that a credential the forge extended or shortened is judged on its real expiry; a failed check, or one that
+  ///     reports none, keeps the expiry known.
+  ///   </para>
+  ///   <para>
+  ///     A failed check marks the connection <see cref="ForgeConnectionStatus.Failing" />, a successful one
+  ///     <see cref="ForgeConnectionStatus.Expiring" /> within <paramref name="expiryWarning" /> of its expiry, otherwise
+  ///     <see cref="ForgeConnectionStatus.Active" />. A check never suspends a connection, nor lifts its suspension.
+  ///   </para>
+  /// </remarks>
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="expiryWarning" /> is negative.</exception>
+  public void RecordCheck(DateTimeOffset at, string? error, TimeSpan expiryWarning, DateTimeOffset? reportedExpiresAt)
   {
     ArgumentOutOfRangeException.ThrowIfLessThan(expiryWarning, TimeSpan.Zero);
 
@@ -296,6 +318,11 @@ public sealed class ForgeConnection
 
     LastCheckedAt = utc;
     LastError = string.IsNullOrWhiteSpace(error) ? null : error[..Math.Min(error.Length, LastErrorMaxLength)];
+
+    if (LastError is null && reportedExpiresAt is { } reported)
+    {
+      ExpiresAt = reported.ToUniversalTime();
+    }
 
     if (Status is ForgeConnectionStatus.Suspended)
     {

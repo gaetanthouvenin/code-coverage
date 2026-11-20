@@ -10,6 +10,8 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
+using CodeCoverage.Application.Features.Connections.Commands.CheckConnection;
+using CodeCoverage.Application.Features.Connections.Commands.CheckConnections;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnections;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
@@ -306,6 +308,25 @@ public sealed class JobDispatcherTests
   }
 
   [Fact]
+  public async Task DispatchAsync_CheckConnections_ShouldRunTheCoordinator()
+  {
+    await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.CheckConnections, 42), Ct);
+
+    A.CallTo(() => _sender.Send(new CheckConnectionsCommand(), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_CheckConnection_ShouldCheckTheConnectionOfThePayload()
+  {
+    var job = Job(JobTypes.CheckConnection, 2);
+    job.PayloadJson = ConnectionHealthJobs.CheckPayload("contoso-devops");
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new CheckConnectionCommand("contoso-devops"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
   public async Task DispatchAsync_SyncConnectionRepositoriesOfAConnection_ShouldNameItsForge()
   {
     var job = Job(JobTypes.SyncConnectionRepositories, 2);
@@ -336,6 +357,8 @@ public sealed class JobDispatcherTests
   [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"","Forge":"GitHub"}""")]
   [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"abc","Forge":"GitHub"}""")]
   [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"042","Forge":"GitHub"}""")]
+  [InlineData(JobTypes.CheckConnection, "{}")]
+  [InlineData(JobTypes.CheckConnection, """{"ConnectionId":""}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, "{}")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":""}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":"7","Forge":"Unknown"}""")]

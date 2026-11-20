@@ -263,6 +263,40 @@ public sealed class ForgeConnectionTests
   }
 
   [Fact]
+  public void RecordCheck_ReportedExpiryWithinTheWarning_ShouldReplaceTheExpiryAndMarkExpiring()
+  {
+    var connection = Create(expiresAt: Now.AddDays(90));
+
+    connection.RecordCheck(Now, null, Warning, Now.AddDays(5).ToOffset(TimeSpan.FromHours(2)));
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Expiring);
+    connection.ExpiresAt.ShouldBe(Now.AddDays(5));
+    connection.ExpiresAt.ShouldNotBeNull().Offset.ShouldBe(TimeSpan.Zero);
+  }
+
+  [Fact]
+  public void RecordCheck_FailureWithAReportedExpiry_ShouldKeepTheKnownExpiry()
+  {
+    var connection = Create(expiresAt: Now.AddDays(90));
+
+    connection.RecordCheck(Now, "refused", Warning, Now.AddDays(5));
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Failing);
+    connection.ExpiresAt.ShouldBe(Now.AddDays(90));
+  }
+
+  [Fact]
+  public void RecordCheck_NoReportedExpiry_ShouldKeepTheKnownExpiry()
+  {
+    var connection = Create(expiresAt: Now.AddDays(10));
+
+    connection.RecordCheck(Now, null, Warning, null);
+
+    connection.Status.ShouldBe(ForgeConnectionStatus.Expiring);
+    connection.ExpiresAt.ShouldBe(Now.AddDays(10));
+  }
+
+  [Fact]
   public void RecordCheck_SuccessAfterFailure_ShouldMarkActive()
   {
     var connection = Create(expiresAt: Now.AddDays(90));

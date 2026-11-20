@@ -206,6 +206,15 @@ public sealed class RecurringJobSchedulerTests(DatabaseFixture database)
     sync.DedupKey.ShouldBe(SyncConnectionsJobs.Key);
   }
 
+  [Fact]
+  public void Catalog_ShouldCheckConnectionsDaily()
+  {
+    var check = RecurringJobCatalog.All.Single(static d => d.Type == JobTypes.CheckConnections);
+
+    check.Interval.ShouldBe(TimeSpan.FromDays(1));
+    check.DedupKey.ShouldBe(ConnectionHealthJobs.Key);
+  }
+
   [Theory]
   [InlineData("2026-11-08T10:32:15Z", 5, "2026-11-08T10:35:00Z")]
   [InlineData("2026-11-08T10:35:00Z", 5, "2026-11-08T10:40:00Z")]
