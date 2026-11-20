@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Infrastructure.AzureDevOps;
+using CodeCoverage.Infrastructure.AzureDevOps.Events;
 using CodeCoverage.Infrastructure.Forges;
 
 namespace CodeCoverage.Infrastructure;
@@ -20,7 +21,8 @@ public static partial class DependencyInjection
 
   /// <summary>
   ///   Registers the adapters of the Azure DevOps area: the settings of the Microsoft Entra ID application, the HTTP
-  ///   clients, the tokens of the application, its gateway, the gateway and the tokens of a user, and its availability.
+  ///   clients, the tokens of the application, its gateway, the gateway and the tokens of a user, its availability and the
+  ///   translator of its service hooks.
   /// </summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
@@ -31,7 +33,7 @@ public static partial class DependencyInjection
   ///   gateway of a user the <see cref="IForgeUserGateway" /> keyed by it and the delegated token of a user the
   ///   <see cref="IForgeUserTokenProvider" /> keyed by it, which <see cref="ForgeGatewayProvider" /> resolves.
   ///   <see cref="AzureDevOpsUserTokenProvider" /> is a singleton: it holds one lock per user for the whole process. The
-  ///   availability is the <see cref="IForgeAvailabilityContributor" /> keyed by <see cref="Forge.AzureDevOps" />. They need the secret protector, registered by
+  ///   availability is the <see cref="IForgeAvailabilityContributor" /> keyed by <see cref="Forge.AzureDevOps" />, and the translator of its service hooks the <see cref="IForgeEventTranslator" /> keyed by it. They need the secret protector, registered by
   ///   <see cref="Security.DataProtectionConfiguration.AddCodeCoverageDataProtection" />.
   /// </remarks>
   private static IServiceCollection AddAzureDevOps(this IServiceCollection services)
@@ -45,6 +47,7 @@ public static partial class DependencyInjection
     services.AddKeyedScoped<IForgeUserGateway>(Forge.AzureDevOps, static (provider, _) => provider.GetRequiredService<AzureDevOpsUserGateway>());
     services.AddKeyedSingleton<IForgeUserTokenProvider, AzureDevOpsUserTokenProvider>(Forge.AzureDevOps);
     services.AddKeyedSingleton<IForgeAvailabilityContributor, AzureDevOpsAvailabilityContributor>(Forge.AzureDevOps);
+    services.AddKeyedSingleton<IForgeEventTranslator, AzureDevOpsEventTranslator>(Forge.AzureDevOps);
 
     return services;
   }

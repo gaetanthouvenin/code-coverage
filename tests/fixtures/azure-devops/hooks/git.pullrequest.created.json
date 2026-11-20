@@ -1,0 +1,6 @@
+{
+  "subscriptionId": "9b8c1e2a-5f61-4c1e-8d45-1f0d3c2b4a67", "notificationId": 12, "id": "0e3c7a52-4d0f-4b8e-9a1c-7e6f5d4c3b2a", "eventType": "git.pullrequest.created", "publisherId": "tfs",
+  "message": { "text": "Jamal Hartnett created a new pull request" },
+  "resource": { "repository": { "id": "1701BC47-1145-4739-A805-64B02E40DBE7", "name": "api", "url": "https://dev.azure.com/contoso/_apis/git/repositories/1701bc47-1145-4739-a805-64b02e40dbe7", "project": { "id": "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c", "name": "Projet A", "state": "wellFormed", "visibility": "private" }, "defaultBranch": "refs/heads/main" }, "pullRequestId": 42, "status": "active", "sourceRefName": "refs/heads/feature/login", "targetRefName": "refs/heads/main", "mergeStatus": "succeeded", "url": "https://dev.azure.com/contoso/_apis/git/repositories/1701bc47-1145-4739-a805-64b02e40dbe7/pullRequests/42" },
+  "resourceVersion": "2.0", "resourceContainers": { "collection": { "id": "c3a5bd8e-3c5c-4bd0-9f2b-0bdbbd4a06e1" }, "account": { "id": "C3A5BD8E-3C5C-4BD0-9F2B-0BDBBD4A06E1", "baseUrl": "https://dev.azure.com/contoso/" }, "project": { "id": "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c" } }, "createdDate": "2026-11-20T10:15:00.000Z"
+}

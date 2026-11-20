@@ -1,0 +1,13 @@
+{
+  "subscriptionId": "9b8c1e2a-5f61-4c1e-8d45-1f0d3c2b4a67", "notificationId": 11, "id": "5f2d8c71-0a3e-4b6f-8c9d-2e1f0a9b8c7d", "eventType": "git.push", "publisherId": "tfs",
+  "message": { "text": "Jamal Hartnett pushed updates to branch main of repository api." },
+  "resource": {
+    "refUpdates": [
+      { "name": "refs/tags/v1.0.0", "oldObjectId": "0000000000000000000000000000000000000000", "newObjectId": "9a1b2c3d4e5f60718293a4b5c6d7e8f901234567" },
+      { "name": "refs/heads/main", "oldObjectId": "F47BBC106853AFE3C1B07A81754BCE5F4B8DBF62", "newObjectId": "be67f8871a4d2c75f13a51c1d3c30ac0d74d4ef4" }
+    ],
+    "repository": { "id": "1701BC47-1145-4739-A805-64B02E40DBE7", "name": "api", "url": "https://dev.azure.com/contoso/_apis/git/repositories/1701bc47-1145-4739-a805-64b02e40dbe7", "project": { "id": "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c", "name": "Projet A", "state": "wellFormed", "visibility": "private" }, "defaultBranch": "refs/heads/main" },
+    "pushId": 14, "url": "https://dev.azure.com/contoso/_apis/git/repositories/1701bc47-1145-4739-a805-64b02e40dbe7/pushes/14"
+  },
+  "resourceVersion": "2.0", "resourceContainers": { "collection": { "id": "c3a5bd8e-3c5c-4bd0-9f2b-0bdbbd4a06e1" }, "account": { "id": "C3A5BD8E-3C5C-4BD0-9F2B-0BDBBD4A06E1", "baseUrl": "https://dev.azure.com/contoso/" }, "project": { "id": "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c" } }, "createdDate": "2026-11-20T10:15:00.000Z"
+}
