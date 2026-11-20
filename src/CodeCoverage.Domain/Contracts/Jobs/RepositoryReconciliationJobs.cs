@@ -108,14 +108,21 @@ public static class RepositoryReconciliationJobs
   }
 
   /// <summary>Builds the payload of the closing of a repository transferred to another account.</summary>
+  /// <param name="forge">The forge of the repository, which names its identifier.</param>
   /// <param name="repositoryExternalId">The identifier of the repository on its forge.</param>
   /// <returns>The payload.</returns>
   /// <exception cref="ArgumentException"><paramref name="repositoryExternalId" /> is empty.</exception>
-  public static string TransferPayload(string repositoryExternalId)
+  /// <exception cref="ArgumentOutOfRangeException"><paramref name="forge" /> is not a known forge.</exception>
+  /// <remarks>
+  ///   The jobs queued before the forge was named carried <c>{"RepositoryExternalId":"7"}</c>; the job dispatcher reads
+  ///   them as GitHub ones for one version.
+  /// </remarks>
+  public static string TransferPayload(Forge forge, string repositoryExternalId)
   {
+    ArgumentOutOfRangeException.ThrowIfUndefined(forge);
     ArgumentException.ThrowIfNullOrWhiteSpace(repositoryExternalId);
 
-    return JsonSerializer.Serialize(new { RepositoryExternalId = repositoryExternalId });
+    return JsonSerializer.Serialize(new { Forge = forge.ToString(), RepositoryExternalId = repositoryExternalId });
   }
 
   /// <summary>Builds the key that serializes the work on a repository, as the deliveries of that repository do.</summary>

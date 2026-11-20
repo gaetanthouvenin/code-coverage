@@ -37,6 +37,7 @@
   <data name="Commit.RawExpired" xml:space="preserve"><value>Los archivos sin procesar de un upload de este commit ya no se conservan: no se puede volver a procesar.</value></data>
   <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket o GitLab niega a esta conexión el acceso a la cuenta: compruebe el nombre de la cuenta, el tenant y la credencial, y vuelva a intentarlo.</value></data>
   <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>Esta forja no se ofrece para la admisión en esta instancia: registre primero su aplicación en los ajustes.</value></data>
+  <data name="Connection.NotConnected" xml:space="preserve"><value>Ni una instalación de la App ni una conexión da servicio a esta organización: instale la App o conecte la organización y luego sincronice.</value></data>
   <data name="Connection.UseInstallation" xml:space="preserve"><value>Una organización de GitHub se admite mediante la instalación de la App de GitHub, no mediante una conexión.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>No se pudo mostrar la página. Inténtelo de nuevo en un momento; si el problema persiste, facilite a un administrador el identificador de solicitud que aparece abajo.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Identificador de solicitud</value></data>
@@ -52,7 +53,6 @@
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>La entrega no tiene un identificador ni un evento válidos.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>No se puede leer el cuerpo de la entrega.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>La firma de la entrega falta o no es válida.</value></data>
-  <data name="GitHubEvent.NoInstallation" xml:space="preserve"><value>Ninguna instalación de la App da servicio a esta organización: instálela en GitHub y luego sincronice.</value></data>
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>El commit que se debe notificar ya no existe.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Repositorios</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Repositorios</value></data>

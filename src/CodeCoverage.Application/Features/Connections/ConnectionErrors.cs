@@ -17,6 +17,12 @@ public static class ConnectionErrors
   /// <summary>The forge is not offered for an admission: its adapter is not registered or its settings are not filled.</summary>
   public const string ForgeNotAvailable = "Connection.ForgeNotAvailable";
 
+  /// <summary>
+  ///   Neither an installation of the GitHub App nor a connection that is not suspended serves the organization, so there
+  ///   is nothing to read again.
+  /// </summary>
+  public const string NotConnected = "Connection.NotConnected";
+
   /// <summary>A GitHub account is admitted by the installation of the GitHub App, never by a connection.</summary>
   public const string UseInstallation = "Connection.UseInstallation";
 

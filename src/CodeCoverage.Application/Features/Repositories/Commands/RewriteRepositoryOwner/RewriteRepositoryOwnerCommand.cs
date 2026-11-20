@@ -8,7 +8,7 @@ using Mediator;
 
 using CodeCoverage.Application.Security;
 
-namespace CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
+namespace CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 
 /// <summary>
 ///   Rewrites the owner of the repositories of the organization of the scope with the login its account has now:

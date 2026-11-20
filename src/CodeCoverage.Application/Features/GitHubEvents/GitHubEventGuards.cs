@@ -63,21 +63,5 @@ internal static class GitHubEventGuards
     }
   }
 
-  extension(UnprocessableEntityException)
-  {
-    /// <summary>Throws when no installation of the App serves the organization.</summary>
-    /// <param name="installationIds">The installations recorded for the organization.</param>
-    /// <exception cref="UnprocessableEntityException"><paramref name="installationIds" /> is empty.</exception>
-    public static void ThrowIfNoInstallation(IReadOnlyCollection<long> installationIds)
-    {
-      ArgumentNullException.ThrowIfNull(installationIds);
-
-      if (installationIds.Count == 0)
-      {
-        throw new UnprocessableEntityException(GitHubEventErrors.NoInstallation, "No installation of the App serves this organization.");
-      }
-    }
-  }
-
   #endregion
 }

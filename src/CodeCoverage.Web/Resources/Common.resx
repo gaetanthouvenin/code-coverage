@@ -37,6 +37,7 @@
   <data name="Commit.RawExpired" xml:space="preserve"><value>The raw files of an upload of this commit are no longer kept: it cannot be processed again.</value></data>
   <data name="Connection.ForgeAccessDenied" xml:space="preserve"><value>Azure DevOps, Bitbucket or GitLab refuses this connection access to the account: check the account name, the tenant and the credential, then try again.</value></data>
   <data name="Connection.ForgeNotAvailable" xml:space="preserve"><value>This forge is not offered for an admission on this instance: register its application in the settings first.</value></data>
+  <data name="Connection.NotConnected" xml:space="preserve"><value>Neither an installation of the App nor a connection serves this organization: install the App or connect the organization, then synchronize.</value></data>
   <data name="Connection.UseInstallation" xml:space="preserve"><value>A GitHub organization is admitted through the installation of the GitHub App, not through a connection.</value></data>
   <data name="Error_Description" xml:space="preserve"><value>The page could not be displayed. Try again in a moment; if the problem persists, give the request identifier below to an administrator.</value></data>
   <data name="Error_RequestId" xml:space="preserve"><value>Request identifier</value></data>
@@ -52,7 +53,6 @@
   <data name="GitHubEvent.InvalidDelivery" xml:space="preserve"><value>The delivery has no valid identifier or event.</value></data>
   <data name="GitHubEvent.InvalidPayload" xml:space="preserve"><value>The body of the delivery cannot be read.</value></data>
   <data name="GitHubEvent.InvalidSignature" xml:space="preserve"><value>The signature of the delivery is missing or invalid.</value></data>
-  <data name="GitHubEvent.NoInstallation" xml:space="preserve"><value>No installation of the App serves this organization: install it on GitHub, then synchronize.</value></data>
   <data name="Notification.CommitNotFound" xml:space="preserve"><value>The commit to notify no longer exists.</value></data>
   <data name="Home_Title" xml:space="preserve"><value>Repositories</value></data>
   <data name="Nav_Repositories" xml:space="preserve"><value>Repositories</value></data>

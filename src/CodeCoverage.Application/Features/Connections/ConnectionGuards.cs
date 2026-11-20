@@ -34,6 +34,22 @@ internal static class ConnectionGuards
         throw new UnprocessableEntityException(ConnectionErrors.ForgeAccessDenied, $"{forge} refuses the connection access to '{login}': {refusal}");
       }
     }
+
+    /// <summary>Throws when neither an installation nor a connection serves the organization.</summary>
+    /// <typeparam name="T">The type of what serves it: an installation, a connection or the job that reads it again.</typeparam>
+    /// <param name="served">What serves the organization.</param>
+    /// <param name="forge">The forge of the organization.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="served" /> is <see langword="null" />.</exception>
+    /// <exception cref="UnprocessableEntityException"><paramref name="served" /> is empty.</exception>
+    public static void ThrowIfNotConnected<T>(IReadOnlyCollection<T> served, Forge forge)
+    {
+      ArgumentNullException.ThrowIfNull(served);
+
+      if (served.Count == 0)
+      {
+        throw new UnprocessableEntityException(ConnectionErrors.NotConnected, $"No installation nor connection serves this {forge} organization.");
+      }
+    }
   }
 
   #endregion

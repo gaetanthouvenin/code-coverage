@@ -5,6 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 
 using CodeCoverage.Domain.Contracts.Jobs;
+using CodeCoverage.Domain.Organizations;
 
 namespace CodeCoverage.Domain.Tests.Contracts.Jobs;
 
@@ -78,7 +79,7 @@ public sealed class InstallationJobsTests
   [Fact]
   public void TransferPayload_ShouldNameTheRepository()
   {
-    RepositoryReconciliationJobs.TransferPayload("7").ShouldBe("""{"RepositoryExternalId":"7"}""");
+    RepositoryReconciliationJobs.TransferPayload(Forge.GitHub, "7").ShouldBe("""{"Forge":"GitHub","RepositoryExternalId":"7"}""");
     RepositoryReconciliationJobs.RepositoryKey("7").ShouldBe("repo:7");
   }
 
@@ -87,8 +88,20 @@ public sealed class InstallationJobsTests
   [InlineData(" ")]
   public void TransferPayloadAndKey_EmptyRepository_ShouldThrow(string repository)
   {
-    Should.Throw<ArgumentException>(() => RepositoryReconciliationJobs.TransferPayload(repository));
+    Should.Throw<ArgumentException>(() => RepositoryReconciliationJobs.TransferPayload(Forge.GitHub, repository));
     Should.Throw<ArgumentException>(() => RepositoryReconciliationJobs.RepositoryKey(repository));
+  }
+
+  [Fact]
+  public void TransferPayload_AnotherForge_ShouldNameIt()
+  {
+    RepositoryReconciliationJobs.TransferPayload(Forge.AzureDevOps, "8f2b").ShouldBe("""{"Forge":"AzureDevOps","RepositoryExternalId":"8f2b"}""");
+  }
+
+  [Fact]
+  public void TransferPayload_UnknownForge_ShouldThrow()
+  {
+    Should.Throw<ArgumentOutOfRangeException>(() => RepositoryReconciliationJobs.TransferPayload((Forge)99, "7"));
   }
 
   #endregion

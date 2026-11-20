@@ -9,7 +9,7 @@ using Mediator;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 
-namespace CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
+namespace CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 
 /// <summary>Handler for the <see cref="RewriteRepositoryOwnerCommand" /> command.</summary>
 /// <param name="directory">The directory of the organizations.</param>
