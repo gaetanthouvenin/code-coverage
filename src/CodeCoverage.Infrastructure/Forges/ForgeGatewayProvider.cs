@@ -66,5 +66,10 @@ internal sealed class ForgeGatewayProvider(IServiceProvider services) : IForgeGa
     services.GetKeyedService<IForgeEventTranslator>(forge)
     ?? throw new NotSupportedException($"No event translator is implemented for the forge '{forge}'.");
 
+  /// <inheritdoc />
+  public IForgeWebhookValidator GetWebhookValidator(Forge forge) =>
+    services.GetKeyedService<IForgeWebhookValidator>(forge)
+    ?? throw new NotSupportedException($"No webhook validator is implemented for the forge '{forge}'.");
+
   #endregion
 }

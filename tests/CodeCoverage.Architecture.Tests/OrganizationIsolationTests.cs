@@ -67,6 +67,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string WebhookReception = "src/CodeCoverage.Application/Features/GitHubEvents/Commands/ReceiveWebhook/ReceiveWebhookCommandHandler.cs";
 
+  private const string ForgeWebhookReception = "src/CodeCoverage.Application/Features/Webhooks/Commands/ReceiveForgeWebhook/ReceiveForgeWebhookCommandHandler.cs";
+
   private const string SamplePath = Infrastructure + "Sample.cs";
 
   private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Preview);
@@ -119,6 +121,10 @@ public sealed partial class OrganizationIsolationTests
   [
     // Runs before any scope enters an organization: the installation of the signed body names it (ADR-013).
     (WebhookReception, "ForOrganization"),
+
+    // Runs before any scope enters an organization: the connection of the route names it, read from the global table
+    // ForgeConnections by FindOwnerAsync once a secret of that connection authenticates the delivery (ADR-017, M7.21).
+    (ForgeWebhookReception, "ForOrganization"),
 
     // The coordinator of the installations (ADR-013): on the lane of the instance, it reads Installations and
     // Organizations only and queues one job per active organization.

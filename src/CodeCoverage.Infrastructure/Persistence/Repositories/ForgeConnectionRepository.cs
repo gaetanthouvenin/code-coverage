@@ -201,7 +201,17 @@ internal sealed class ForgeConnectionRepository(
     return await context.ForgeConnections
                         .AsNoTracking()
                         .Where(c => c.Id == id)
-                        .Join(context.Organizations, static c => c.OrganizationId, static o => o.Id, static (c, o) => new ForgeConnectionOwner(o.Id, c.Forge, o.State, c.Status))
+                        .Join(
+                          context.Organizations,
+                          static c => c.OrganizationId,
+                          static o => o.Id,
+                          static (c, o) => new ForgeConnectionOwner(
+                            o.Id,
+                            c.Forge,
+                            o.State,
+                            c.Status,
+                            c.WebhookSecretProtected,
+                            c.WebhookSecretPreviousProtected))
                         .SingleOrDefaultAsync(cancellationToken)
                         .ConfigureAwait(false);
   }

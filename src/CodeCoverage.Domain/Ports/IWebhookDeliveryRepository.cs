@@ -17,8 +17,8 @@ namespace CodeCoverage.Domain.Ports;
 ///   <para>An operational table, never filtered: the reception runs before a scope enters an organization.</para>
 ///   <para>
 ///     A delivery is known by its forge and its identifier: the same identifier on two forges designates two
-///     deliveries. Storing works on the deliveries of GitHub, whose connection is the installation; reading and marking
-///     have a form for GitHub and one for the forges with connections; the listing gives the deliveries of every forge.
+///     deliveries. Storing, reading and marking have a form for GitHub, whose connection is the installation, and one for
+///     the forges with connections; the listing gives the deliveries of every forge.
 ///   </para>
 /// </remarks>
 public interface IWebhookDeliveryRepository
@@ -34,6 +34,19 @@ public interface IWebhookDeliveryRepository
   /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
   /// <exception cref="ArgumentException"><paramref name="job" /> names no organization and is not on the lane of the instance.</exception>
   Task<bool> TryStoreAsync(GitHubWebhookEvent delivery, JobRequest job, DateTimeOffset at, CancellationToken cancellationToken);
+
+  /// <summary>Stores a delivery of a forge with connections and queues its job in one transaction.</summary>
+  /// <param name="delivery">The authenticated delivery; it names its connection.</param>
+  /// <param name="job">The job that handles it; it names the organization of the connection, which is that of the row.</param>
+  /// <param name="at">The current time; converted to UTC.</param>
+  /// <param name="cancellationToken">A token to cancel the saving.</param>
+  /// <returns><see langword="true" /> when the delivery is new; <see langword="false" /> when the forge already sent it.</returns>
+  /// <exception cref="ArgumentNullException">An argument is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="delivery" /> comes from GitHub, whose deliveries keep <see cref="TryStoreAsync" />, or
+  ///   <paramref name="job" /> names no organization.
+  /// </exception>
+  Task<bool> TryStoreForgeDeliveryAsync(ForgeDelivery delivery, JobRequest job, DateTimeOffset at, CancellationToken cancellationToken);
 
   /// <summary>Reads a GitHub delivery to handle it, when it belongs to the organization of the scope or to none.</summary>
   /// <param name="deliveryId">The identifier of the delivery on GitHub.</param>

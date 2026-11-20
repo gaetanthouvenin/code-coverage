@@ -7,6 +7,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using CodeCoverage.Application.Exceptions;
+using CodeCoverage.Domain.Connections;
 using CodeCoverage.Domain.Contracts.Forges;
 
 namespace CodeCoverage.Application.Features.Webhooks;
@@ -18,6 +19,38 @@ namespace CodeCoverage.Application.Features.Webhooks;
 internal static class WebhookGuards
 {
   #region Methods
+
+  extension(UnauthorizedException)
+  {
+    /// <summary>Throws when the connection of a delivery is unknown or no secret of it authenticates the delivery.</summary>
+    /// <param name="owner">The owner of the connection that authenticated the delivery, or <see langword="null" />.</param>
+    /// <exception cref="UnauthorizedException"><paramref name="owner" /> is <see langword="null" />.</exception>
+    /// <remarks>One code and one message for both cases: the route is not an oracle of the connections (ADR-017).</remarks>
+    public static void ThrowIfForgeWebhookUnauthenticated([NotNull] ForgeConnectionOwner? owner)
+    {
+      if (owner is null)
+      {
+        throw new UnauthorizedException(
+          WebhookErrors.InvalidSignature,
+          "The connection is unknown or the signature of the delivery is missing or invalid."
+        );
+      }
+    }
+  }
+
+  extension(BadRequestException)
+  {
+    /// <summary>Throws when the body of a delivery is not a JSON object.</summary>
+    /// <param name="valid">Whether the body is a JSON object.</param>
+    /// <exception cref="BadRequestException"><paramref name="valid" /> is <see langword="false" />.</exception>
+    public static void ThrowIfForgeWebhookPayloadInvalid([DoesNotReturnIf(false)] bool valid)
+    {
+      if (!valid)
+      {
+        throw new BadRequestException(WebhookErrors.InvalidPayload, "The body of the delivery is not a JSON object.");
+      }
+    }
+  }
 
   extension(NotFoundException)
   {

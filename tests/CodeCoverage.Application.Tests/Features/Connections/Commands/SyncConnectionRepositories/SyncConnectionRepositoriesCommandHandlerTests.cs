@@ -75,7 +75,7 @@ public sealed class SyncConnectionRepositoriesCommandHandlerTests
     A.CallTo(() => _installations.FindOwnerAsync(Installation, A<CancellationToken>._))
      .Returns(new InstallationOwner(OrganizationId, OrganizationState.Active));
     A.CallTo(() => _connections.FindOwnerAsync(ConnectionId, A<CancellationToken>._))
-     .Returns(new ForgeConnectionOwner(OrganizationId, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active));
+     .Returns(new ForgeConnectionOwner(OrganizationId, Forge.AzureDevOps, OrganizationState.Active, ForgeConnectionStatus.Active, "protected-secret", null));
     A.CallTo(() => _gateway.GetAccountAsync(A<ForgeConnectionRef>._, A<CancellationToken>._)).Returns((ForgeAccountInfo?)null);
     A.CallTo(() => _repositories.ListAsync(A<CancellationToken>._)).ReturnsLazily(() => (IReadOnlyList<TrackedRepository>)[.. _tracked]);
     A.CallTo(() => _repositories.FindByExternalIdAsync(A<string>._, A<CancellationToken>._))
@@ -369,7 +369,7 @@ public sealed class SyncConnectionRepositoriesCommandHandlerTests
   public async Task Handle_ConnectionNotServingTheScope_ShouldListNothing(long ownerOrganizationId, Forge forge, ForgeConnectionStatus status)
   {
     A.CallTo(() => _connections.FindOwnerAsync(ConnectionId, A<CancellationToken>._))
-     .Returns(new ForgeConnectionOwner(ownerOrganizationId, forge, OrganizationState.Active, status));
+     .Returns(new ForgeConnectionOwner(ownerOrganizationId, forge, OrganizationState.Active, status, "protected-secret", null));
 
     await HandleAsync(new SyncConnectionRepositoriesCommand(Forge.AzureDevOps, ConnectionId));
 

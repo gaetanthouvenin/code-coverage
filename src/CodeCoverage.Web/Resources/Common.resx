@@ -113,6 +113,9 @@
   <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Give the token a name of at most 128 characters.</value></data>
   <data name="UploadToken.NotFound" xml:space="preserve"><value>This token does not exist.</value></data>
   <data name="Webhook.DeliveryNotFound" xml:space="preserve"><value>The delivery to handle does not exist.</value></data>
+  <data name="Webhook.InvalidDelivery" xml:space="preserve"><value>The delivery has no valid identifier or event.</value></data>
+  <data name="Webhook.InvalidPayload" xml:space="preserve"><value>The body of the delivery cannot be read.</value></data>
+  <data name="Webhook.InvalidSignature" xml:space="preserve"><value>The connection is unknown or the signature of the delivery is missing or invalid.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>The value does not match the type of the setting.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>This setting is a secret: replace it instead of changing it.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>This setting is not a secret: change its value instead.</value></data>

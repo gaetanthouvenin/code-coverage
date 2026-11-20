@@ -113,6 +113,9 @@
   <data name="UploadToken.InvalidLabel" xml:space="preserve"><value>Assegna al token un nome di al massimo 128 caratteri.</value></data>
   <data name="UploadToken.NotFound" xml:space="preserve"><value>Questo token non esiste.</value></data>
   <data name="Webhook.DeliveryNotFound" xml:space="preserve"><value>La consegna da gestire non esiste.</value></data>
+  <data name="Webhook.InvalidDelivery" xml:space="preserve"><value>La consegna non ha un identificativo o un evento valido.</value></data>
+  <data name="Webhook.InvalidPayload" xml:space="preserve"><value>Il corpo della consegna non può essere letto.</value></data>
+  <data name="Webhook.InvalidSignature" xml:space="preserve"><value>La connessione è sconosciuta, oppure la firma della consegna è mancante o non valida.</value></data>
   <data name="Setting.InvalidValue" xml:space="preserve"><value>Il valore non corrisponde al tipo dell’impostazione.</value></data>
   <data name="Setting.IsSecret" xml:space="preserve"><value>Questa impostazione è un segreto: sostituiscila invece di modificarla.</value></data>
   <data name="Setting.NotSecret" xml:space="preserve"><value>Questa impostazione non è un segreto: modificane invece il valore.</value></data>
