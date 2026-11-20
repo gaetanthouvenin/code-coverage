@@ -16,8 +16,6 @@ using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepos
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnections;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.HandleWebhookDelivery;
-using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
-using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncInstallations;
 using CodeCoverage.Application.Features.Notifications.Commands.NotifyCommit;
 using CodeCoverage.Application.Features.Notifications.Commands.SweepPendingCommits;
@@ -25,6 +23,8 @@ using CodeCoverage.Application.Features.Operations.Commands.PurgeExpiredData;
 using CodeCoverage.Application.Features.PullRequests.Commands.SyncPullRequest;
 using CodeCoverage.Application.Features.Repositories.Commands.AbandonCodecovImport;
 using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHistory;
+using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
@@ -113,6 +113,18 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
     }
 
     return new SyncConnectionRepositoriesCommand(forge, connectionId);
+  }
+
+  /// <summary>Reads the closing of a repository transferred to another account.</summary>
+  /// <param name="payload">The root of the payload.</param>
+  /// <returns>The command of the closing.</returns>
+  /// <exception cref="FormatException">The repository is missing or empty, or the forge is not a known one.</exception>
+  /// <remarks>A payload without a forge was queued before the forge was named: it is a GitHub one, read for one version.</remarks>
+  private static ReconcileRepositoryTransferCommand ReadTransfer(JsonElement payload)
+  {
+    var forge = payload.TryGetProperty("Forge", out _) ? ReadForge(payload, "Forge") : Forge.GitHub;
+
+    return new ReconcileRepositoryTransferCommand(forge, ReadText(payload, "RepositoryExternalId"));
   }
 
   /// <summary>Reads the commit of a job.</summary>
@@ -233,8 +245,7 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
 
         break;
       case JobTypes.ReconcileRepositoryTransfer:
-        await sender.Send(new ReconcileRepositoryTransferCommand(Read(job, static p => ReadText(p, "RepositoryExternalId"))), cancellationToken)
-                    .ConfigureAwait(false);
+        await sender.Send(Read(job, ReadTransfer), cancellationToken).ConfigureAwait(false);
 
         break;
       case JobTypes.NotifyCommit:

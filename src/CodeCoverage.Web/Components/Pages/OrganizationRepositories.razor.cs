@@ -124,7 +124,7 @@ public partial class OrganizationRepositories
 
   private void Search(string? text) => _search = text;
 
-  // The sync only queues the job the webhooks use: the forge is never called in the request.
+  // The sync only queues the job the webhooks and the periodic run use, for any forge: the forge is never called in the request.
   private async Task SyncAsync()
   {
     var (forge, login) = (Forge, Login);
@@ -132,7 +132,7 @@ public partial class OrganizationRepositories
 
     try
     {
-      var result = await Runner.RunAsync((sender, ct) => sender.SyncOrganizationInstallationAsync(forge, login, ct)).ConfigureAwait(true);
+      var result = await Runner.RunAsync((sender, ct) => sender.SyncOrganizationConnectionAsync(forge, login, ct)).ConfigureAwait(true);
 
       if (result.Succeeded)
       {

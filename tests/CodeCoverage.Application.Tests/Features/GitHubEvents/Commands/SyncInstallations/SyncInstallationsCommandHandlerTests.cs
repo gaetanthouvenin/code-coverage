@@ -436,7 +436,7 @@ public sealed class SyncInstallationsCommandHandlerTests
     var job = Children.ShouldHaveSingleItem();
     job.OrganizationId.ShouldBe(origin.Id);
     job.Type.ShouldBe(JobTypes.ReconcileRepositoryTransfer);
-    job.PayloadJson.ShouldBe("""{"RepositoryExternalId":"7"}""");
+    job.PayloadJson.ShouldBe("""{"Forge":"GitHub","RepositoryExternalId":"7"}""");
     job.LockKey.ShouldBe("repo:7");
     job.DedupKey.ShouldBe("transfer:7");
     // A transfer names one account: the installations are not listed again.

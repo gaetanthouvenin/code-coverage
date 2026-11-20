@@ -4,11 +4,11 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using CodeCoverage.Application.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
+using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Tests.Support;
 using CodeCoverage.Domain.Ports;
 
-namespace CodeCoverage.Application.Tests.Features.GitHubEvents.Commands.RewriteRepositoryOwner;
+namespace CodeCoverage.Application.Tests.Features.Repositories.Commands.RewriteRepositoryOwner;
 
 public sealed class RewriteRepositoryOwnerCommandHandlerTests
 {

@@ -4,14 +4,14 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
-using CodeCoverage.Application.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Services;
 using CodeCoverage.Domain.Contracts.Forges;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
 using CodeCoverage.Domain.Repositories;
 
-namespace CodeCoverage.Application.Tests.Features.GitHubEvents.Commands.ReconcileRepositoryTransfer;
+namespace CodeCoverage.Application.Tests.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 
 public sealed class ReconcileRepositoryTransferCommandHandlerTests
 {
@@ -50,6 +50,7 @@ public sealed class ReconcileRepositoryTransferCommandHandlerTests
      .Returns(new RepositoryDepartureTokens(3, 1));
 
     _handler = new ReconcileRepositoryTransferCommandHandler(
+      _directory,
       _repositories,
       new RepositoryReconciler(_repositories, _directory, gateways, generator, protector, _auditLog, clock)
     );
@@ -71,7 +72,7 @@ public sealed class ReconcileRepositoryTransferCommandHandlerTests
     var repository = Tracked();
     A.CallTo(() => _gateway.GetRepositoryAsync(A<ForgeRepositoryRef>._, A<CancellationToken>._)).Returns((ForgeRepositoryInfo?)null);
 
-    await _handler.Handle(new ReconcileRepositoryTransferCommand("7"), Ct);
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitHub, "7"), Ct);
 
     repository.IsActive.ShouldBeFalse();
     repository.BadgeTokenProtected.ShouldBe("protected:new-badge");
@@ -90,7 +91,7 @@ public sealed class ReconcileRepositoryTransferCommandHandlerTests
     repository.Deactivate(Now.AddHours(-1));
     A.CallTo(() => _gateway.GetRepositoryAsync(A<ForgeRepositoryRef>._, A<CancellationToken>._)).Returns((ForgeRepositoryInfo?)null);
 
-    await _handler.Handle(new ReconcileRepositoryTransferCommand("7"), Ct);
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitHub, "7"), Ct);
 
     A.CallTo(() => _repositories.SaveDepartedAsync(repository, Now, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
@@ -102,7 +103,7 @@ public sealed class ReconcileRepositoryTransferCommandHandlerTests
     A.CallTo(() => _gateway.GetRepositoryAsync(A<ForgeRepositoryRef>._, A<CancellationToken>._))
      .Returns(new ForgeRepositoryInfo("7", "Origin", string.Empty, "repo", "main", false));
 
-    await _handler.Handle(new ReconcileRepositoryTransferCommand("7"), Ct);
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitHub, "7"), Ct);
 
     repository.IsActive.ShouldBeTrue();
     repository.Version.ShouldBe(0);
@@ -115,10 +116,32 @@ public sealed class ReconcileRepositoryTransferCommandHandlerTests
   {
     A.CallTo(() => _repositories.FindByExternalIdAsync("7", A<CancellationToken>._)).Returns((TrackedRepository?)null);
 
-    await _handler.Handle(new ReconcileRepositoryTransferCommand("7"), Ct);
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitHub, "7"), Ct);
 
     A.CallTo(_gateway).MustNotHaveHappened();
     A.CallTo(_auditLog).MustNotHaveHappened();
+  }
+
+  // An organization serves one forge: the identifier of a repository of another forge names none of its rows.
+  [Fact]
+  public async Task Handle_AnotherForge_ShouldDoNothing()
+  {
+    Tracked();
+
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitLab, "7"), Ct);
+
+    A.CallTo(() => _repositories.FindByExternalIdAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(_gateway).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Handle_NoOrganization_ShouldDoNothing()
+  {
+    A.CallTo(() => _directory.FindCurrentAsync(A<CancellationToken>._)).Returns((Organization?)null);
+
+    await _handler.Handle(new ReconcileRepositoryTransferCommand(Forge.GitHub, "7"), Ct);
+
+    A.CallTo(() => _repositories.FindByExternalIdAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]

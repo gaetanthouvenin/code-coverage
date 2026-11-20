@@ -60,7 +60,7 @@ internal sealed class SyncInstallationsCommandHandler(
     var job = JobRequest.ForOrganization(
       origin.Id,
       JobTypes.ReconcileRepositoryTransfer,
-      RepositoryReconciliationJobs.TransferPayload(repositoryExternalId),
+      RepositoryReconciliationJobs.TransferPayload(Forge.GitHub, repositoryExternalId),
       RepositoryReconciliationJobs.RepositoryKey(repositoryExternalId),
       $"transfer:{repositoryExternalId}",
       coalesce: true

@@ -13,8 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
 using CodeCoverage.Application.Exceptions;
-using CodeCoverage.Application.Features.GitHubEvents;
-using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncOrganizationInstallation;
+using CodeCoverage.Application.Features.Connections;
+using CodeCoverage.Application.Features.Connections.Commands.SyncOrganizationConnection;
 using CodeCoverage.Application.Features.Organizations;
 using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
 using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
@@ -120,24 +120,24 @@ public sealed class OrganizationRepositoriesTests : UiTestContext
 
     cut.FindAll(".cc-header button").Last().Click();
 
-    A.CallTo(() => _sender.Send(A<SyncOrganizationInstallationCommand>.That.Matches(c => c.Login == "acme-labs"), A<CancellationToken>._))
+    A.CallTo(() => _sender.Send(A<SyncOrganizationConnectionCommand>.That.Matches(c => c.Login == "acme-labs"), A<CancellationToken>._))
      .MustHaveHappenedOnceExactly();
     Toasts().ShouldContain(t => t.Title == L("OrganizationRepositories_SyncQueued"));
   }
 
-  // Without an installation, the refusal is explicit, and the page shows the message of its code.
+  // Without an installation nor a connection, the refusal is explicit, and the page shows the message of its code.
   [Fact]
-  public void Click_Sync_WithoutInstallation_ShouldShowTheRefusal()
+  public void Click_Sync_NotConnected_ShouldShowTheRefusal()
   {
-    A.CallTo(() => _sender.Send(A<SyncOrganizationInstallationCommand>._, A<CancellationToken>._))
-     .ThrowsAsync(new UnprocessableEntityException(GitHubEventErrors.NoInstallation, "No installation."));
+    A.CallTo(() => _sender.Send(A<SyncOrganizationConnectionCommand>._, A<CancellationToken>._))
+     .ThrowsAsync(new UnprocessableEntityException(ConnectionErrors.NotConnected, "Not connected."));
     var cut = Render<OrganizationRepositories>(Address());
 
     cut.FindAll(".cc-header button").Last().Click();
 
     var toast = Toasts().ShouldHaveSingleItem();
     toast.Tone.ShouldBe(CcTone.Danger);
-    toast.Message.ShouldBe(L("GitHubEvent.NoInstallation"));
+    toast.Message.ShouldBe(L("Connection.NotConnected"));
   }
 
   [Fact]

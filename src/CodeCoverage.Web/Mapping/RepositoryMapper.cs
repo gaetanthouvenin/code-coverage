@@ -8,7 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Mediator;
 
-using CodeCoverage.Application.Features.GitHubEvents.Commands.SyncOrganizationInstallation;
+using CodeCoverage.Application.Features.Connections.Commands.SyncOrganizationConnection;
 using CodeCoverage.Application.Features.Repositories.Commands.ActivateRepository;
 using CodeCoverage.Application.Features.Repositories.Commands.DeactivateRepository;
 using CodeCoverage.Application.Features.Repositories.Queries.GetCoverageHistory;
@@ -400,14 +400,14 @@ internal static class RepositoryMapper
     return [.. repositories.Select(static r => new OrganizationRepositoryViewModel(r.Repository.Name, r.Repository.DisabledAt is null, r.LastUploadAt))];
   }
 
-  /// <summary>Asks for the repositories of the installations of an organization to be read again from the forge.</summary>
+  /// <summary>Asks for the repositories of an organization to be read again from its forge, through its installations or its connections.</summary>
   /// <param name="sender">The request sender.</param>
   /// <param name="forge">The forge segment of the organization.</param>
   /// <param name="login">The login of the organization.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
   /// <returns><see langword="true" /> once the reconciliation is queued.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="sender" /> is <see langword="null" />.</exception>
-  public static async Task<bool> SyncOrganizationInstallationAsync(
+  public static async Task<bool> SyncOrganizationConnectionAsync(
     this ISender sender,
     string forge,
     string login,
@@ -420,7 +420,7 @@ internal static class RepositoryMapper
       return false;
     }
 
-    await sender.Send(new SyncOrganizationInstallationCommand(parsed, login), cancellationToken).ConfigureAwait(false);
+    await sender.Send(new SyncOrganizationConnectionCommand(parsed, login), cancellationToken).ConfigureAwait(false);
 
     return true;
   }
