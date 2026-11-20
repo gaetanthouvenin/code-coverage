@@ -37,7 +37,7 @@ public sealed class PullRequestTests
     pull.HeadSha.ShouldBe(Head);
     pull.HeadBranch.ShouldBe("feature");
     pull.BaseBranch.ShouldBe("main");
-    pull.BaseShaGitHub.ShouldBe(Base);
+    pull.BaseShaForge.ShouldBe(Base);
     pull.UpdatedAt.ShouldBe(Now);
     pull.Version.ShouldBe(0);
     pull.AcceptsComments.ShouldBeTrue();

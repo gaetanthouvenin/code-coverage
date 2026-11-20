@@ -58,7 +58,7 @@ public sealed class PullRequestRepositoryTests(DatabaseFixture database)
     saved.State.ShouldBe(PullRequestState.Open);
     saved.Title.ShouldBe("title");
     saved.HeadSha.ShouldBe(Head);
-    saved.BaseShaGitHub.ShouldBe(Base);
+    saved.BaseShaForge.ShouldBe(Base);
     saved.Version.ShouldBe(0);
   }
 

@@ -311,7 +311,7 @@ internal static class ComparisonMapper
       pull.BaseBranch,
       CommentUrl(links, owner, name, pull),
       detail.Comparison is { } view
-        ? ToViewModel(view, pull.BaseBranch, headTitle, pull.ForkPointSha ?? pull.BaseShaGitHub, config, root, pull.Number, detail.IndirectHeadTotals)
+        ? ToViewModel(view, pull.BaseBranch, headTitle, pull.ForkPointSha ?? pull.BaseShaForge, config, root, pull.Number, detail.IndirectHeadTotals)
         : null,
       pull.HeadSha.Value
     );
