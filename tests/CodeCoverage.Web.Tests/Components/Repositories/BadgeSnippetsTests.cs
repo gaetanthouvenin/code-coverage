@@ -10,7 +10,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Web.Components.Repositories;
+using CodeCoverage.Web.Mapping;
 using CodeCoverage.Web.Resources;
 using CodeCoverage.Web.Tests.Support;
 using CodeCoverage.Web.ViewModels.Repositories;
@@ -60,6 +62,37 @@ public sealed class BadgeSnippetsTests : UiTestContext
     cut.Find("[data-panel=badge] [data-state=nourls]").TextContent.ShouldContain(L("Overview_BadgeNoUrls"));
     cut.FindAll("[data-panel=badge] pre.cc-code").ShouldBeEmpty();
     cut.FindAll("[data-panel=badge] img").ShouldBeEmpty();
+  }
+
+  // M7.30: a forge without a row in the table of Codecov (Azure DevOps) gets the neutral route of the API.
+  [Fact]
+  public void Render_ForgeWithoutCodecovSegment_ShouldUseTheNeutralRoute()
+  {
+    var badge = RepositoryMapper.ToSnippets(Forge.AzureDevOps, "contoso", "app", null, "https://coverage-api.example.com/", "https://coverage.example.com");
+
+    var cut = Render<BadgeSnippets>(p => p.Add(static c => c.Badge, badge).Add(static c => c.IsPrivate, false));
+
+    cut.Find("[data-panel=badge] img").GetAttribute("src").ShouldBe("https://coverage-api.example.com/api/v1/badges/azure-devops/contoso/app.svg");
+    cut.Find("[data-panel=badge] pre.cc-code").TextContent.ShouldContain("(https://coverage.example.com/azure-devops/contoso/app)");
+  }
+
+  // The GitHub snippet keeps the address of Codecov, token included, as before M7.30.
+  [Fact]
+  public void ToSnippets_GitHub_ShouldKeepTheCodecovRoute()
+  {
+    var badge = RepositoryMapper.ToSnippets(Forge.GitHub, "octo-org", "app", "Kq7xT2", "https://coverage-api.example.com", "https://coverage.example.com/");
+
+    badge.ShouldNotBeNull();
+    badge.ImageUrl.ShouldBe(Image);
+    badge.PageUrl.ShouldBe(Page);
+  }
+
+  [Theory]
+  [InlineData(null, "https://coverage.example.com")]
+  [InlineData("https://coverage-api.example.com", " ")]
+  public void ToSnippets_WithoutPublicUrls_ShouldGiveNone(string? api, string? web)
+  {
+    RepositoryMapper.ToSnippets(Forge.GitHub, "octo-org", "app", null, api, web).ShouldBeNull();
   }
 
   // The addresses carry the badge token: a view model that holds them never writes them down.

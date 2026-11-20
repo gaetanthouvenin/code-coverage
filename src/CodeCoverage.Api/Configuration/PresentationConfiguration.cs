@@ -6,6 +6,8 @@
 
 using System.Text.Json.Serialization;
 
+using CodeCoverage.Api.Configuration.Routing;
+
 namespace CodeCoverage.Api.Configuration;
 
 /// <summary>Registers the MVC controllers of the REST API.</summary>
@@ -24,7 +26,7 @@ public static class PresentationConfiguration
 
   #region Methods
 
-  /// <summary>Registers the controllers, with the enumerations serialized as their names.</summary>
+  /// <summary>Registers the controllers, with the enumerations serialized as their names, and the route constraints of the badges.</summary>
   /// <param name="services">The service collection.</param>
   /// <returns>The same collection, for chaining.</returns>
   /// <exception cref="ArgumentNullException"><paramref name="services" /> is <see langword="null" />.</exception>
@@ -38,6 +40,7 @@ public static class PresentationConfiguration
                               o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                               o.JsonSerializerOptions.MaxDepth = MaximumJsonDepth;
                             });
+    services.Configure<RouteOptions>(static o => o.SetParameterPolicy<CodecovServiceRouteConstraint>(CodecovServiceRouteConstraint.Name));
 
     return services;
   }
