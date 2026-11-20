@@ -145,6 +145,37 @@ public sealed class BadgesControllerTests
     (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">86%<");
   }
 
+  // M7.30: the routes of Codecov are drawn from the table of its segments; the GitHub addresses answer as before.
+  [Theory]
+  [InlineData("/gh/octo-org/app/graph/badge.svg")]
+  [InlineData("/github/octo-org/app/graph/badge.svg")]
+  [InlineData("/GH/octo-org/app/graph/badge.svg")]
+  [InlineData("/gh/octo-org/app/branch/main/graph/badge.svg")]
+  [InlineData("/github/octo-org/app/branch/main/graphs/badge.svg")]
+  public async Task Get_GitHubAliases_ShouldStillRender(string path)
+  {
+    using var client = Client();
+
+    using var response = await client.GetAsync(new Uri(path, UriKind.Relative), Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    (await response.Content.ReadAsStringAsync(Ct)).ShouldContain(">86%<");
+  }
+
+  // A forge without a row in the table (Azure DevOps) has no Codecov address, only the neutral route.
+  [Theory]
+  [InlineData("/azure-devops/octo-org/app/graph/badge.svg")]
+  [InlineData("/svn/octo-org/app/graph/badge.svg")]
+  [InlineData("/azure-devops/octo-org/app/branch/main/graph/badge.svg")]
+  public async Task Get_UnknownService_ShouldReturnNotFound(string path)
+  {
+    using var client = Client();
+
+    using var response = await client.GetAsync(new Uri(path, UriKind.Relative), Ct);
+
+    response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+  }
+
   // Rounded to the nearest as Codecov; the text is the number alone, as the badge.txt of Codecov (review R10); an invalid
   // precision falls back to 0 (a named difference with Codecov).
   [Theory]

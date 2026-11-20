@@ -43,9 +43,6 @@ internal static class RepositoryMapper
   /// <summary>The fixed number of decimals of the coverage on the home page, which does not read every configuration.</summary>
   public const int HomePrecision = 2;
 
-  /// <summary>The forge segment whose badges keep the addresses of Codecov.</summary>
-  private static readonly string GitHubSegment = ForgeSegments.ToSegment(Forge.GitHub);
-
   #endregion
 
   #region Methods
@@ -352,12 +349,22 @@ internal static class RepositoryMapper
     var pulls = await sender.ListOpenPullRequestRowsAsync(parsed, owner, name, format, ActivityRows, cancellationToken).ConfigureAwait(false);
     var token = await sender.GetBadgeTokenAsync(forge, owner, name, cancellationToken).ConfigureAwait(false);
 
-    return new RepositoryActivityViewModel(commits, pulls, ToSnippets(forge, owner, name, token, apiPublicUrl, webPublicUrl));
+    return new RepositoryActivityViewModel(commits, pulls, ToSnippets(parsed, owner, name, token, apiPublicUrl, webPublicUrl));
   }
 
-  // The badge of a GitHub repository keeps the address of Codecov, so a README only changes host; the other forges
-  // carry their own segment (ADR-014). Without the public addresses, no snippet can be written at all.
-  private static BadgeSnippetsViewModel? ToSnippets(string forge, string owner, string name, string? token, string? apiPublicUrl, string? webPublicUrl)
+  /// <summary>Writes the badge snippets of a repository.</summary>
+  /// <param name="forge">The forge of the repository.</param>
+  /// <param name="owner">The owner of the repository.</param>
+  /// <param name="name">The name of the repository.</param>
+  /// <param name="token">The badge token of a private repository.</param>
+  /// <param name="apiPublicUrl">The public address of the API.</param>
+  /// <param name="webPublicUrl">The public address of the console.</param>
+  /// <returns>The snippets, or <see langword="null" /> without both public addresses.</returns>
+  /// <remarks>
+  ///   A forge with a row in <see cref="CodecovServiceSegments" /> keeps the address of Codecov, so a README only changes
+  ///   host; the others get the neutral route of the API (ADR-014).
+  /// </remarks>
+  internal static BadgeSnippetsViewModel? ToSnippets(Forge forge, string owner, string name, string? token, string? apiPublicUrl, string? webPublicUrl)
   {
     if (string.IsNullOrWhiteSpace(apiPublicUrl) || string.IsNullOrWhiteSpace(webPublicUrl))
     {
@@ -365,9 +372,10 @@ internal static class RepositoryMapper
     }
 
     var (api, web) = (apiPublicUrl.TrimEnd('/'), webPublicUrl.TrimEnd('/'));
-    var address = $"{Uri.EscapeDataString(forge)}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
-    var path = string.Equals(forge, GitHubSegment, StringComparison.Ordinal)
-                 ? $"{api}/{address}/graph/badge.svg"
+    var repository = $"{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
+    var address = $"{ForgeSegments.ToSegment(forge)}/{repository}";
+    var path = CodecovServiceSegments.TryGetSegment(forge, out var service)
+                 ? $"{api}/{service}/{repository}/graph/badge.svg"
                  : $"{api}/api/v1/badges/{address}.svg";
     var image = token is null ? path : $"{path}?token={Uri.EscapeDataString(token)}";
     var page = $"{web}/{address}";

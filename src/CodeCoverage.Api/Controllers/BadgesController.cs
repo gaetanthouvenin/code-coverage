@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
+using CodeCoverage.Api.Configuration.Routing;
 using CodeCoverage.Api.Contracts.Badges;
 using CodeCoverage.Api.Mapping;
 using CodeCoverage.Api.Rendering;
@@ -81,7 +82,7 @@ public sealed partial class BadgesController(ISender sender, IOptionsMonitor<Bad
     BadgeAsync(forge, owner, repo, ext, branch, flag, token, precision, cancellationToken);
 
   /// <summary>Read the badge of a repository at the address of Codecov.</summary>
-  /// <param name="service">gh or github.</param>
+  /// <param name="service">A service segment of Codecov: gh or github.</param>
   /// <param name="owner">The owner of the repository.</param>
   /// <param name="repo">The name of the repository.</param>
   /// <param name="ext">The format: svg or txt.</param>
@@ -91,7 +92,7 @@ public sealed partial class BadgesController(ISender sender, IOptionsMonitor<Bad
   /// <param name="precision">The number of decimals: 0, 1 or 2.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
   /// <returns>The badge.</returns>
-  [HttpGet("/{service:regex(^(gh|github)$)}/{owner}/{repo}/{graph:regex(^graphs?$)}/badge.{ext:regex(^(svg|txt)$)}")]
+  [HttpGet("/{service:" + CodecovServiceRouteConstraint.Name + "}/{owner}/{repo}/{graph:regex(^graphs?$)}/badge.{ext:regex(^(svg|txt)$)}")]
   [ApiExplorerSettings(IgnoreApi = true)]
   public Task<IActionResult> GetCodecovAsync(
     string service,
@@ -106,7 +107,7 @@ public sealed partial class BadgesController(ISender sender, IOptionsMonitor<Bad
     BadgeAsync(service, owner, repo, ext, branch, flag, token, precision, cancellationToken);
 
   /// <summary>Read the badge of a branch at the address of Codecov.</summary>
-  /// <param name="service">gh or github.</param>
+  /// <param name="service">A service segment of Codecov: gh or github.</param>
   /// <param name="owner">The owner of the repository.</param>
   /// <param name="repo">The name of the repository.</param>
   /// <param name="branchAndSuffix">The branch, then <c>/graph/badge.svg</c> or one of its variants.</param>
@@ -115,7 +116,7 @@ public sealed partial class BadgesController(ISender sender, IOptionsMonitor<Bad
   /// <param name="precision">The number of decimals: 0, 1 or 2.</param>
   /// <param name="cancellationToken">A token to cancel the request.</param>
   /// <returns>The badge, or 404 when the address is not a badge.</returns>
-  [HttpGet("/{service:regex(^(gh|github)$)}/{owner}/{repo}/branch/{**branchAndSuffix}")]
+  [HttpGet("/{service:" + CodecovServiceRouteConstraint.Name + "}/{owner}/{repo}/branch/{**branchAndSuffix}")]
   [ApiExplorerSettings(IgnoreApi = true)]
   public async Task<IActionResult> GetCodecovBranchAsync(
     string service,
