@@ -123,7 +123,7 @@ public sealed class SyncPullRequestCommandHandlerTests
     stored.HeadSha.ShouldBe(Head);
     stored.HeadBranch.ShouldBe("feature/x");
     stored.BaseBranch.ShouldBe("main");
-    stored.BaseShaGitHub.ShouldBe(Base);
+    stored.BaseShaForge.ShouldBe(Base);
     stored.UpdatedAt.ShouldBe(Now);
     A.CallTo(() => _gateway.GetPullAsync(new ForgeRepositoryRef(Forge.GitHub, "42", "7"), 12, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }

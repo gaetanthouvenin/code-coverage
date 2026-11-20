@@ -810,7 +810,7 @@ namespace CodeCoverage.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<string>("BaseShaGitHub")
+                    b.Property<string>("BaseShaForge")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");

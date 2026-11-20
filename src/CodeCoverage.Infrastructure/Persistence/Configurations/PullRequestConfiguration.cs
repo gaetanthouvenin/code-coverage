@@ -49,7 +49,7 @@ internal sealed class PullRequestConfiguration : IEntityTypeConfiguration<PullRe
     builder.Property(static p => p.HeadSha).IsRequired().HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();
     builder.Property(static p => p.HeadBranch).IsRequired().HasMaxLength(PullRequest.BranchMaxLength);
     builder.Property(static p => p.BaseBranch).IsRequired().HasMaxLength(PullRequest.BranchMaxLength);
-    builder.Property(static p => p.BaseShaGitHub).IsRequired().HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();
+    builder.Property(static p => p.BaseShaForge).IsRequired().HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();
     builder.Property(static p => p.ForkPointSha).HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();
     builder.Property(static p => p.ComparedToSha).HasMaxLength(GitSha.Length).HasConversion<GitShaConverter>();
     builder.Property(static p => p.CommentId);

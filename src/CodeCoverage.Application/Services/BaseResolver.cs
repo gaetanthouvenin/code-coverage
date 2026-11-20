@@ -83,9 +83,9 @@ internal sealed class BaseResolver(
     if (pull is not null)
     {
       // One call gives the merge base and how far behind the commit is; the base of the pull is all that is left without it.
-      var compared = await gateway.CompareAsync(address, pull.BaseShaGitHub, commit.Sha, cancellationToken).ConfigureAwait(false);
+      var compared = await gateway.CompareAsync(address, pull.BaseShaForge, commit.Sha, cancellationToken).ConfigureAwait(false);
 
-      forkPoint = compared?.MergeBaseSha ?? pull.BaseShaGitHub;
+      forkPoint = compared?.MergeBaseSha ?? pull.BaseShaForge;
       behindBy = compared?.BehindBy;
       start = forkPoint;
     }

@@ -811,7 +811,7 @@ namespace CodeCoverage.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("BaseShaGitHub")
+                    b.Property<string>("BaseShaForge")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");

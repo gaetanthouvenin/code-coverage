@@ -146,10 +146,10 @@ internal sealed class RetentionRepository(CodeCoverageDbContext context) : IRete
     var heads = await context.Branches.Select(static b => b.HeadSha).ToListAsync(cancellationToken).ConfigureAwait(false);
     var open = await context.PullRequests
                             .Where(static p => p.State == PullRequestState.Open)
-                            .Select(static p => new { p.HeadSha, p.BaseShaGitHub, p.ForkPointSha, p.ComparedToSha })
+                            .Select(static p => new { p.HeadSha, p.BaseShaForge, p.ForkPointSha, p.ComparedToSha })
                             .ToListAsync(cancellationToken)
                             .ConfigureAwait(false);
-    var kept = heads.Concat(open.SelectMany(static p => new[] { p.HeadSha, p.BaseShaGitHub, p.ForkPointSha, p.ComparedToSha }))
+    var kept = heads.Concat(open.SelectMany(static p => new[] { p.HeadSha, p.BaseShaForge, p.ForkPointSha, p.ComparedToSha }))
                     .OfType<GitSha>()
                     .Distinct()
                     .ToList();

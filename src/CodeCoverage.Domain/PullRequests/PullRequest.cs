@@ -40,7 +40,7 @@ public sealed class PullRequest
   /// <param name="headSha">The SHA of its head.</param>
   /// <param name="headBranch">The branch of its head.</param>
   /// <param name="baseBranch">The branch it targets.</param>
-  /// <param name="baseShaGitHub">The SHA of the base that the forge reports.</param>
+  /// <param name="baseShaForge">The SHA of the base that the forge reports.</param>
   /// <param name="updatedAt">When the row last changed, in UTC.</param>
   private PullRequest(
     long repositoryId,
@@ -50,7 +50,7 @@ public sealed class PullRequest
     GitSha headSha,
     string headBranch,
     string baseBranch,
-    GitSha baseShaGitHub,
+    GitSha baseShaForge,
     DateTimeOffset updatedAt)
   {
     RepositoryId = repositoryId;
@@ -60,7 +60,7 @@ public sealed class PullRequest
     HeadSha = headSha;
     HeadBranch = headBranch;
     BaseBranch = baseBranch;
-    BaseShaGitHub = baseShaGitHub;
+    BaseShaForge = baseShaForge;
     UpdatedAt = updatedAt;
   }
 
@@ -96,7 +96,7 @@ public sealed class PullRequest
   public string BaseBranch { get; private set; }
 
   /// <summary>Gets the SHA of the base that the forge reports.</summary>
-  public GitSha BaseShaGitHub { get; private set; }
+  public GitSha BaseShaForge { get; private set; }
 
   /// <summary>Gets the commit its branch forked from, or <see langword="null" /> before it is resolved.</summary>
   public GitSha? ForkPointSha { get; private set; }
@@ -182,7 +182,7 @@ public sealed class PullRequest
         && pull.HeadSha == HeadSha
         && pull.HeadBranch == HeadBranch
         && pull.BaseBranch == BaseBranch
-        && pull.BaseSha == BaseShaGitHub)
+        && pull.BaseSha == BaseShaForge)
     {
       return;
     }
@@ -193,7 +193,7 @@ public sealed class PullRequest
     HeadSha = pull.HeadSha;
     HeadBranch = pull.HeadBranch;
     BaseBranch = pull.BaseBranch;
-    BaseShaGitHub = pull.BaseSha;
+    BaseShaForge = pull.BaseSha;
     Touch(at);
   }
 

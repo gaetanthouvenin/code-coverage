@@ -214,7 +214,7 @@ internal static class CommentComposer
 
     if (comparedTo is null)
     {
-      var expected = resolution.ForkPoint ?? content.Pull.BaseShaGitHub;
+      var expected = resolution.ForkPoint ?? content.Pull.BaseShaForge;
 
       yield return $"> :warning: Please upload report for BASE (`{baseBranch}@{CommentFormatting.ShortSha(expected)}`).";
     }
