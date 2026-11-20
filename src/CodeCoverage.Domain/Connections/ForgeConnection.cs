@@ -224,6 +224,44 @@ public sealed class ForgeConnection
     SuspendedAt = at.ToUniversalTime();
   }
 
+  /// <summary>Replaces the credential of the connection, once its forge has verified the new one.</summary>
+  /// <param name="credentialProtected">The new credential protected by <c>ISecretProtector</c>, never the plain value.</param>
+  /// <param name="serviceAccountExternalId">
+  ///   The identifier of the account the new credential acts as, or <see langword="null" /> to keep the one known.
+  /// </param>
+  /// <param name="expiresAt">When the new credential expires, or <see langword="null" /> when it does not or is not known; converted to UTC.</param>
+  /// <remarks>
+  ///   The previous credential is forgotten: only the secret of the webhooks keeps a previous value. The forge has just
+  ///   accepted the new credential, so the error of the last check is cleared and a
+  ///   <see cref="ForgeConnectionStatus.Failing" /> or <see cref="ForgeConnectionStatus.Expiring" /> connection becomes
+  ///   <see cref="ForgeConnectionStatus.Active" /> until its next check; a rotation never lifts a suspension.
+  /// </remarks>
+  /// <exception cref="ArgumentNullException"><paramref name="credentialProtected" /> is <see langword="null" />.</exception>
+  /// <exception cref="ArgumentException">
+  ///   <paramref name="credentialProtected" /> is empty or white space, or <paramref name="serviceAccountExternalId" /> is
+  ///   empty, white space or too long.
+  /// </exception>
+  public void RotateCredential(string credentialProtected, string? serviceAccountExternalId, DateTimeOffset? expiresAt)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(credentialProtected);
+
+    if (serviceAccountExternalId is not null)
+    {
+      ArgumentException.ThrowIfNullOrWhiteSpace(serviceAccountExternalId);
+      ThrowIfTooLong(serviceAccountExternalId, ServiceAccountExternalIdMaxLength, nameof(serviceAccountExternalId));
+      ServiceAccountExternalId = serviceAccountExternalId;
+    }
+
+    CredentialProtected = credentialProtected;
+    ExpiresAt = expiresAt?.ToUniversalTime();
+    LastError = null;
+
+    if (Status is ForgeConnectionStatus.Failing or ForgeConnectionStatus.Expiring)
+    {
+      Status = ForgeConnectionStatus.Active;
+    }
+  }
+
   /// <summary>Replaces the secret of the webhooks, and keeps the current one as the previous one.</summary>
   /// <param name="webhookSecretProtected">The new secret protected by <c>ISecretProtector</c>, never the plain value.</param>
   /// <remarks>
