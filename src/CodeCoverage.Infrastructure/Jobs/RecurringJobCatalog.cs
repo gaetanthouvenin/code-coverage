@@ -34,6 +34,7 @@ internal static class RecurringJobCatalog
   [
     new(JobTypes.SyncInstallations, TimeSpan.FromDays(1), SyncInstallationsJobs.Key, SyncInstallationsJobs.Key),
     new(JobTypes.SyncConnections, TimeSpan.FromDays(1), SyncConnectionsJobs.Key, SyncConnectionsJobs.Key),
+    new(JobTypes.CheckConnections, TimeSpan.FromDays(1), ConnectionHealthJobs.Key, ConnectionHealthJobs.Key),
     new(JobTypes.SweepPendingCommits, TimeSpan.FromMinutes(5), SweepPendingCommitsJobs.Key, SweepPendingCommitsJobs.Key),
     new(JobTypes.PurgeExpiredData, TimeSpan.FromDays(1), PurgeExpiredDataJobs.Key, PurgeExpiredDataJobs.Key),
   ];

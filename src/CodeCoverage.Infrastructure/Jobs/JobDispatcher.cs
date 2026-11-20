@@ -12,6 +12,8 @@ using CodeCoverage.Application.Features.Access.Commands.RefreshUserAccess;
 using CodeCoverage.Application.Features.Access.Commands.RefreshUserMemberships;
 using CodeCoverage.Application.Features.Commits.Commands.FinalizeCommit;
 using CodeCoverage.Application.Features.Commits.Commands.RequeueCommitUploads;
+using CodeCoverage.Application.Features.Connections.Commands.CheckConnection;
+using CodeCoverage.Application.Features.Connections.Commands.CheckConnections;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnectionRepositories;
 using CodeCoverage.Application.Features.Connections.Commands.SyncConnections;
 using CodeCoverage.Application.Features.Diagnostics.Commands.RunDiagnosticJob;
@@ -246,6 +248,14 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.SyncConnections:
         await sender.Send(new SyncConnectionsCommand(), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.CheckConnections:
+        await sender.Send(new CheckConnectionsCommand(), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.CheckConnection:
+        await sender.Send(Read(job, static p => new CheckConnectionCommand(ReadText(p, "ConnectionId"))), cancellationToken).ConfigureAwait(false);
 
         break;
       case JobTypes.SyncConnectionRepositories:
