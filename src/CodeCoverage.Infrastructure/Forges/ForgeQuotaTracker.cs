@@ -6,6 +6,7 @@
 
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
+using CodeCoverage.Infrastructure.Diagnostics;
 
 namespace CodeCoverage.Infrastructure.Forges;
 
@@ -23,6 +24,11 @@ namespace CodeCoverage.Infrastructure.Forges;
 ///     under the same lock: a read never returns a version an entry not yet stored will carry, so no report is skipped
 ///     for good.
 ///   </para>
+///   <para>
+///     Every stored report is also handed to the <see cref="CodeCoverageMeter" />, whose gauge
+///     <see cref="CodeCoverageMeter.ForgeRateLimitRemaining" /> publishes it under its forge and its connection (M7.29):
+///     a forge reporting here has its quota metric without creating one.
+///   </para>
 /// </remarks>
 internal sealed class ForgeQuotaTracker
 {
@@ -30,9 +36,25 @@ internal sealed class ForgeQuotaTracker
 
   private readonly Lock _gate = new();
 
+  private readonly CodeCoverageMeter _meter;
+
   private readonly Dictionary<(Forge Forge, string Connection), (ForgeQuota Quota, long Version)> _quotas = [];
 
   private long _version;
+
+  #endregion
+
+  #region Ctors
+
+  /// <summary>Initializes a new instance of the <see cref="ForgeQuotaTracker" /> class.</summary>
+  /// <param name="meter">The metrics of the application, which publish the quota left of each connection.</param>
+  /// <exception cref="ArgumentNullException"><paramref name="meter" /> is <see langword="null" />.</exception>
+  public ForgeQuotaTracker(CodeCoverageMeter meter)
+  {
+    ArgumentNullException.ThrowIfNull(meter);
+
+    _meter = meter;
+  }
 
   #endregion
 
@@ -61,6 +83,9 @@ internal sealed class ForgeQuotaTracker
       }
 
       _quotas[key] = (quota, ++_version);
+
+      // Under the lock: the gauge never goes back to an older answer that ended last.
+      _meter.ReportForgeRateLimit(forge, connection, remaining);
     }
   }
 

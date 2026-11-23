@@ -79,13 +79,14 @@ groups:
           summary: "{{ $value }} webhook delivery(ies) with an invalid signature in 10 minutes"
           description: "Compare GitHub:WebhookSecret with the secret of the App, or look for forged requests."
 
-      # Less than 10 % of the GitHub quota of an installation is left. Both gauges come from the same
-      # GitHubQuotas rows (a quota past its reset counts as full), never from the memory of one process.
-      - alert: CodeCoverageGitHubQuotaLow
-        expr: (min by (installation) (github_ratelimit_recorded_remaining)) / (max by (installation) (github_ratelimit_limit)) < 0.10
+      # Less than 10 % of the quota of a connection of a forge is left (M7.29). Both gauges come from the
+      # same ForgeQuotas rows (a quota past its reset counts as full), never from the memory of one process.
+      # The forge label is the segment of the forge (github, azure-devops, bitbucket, gitlab).
+      - alert: CodeCoverageForgeQuotaLow
+        expr: (min by (forge, connection) (forge_ratelimit_recorded_remaining)) / (max by (forge, connection) (forge_ratelimit_limit)) < 0.10
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Installation {{ $labels.installation }} has {{ $value | humanizePercentage }} of its GitHub quota left"
-          description: "Jobs that call GitHub will wait for the reset (they are rescheduled without losing an attempt)."
+          summary: "Connection {{ $labels.connection }} of {{ $labels.forge }} has {{ $value | humanizePercentage }} of its quota left"
+          description: "Jobs that call the forge will wait for the reset (they are rescheduled without losing an attempt)."

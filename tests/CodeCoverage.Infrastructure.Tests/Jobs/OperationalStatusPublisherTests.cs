@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.Jobs;
 using CodeCoverage.Infrastructure.Persistence;
@@ -53,7 +54,8 @@ public sealed class OperationalStatusPublisherTests(DatabaseFixture database)
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).ReturnsLazily(() => now);
     var pulse = new WorkerPulse();
-    var quotas = new ForgeQuotaTracker();
+    using var meters = new TestMeterFactory();
+    var quotas = new ForgeQuotaTracker(new CodeCoverageMeter(meters));
     await using var services = new ServiceCollection().AddScoped(_ => DatabaseFixture.CreateContext(provider, connectionString)).BuildServiceProvider();
     var publisher = new OperationalStatusPublisher(
       services.GetRequiredService<IServiceScopeFactory>(),
@@ -98,7 +100,8 @@ public sealed class OperationalStatusPublisherTests(DatabaseFixture database)
 
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now.AddSeconds(15));
-    var quotas = new ForgeQuotaTracker();
+    using var meters = new TestMeterFactory();
+    var quotas = new ForgeQuotaTracker(new CodeCoverageMeter(meters));
     await using var services = new ServiceCollection().AddScoped(_ => DatabaseFixture.CreateContext(provider, connectionString)).BuildServiceProvider();
     var publisher = new OperationalStatusPublisher(
       services.GetRequiredService<IServiceScopeFactory>(),
@@ -130,7 +133,8 @@ public sealed class OperationalStatusPublisherTests(DatabaseFixture database)
 
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now);
-    var quotas = new ForgeQuotaTracker();
+    using var meters = new TestMeterFactory();
+    var quotas = new ForgeQuotaTracker(new CodeCoverageMeter(meters));
     await using var services = new ServiceCollection().AddScoped(_ => DatabaseFixture.CreateContext(provider, connectionString)).BuildServiceProvider();
     var publisher = new OperationalStatusPublisher(
       services.GetRequiredService<IServiceScopeFactory>(),
@@ -168,11 +172,12 @@ public sealed class OperationalStatusPublisherTests(DatabaseFixture database)
 
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now);
+    using var meters = new TestMeterFactory();
     await using var services = new ServiceCollection().AddScoped(_ => DatabaseFixture.CreateContext(provider, connectionString)).BuildServiceProvider();
     var publisher = new OperationalStatusPublisher(
       services.GetRequiredService<IServiceScopeFactory>(),
       new WorkerPulse(),
-      new ForgeQuotaTracker(),
+      new ForgeQuotaTracker(new CodeCoverageMeter(meters)),
       clock,
       TimeProvider.System,
       NullLogger<OperationalStatusPublisher>.Instance);

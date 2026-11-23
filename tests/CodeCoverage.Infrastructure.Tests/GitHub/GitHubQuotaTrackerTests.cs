@@ -7,19 +7,23 @@
 using CodeCoverage.Domain.Operations;
 using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Domain.Ports;
+using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Forges;
 using CodeCoverage.Infrastructure.GitHub;
+using CodeCoverage.Infrastructure.Tests.Support;
 
 namespace CodeCoverage.Infrastructure.Tests.GitHub;
 
 // The rate limit headers of GitHub, handed to the tracker of every forge under the forge GitHub (M7.28).
-public sealed class GitHubQuotaTrackerTests
+public sealed class GitHubQuotaTrackerTests : IDisposable
 {
   #region Fields
 
   private static readonly DateTimeOffset Now = new(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
 
-  private readonly ForgeQuotaTracker _quotas = new();
+  private readonly TestMeterFactory _meters = new();
+
+  private readonly ForgeQuotaTracker _quotas;
 
   private readonly GitHubQuotaTracker _tracker;
 
@@ -31,6 +35,7 @@ public sealed class GitHubQuotaTrackerTests
   {
     var clock = A.Fake<IClock>();
     A.CallTo(() => clock.UtcNow).Returns(Now);
+    _quotas = new ForgeQuotaTracker(new CodeCoverageMeter(_meters));
     _tracker = new GitHubQuotaTracker(_quotas, clock);
   }
 
@@ -96,6 +101,12 @@ public sealed class GitHubQuotaTrackerTests
 
     return response;
   }
+
+  #endregion
+
+  #region Implementation of IDisposable
+
+  public void Dispose() => _meters.Dispose();
 
   #endregion
 }

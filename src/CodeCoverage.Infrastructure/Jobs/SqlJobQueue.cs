@@ -316,7 +316,8 @@ internal sealed class SqlJobQueue(
   ///   The number of queued jobs by type, how long the oldest job that may run (<c>RunAfter</c> passed) has waited
   ///   since its <c>RunAfter</c> (a debounced or delayed job does not wait before its time), the number of dead jobs,
   ///   the age of the last beat of a worker (<c>WorkerHeartbeats</c>) and the size and the remaining requests of the
-  ///   GitHub quota of each installation (the <c>ForgeQuotas</c> rows of GitHub, a quota past its reset counted as full). Operational tables only, without query filter (ADR-013).
+  ///   quota of each connection of each forge (the <c>ForgeQuotas</c> rows whose size is known, a quota past its reset
+  ///   counted as full), the GitHub ones also by installation. Operational tables only, without query filter (ADR-013).
   /// </returns>
   internal async Task<JobQueueSnapshot> MeasureAsync(CancellationToken cancellationToken)
   {
@@ -341,21 +342,25 @@ internal sealed class SqlJobQueue(
                                 .ConfigureAwait(false);
     var quotas = await context.ForgeQuotas
                               .AsNoTracking()
-                              .Where(static q => q.Forge == Forge.GitHub && q.Limit != null)
-                              .Select(static q => new { Installation = q.Connection, q.Remaining, q.Limit, q.ResetAt })
+                              .Where(static q => q.Limit != null)
+                              .Select(static q => new { q.Forge, q.Connection, q.Remaining, q.Limit, q.ResetAt })
                               .ToListAsync(cancellationToken)
                               .ConfigureAwait(false);
-    var limits = quotas.ToDictionary(static q => q.Installation, static q => q.Limit!.Value, StringComparer.Ordinal);
 
-    // The remaining requests of the same rows: once the reset time has passed, GitHub gave the whole quota back.
-    var remaining = quotas.ToDictionary(
-      static q => q.Installation,
-      q => q.ResetAt is { } reset && reset <= now ? q.Limit!.Value : q.Remaining,
-      StringComparer.Ordinal
-    );
+    // The remaining requests of the same rows: once the reset time has passed, the forge gave the whole quota back.
+    var samples = quotas.Select(q => new ForgeQuotaSample(
+                                  q.Forge,
+                                  q.Connection,
+                                  q.Limit!.Value,
+                                  q.ResetAt is { } reset && reset <= now ? q.Limit.Value : q.Remaining
+                                ))
+                        .ToList();
+    var github = samples.Where(static q => q.Forge is Forge.GitHub).ToList();
+    var limits = github.ToDictionary(static q => q.Connection, static q => q.Limit, StringComparer.Ordinal);
+    var remaining = github.ToDictionary(static q => q.Connection, static q => q.Remaining, StringComparer.Ordinal);
     double? heartbeat = lastBeat is { } beat ? Math.Max(0, (now - beat).TotalSeconds) : null;
 
-    return new JobQueueSnapshot(byType, age, dead, heartbeat, limits, remaining);
+    return new JobQueueSnapshot(byType, age, dead, heartbeat, limits, remaining, samples);
   }
 
   /// <summary>

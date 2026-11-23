@@ -333,6 +333,7 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
       none.HeartbeatAgeSeconds.ShouldBeNull();
       none.GitHubLimits.ShouldNotBeNull().ShouldBeEmpty();
       none.GitHubRemaining.ShouldNotBeNull().ShouldBeEmpty();
+      none.ForgeQuotas.ShouldNotBeNull().ShouldBeEmpty();
     }
 
     await using (var seed = DatabaseFixture.CreateContext(provider, connectionString))
@@ -342,7 +343,7 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
         WorkerHeartbeat.Create("api-1", Start.AddHours(-1), Start.AddSeconds(-40)),
         WorkerHeartbeat.Create("api-2", Start.AddHours(-1), Start.AddSeconds(-300))
       );
-      // Only the quotas of GitHub feed these gauges: the one of another forge is left out.
+      // Only the quotas of GitHub feed the GitHub gauges: the one of another forge is left out of them.
       seed.ForgeQuotas.AddRange(
         ForgeQuota.Create(Forge.GitHub, "101", 450, 5000, Start.AddMinutes(30), Start),
         ForgeQuota.Create(Forge.GitHub, "202", 10, null, null, Start),
@@ -361,6 +362,17 @@ public sealed class SqlJobQueueTests(DatabaseFixture database) : IDisposable
     snapshot.GitHubLimits.ShouldNotBeNull().ShouldBe(new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 5000, ["303"] = 5000 });
     // The remaining requests come from the same rows; a quota past its reset time is full again.
     snapshot.GitHubRemaining.ShouldNotBeNull().ShouldBe(new Dictionary<string, long>(StringComparer.Ordinal) { ["101"] = 450, ["303"] = 5000 });
+    // M7.29: the gauges of every forge read the rows of every forge whose size is known.
+    snapshot.ForgeQuotas
+            .ShouldNotBeNull()
+            .OrderBy(static q => q.Connection, StringComparer.Ordinal)
+            .ShouldBe(
+            [
+              new ForgeQuotaSample(Forge.GitHub, "101", 5000, 450),
+              new ForgeQuotaSample(Forge.GitHub, "303", 5000, 5000),
+              new ForgeQuotaSample(Forge.GitLab, "404", 2000, 1900),
+            ]
+            );
   }
 
   [Theory]

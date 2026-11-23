@@ -7,6 +7,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 
+using CodeCoverage.Domain.Organizations;
+
 namespace CodeCoverage.Infrastructure.Diagnostics;
 
 /// <summary>
@@ -18,7 +20,14 @@ namespace CodeCoverage.Infrastructure.Diagnostics;
 ///     A singleton of both hosts. The meter is created by the <see cref="IMeterFactory" /> of the host, which owns
 ///     and disposes it. The counters and the histograms are recorded by the features that observe the event; the
 ///     gauges publish the last value reported to the meter (<see cref="ReportJobQueue" />,
-///     <see cref="ReportGitHubRateLimit" />), so that a collection never queries the database.
+///     <see cref="ReportForgeRateLimit" />, <see cref="ReportGitHubRateLimit" />), so that a collection never queries
+///     the database.
+///   </para>
+///   <para>
+///     The quotas of every forge are published by one set of gauges, <c>forge_ratelimit_*</c>, tagged <c>forge</c>
+///     (the segment of <see cref="ForgeSegments" />, such as <c>azure-devops</c>, never the name of the enumeration)
+///     and <c>connection</c> (M7.29). The <c>github_ratelimit_*</c> gauges, tagged <c>installation</c>, are still
+///     published for one version, then removed.
 ///   </para>
 ///   <para>
 ///     Recording costs next to nothing while nobody listens: without an OTLP endpoint, nothing is collected and
@@ -59,19 +68,44 @@ public sealed class CodeCoverageMeter
   /// <summary>The gauge of the age of the last beat of a worker, in seconds (M4.04).</summary>
   public const string WorkerHeartbeatAgeSeconds = "worker_heartbeat_age_seconds";
 
-  /// <summary>The gauge of the size of the GitHub quota, tagged <c>installation</c> (M4.04).</summary>
+  /// <summary>
+  ///   The gauge of the size of the quota of a connection of a forge, tagged <c>forge</c> and <c>connection</c>
+  ///   (M7.29): the denominator of the quota alert.
+  /// </summary>
+  public const string ForgeRateLimitLimit = "forge_ratelimit_limit";
+
+  /// <summary>
+  ///   The gauge of the requests left on the quota of a connection of a forge, as recorded in the database with the size
+  ///   of the quota, tagged <c>forge</c> and <c>connection</c> (M7.29): the numerator of the quota alert.
+  /// </summary>
+  public const string ForgeRateLimitRecordedRemaining = "forge_ratelimit_recorded_remaining";
+
+  /// <summary>
+  ///   The gauge of the requests left on the quota of a connection of a forge, as the last answer read by this process
+  ///   reported it, tagged <c>forge</c> and <c>connection</c> (M7.29).
+  /// </summary>
+  public const string ForgeRateLimitRemaining = "forge_ratelimit_remaining";
+
+  /// <summary>
+  ///   The gauge of the size of the GitHub quota, tagged <c>installation</c> (M4.04); replaced by
+  ///   <see cref="ForgeRateLimitLimit" />, still published for one version.
+  /// </summary>
   public const string GitHubRateLimitLimit = "github_ratelimit_limit";
 
   /// <summary>
   ///   The gauge of the GitHub requests left, as recorded in the database with the size of the quota, tagged
-  ///   <c>installation</c> (M4.04): the numerator of the quota alert.
+  ///   <c>installation</c> (M4.04); replaced by <see cref="ForgeRateLimitRecordedRemaining" />, still published for one
+  ///   version.
   /// </summary>
   public const string GitHubRateLimitRecordedRemaining = "github_ratelimit_recorded_remaining";
 
   /// <summary>The histogram of the delays from the last upload of a commit to its published status, in seconds.</summary>
   public const string NotifyLatencySeconds = "notify_latency_seconds";
 
-  /// <summary>The gauge of the GitHub requests left in the quota, tagged <c>installation</c>.</summary>
+  /// <summary>
+  ///   The gauge of the GitHub requests left in the quota, tagged <c>installation</c>; replaced by
+  ///   <see cref="ForgeRateLimitRemaining" />, still published for one version.
+  /// </summary>
   public const string GitHubRateLimitRemaining = "github_ratelimit_remaining";
 
   /// <summary>The counter of the GitHub requests, tagged <c>endpoint</c> and <c>status</c>.</summary>
@@ -83,6 +117,12 @@ public sealed class CodeCoverageMeter
   private readonly Counter<long> _githubRequests;
 
   private readonly ConcurrentDictionary<string, long> _githubRateLimit = new(StringComparer.Ordinal);
+
+  private readonly ConcurrentDictionary<(Forge Forge, string Connection), long> _forgeRateLimit = new();
+
+  private readonly ObservableGauge<long> _forgeRateLimitLimit;
+
+  private readonly ObservableGauge<long> _forgeRateLimitRecordedRemaining;
 
   private readonly Counter<long> _jobsDead;
 
@@ -162,6 +202,24 @@ public sealed class CodeCoverageMeter
       "{request}",
       "The GitHub requests left, by installation, as last recorded with the size of the quota."
     );
+    _forgeRateLimitLimit = meter.CreateObservableGauge(
+      ForgeRateLimitLimit,
+      ObserveForgeRateLimitLimit,
+      "{request}",
+      "The size of the quota of each connection of each forge, as last recorded."
+    );
+    _forgeRateLimitRecordedRemaining = meter.CreateObservableGauge(
+      ForgeRateLimitRecordedRemaining,
+      ObserveForgeRateLimitRecordedRemaining,
+      "{request}",
+      "The requests left on the quota of each connection of each forge, as last recorded with the size of the quota."
+    );
+    meter.CreateObservableGauge(
+      ForgeRateLimitRemaining,
+      ObserveForgeRateLimit,
+      "{request}",
+      "The requests left on the quota of each connection of each forge, as the last answer reported it."
+    );
     _notifyLatency = meter.CreateHistogram<double>(
       NotifyLatencySeconds,
       "s",
@@ -189,7 +247,8 @@ public sealed class CodeCoverageMeter
   /// <value>
   ///   <see langword="true" /> when a listener (the OpenTelemetry exporter, <c>dotnet-counters</c>, a test) enabled one
   ///   of the gauges the sampler feeds: <see cref="JobsQueued" />, <see cref="JobOldestQueuedAgeSeconds" />,
-  ///   <see cref="JobsDead" />, <see cref="WorkerHeartbeatAgeSeconds" />, <see cref="GitHubRateLimitLimit" /> or
+  ///   <see cref="JobsDead" />, <see cref="WorkerHeartbeatAgeSeconds" />, <see cref="ForgeRateLimitLimit" />,
+  ///   <see cref="ForgeRateLimitRecordedRemaining" />, <see cref="GitHubRateLimitLimit" /> or
   ///   <see cref="GitHubRateLimitRecordedRemaining" />;
   ///   otherwise <see langword="false" />.
   /// </value>
@@ -202,6 +261,8 @@ public sealed class CodeCoverageMeter
     || _jobOldestQueuedAge.Enabled
     || _jobsDeadGauge.Enabled
     || _workerHeartbeatAge.Enabled
+    || _forgeRateLimitLimit.Enabled
+    || _forgeRateLimitRecordedRemaining.Enabled
     || _githubRateLimitLimit.Enabled
     || _githubRateLimitRecordedRemaining.Enabled;
 
@@ -236,6 +297,18 @@ public sealed class CodeCoverageMeter
     ArgumentException.ThrowIfNullOrWhiteSpace(format);
 
     _parseDuration.Record(duration.TotalSeconds, new KeyValuePair<string, object?>("format", format));
+  }
+
+  /// <summary>Reports the requests left on the quota of a connection of a forge, published by its gauge.</summary>
+  /// <param name="forge">The forge that answered.</param>
+  /// <param name="connection">The connection: a GitHub installation, a forge connection or the application itself.</param>
+  /// <param name="remaining">The requests left, as the answer reported them.</param>
+  /// <exception cref="ArgumentException"><paramref name="connection" /> is <see langword="null" />, empty or white space.</exception>
+  public void ReportForgeRateLimit(Forge forge, string connection, long remaining)
+  {
+    ArgumentException.ThrowIfNullOrWhiteSpace(connection);
+
+    _forgeRateLimit[(forge, connection)] = remaining;
   }
 
   /// <summary>Reports the GitHub requests left in the quota of an installation, published by its gauge.</summary>
@@ -316,6 +389,37 @@ public sealed class CodeCoverageMeter
     Volatile.Read(ref _jobQueue) is { GitHubRemaining: { } remaining }
       ? remaining.Select(static p => new Measurement<long>(p.Value, new KeyValuePair<string, object?>("installation", p.Key))).ToList()
       : [];
+
+  /// <summary>Builds a measurement of a quota, tagged with its forge and its connection.</summary>
+  /// <param name="value">The value.</param>
+  /// <param name="forge">The forge, tagged with its segment, such as <c>azure-devops</c>.</param>
+  /// <param name="connection">The connection.</param>
+  /// <returns>The measurement.</returns>
+  private static Measurement<long> ForgeMeasurement(long value, Forge forge, string connection) =>
+    new(
+      value,
+      new KeyValuePair<string, object?>("forge", ForgeSegments.ToSegment(forge)),
+      new KeyValuePair<string, object?>("connection", connection)
+    );
+
+  /// <summary>Publishes the size of the quota of each connection of each forge, as the sampler last read it.</summary>
+  /// <returns>One measurement per connection whose quota size is known.</returns>
+  private IEnumerable<Measurement<long>> ObserveForgeRateLimitLimit() =>
+    Volatile.Read(ref _jobQueue) is { ForgeQuotas: { } quotas }
+      ? quotas.Select(static q => ForgeMeasurement(q.Limit, q.Forge, q.Connection)).ToList()
+      : [];
+
+  /// <summary>Publishes the requests left on the quota of each connection of each forge, as the sampler last read them.</summary>
+  /// <returns>One measurement per connection whose quota size is known.</returns>
+  private IEnumerable<Measurement<long>> ObserveForgeRateLimitRecordedRemaining() =>
+    Volatile.Read(ref _jobQueue) is { ForgeQuotas: { } quotas }
+      ? quotas.Select(static q => ForgeMeasurement(q.Remaining, q.Forge, q.Connection)).ToList()
+      : [];
+
+  /// <summary>Publishes the quota left of each connection of each forge reported so far.</summary>
+  /// <returns>One measurement per connection.</returns>
+  private IEnumerable<Measurement<long>> ObserveForgeRateLimit() =>
+    _forgeRateLimit.Select(static p => ForgeMeasurement(p.Value, p.Key.Forge, p.Key.Connection)).ToList();
 
   /// <summary>Publishes the age of the last beat of a worker, once one was read.</summary>
   /// <returns>The age in seconds, or no measurement when no worker ever beat.</returns>

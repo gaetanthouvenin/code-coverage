@@ -25,10 +25,16 @@ namespace CodeCoverage.Infrastructure.Diagnostics;
 ///   The requests left on the GitHub quota of each installation whose size is known, read from the same
 ///   <c>ForgeQuotas</c> rows as <paramref name="GitHubLimits" />; a quota whose reset time has passed counts as full.
 /// </param>
+/// <param name="ForgeQuotas">
+///   The quota of each connection of each forge whose size is known, read from the rows of <c>ForgeQuotas</c> of every
+///   forge (M7.29); a quota whose reset time has passed counts as full. <paramref name="GitHubLimits" /> and
+///   <paramref name="GitHubRemaining" /> keep feeding the <c>github_ratelimit_*</c> gauges for one more version.
+/// </param>
 internal sealed record JobQueueSnapshot(
   IReadOnlyDictionary<string, long> QueuedByType,
   double OldestDueAgeSeconds,
   long Dead = 0,
   double? HeartbeatAgeSeconds = null,
   IReadOnlyDictionary<string, long>? GitHubLimits = null,
-  IReadOnlyDictionary<string, long>? GitHubRemaining = null);
+  IReadOnlyDictionary<string, long>? GitHubRemaining = null,
+  IReadOnlyList<ForgeQuotaSample>? ForgeQuotas = null);
