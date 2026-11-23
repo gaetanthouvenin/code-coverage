@@ -165,6 +165,9 @@ public sealed class RateLimitHandlerTests : IDisposable
     var measurement = _github.Quota.Of(CodeCoverageMeter.GitHubRateLimitRemaining).ShouldHaveSingleItem();
     measurement.Value.ShouldBe(4321);
     measurement.Tags["installation"].ShouldBe("42");
+    // M7.29: the same answer feeds the quota gauge of every forge.
+    var forge = _github.Quota.Of(CodeCoverageMeter.ForgeRateLimitRemaining).ShouldHaveSingleItem();
+    (forge.Value, forge.Tags["forge"], forge.Tags["connection"]).ShouldBe((4321d, (object?)"github", (object?)"42"));
   }
 
   // M3.13a: the limit and the reset are kept with the remaining requests, in memory only, for the publisher.
@@ -227,7 +230,7 @@ public sealed class RateLimitHandlerTests : IDisposable
     var inner = A.Fake<HttpMessageHandler>();
     A.CallTo(inner).WithReturnType<Task<HttpResponseMessage>>().Throws(failure);
     using var invoker = new HttpMessageInvoker(
-      new RateLimitHandler(new CodeCoverageMeter(meters), new GitHubQuotaTracker(new ForgeQuotaTracker(), A.Fake<IClock>()), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
+      new RateLimitHandler(new CodeCoverageMeter(meters), new GitHubQuotaTracker(new ForgeQuotaTracker(new CodeCoverageMeter(meters)), A.Fake<IClock>()), A.Fake<IClock>(), NullLogger<RateLimitHandler>.Instance) { InnerHandler = inner }
     );
     using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("https://github.test/repositories/1"));
 

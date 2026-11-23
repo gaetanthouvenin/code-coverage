@@ -1,5 +1,5 @@
 ---
-source-sha256: f18905149121c14cff49d26076c869c43b7e1b6aa3b489fe6578740d426f5919
+source-sha256: dd5f3e9a3c4ae71f1d73cb9bd0352c1a1146d6720a054b1fe57de27a4d759e1a
 ---
 # Operazioni
 
@@ -41,17 +41,26 @@ dell’istanza, come i backup del database.
 | `CodeCoverageWorkerHeartbeatMissing` | nessun `worker_heartbeat_age_seconds` mentre i gauge dei job sono esportati, per 5 min | Nessun worker ha mai inviato un heartbeat, o il suo ultimo heartbeat è stato eliminato (più vecchio di un giorno), situazione in cui la regola stale si risolve. | Avviare un’Api con il worker, o capire perché si è fermato. |
 | `CodeCoverageMetricsAbsent` | `absent_over_time(job_oldest_queued_age_seconds[5m])` | Nessuna Api ha esportato i gauge dei job da 5 minuti. | Tutte le Api ferme, oppure l’endpoint OTLP, il collector o Prometheus guasti. |
 | `CodeCoverageWebhookSignatureFailures` | `sum(increase(webhook_signature_failures_total[10m])) > 0`, oppure una serie assente 10 min fa e ora sopra 0 | Consegne di webhook con una firma non valida. | `GitHub:WebhookSecret` disallineato rispetto all’App dopo una rotazione, o richieste contraffatte. |
-| `CodeCoverageGitHubQuotaLow` | rimanente registrato / limite `< 0.10` per installazione, per 5 min | Resta meno del 10 % della quota GitHub di un’installazione. | I job che chiamano GitHub attendono il reset senza perdere un tentativo; cercare un picco (rielaborazione, sweep). |
+| `CodeCoverageForgeQuotaLow` | rimanente registrato / limite `< 0.10` per forge e connessione, per 5 min | Resta meno del 10 % della quota di una connessione di una forge; l’alert nomina la forge e la connessione. | I job che chiamano la forge attendono il reset senza perdere un tentativo; cercare un picco (rielaborazione, sweep). |
 
 ### Nomi delle metriche
 
 Il collector esporta i nomi del meter così come sono (`add_metric_suffixes: false`): i nomi
 riportano già la loro unità (`_seconds`) e `_total`. Un gauge letto dal database (`jobs_dead`,
 `worker_heartbeat_age_seconds`, `jobs_queued`, `job_oldest_queued_age_seconds`) viene campionato ogni 30 s
-da ciascuna Api, solo mentre un listener raccoglie i gauge dei job. Lo stesso vale per `github_ratelimit_limit` e
-`github_ratelimit_recorded_remaining` (label `installation`): entrambi provengono dalle stesse righe di `GitHubQuotas`,
-e una quota il cui orario di reset è passato conta come piena. `github_ratelimit_remaining` riporta
+da ciascuna Api, solo mentre un listener raccoglie i gauge dei job. Lo stesso vale per `forge_ratelimit_limit` e
+`forge_ratelimit_recorded_remaining` (label `forge` e `connection`): entrambi provengono dalle stesse righe di `ForgeQuotas`,
+e una quota il cui orario di reset è passato conta come piena. `forge_ratelimit_remaining` riporta
 l’ultima risposta letta da questo processo; l’alert non lo usa. I contatori si azzerano quando un host si riavvia: le regole usano `increase()`.
+
+La label `forge` è il segmento della forge negli indirizzi (`github`, `azure-devops`, `bitbucket`, `gitlab`);
+`connection` è l’installazione GitHub, la connessione della forge, oppure `app` per la GitHub App stessa.
+
+**Rinominati in M7.29.** `forge_ratelimit_*` sostituiscono `github_ratelimit_limit`,
+`github_ratelimit_recorded_remaining` e `github_ratelimit_remaining` (label `installation`), e
+`CodeCoverageForgeQuotaLow` sostituisce `CodeCoverageGitHubQuotaLow`. I nomi `github_ratelimit_*` restano
+pubblicati, con gli stessi valori, per un’altra versione, poi vengono rimossi: spostare dashboard e regole
+esterne sui nuovi nomi.
 
 ### Verificare le regole
 
@@ -71,7 +80,7 @@ Con l’overlay in esecuzione (e `OTEL_METRIC_EXPORT_INTERVAL` a 10 s, come lo i
 | `CodeCoverageWorkerHeartbeatMissing` | Avviare un’istanza nuova con `Worker__Enabled=false` (nessun heartbeat viene mai scritto). |
 | `CodeCoverageJobQueueStalled` | Senza worker, accodare un job il cui `RunAfter` risale a più di 10 minuti fa. |
 | `CodeCoverageMetricsAbsent` | Fermare l’Api e il Web (il collector conserva una serie per 5 minuti, poi la regola attende altri 5). |
-| `CodeCoverageGitHubQuotaLow` | Richiede risposte di GitHub con un `x-ratelimit-remaining` basso; coperto da `alerts.test.yml`. |
+| `CodeCoverageForgeQuotaLow` | Richiede risposte della forge con una quota rimanente bassa (`x-ratelimit-remaining` su GitHub); coperto da `alerts.test.yml`. |
 
 ## Produzione su una VM
 

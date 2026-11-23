@@ -187,27 +187,33 @@ tests:
               summary: "1 webhook delivery(ies) with an invalid signature in 10 minutes"
               description: "Compare GitHub:WebhookSecret with the secret of the App, or look for forged requests."
 
-  - name: github quota
+  # M7.29: the same connection key on two forges is two quotas; only the low one fires, named by its forge.
+  - name: forge quota
     interval: 1m
     input_series:
-      - series: 'github_ratelimit_recorded_remaining{job="codecoverage-api",installation="101"}'
+      - series: 'forge_ratelimit_recorded_remaining{job="codecoverage-api",forge="github",connection="101"}'
         values: "4000 900 450 400 400 400 400 400"
-      - series: 'github_ratelimit_limit{job="codecoverage-api",installation="101"}'
+      - series: 'forge_ratelimit_limit{job="codecoverage-api",forge="github",connection="101"}'
         values: "5000x7"
-      - series: 'github_ratelimit_recorded_remaining{job="codecoverage-api",installation="202"}'
+      - series: 'forge_ratelimit_recorded_remaining{job="codecoverage-api",forge="github",connection="202"}'
         values: "4999x7"
-      - series: 'github_ratelimit_limit{job="codecoverage-api",installation="202"}'
+      - series: 'forge_ratelimit_limit{job="codecoverage-api",forge="github",connection="202"}'
         values: "5000x7"
+      - series: 'forge_ratelimit_recorded_remaining{job="codecoverage-api",forge="azure-devops",connection="101"}'
+        values: "190x7"
+      - series: 'forge_ratelimit_limit{job="codecoverage-api",forge="azure-devops",connection="101"}'
+        values: "200x7"
     alert_rule_test:
       - eval_time: 3m
-        alertname: CodeCoverageGitHubQuotaLow
+        alertname: CodeCoverageForgeQuotaLow
         exp_alerts: []
       - eval_time: 7m
-        alertname: CodeCoverageGitHubQuotaLow
+        alertname: CodeCoverageForgeQuotaLow
         exp_alerts:
           - exp_labels:
               severity: warning
-              installation: "101"
+              forge: github
+              connection: "101"
             exp_annotations:
-              summary: "Installation 101 has 8% of its GitHub quota left"
-              description: "Jobs that call GitHub will wait for the reset (they are rescheduled without losing an attempt)."
+              summary: "Connection 101 of github has 8% of its quota left"
+              description: "Jobs that call the forge will wait for the reset (they are rescheduled without losing an attempt)."

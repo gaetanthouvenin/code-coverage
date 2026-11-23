@@ -4,6 +4,7 @@
 // </copyright>
 // ------------------------------------------------------------------------------------------------
 
+using CodeCoverage.Domain.Organizations;
 using CodeCoverage.Infrastructure.Diagnostics;
 using CodeCoverage.Infrastructure.Tests.Support;
 
@@ -99,6 +100,8 @@ public sealed class CodeCoverageMeterTests : IDisposable
     _recorder.Of(CodeCoverageMeter.WorkerHeartbeatAgeSeconds).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.GitHubRateLimitLimit).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.GitHubRateLimitRecordedRemaining).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.ForgeRateLimitLimit).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.ForgeRateLimitRecordedRemaining).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.JobsDead).ShouldHaveSingleItem().Value.ShouldBe(0);
   }
 
@@ -113,6 +116,45 @@ public sealed class CodeCoverageMeterTests : IDisposable
     _recorder.Of(CodeCoverageMeter.JobsQueued).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.JobOldestQueuedAgeSeconds).ShouldBeEmpty();
     _recorder.Of(CodeCoverageMeter.GitHubRateLimitRemaining).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.ForgeRateLimitLimit).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.ForgeRateLimitRecordedRemaining).ShouldBeEmpty();
+    _recorder.Of(CodeCoverageMeter.ForgeRateLimitRemaining).ShouldBeEmpty();
+  }
+
+  // M7.29: one series per forge and connection, the forge named by its segment, never by the enumeration.
+  [Fact]
+  public void Report_TwoForges_ShouldLabelEachSeries()
+  {
+    _meter.ReportJobQueue(
+      new JobQueueSnapshot(
+        new Dictionary<string, long>(StringComparer.Ordinal),
+        0,
+        ForgeQuotas:
+        [
+          new ForgeQuotaSample(Forge.GitHub, "101", 5000, 450),
+          new ForgeQuotaSample(Forge.AzureDevOps, "azure-devops-1", 200, 180),
+        ]
+      )
+    );
+    _meter.ReportForgeRateLimit(Forge.GitHub, "101", 440);
+    _meter.ReportForgeRateLimit(Forge.AzureDevOps, "azure-devops-1", 175);
+    _meter.ReportForgeRateLimit(Forge.AzureDevOps, "azure-devops-1", 170);
+
+    _recorder.Collect();
+
+    var limits = _recorder.Of(CodeCoverageMeter.ForgeRateLimitLimit);
+    limits.Count.ShouldBe(2);
+    Series(limits, "github", "101").ShouldBe(5000);
+    Series(limits, "azure-devops", "azure-devops-1").ShouldBe(200);
+    var recorded = _recorder.Of(CodeCoverageMeter.ForgeRateLimitRecordedRemaining);
+    recorded.Count.ShouldBe(2);
+    Series(recorded, "github", "101").ShouldBe(450);
+    Series(recorded, "azure-devops", "azure-devops-1").ShouldBe(180);
+    var remaining = _recorder.Of(CodeCoverageMeter.ForgeRateLimitRemaining);
+    remaining.Count.ShouldBe(2);
+    Series(remaining, "github", "101").ShouldBe(440);
+    Series(remaining, "azure-devops", "azure-devops-1").ShouldBe(170);
+    limits.Concat(recorded).Concat(remaining).ShouldAllBe(m => !Equals(m.Tags["forge"], nameof(Forge.AzureDevOps)));
   }
 
   [Fact]
@@ -165,6 +207,7 @@ public sealed class CodeCoverageMeterTests : IDisposable
     Should.Throw<ArgumentException>(() => _meter.ParseDuration(" ", TimeSpan.Zero));
     Should.Throw<ArgumentException>(() => _meter.GitHubRequest(" ", 200));
     Should.Throw<ArgumentException>(() => _meter.ReportGitHubRateLimit(" ", 1));
+    Should.Throw<ArgumentException>(() => _meter.ReportForgeRateLimit(Forge.GitLab, " ", 1));
     Should.Throw<ArgumentNullException>(() => _meter.ReportJobQueue(null!));
   }
 
@@ -201,6 +244,9 @@ public sealed class CodeCoverageMeterTests : IDisposable
 
     meter.IsJobQueueObserved.ShouldBeFalse("the listener is gone");
   }
+
+  private static double Series(IReadOnlyList<(double Value, IReadOnlyDictionary<string, object?> Tags)> measurements, string forge, string connection) =>
+    measurements.Single(m => Equals(m.Tags["forge"], forge) && Equals(m.Tags["connection"], connection)).Value;
 
   #endregion
 

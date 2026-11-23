@@ -38,17 +38,25 @@ instance, like the database backups.
 | `CodeCoverageWorkerHeartbeatMissing` | no `worker_heartbeat_age_seconds` while the job gauges are exported, for 5 min | No worker ever beat, or its last beat was purged (older than a day), where the stale rule resolves. | Start an Api with the worker, or read why it stopped. |
 | `CodeCoverageMetricsAbsent` | `absent_over_time(job_oldest_queued_age_seconds[5m])` | No Api has exported the job gauges for 5 minutes. | Every Api down, or the OTLP endpoint, the collector or Prometheus broken. |
 | `CodeCoverageWebhookSignatureFailures` | `sum(increase(webhook_signature_failures_total[10m])) > 0`, or a series absent 10 min ago now above 0 | Webhook deliveries with an invalid signature. | `GitHub:WebhookSecret` out of step with the App after a rotation, or forged requests. |
-| `CodeCoverageGitHubQuotaLow` | recorded remaining / limit `< 0.10` per installation, for 5 min | Less than 10 % of the GitHub quota of an installation is left. | Jobs that call GitHub wait for the reset without losing an attempt; look for a burst (reprocess, sweep). |
+| `CodeCoverageForgeQuotaLow` | recorded remaining / limit `< 0.10` per forge and connection, for 5 min | Less than 10 % of the quota of a connection of a forge is left; the alert names the forge and the connection. | Jobs that call the forge wait for the reset without losing an attempt; look for a burst (reprocess, sweep). |
 
 ### Metric names
 
 The collector exports the names of the meter as they are (`add_metric_suffixes: false`): the names
 already carry their unit (`_seconds`) and `_total`. A gauge read from the database (`jobs_dead`,
 `worker_heartbeat_age_seconds`, `jobs_queued`, `job_oldest_queued_age_seconds`) is sampled every 30 s
-by each Api, only while a listener collects the job gauges. So are `github_ratelimit_limit` and
-`github_ratelimit_recorded_remaining` (label `installation`): both come from the same `GitHubQuotas`
-rows, and a quota whose reset time has passed counts as full. `github_ratelimit_remaining` reports the
-last response this process read; the alert does not use it. Counters reset when a host restarts: rules use `increase()`.
+by each Api, only while a listener collects the job gauges. So are `forge_ratelimit_limit` and
+`forge_ratelimit_recorded_remaining` (labels `forge` and `connection`): both come from the same
+`ForgeQuotas` rows, and a quota whose reset time has passed counts as full. `forge_ratelimit_remaining`
+reports the last response this process read; the alert does not use it. The `forge` label is the segment
+of the forge in the addresses (`github`, `azure-devops`, `bitbucket`, `gitlab`); `connection` is the GitHub
+installation, the forge connection, or `app` for the GitHub App itself. Counters reset when a host restarts: rules use `increase()`.
+
+**Renamed in M7.29.** `forge_ratelimit_*` replace `github_ratelimit_limit`,
+`github_ratelimit_recorded_remaining` and `github_ratelimit_remaining` (label `installation`), and
+`CodeCoverageForgeQuotaLow` replaces `CodeCoverageGitHubQuotaLow`. The `github_ratelimit_*` names are
+still published, with the same values, for one more version, then removed: move dashboards and
+external rules to the new names.
 
 ### Checking the rules
 
@@ -68,7 +76,7 @@ With the overlay running (and `OTEL_METRIC_EXPORT_INTERVAL` at 10 s, as the over
 | `CodeCoverageWorkerHeartbeatMissing` | Start a fresh instance with `Worker__Enabled=false` (no beat is ever written). |
 | `CodeCoverageJobQueueStalled` | With no worker, queue a job whose `RunAfter` is more than 10 minutes old. |
 | `CodeCoverageMetricsAbsent` | Stop the Api and the Web (the collector keeps a series 5 minutes, then the rule waits 5 more). |
-| `CodeCoverageGitHubQuotaLow` | Needs GitHub answers with a low `x-ratelimit-remaining`; covered by `alerts.test.yml`. |
+| `CodeCoverageForgeQuotaLow` | Needs forge answers with a low remaining quota (`x-ratelimit-remaining` on GitHub); covered by `alerts.test.yml`. |
 
 ## Production on a VM
 
