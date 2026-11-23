@@ -1640,6 +1640,7 @@ Pour un monorepo avec carryforward, **ne pas utiliser `codecov.notify.after_n_bu
 | `GET /api/v1/ops/webhooks` | Operations | ApiToken (admin d'instance) | — | `IReadOnlyList<WebhookDeliveryResponse>` | `ListWebhookDeliveries` |
 | `GET /api/v1/ops/status` | Operations | ApiToken (admin d'instance) | — | `SystemStatusResponse` (profondeur de file, âge du plus ancien job, jobs morts, quota GitHub, heartbeats ; `Workers` et `GitHubQuotas` ajoutés en M3.13a, lus dans les tables opérationnelles) | `GetSystemStatus` |
 | `POST /api/v1/github/webhooks` | GitHubWebhooks | HMAC | événement GitHub | 202 | `ReceiveWebhook` |
+| `POST /api/v1/azure-devops/webhooks/{connectionId}` | AzureDevOpsWebhooks | secret d'en-tête `X-CodeCoverage-Webhook-Secret` de la connexion (pas de HMAC, ADR-014) | service hook Azure DevOps (`id` et `eventType` du corps) | 202 (200 si déjà connue) | `ReceiveForgeWebhook` |
 | `GET /api/v1/badges/{forge}/{owner}/{repo}.{ext:regex(^(svg\|txt)$)}` | Badges | anonyme et jeton | `?branch=&flag=&token=&precision=` | SVG / texte | `GetBadge` |
 | `GET /{service:regex(^(gh\|github)$)}/{owner}/{repo}/{graph:regex(^graphs?$)}/badge.{ext}` | Badges | idem | idem | idem | `GetBadge` |
 | `GET /{service}/{owner}/{repo}/branch/{**branchAndSuffix}` (suffixe `/graph(s)/badge.{ext}`) | Badges | idem | idem | idem | `GetBadge` |

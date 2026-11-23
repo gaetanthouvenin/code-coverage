@@ -36,6 +36,11 @@ public static class ApiProbes
     ApiProbe.NotAddressed("ApiTokensController.ListAsync", "The tokens of the signed-in user only."),
     ApiProbe.NotAddressed("ApiTokensController.RevokeAsync", "A token of the signed-in user, found by its identifier under that user."),
 
+    ApiProbe.NotAddressed(
+      "AzureDevOpsWebhooksController.ReceiveAsync",
+      "The address names a connection, not an organization, and the secret of that connection is the whole gate (ADR-017)."
+    ),
+
     // Badges: public by design, and probed by their own tests below.
     ApiProbe.Addressed("BadgesController.GetAsync", HttpMethod.Get, "/api/v1/badges/github/{owner}/app.svg"),
     ApiProbe.Addressed("BadgesController.GetCodecovAsync", HttpMethod.Get, "/github/{owner}/app/graph/badge.svg"),
