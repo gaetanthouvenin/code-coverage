@@ -360,6 +360,63 @@ public sealed class SyncConnectionRepositoriesCommandHandlerTests
     back.InstallationId.ShouldBeNull();
     A.CallTo(() => _forges.GetDirectory(Forge.AzureDevOps)).MustHaveHappened();
     A.CallTo(_installations).MustNotHaveHappened();
+    _queued.ShouldHaveSingleItem().Type.ShouldBe(JobTypes.EnsureForgeHooks);
+  }
+
+  [Fact]
+  public async Task Handle_NewProject_ShouldQueueEnsureForgeHooks()
+  {
+    var connection = new ForgeConnectionRef(Forge.AzureDevOps, ConnectionId);
+    TrackOnConnection("a-1", RepositorySlug.Create("contoso", "platform", "api"));
+    A.CallTo(() => _gateway.ListRepositoriesAsync(connection, A<CancellationToken>._))
+     .Returns([Info("a-1", "api", "contoso", "platform"), Info("t-1", "cli", "contoso", "tools")]);
+
+    await HandleAsync(new SyncConnectionRepositoriesCommand(Forge.AzureDevOps, ConnectionId));
+
+    var job = _queued.ShouldHaveSingleItem();
+    job.Type.ShouldBe(JobTypes.EnsureForgeHooks);
+    job.PayloadJson.ShouldBe(ForgeHookJobs.EnsurePayload(ConnectionId));
+    job.DedupKey.ShouldBe(ForgeHookJobs.EnsureKey(ConnectionId));
+    job.Coalesce.ShouldBeTrue();
+    job.OrganizationId.ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task Handle_NoRepositoryAppeared_ShouldNotQueueEnsureForgeHooks()
+  {
+    var connection = new ForgeConnectionRef(Forge.AzureDevOps, ConnectionId);
+    TrackOnConnection("a-1", RepositorySlug.Create("contoso", "platform", "api"));
+    TrackOnConnection("a-2", RepositorySlug.Create("contoso", "platform", "web"));
+    A.CallTo(() => _gateway.ListRepositoriesAsync(connection, A<CancellationToken>._))
+     .Returns([Info("a-1", "api", "contoso", "platform"), Info("a-2", "web-renamed", "contoso", "platform")]);
+
+    await HandleAsync(new SyncConnectionRepositoriesCommand(Forge.AzureDevOps, ConnectionId));
+
+    _queued.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_NewRepositoryAddedInTheMeantime_ShouldNotQueueEnsureForgeHooks()
+  {
+    var connection = new ForgeConnectionRef(Forge.AzureDevOps, ConnectionId);
+    A.CallTo(() => _gateway.ListRepositoriesAsync(connection, A<CancellationToken>._)).Returns([Info("t-1", "cli", "contoso", "tools")]);
+    A.CallTo(() => _repositories.AddAsync(A<TrackedRepository>._, A<CancellationToken>._))
+     .Throws(new ConflictException(GeneralErrors.ConcurrentChange, "added in the meantime"));
+
+    await HandleAsync(new SyncConnectionRepositoriesCommand(Forge.AzureDevOps, ConnectionId));
+
+    _queued.ShouldBeEmpty();
+  }
+
+  [Fact]
+  public async Task Handle_NewGitHubRepository_ShouldNotQueueEnsureForgeHooks()
+  {
+    Listed(Info("4", "fresh"));
+
+    await HandleAsync();
+
+    _added.ShouldHaveSingleItem();
+    _queued.ShouldBeEmpty();
   }
 
   [Theory]
