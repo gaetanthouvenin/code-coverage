@@ -145,6 +145,21 @@ public sealed class AzureDevOpsEventTranslatorTests
   }
 
   [Fact]
+  public void Translate_PushNamingItsRepositoryByIdentifierOnly_ShouldTakeTheFirstBranch()
+  {
+    var body = Fixture("git.push.json");
+    body["resource"]!.AsObject().Remove("repository");
+    body["resource"]!["repositoryId"] = RepositoryId;
+    body["resource"]!["refUpdates"] = new JsonArray(
+      new JsonObject { ["name"] = "refs/heads/feature/login", ["oldObjectId"] = NullObjectId, ["newObjectId"] = Before },
+      new JsonObject { ["name"] = "refs/heads/main", ["oldObjectId"] = Before, ["newObjectId"] = Head }
+    );
+
+    _translator.Translate(Delivery(AzureDevOpsEventTranslator.PushEvent, body))
+               .ShouldBe(new ForgePushEvent(RepositoryId, "feature/login", GitSha.Parse(Before), Deleted: false, TouchesConfig: true));
+  }
+
+  [Fact]
   public void Translate_PullCreated_ShouldReturnAPullRequestEvent() =>
     _translator.Translate(Delivery(AzureDevOpsEventTranslator.PullRequestCreatedEvent, Fixture("git.pullrequest.created.json")))
                .ShouldBe(new ForgePullRequestEvent(RepositoryId, 42));
@@ -305,6 +320,23 @@ public sealed class AzureDevOpsEventTranslatorTests
   [Fact]
   public void Translate_UnknownEvent_ShouldIgnore() =>
     _translator.Translate(Delivery("git.repo.forked", Fixture("git.repo.renamed.json"))).ShouldBeNull();
+
+  [Theory]
+  [InlineData("GIT.PUSH")]
+  [InlineData("git.pusX")]
+  [InlineData("GIT.PULLREQUEST.CREATED")]
+  [InlineData("git.pullrequest.createX")]
+  [InlineData("git.pullrequest.updateX")]
+  [InlineData("git.pullrequest.deleted")]
+  [InlineData("GIT.PULLREQUEST.MERGED")]
+  [InlineData("git.pullrequest.mergeX")]
+  [InlineData("GIT.REPO.CREATED")]
+  [InlineData("git.repo.createX")]
+  [InlineData("git.repo.renameX")]
+  [InlineData("git.repo.deleteX")]
+  [InlineData("git.repo.updated")]
+  public void Translate_EventCloseToAKnownOne_ShouldIgnore(string @event) =>
+    _translator.Translate(Delivery(@event, Fixture("git.pullrequest.created.json"))).ShouldBeNull();
 
   [Fact]
   public void Translate_UnreadableBody_ShouldIgnore()
