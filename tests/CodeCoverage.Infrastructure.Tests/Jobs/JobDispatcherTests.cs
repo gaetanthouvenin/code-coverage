@@ -26,6 +26,8 @@ using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHisto
 using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
+using CodeCoverage.Application.Features.Webhooks.Commands.CheckForgeHooks;
+using CodeCoverage.Application.Features.Webhooks.Commands.EnsureForgeHooks;
 using CodeCoverage.Application.Features.Webhooks.Commands.HandleForgeDelivery;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Operations;
@@ -327,6 +329,25 @@ public sealed class JobDispatcherTests
   }
 
   [Fact]
+  public async Task DispatchAsync_CheckForgeHooks_ShouldRunTheCoordinator()
+  {
+    await new JobDispatcher(_sender).DispatchAsync(Job(JobTypes.CheckForgeHooks, 42), Ct);
+
+    A.CallTo(() => _sender.Send(new CheckForgeHooksCommand(), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task DispatchAsync_EnsureForgeHooks_ShouldEnsureTheHooksOfTheConnectionOfThePayload()
+  {
+    var job = Job(JobTypes.EnsureForgeHooks, 2);
+    job.PayloadJson = ForgeHookJobs.EnsurePayload("contoso-devops");
+
+    await new JobDispatcher(_sender).DispatchAsync(job, Ct);
+
+    A.CallTo(() => _sender.Send(new EnsureForgeHooksCommand("contoso-devops"), Ct)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
   public async Task DispatchAsync_SyncConnectionRepositoriesOfAConnection_ShouldNameItsForge()
   {
     var job = Job(JobTypes.SyncConnectionRepositories, 2);
@@ -359,6 +380,8 @@ public sealed class JobDispatcherTests
   [InlineData(JobTypes.SyncConnectionRepositories, """{"ConnectionId":"042","Forge":"GitHub"}""")]
   [InlineData(JobTypes.CheckConnection, "{}")]
   [InlineData(JobTypes.CheckConnection, """{"ConnectionId":""}""")]
+  [InlineData(JobTypes.EnsureForgeHooks, "{}")]
+  [InlineData(JobTypes.EnsureForgeHooks, """{"ConnectionId":""}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, "{}")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":""}""")]
   [InlineData(JobTypes.ReconcileRepositoryTransfer, """{"RepositoryExternalId":"7","Forge":"Unknown"}""")]

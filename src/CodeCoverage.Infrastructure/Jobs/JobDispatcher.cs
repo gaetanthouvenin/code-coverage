@@ -28,6 +28,8 @@ using CodeCoverage.Application.Features.Repositories.Commands.ImportCodecovHisto
 using CodeCoverage.Application.Features.Repositories.Commands.ReconcileRepositoryTransfer;
 using CodeCoverage.Application.Features.Repositories.Commands.RewriteRepositoryOwner;
 using CodeCoverage.Application.Features.Uploads.Commands.ProcessUpload;
+using CodeCoverage.Application.Features.Webhooks.Commands.CheckForgeHooks;
+using CodeCoverage.Application.Features.Webhooks.Commands.EnsureForgeHooks;
 using CodeCoverage.Application.Features.Webhooks.Commands.HandleForgeDelivery;
 using CodeCoverage.Domain.Contracts.Jobs;
 using CodeCoverage.Domain.Organizations;
@@ -256,6 +258,14 @@ internal sealed class JobDispatcher(ISender sender) : IJobDispatcher
         break;
       case JobTypes.CheckConnection:
         await sender.Send(Read(job, static p => new CheckConnectionCommand(ReadText(p, "ConnectionId"))), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.CheckForgeHooks:
+        await sender.Send(new CheckForgeHooksCommand(), cancellationToken).ConfigureAwait(false);
+
+        break;
+      case JobTypes.EnsureForgeHooks:
+        await sender.Send(Read(job, static p => new EnsureForgeHooksCommand(ReadText(p, "ConnectionId"))), cancellationToken).ConfigureAwait(false);
 
         break;
       case JobTypes.SyncConnectionRepositories:

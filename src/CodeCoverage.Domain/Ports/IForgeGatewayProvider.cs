@@ -68,5 +68,11 @@ public interface IForgeGatewayProvider
   /// <exception cref="NotSupportedException">No webhook validator is implemented for <paramref name="forge" />.</exception>
   IForgeWebhookValidator GetWebhookValidator(Forge forge);
 
+  /// <summary>Gets what creates and checks the hooks of the connections of a forge.</summary>
+  /// <param name="forge">The forge, never GitHub, whose App delivers the events of its installations.</param>
+  /// <returns>The hook manager of the forge.</returns>
+  /// <exception cref="NotSupportedException">No hook manager is implemented for <paramref name="forge" />.</exception>
+  IForgeHookManager GetHookManager(Forge forge);
+
   #endregion
 }

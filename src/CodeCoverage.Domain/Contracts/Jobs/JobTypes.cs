@@ -57,6 +57,15 @@ public static class JobTypes
   public const string CheckConnection = "CheckConnection";
 
   /// <summary>
+  ///   Lists the forge connections that are not suspended and queues the ensuring of the hooks of each one, in its
+  ///   organization: the daily coordinator of the hooks (ADR-017).
+  /// </summary>
+  public const string CheckForgeHooks = "CheckForgeHooks";
+
+  /// <summary>Creates the hooks a forge connection misses at its forge and records the state of each, in its organization.</summary>
+  public const string EnsureForgeHooks = "EnsureForgeHooks";
+
+  /// <summary>
   ///   The former reconciliation of the repositories of an organization with those its installation serves, replaced by
   ///   <see cref="SyncConnectionRepositories" />: nothing queues it any more, and the job dispatcher still runs, for one
   ///   version, the jobs of this type that were queued before the deployment.

@@ -17,6 +17,7 @@ namespace CodeCoverage.Infrastructure.Jobs;
 ///   <list type="bullet">
 ///     <item><description><c>SyncInstallations</c>, daily (lock and dedup <c>installations</c>);</description></item>
 ///     <item><description><c>SyncConnections</c>, daily (lock and dedup <c>connections</c>);</description></item>
+///     <item><description><c>CheckForgeHooks</c>, daily (lock and dedup <c>forge-hooks</c>);</description></item>
 ///     <item><description><c>SweepPendingCommits</c>, every 5 minutes (lock and dedup <c>sweep</c>);</description></item>
 ///     <item><description><c>PurgeExpiredData</c>, daily (lock and dedup <c>purge</c>).</description></item>
 ///   </list>
@@ -35,6 +36,7 @@ internal static class RecurringJobCatalog
     new(JobTypes.SyncInstallations, TimeSpan.FromDays(1), SyncInstallationsJobs.Key, SyncInstallationsJobs.Key),
     new(JobTypes.SyncConnections, TimeSpan.FromDays(1), SyncConnectionsJobs.Key, SyncConnectionsJobs.Key),
     new(JobTypes.CheckConnections, TimeSpan.FromDays(1), ConnectionHealthJobs.Key, ConnectionHealthJobs.Key),
+    new(JobTypes.CheckForgeHooks, TimeSpan.FromDays(1), ForgeHookJobs.Key, ForgeHookJobs.Key),
     new(JobTypes.SweepPendingCommits, TimeSpan.FromMinutes(5), SweepPendingCommitsJobs.Key, SweepPendingCommitsJobs.Key),
     new(JobTypes.PurgeExpiredData, TimeSpan.FromDays(1), PurgeExpiredDataJobs.Key, PurgeExpiredDataJobs.Key),
   ];

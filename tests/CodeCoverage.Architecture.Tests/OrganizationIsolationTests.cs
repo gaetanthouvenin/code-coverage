@@ -57,6 +57,8 @@ public sealed partial class OrganizationIsolationTests
 
   private const string ConnectionHealthCoordinator = "src/CodeCoverage.Application/Features/Connections/Commands/CheckConnections/CheckConnectionsCommandHandler.cs";
 
+  private const string HookCoordinator = "src/CodeCoverage.Application/Features/Webhooks/Commands/CheckForgeHooks/CheckForgeHooksCommandHandler.cs";
+
   private const string ConnectionAdmission = "src/CodeCoverage.Application/Features/Connections/Commands/ConnectOrganization/ConnectOrganizationCommandHandler.cs";
 
   private const string SweepCoordinator ="src/CodeCoverage.Application/Features/Notifications/Commands/SweepPendingCommits/SweepPendingCommitsCommandHandler.cs";
@@ -138,6 +140,11 @@ public sealed partial class OrganizationIsolationTests
     // ForgeConnections and Organizations only and queues one check per connection that is not suspended, in its active
     // organization.
     (ConnectionHealthCoordinator, "ForOrganization"),
+
+    // The coordinator of the hooks of the forge connections (ADR-017, M7.23): on the lane of the instance, it reads
+    // ForgeConnections and Organizations only and queues one EnsureForgeHooks per connection that is not suspended, in its
+    // active organization.
+    (HookCoordinator, "ForOrganization"),
 
     // The admission of an organization by its connection (ADR-017, M7.12): an administrator of the instance, in no
     // organization, queues the reconciliation of the repositories of the organization it has just created, by the

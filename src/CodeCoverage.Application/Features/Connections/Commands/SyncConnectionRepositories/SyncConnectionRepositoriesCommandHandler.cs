@@ -38,6 +38,11 @@ namespace CodeCoverage.Application.Features.Connections.Commands.SyncConnectionR
 ///     When the forge reports a new login for the account of the organization, the organization takes it here, and the
 ///     rewrite of the owner of its repositories is queued: the renaming step is the same for every forge.
 ///   </para>
+///   <para>
+///     On a forge with connections, a repository tracked for the first time or served again queues the ensuring of the
+///     hooks of the connection (<c>EnsureForgeHooks</c>), merged with the one already waiting: the scope of a new hook
+///     gets it without waiting for the daily pass.
+///   </para>
 /// </remarks>
 internal sealed class SyncConnectionRepositoriesCommandHandler(
   IForgeGatewayProvider forges,
@@ -116,12 +121,16 @@ internal sealed class SyncConnectionRepositoriesCommandHandler(
   /// <param name="info">What the forge reports.</param>
   /// <param name="known">Whether the repository is already tracked.</param>
   /// <param name="cancellationToken">A token to cancel the work.</param>
-  /// <returns>A task that completes when the row is saved.</returns>
-  private async Task UpsertAsync(ForgeConnectionRef connection, ForgeRepositoryInfo info, bool known, CancellationToken cancellationToken)
+  /// <returns>
+  ///   <see langword="true" /> when the repository was tracked for the first time or served again, so that the scope of a
+  ///   hook may have appeared; otherwise <see langword="false" />.
+  /// </returns>
+  private async Task<bool> UpsertAsync(ForgeConnectionRef connection, ForgeRepositoryInfo info, bool known, CancellationToken cancellationToken)
   {
     var repository = known ? await repositories.FindByExternalIdAsync(info.ExternalId, cancellationToken).ConfigureAwait(false) : null;
 
     var isNew = repository is null;
+    var appeared = repository is not { IsActive: true };
     var version = repository?.Version;
 
     if (repository is null)
@@ -138,7 +147,7 @@ internal sealed class SyncConnectionRepositoriesCommandHandler(
 
     if (!isNew && repository.Version == version)
     {
-      return;
+      return false;
     }
 
     try
@@ -149,7 +158,10 @@ internal sealed class SyncConnectionRepositoriesCommandHandler(
     {
       // Tracked in the meantime by an upload, or its name is still held by a tracked row that the same list
       // renames further on: the others go on, and the next reconciliation tries this one again.
+      return false;
     }
+
+    return appeared;
   }
 
   #endregion
@@ -177,13 +189,21 @@ internal sealed class SyncConnectionRepositoriesCommandHandler(
     var tracked = await repositories.ListAsync(cancellationToken).ConfigureAwait(false);
     var known = tracked.Select(static r => r.ExternalId).ToHashSet(StringComparer.Ordinal);
     var served = new HashSet<string>(StringComparer.Ordinal);
+    var appeared = false;
 
     foreach (var info in listed)
     {
       var externalId = TrackedRepository.NormalizeExternalId(info.ExternalId);
 
       served.Add(externalId);
-      await UpsertAsync(connection, info, known.Contains(externalId), cancellationToken).ConfigureAwait(false);
+      appeared |= await UpsertAsync(connection, info, known.Contains(externalId), cancellationToken).ConfigureAwait(false);
+    }
+
+    // A repository tracked or served again may bring a project or a repository without its hook; GitHub has none to
+    // manage, since its App delivers the events of its installations (ADR-017).
+    if (appeared && command.Forge is not Forge.GitHub)
+    {
+      await jobQueue.EnqueueAsync(ForgeHookJobs.Ensure(command.ConnectionId), cancellationToken).ConfigureAwait(false);
     }
 
     foreach (var missing in tracked.Where(r => r.IsActive && !served.Contains(r.ExternalId)))
