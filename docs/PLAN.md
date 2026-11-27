@@ -25,6 +25,7 @@
    - 9.1 Jalon M7 – Azure DevOps Services
    - 9.2 Jalon M8 – Bitbucket Cloud
    - 9.3 Jalon M9 – GitLab.com
+   - 9.4 Jalon M10 – Service hébergé
 10. [Écarts et compléments par rapport à l'architecture](#10-écarts-et-compléments-par-rapport-à-larchitecture)
 11. [Décisions ouvertes](#11-décisions-ouvertes)
 
@@ -136,9 +137,13 @@ graph LR
   M4 --> M7["M7 Azure DevOps"]
   M7 --> M8["M8 Bitbucket"]
   M8 --> M9["M9 GitLab.com"]
+  M4 --> M10["M10 Service hébergé"]
+  M7 -. "M7.12 avant M10.06" .-> M10
 ```
 
 M7, M8 et M9 implémentent Azure DevOps, Bitbucket et GitLab.com, dans cet ordre ([ADR-014](adr/0014-multi-forge.md), amendé par M7.02) ; M7 porte aussi les refactors neutres que M8 et M9 réutilisent.
+
+M10 ouvre l'instance en service hébergé gratuit (ADR-018, M10.01). Il ne dépend que de M4, sauf M10.06, qui attend l'admission par connexion de M7.12.
 
 Deux exceptions à l'ordre des jalons : M5.06 (import de l'historique Codecov) passe avant M4.08, parce qu'elle lit une API que la résiliation rend inaccessible ; M3.03a (appartenances) passe avant M2.03a2, dont les événements de membres alimentent cette table.
 
@@ -855,6 +860,97 @@ graph TD
   M9_24b --> M9_28
   M9_25 --> M9_28
   M9_27 --> M9_28
+```
+
+### 2.10 M10 – Service hébergé
+
+```mermaid
+graph TD
+  M10_01["M10.01 ADR-018 : service hébergé gratuit"]
+  M10_02["M10.02 Maquette des écrans du service hébergé"]
+  M10_03["M10.03 Paramètre Admission:Mode"]
+  M10_04["M10.04 Conditions d'utilisation versionnées et acceptées"]
+  M10_05["M10.05 Activation GitHub en libre-service"]
+  M10_06["M10.06 Connexion de forge en libre-service"]
+  M10_07["M10.07 Formule et limites d'une organisation"]
+  M10_08["M10.08 Exception 429 et quota d'upload"]
+  M10_09["M10.09 Limite de dépôts suivis"]
+  M10_10["M10.10 Rétention selon la formule"]
+  M10_11["M10.11 Réclamation équitable des jobs"]
+  M10_12["M10.12 Page Formule et utilisation"]
+  M10_13["M10.13 Jobs et livraisons de l'organisation"]
+  M10_14["M10.14 Journal d'audit de l'organisation"]
+  M10_15["M10.15 Accès de support limité et audité"]
+  M10_16["M10.16 Effacement des données d'une organisation"]
+  M10_17["M10.17 Export des données d'une organisation"]
+  M10_18["M10.18 Compte utilisateur : export et suppression"]
+  M10_19["M10.19 Pages légales"]
+  M10_20["M10.20 Registre des traitements et DPA"]
+  M10_21["M10.21 Accueil public"]
+  M10_22["M10.22 Envoi d'e-mails"]
+  M10_23["M10.23 E-mails du cycle de vie"]
+  M10_24["M10.24 Supervision externe et page d'état"]
+  M10_25["M10.25 Sauvegardes hors site chiffrées"]
+  M10_26["M10.26 Durcissement des routes anonymes"]
+  M10_27["M10.27 Guide du service hébergé"]
+  M10_28["M10.28 Ouverture du service"]
+  M10_01 --> M10_02
+  M10_01 --> M10_03
+  M10_01 --> M10_04
+  M10_01 --> M10_07
+  M10_01 --> M10_11
+  M10_01 --> M10_15
+  M10_01 --> M10_16
+  M10_01 --> M10_19
+  M10_01 --> M10_22
+  M10_01 --> M10_24
+  M10_01 --> M10_25
+  M10_01 --> M10_26
+  M10_02 --> M10_04
+  M10_02 --> M10_05
+  M10_02 --> M10_12
+  M10_02 --> M10_13
+  M10_02 --> M10_14
+  M10_02 --> M10_15
+  M10_02 --> M10_16
+  M10_02 --> M10_17
+  M10_02 --> M10_18
+  M10_02 --> M10_19
+  M10_02 --> M10_21
+  M10_03 --> M10_05
+  M10_04 --> M10_05
+  M10_05 --> M10_06
+  M10_07 --> M10_08
+  M10_07 --> M10_09
+  M10_07 --> M10_10
+  M10_08 --> M10_12
+  M10_09 --> M10_12
+  M10_10 --> M10_12
+  M10_13 --> M10_15
+  M10_14 --> M10_15
+  M10_16 --> M10_18
+  M10_19 --> M10_04
+  M10_19 --> M10_20
+  M10_19 --> M10_21
+  M10_22 --> M10_23
+  M10_08 --> M10_23
+  M10_16 --> M10_23
+  M10_15 --> M10_23
+  M10_05 --> M10_27
+  M10_12 --> M10_27
+  M10_16 --> M10_27
+  M10_05 --> M10_28
+  M10_11 --> M10_28
+  M10_12 --> M10_28
+  M10_17 --> M10_28
+  M10_18 --> M10_28
+  M10_20 --> M10_28
+  M10_21 --> M10_28
+  M10_23 --> M10_28
+  M10_24 --> M10_28
+  M10_25 --> M10_28
+  M10_26 --> M10_28
+  M10_27 --> M10_28
 ```
 
 ---
@@ -5726,6 +5822,363 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
 - **Acceptation :** chaque ligne est cochée ou ouverte en écart nommé ; aucune régression GitHub, Azure DevOps ni Bitbucket observée en production (propriétaire).
 - **Dépend de :** M9.08, M9.09, M9.10, M9.11, M9.15, M9.18, M9.19, M9.22, M9.24b, M9.25, M9.27
 
+### 9.4 Jalon M10 – Service hébergé
+
+**Critère de sortie :** une organisation GitHub qui n'est pas celle du propriétaire installe l'App publique, et un de ses administrateurs accepte les conditions d'utilisation. L'organisation devient active sans intervention de l'administrateur d'instance (M10.05), avec la formule gratuite et ses limites (M10.07 à M10.10). Son premier upload reçoit ses statuts, et sa page « Formule et utilisation » montre sa consommation (M10.12). Ses administrateurs voient ses jobs échoués, ses livraisons et son audit (M10.13, M10.14). Ils peuvent ouvrir un accès de support limité dans le temps (M10.15), exporter ses données (M10.17) et demander leur effacement (M10.16). Les pages légales sont publiées (M10.19). L'instance tourne sur la VM de production, avec une supervision externe (M10.24) et des sauvegardes hors site dont la restauration est vérifiée (M10.25). Le propriétaire le constate (M10.28). Une instance auto-hébergée garde l'admission fermée par défaut et ne voit aucun changement.
+
+**Décisions du propriétaire du 2026-11-27.** Elles fondent ce jalon et sont consignées par ADR-018 (M10.01) :
+- le service est **gratuit** au lancement. Une formule unique, `Free`, porte des limites par organisation. La facturation n'est pas planifiée : `Plan` est une énumération, prête pour d'autres formules ;
+- l'admission est **en libre-service**. Installer l'App, ou connecter une forge, puis accepter les conditions suffit. L'administrateur d'instance garde la suspension. Le mode d'admission est un paramètre d'instance, fermé par défaut : une instance auto-hébergée reste sur l'admission d'ADR-013 ;
+- l'hébergement reste la **VM Docker de production** (M4.02). Le jalon ajoute ce qui manque à une VM pour servir des tiers : supervision externe, page d'état, sauvegardes hors site, durcissement des routes anonymes. Azure Container Apps (M4.03) reste livré sans être déployé ;
+- le **cadre légal** est planifié en micro-features : pages, acceptation tracée, registre des traitements et DPA. Le contenu juridique est rédigé comme un modèle que le propriétaire valide, et rien n'est publié sans cette validation.
+
+**Ce que le jalon reprend du backlog d'isolation (§11).** Quatre points du backlog trouvent leur déclencheur dans l'ouverture à des tiers :
+- la réclamation équitable des jobs (M10.11) ;
+- la limite agrégée d'upload par organisation (M10.08) ;
+- les écrans d'exploitation en libre-service (M10.13, M10.14) ;
+- l'effacement des données d'une organisation (M10.16).
+
+La résilience par installation reste au backlog : seule une mesure sur l'instance ouverte dira si elle compte.
+
+**Cadrage**
+
+#### M10.01 — ADR-018 : service hébergé gratuit
+- **Issue :** [#518](https://github.com/gaetanthouvenin/code-coverage/issues/518)
+- **Objectif :** décider, avant tout code, ce qui change quand l'instance accueille des organisations inconnues du propriétaire.
+- **Couches :** docs.
+- **Fichiers :**
+  - **`docs/adr/0018-hosted-service.md`** (nouveau), qui amende [ADR-013](adr/0013-organization-isolation.md) :
+    - **admission** (arbitrage 1 d'ADR-013) : paramètre d'instance `Admission:Mode` (`Closed` par défaut, `Open`). En mode `Open`, une installation crée toujours une organisation `Pending`, qui devient `Active` dès qu'un administrateur du compte accepte la version courante des conditions. Une organisation suspendue par l'administrateur d'instance le reste, même après une réinstallation ;
+    - **formule** : `Plan.Free` seule, colonne `Organizations.Plan`. Les limites sont des paramètres d'instance `Plans:Free:*` : dépôts suivis, uploads par jour, uploads par minute, jours de rétention du brut et des rapports de branche. Les défauts sont fixés par l'ADR, et le dépassement est refusé en 429 (`TooManyRequestsException`, ajoutée à la hiérarchie) ;
+    - **accès de support** (arbitrage 3) : un administrateur d'organisation l'ouvre pour une durée bornée, il est audité des deux côtés et expire sans action. L'administrateur d'instance ne lit jamais une organisation sans lui ;
+    - **écrans en libre-service** (arbitrage 5) : jobs, livraisons et audit de l'organisation, pour ses administrateurs ;
+    - **effacement** (arbitrage 6) : un job reprenable par organisation, à la demande d'un administrateur d'organisation après un délai de grâce, ou automatiquement après `Organizations:DeletionGraceDays` jours de suspension par désinstallation. Une suspension pour abus n'est pas effacée automatiquement ;
+    - **conditions** : table globale `TermsAcceptances` (utilisateur, version, date), versions des conditions déclarées dans le code ; une nouvelle version redemande l'acceptation ;
+    - **cookies** : le Web ne pose que des cookies strictement nécessaires (authentification, antiforgery, langue) ; aucun bandeau de consentement, la politique de confidentialité les liste ;
+    - **e-mails** : port `IEmailSender`, SMTP en paramètres d'instance. L'adresse vient de la forge ; GitHub demande la permission utilisateur « Email addresses: read », ajoutée au manifest, que les installations existantes doivent accepter ;
+    - **exploitation sur la VM** : objectif de disponibilité « au mieux », affiché sur la page d'état, supervision externe et sauvegardes hors site chiffrées ;
+    - **abus** : suspension avec le motif `Abuse` par l'administrateur d'instance, sans effacement automatique ;
+    - **écarts avec Codecov** : aucun nouvel écart de comportement des uploads ou des statuts. Seuls les refus 429 du quota sont nouveaux, et l'uploader termine toujours en 0 (règle 6).
+  - **`docs/adr/0013-organization-isolation.md`** : renvoi à ADR-018 pour les arbitrages 1, 3, 5 et 6 ; **`docs/adr/README.md`** (ADR-018 proposé).
+  - **`AGENT.md`** : règle 8, la porte d'entrée d'une organisation inclut l'accès de support (M10.15) ; §3, `TooManyRequestsException` 429 dans la liste des refus.
+- **Tests :** — (documentation seule, `Architecture.Tests` restent verts).
+- **Acceptation :** l'ADR est accepté par le propriétaire (propriétaire).
+- **Dépend de :** M4.02a
+
+#### M10.02 — Maquette des écrans du service hébergé
+- **Issue :** [#519](https://github.com/gaetanthouvenin/code-coverage/issues/519)
+- **Objectif :** valider avant tout code les écrans que le service hébergé ajoute.
+- **Couches :** maquette.
+- **Fichiers :** `docs/design/ui-mockup.html`, avec une section par écran :
+  - **accueil public** (non connecté) : présentation, bouton « Installer l'App », lien vers la documentation, limites de la formule gratuite, état du service ;
+  - **`/welcome`** : retour de l'installation (`setup_url`), connexion, conditions à accepter, activation, premier upload guidé ;
+  - **`/orgs/{forge}/{org}/plan`** : formule, limites et consommation ;
+  - **`/orgs/{forge}/{org}/jobs`** et **`/orgs/{forge}/{org}/audit`** ;
+  - **`/orgs/{forge}/{org}/support`** : ouverture et fermeture de l'accès de support ;
+  - **`/orgs/{forge}/{org}/data`** : export, demande d'effacement et son annulation ;
+  - **`/account`** : export et suppression du compte ;
+  - **`/legal/*`**, pied de page et bandeau de nouvelle version des conditions ;
+  - **`/status`**.
+- **Tests :** — (maquette seule).
+- **Acceptation :** la maquette est validée par le propriétaire avant les écrans de M10 (propriétaire).
+- **Dépend de :** M10.01
+
+**Admission en libre-service**
+
+#### M10.03 — Paramètre d'instance `Admission:Mode`
+- **Issue :** [#520](https://github.com/gaetanthouvenin/code-coverage/issues/520)
+- **Objectif :** choisir, par instance, entre l'admission fermée d'ADR-013 et le libre-service.
+- **Couches :** Domain, Application, Web.
+- **Fichiers :**
+  - `Domain/Settings/SettingDefinitions.cs` : `Admission:Mode` (`Closed`, `Open`, défaut `Closed`, niveau instance) ; `Domain/Organizations/AdmissionMode.cs` ;
+  - `Application/Configuration/AdmissionOptions.cs`, lue par `IOptionsMonitor<AdmissionOptions>` ;
+  - `/admin/settings` : le groupe `Admission`, libellés dans les quatre langues.
+- **Tests :** `SettingDefinitionsTests` (défaut `Closed`) ; `AdmissionOptionsTests` — `Bind_UnknownMode_ShouldFailValidation`.
+- **Acceptation :** une instance existante reste en mode `Closed` après la mise à jour, sans migration de données.
+- **Dépend de :** M10.01
+
+#### M10.04 — Conditions d'utilisation versionnées et acceptées
+- **Issue :** [#522](https://github.com/gaetanthouvenin/code-coverage/issues/522)
+- **Objectif :** tracer quel utilisateur a accepté quelle version des conditions, et redemander l'acceptation quand elles changent.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Web.
+- **Fichiers :**
+  - `Domain/Legal/TermsVersion.cs` (version courante déclarée dans le code, date d'effet) ; `Domain/Legal/TermsAcceptance.cs` ; port `Domain/Ports/ITermsAcceptanceRepository.cs` ;
+  - table globale `TermsAcceptances` (`TableClassification.Global`, `UX(UserId, Version)`) ; deux migrations ;
+  - UC `Features/Legal/Commands/AcceptTerms` (utilisateur connecté, audité) et `Features/Legal/Queries/GetMyTermsState` ;
+  - Web : bandeau et dialogue d'acceptation quand la version acceptée n'est pas la version courante, lien vers `/legal/terms` (M10.19) ;
+  - `Features/Legal/LegalErrors.cs` (`Legal.TermsNotAccepted`) et resx des quatre langues.
+- **Tests :** `AcceptTermsCommandHandlerTests` — `Handle_SameVersionTwice_ShouldBeIdempotent` ; `TermsAcceptanceRepositoryTests` (deux fournisseurs) ; `Web.Tests` — `Render_OutdatedAcceptance_ShouldShowBanner`.
+- **Acceptation :** `Model_EveryEntity_ShouldBeClassifiedOnce` est vert ; une nouvelle version déclarée dans le code fait réapparaître le bandeau pour tout utilisateur.
+- **Dépend de :** M10.01, M10.02, M10.19
+
+#### M10.05 — Activation GitHub en libre-service
+- **Issue :** [#523](https://github.com/gaetanthouvenin/code-coverage/issues/523)
+- **Objectif :** qu'une organisation GitHub devienne active quand un de ses administrateurs accepte les conditions, sans l'administrateur d'instance.
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :**
+  - UC `Features/Organizations/Commands/ActivateOrganization` (`+V`, audité) : en mode `Open`, l'utilisateur doit être administrateur du compte GitHub (propriétaire de l'organisation, ou le compte personnel lui-même), d'après une lecture fraîche de son appartenance par la forge, et avoir accepté la version courante (M10.04). L'organisation passe de `Pending` à `Active`, `AdmittedBy` reçoit l'utilisateur, la formule `Free` est posée (M10.07), et `SyncInstallations` comme `RefreshUserMemberships` sont mis en file comme l'admission de M4.02i ;
+  - la porte : la commande entre dans l'organisation par `AuthorizationBehavior`, avec un marqueur d'accès dédié à l'activation, déclaré dans `OrganizationIsolationTests` ;
+  - `Web/Components/Pages/Welcome.razor(.cs)` : `setup_url` du manifest (M4.02i) pointe vers `/welcome?installation_id=…`, qui identifie l'installation par la forge, jamais par le seul paramètre de l'URL ;
+  - `Features/Organizations/OrganizationErrors.cs` : `Organization.ActivationClosed`, `Organization.NotAccountAdmin`, `Organization.SuspendedByAdmin` ; resx ;
+  - `docs/operations/organization-onboarding.md` et ses traductions : parcours en libre-service.
+- **Tests :** `ActivateOrganizationCommandHandlerTests` — `Handle_ModeClosed_ShouldRefuse`, `Handle_NotAccountAdmin_ShouldRefuse`, `Handle_TermsNotAccepted_ShouldRefuse`, `Handle_SuspendedByAdmin_ShouldStaySuspended`, `Handle_Admin_ShouldActivateWithFreePlan` ; `WelcomeTests` — `Render_ForeignInstallationId_ShouldNotLeakAccount`.
+- **Acceptation :** en mode `Closed`, rien ne change pour l'admission ; un `installation_id` d'un autre compte ne révèle ni le login ni l'état de ce compte.
+- **Dépend de :** M10.02, M10.03, M10.04, M2.03a1, M4.02i
+
+#### M10.06 — Connexion de forge en libre-service
+- **Issue :** [#524](https://github.com/gaetanthouvenin/code-coverage/issues/524)
+- **Objectif :** que l'admission par connexion de M7.12 serve aussi un utilisateur connecté, en mode `Open`, pour Azure DevOps puis, à leur arrivée, Bitbucket et GitLab.
+- **Couches :** Application, Web.
+- **Fichiers :**
+  - UC `Features/Connections/Commands/ConnectOrganization` : en mode `Open`, accessible à un utilisateur connecté qui a accepté les conditions ; le compte de la forge vérifié par `IForgeConnectionVerifier` doit correspondre à l'identité de l'utilisateur sur cette forge, ou l'utilisateur doit en être administrateur. L'utilisateur devient administrateur de l'organisation créée, avec la formule `Free` ;
+  - le formulaire d'admission (M7.41) est accessible depuis `/welcome` ;
+  - erreurs `Connection.SelfServiceClosed` et `Connection.IdentityMismatch` ; resx.
+- **Tests :** `ConnectOrganizationCommandHandlerTests` — `Handle_OpenModeNonAdmin_ShouldRefuse`, `Handle_OpenModeIdentityMismatch_ShouldRefuse`, `Handle_OpenModeAdmin_ShouldCreateActiveFreeOrganization`.
+- **Acceptation :** M8.08 et M9.24 n'ajoutent que leurs champs de formulaire, sans autre cas d'usage.
+- **Dépend de :** M10.05, M7.12, M7.41
+
+**Formule gratuite et limites**
+
+#### M10.07 — Formule et limites d'une organisation
+- **Issue :** [#525](https://github.com/gaetanthouvenin/code-coverage/issues/525)
+- **Objectif :** attacher une formule à chaque organisation et lire ses limites depuis les paramètres d'instance.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer.
+- **Fichiers :**
+  - `Domain/Plans/Plan.cs` (`Free`) et `Domain/Plans/PlanLimits.cs` (dépôts suivis, uploads par jour et par minute, jours de rétention du brut et des rapports de branche) ;
+  - colonne `Organizations.Plan` (`Free` pour les lignes existantes) ; deux migrations ;
+  - `Domain/Settings/SettingDefinitions.cs` : `Plans:Free:*`, niveau instance ; `Application/Configuration/PlanOptions.cs` ;
+  - port `Domain/Ports/IPlanLimitsProvider.cs`, implémenté dans l'Infrastructure à partir de `IOptionsMonitor<PlanOptions>` et de la formule de l'organisation courante.
+- **Tests :** `PlanLimitsProviderTests` — `Get_FreePlan_ShouldReadInstanceSettings` ; migration testée sur les deux fournisseurs.
+- **Acceptation :** une valeur `Plans:Free:*` modifiée dans la console s'applique sans redémarrage ; une instance en mode `Closed` a des limites assez hautes par défaut pour ne rien changer (valeurs fixées par ADR-018).
+- **Dépend de :** M10.01
+
+#### M10.08 — Exception 429 et quota d'upload par organisation
+- **Issue :** [#526](https://github.com/gaetanthouvenin/code-coverage/issues/526)
+- **Objectif :** refuser un upload qui dépasse le quota journalier ou le débit par minute de l'organisation, sans casser un build.
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Api, Web.
+- **Fichiers :**
+  - `Application/Exceptions/TooManyRequestsException.cs` (« Maps to HTTP 429 Too Many Requests. », `RetryAfter`) ; middleware de l'Api (429 et `Retry-After`) et service d'erreur du Web ;
+  - table d'organisation `OrganizationUsage` (`IsOrganizationOwned`, jour, uploads), incrémentée dans la transaction de `ReceiveUploadCommand` ; deux migrations ; nom dans `TableClassification.OrganizationOwned` ;
+  - le débit par minute reste en mémoire, partitionné par organisation, à côté de `UploadRateLimiter` ;
+  - `Features/Uploads/UploadErrors.cs` : `Upload.QuotaExceeded`, `Upload.RateExceeded` ; resx ;
+  - uploader : un 429 est un avertissement et termine en 0, sauf `--fail-on-error` (règle 6).
+- **Tests :** `ReceiveUploadCommandHandlerTests` — `Handle_DailyQuotaReached_ShouldThrowTooManyRequests` ; `OrganizationUsageRepositoryTests` sur deux organisations et deux fournisseurs ; `Api.Tests` — `Post_QuotaReached_ShouldReturn429WithRetryAfter` ; `Uploader.Tests` — `Run_429_ShouldExitZero`.
+- **Acceptation :** le quota d'une organisation n'affecte pas une autre ; la vérification ne fait aucun travail lourd dans la requête (règle 3).
+- **Dépend de :** M10.07
+
+#### M10.09 — Limite de dépôts suivis
+- **Issue :** [#527](https://github.com/gaetanthouvenin/code-coverage/issues/527)
+- **Objectif :** borner le nombre de dépôts actifs d'une organisation à sa formule.
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :**
+  - la synchronisation des dépôts (`SyncInstallations`, `SyncConnectionRepositories`) n'active pas un dépôt au-delà de la limite ; les dépôts en trop restent inactifs, dans l'ordre de leur premier upload, puis de leur nom ;
+  - un upload vers un dépôt inactif à cause de la limite est refusé en 429 (`Upload.RepositoryLimitReached`) ;
+  - un administrateur d'organisation choisit quels dépôts sont actifs, depuis la page de M10.12.
+- **Tests :** `SyncInstallationsCommandHandlerTests` — `Handle_OverRepositoryLimit_ShouldKeepExtraInactive` ; `ReceiveUploadCommandHandlerTests` — `Handle_RepositoryOverLimit_ShouldRefuse`.
+- **Acceptation :** baisser la limite ne désactive aucun dépôt qui a déjà reçu un upload ; seuls les nouveaux dépôts sont bloqués.
+- **Dépend de :** M10.07
+
+#### M10.10 — Rétention selon la formule
+- **Issue :** [#528](https://github.com/gaetanthouvenin/code-coverage/issues/528)
+- **Objectif :** que la purge applique, pour chaque organisation, la plus courte des rétentions de l'instance et de la formule.
+- **Couches :** Application, Infrastructure.
+- **Fichiers :** `PurgeExpiredData` (M3.17) : le coordinateur met déjà en file un job par organisation ; chaque enfant lit `IPlanLimitsProvider` et garde le minimum avec `Retention:*`.
+- **Tests :** `PurgeExpiredDataCommandHandlerTests` — `Handle_PlanShorterThanInstance_ShouldUsePlan`, `Handle_InstanceShorterThanPlan_ShouldUseInstance`.
+- **Acceptation :** aucune organisation ne garde ses données plus longtemps que la rétention de l'instance.
+- **Dépend de :** M10.07, M3.17
+
+#### M10.11 — Réclamation équitable des jobs entre organisations
+- **Issue :** [#529](https://github.com/gaetanthouvenin/code-coverage/issues/529)
+- **Objectif :** qu'un arriéré d'une organisation ne retarde pas les statuts des autres (backlog d'isolation, §11).
+- **Couches :** Infrastructure.
+- **Fichiers :** `Infrastructure/Jobs/SqlJobQueue.cs` et les deux dialectes : la réclamation choisit d'abord l'organisation dont le plus ancien job prêt a attendu le plus longtemps, avec au plus N jobs en cours par organisation (`Processing:MaxRunningJobsPerOrganization`, niveau instance) ; la file d'instance n'est pas bornée.
+- **Tests :** `SqlJobQueueTests` (deux fournisseurs) — `Claim_OneOrganizationBacklog_ShouldServeOtherOrganization`, `Claim_RunningLimitReached_ShouldSkipOrganization`.
+- **Acceptation :** pas de SQL propre à un fournisseur hors des dialectes de la file (règle 4) ; le débit total du worker ne baisse pas sur une seule organisation (mesure locale consignée).
+- **Dépend de :** M10.01, M1.16g1
+
+#### M10.12 — Page « Formule et utilisation »
+- **Issue :** [#530](https://github.com/gaetanthouvenin/code-coverage/issues/530)
+- **Objectif :** montrer aux membres d'une organisation sa formule, ses limites et sa consommation, et laisser ses administrateurs choisir ses dépôts actifs.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** UC `Features/Plans/Queries/GetOrganizationUsage` (`IOrganizationScoped`, `Participant`) ; UC `Features/Repositories/Commands/SetRepositoryActive` (administrateur d'organisation, audité, limite de M10.09) ; `Web/Components/Pages/OrganizationPlan.razor(.cs)` ; ViewModels et mapper `GetOrganizationUsageViewModelAsync`.
+- **Tests :** `OrganizationPlanTests` — `Render_ShouldShowUsageAgainstLimits`, `Click_ActivateOverLimit_ShouldShowError` ; handler testé sur deux organisations.
+- **Acceptation :** la page suit la maquette (M10.02) ; aucun type du Domain dans la page (Architecture.Tests).
+- **Dépend de :** M10.02, M10.08, M10.09, M10.10
+
+**Libre-service et support**
+
+#### M10.13 — Jobs et livraisons de l'organisation
+- **Issue :** [#531](https://github.com/gaetanthouvenin/code-coverage/issues/531)
+- **Objectif :** que les administrateurs d'une organisation diagnostiquent seuls leurs jobs échoués et leurs livraisons de webhook (backlog d'isolation, §11).
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :** UC `Features/Operations/Queries/ListOrganizationJobs` et `ListOrganizationDeliveries` (administrateur d'organisation, filtrées par `Jobs.OrganizationId` et par la connexion ou l'installation de l'organisation) ; UC `RetryOrganizationJob` (audité) ; `Web/Components/Pages/OrganizationJobs.razor(.cs)`.
+- **Tests :** handlers testés sur deux organisations ; `OrganizationJobsTests` — `Render_ShouldShowOnlyOwnJobs`.
+- **Acceptation :** aucun job ni livraison d'une autre organisation n'est visible ; les erreurs affichées ne contiennent ni secret ni jeton.
+- **Dépend de :** M10.02
+
+#### M10.14 — Journal d'audit de l'organisation
+- **Issue :** [#532](https://github.com/gaetanthouvenin/code-coverage/issues/532)
+- **Objectif :** que les administrateurs d'une organisation lisent son audit (backlog d'isolation, §11).
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :** UC `Features/Operations/Queries/ListOrganizationAuditEntries` (administrateur d'organisation, `AuditEntries.OrganizationId`) ; `Web/Components/Pages/OrganizationAudit.razor(.cs)`.
+- **Tests :** handler testé sur deux organisations ; `OrganizationAuditTests` — `Render_NonAdmin_ShouldBeDenied`.
+- **Acceptation :** les entrées d'instance et celles d'une autre organisation n'apparaissent jamais.
+- **Dépend de :** M10.02, M3.41
+
+#### M10.15 — Accès de support limité dans le temps et audité
+- **Issue :** [#533](https://github.com/gaetanthouvenin/code-coverage/issues/533)
+- **Objectif :** permettre à l'administrateur d'instance d'aider une organisation, seulement quand elle l'autorise et pour une durée bornée (arbitrage 3 d'ADR-013, amendé par ADR-018).
+- **Couches :** Domain, Application, Infrastructure, Infrastructure.PostgreSql, Infrastructure.SqlServer, Web.
+- **Fichiers :**
+  - table d'organisation `SupportGrants` (`IsOrganizationOwned`, ouvert par, jusqu'à, fermé le) ; deux migrations ;
+  - UC `OpenSupportAccess` et `CloseSupportAccess` (administrateur d'organisation, audités, durée maximale `Support:MaxGrantHours`) ;
+  - `IOrganizationRoleResolver` donne le rôle `Viewer` à un administrateur d'instance tant qu'un accès est ouvert ; chaque lecture passe par la porte d'ADR-013 et est auditée dans l'organisation ;
+  - `Web/Components/Pages/OrganizationSupport.razor(.cs)` ; bandeau visible des membres pendant l'accès.
+- **Tests :** `OrganizationRoleResolverTests` — `Resolve_InstanceAdminWithoutGrant_ShouldDeny`, `Resolve_GrantExpired_ShouldDeny` ; `OrganizationIsolationTests` (nouvelle porte nommée).
+- **Acceptation :** sans accès ouvert, l'administrateur d'instance ne lit aucune donnée métier, comme avant ; l'expiration ne demande aucun job.
+- **Dépend de :** M10.01, M10.02, M10.13, M10.14
+
+**Données personnelles et effacement**
+
+#### M10.16 — Effacement des données d'une organisation
+- **Issue :** [#534](https://github.com/gaetanthouvenin/code-coverage/issues/534)
+- **Objectif :** effacer toutes les données d'une organisation à sa demande ou après sa désinstallation (backlog d'isolation, §11).
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :**
+  - UC `RequestOrganizationDeletion` et `CancelOrganizationDeletion` (administrateur d'organisation, audités) ; l'effacement part après `Organizations:DeletionGraceDays` ;
+  - coordinateur quotidien qui met en file un job `DeleteOrganizationData` par organisation arrivée à échéance, y compris celles suspendues par désinstallation depuis le délai ; jamais celles suspendues pour abus ;
+  - le job efface par lots, table par table, dans l'ordre des clés étrangères (la cascade est limitée sur SQL Server, M1.18), et reprend où il s'est arrêté ; il garde la ligne `Organizations` en pierre tombale et une entrée d'audit d'instance sans donnée métier ;
+  - `Web/Components/Pages/OrganizationData.razor(.cs)` (section effacement).
+- **Tests :** `DeleteOrganizationDataJobTests` (deux fournisseurs) — `Run_Interrupted_ShouldResume`, `Run_ShouldLeaveOtherOrganizationUntouched`, `Run_ShouldEmptyEveryOrganizationOwnedTable` (contrôle sur `TableClassification.OrganizationOwned`).
+- **Acceptation :** après le job, aucune ligne d'une table d'organisation ne porte son `OrganizationId` ; une nouvelle table d'organisation sans effacement fait échouer un test.
+- **Dépend de :** M10.01, M10.02
+
+#### M10.17 — Export des données d'une organisation
+- **Issue :** [#535](https://github.com/gaetanthouvenin/code-coverage/issues/535)
+- **Objectif :** que les administrateurs d'une organisation récupèrent ses données dans un format ouvert.
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :** UC `RequestOrganizationExport` (administrateur d'organisation, audité, un export en cours au plus) ; job `ExportOrganizationData` qui écrit une archive JSON (dépôts, commits et totaux, configuration, jetons sans leur valeur) dans le stockage de l'Api, avec un lien de téléchargement à durée de vie courte ; purge des archives expirées.
+- **Tests :** `ExportOrganizationDataJobTests` — `Run_ShouldExcludeSecrets`, `Run_ShouldContainOnlyOwnOrganization`.
+- **Acceptation :** l'archive ne contient aucun secret ni valeur de jeton ; le téléchargement exige d'être administrateur de l'organisation.
+- **Dépend de :** M10.02
+
+#### M10.18 — Compte utilisateur : export et suppression
+- **Issue :** [#536](https://github.com/gaetanthouvenin/code-coverage/issues/536)
+- **Objectif :** qu'un utilisateur exporte et supprime ses données personnelles (identité de forge, appartenances, acceptations, jetons d'API).
+- **Couches :** Application, Infrastructure, Web.
+- **Fichiers :** UC `ExportMyAccount` et `DeleteMyAccount` (utilisateur connecté, audités) ; la suppression révoque ses jetons, efface ses appartenances et ses acceptations, et remplace son identité dans l'audit par un pseudonyme ; refus si l'utilisateur est le dernier administrateur d'une organisation active (`Account.LastOrganizationAdmin`) ; `Web/Components/Pages/Account.razor(.cs)`.
+- **Tests :** `DeleteMyAccountCommandHandlerTests` — `Handle_LastAdmin_ShouldRefuse`, `Handle_ShouldPseudonymizeAudit`.
+- **Acceptation :** après suppression, une reconnexion crée un nouvel utilisateur sans lien avec l'ancien.
+- **Dépend de :** M10.02, M10.16
+
+**Cadre légal**
+
+#### M10.19 — Pages légales
+- **Issue :** [#521](https://github.com/gaetanthouvenin/code-coverage/issues/521)
+- **Objectif :** publier les conditions d'utilisation, la politique de confidentialité, les mentions légales et la liste des sous-traitants.
+- **Couches :** Web, docs.
+- **Fichiers :**
+  - `src/CodeCoverage.Web/Legal/{terms,privacy,notice,subprocessors}.{lang}.md`, en anglais et en français d'abord, avec repli sur l'anglais comme la documentation (M4.02v) ; un modèle marqué « à valider » tant que le propriétaire ne l'a pas validé ;
+  - pages `/legal/terms`, `/legal/privacy`, `/legal/notice`, `/legal/subprocessors`, anonymes, et liens dans le pied de page ;
+  - la politique de confidentialité liste les cookies strictement nécessaires (ADR-018) et les sous-traitants (forges, hébergement, envoi d'e-mails).
+- **Tests :** `LegalPagesTests` — `Get_Anonymous_ShouldRender`, `Render_UnknownLanguage_ShouldFallBackToEnglish` ; `DocumentationLinksTests`.
+- **Acceptation :** le contenu est validé par le propriétaire avant M10.28 (propriétaire) ; le nom de domaine de production n'est pas écrit dans le dépôt, il vient de la configuration.
+- **Dépend de :** M10.01, M10.02
+
+#### M10.20 — Registre des traitements et DPA
+- **Issue :** [#537](https://github.com/gaetanthouvenin/code-coverage/issues/537)
+- **Objectif :** documenter les traitements de données personnelles et proposer un accord de sous-traitance aux organisations.
+- **Couches :** docs.
+- **Fichiers :** `docs/legal/processing-register.md` (finalités, données, durées, destinataires, mesures de sécurité, renvoi à ADR-013 et à la rétention) ; `docs/legal/dpa.md` (modèle d'accord de sous-traitance, lié depuis `/legal/subprocessors`).
+- **Tests :** — (documentation seule).
+- **Acceptation :** les durées du registre sont celles des paramètres `Retention:*`, `Plans:Free:*` et `Organizations:DeletionGraceDays` ; le propriétaire valide les deux documents (propriétaire).
+- **Dépend de :** M10.19
+
+**Exposition publique et e-mails**
+
+#### M10.21 — Accueil public
+- **Issue :** [#538](https://github.com/gaetanthouvenin/code-coverage/issues/538)
+- **Objectif :** qu'un visiteur non connecté comprenne le service et puisse installer l'App.
+- **Couches :** Web.
+- **Fichiers :** `/` sans connexion affiche l'accueil public (M10.02) ; connecté, l'accueil de M3.20 reste inchangé ; lien d'installation de M4.02i ; limites de `Plans:Free:*` lues depuis les paramètres ; textes dans les quatre langues.
+- **Tests :** `HomeTests` — `Render_Anonymous_ShouldShowPublicLanding`, `Render_SignedIn_ShouldShowRepositories`.
+- **Acceptation :** en mode `Closed`, l'accueil public n'offre pas l'installation en libre-service et renvoie vers l'administrateur de l'instance.
+- **Dépend de :** M10.02, M10.19, M3.20
+
+#### M10.22 — Envoi d'e-mails
+- **Issue :** [#539](https://github.com/gaetanthouvenin/code-coverage/issues/539)
+- **Objectif :** un port d'envoi d'e-mails, configuré dans la console, et l'adresse des utilisateurs.
+- **Couches :** Domain, Application, Infrastructure, Web.
+- **Fichiers :**
+  - port `Domain/Ports/IEmailSender.cs` ; `Infrastructure/Email/SmtpEmailSender.cs` ; paramètres d'instance `Email:*` (hôte, port, expéditeur, utilisateur, mot de passe secret) ;
+  - envoi par un job `SendEmail`, jamais dans une requête (règle 3) ;
+  - adresse de l'utilisateur lue à la connexion : permission utilisateur « Email addresses: read » ajoutée au manifest (`GitHubAppManifest.cs`), adresse principale vérifiée seulement ; `docs/operations.md` et ses traductions : accepter la nouvelle permission sur une App existante.
+- **Tests :** `SmtpEmailSenderTests` (serveur SMTP de test en conteneur) ; `SendEmailJobTests` — `Run_SmtpDown_ShouldRetry`.
+- **Acceptation :** sans paramètres `Email:*`, aucun e-mail n'est envoyé et rien n'échoue ; aucune adresse non vérifiée n'est utilisée.
+- **Dépend de :** M10.01
+
+#### M10.23 — E-mails du cycle de vie
+- **Issue :** [#540](https://github.com/gaetanthouvenin/code-coverage/issues/540)
+- **Objectif :** prévenir les administrateurs d'une organisation des événements qui les concernent.
+- **Couches :** Application, Web.
+- **Fichiers :** modèles localisés pour : organisation activée, quota à 80 % puis atteint (une fois par jour au plus), effacement programmé et effacé, accès de support ouvert, fermé ou expiré, suspension ; préférence de désabonnement par utilisateur pour les e-mails non obligatoires.
+- **Tests :** handlers testés pour chaque événement ; `Render_Template_ShouldUseUserLanguage`.
+- **Acceptation :** un e-mail de quota n'est envoyé qu'une fois par jour et par organisation ; les e-mails d'effacement et de support ne sont pas désactivables.
+- **Dépend de :** M10.22, M10.08, M10.15, M10.16
+
+**Exploitation sur la VM**
+
+#### M10.24 — Supervision externe et page d'état
+- **Issue :** [#541](https://github.com/gaetanthouvenin/code-coverage/issues/541)
+- **Objectif :** savoir qu'une panne de la VM se produit quand la VM elle-même ne peut plus alerter, et informer les utilisateurs.
+- **Couches :** Web, exploitation, docs.
+- **Fichiers :** page anonyme `/status` (état de l'Api, du worker et de la base, sans donnée métier, lu depuis les tables opérationnelles) ; `docs/operations.md` et ses traductions : sonde externe des deux hôtes et récepteur d'alerte, choisis par le propriétaire hors dépôt.
+- **Tests :** `StatusTests` — `Get_Anonymous_ShouldExposeNoBusinessData`, `Render_WorkerStale_ShouldShowDegraded`.
+- **Acceptation :** l'arrêt de la VM est signalé par la sonde externe (propriétaire, consigné).
+- **Dépend de :** M10.01, M4.04
+
+#### M10.25 — Sauvegardes hors site chiffrées
+- **Issue :** [#542](https://github.com/gaetanthouvenin/code-coverage/issues/542)
+- **Objectif :** qu'une perte de la VM ne perde pas les données des organisations.
+- **Couches :** exploitation, docs.
+- **Fichiers :** `scripts/` : copie chiffrée des sauvegardes de M4.02 vers un stockage hors site choisi par le propriétaire, rétention et purge ; restauration de test mensuelle sur la VM de test documentée dans `docs/operations.md` et ses traductions ; le certificat Data Protection est sauvegardé à part, jamais avec les données.
+- **Tests :** restauration complète depuis le stockage hors site sur la VM de test (propriétaire, consignée).
+- **Acceptation :** la restauration redonne une instance saine, secrets lisibles ; aucun identifiant du stockage n'est dans le dépôt.
+- **Dépend de :** M10.01, M4.02
+
+#### M10.26 — Durcissement des routes anonymes
+- **Issue :** [#543](https://github.com/gaetanthouvenin/code-coverage/issues/543)
+- **Objectif :** que les routes ouvertes à tous (accueil, badges, pages légales, état, webhooks, connexion) résistent à un usage abusif.
+- **Couches :** Api, Web.
+- **Fichiers :** limiteurs de débit par adresse IP sur les routes anonymes de l'Api et du Web, derrière le proxy (`ForwardedHeaders` déjà configurés) ; en-têtes de sécurité vérifiés (CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`) ; paramètres de limite au niveau instance.
+- **Tests :** `Api.Tests` — `Get_BadgeBurst_ShouldReturn429` ; `Web.Tests` — `Get_Any_ShouldSendSecurityHeaders`.
+- **Acceptation :** un badge reste servi normalement par un CDN de forge (taux mesuré en production consigné) ; une livraison de webhook légitime n'est jamais limitée.
+- **Dépend de :** M10.01
+
+**Lancement**
+
+#### M10.27 — Guide du service hébergé
+- **Issue :** [#544](https://github.com/gaetanthouvenin/code-coverage/issues/544)
+- **Objectif :** que les utilisateurs du service trouvent seuls comment s'inscrire, ce que couvre la formule, comment obtenir de l'aide et partir.
+- **Couches :** docs, Web.
+- **Fichiers :** `docs/hosted-service.md` et ses traductions (installation, limites, quotas et 429, support, export, effacement, contact) ; entrée dans la documentation de l'application (M4.02o).
+- **Tests :** `DocumentationLinksTests`.
+- **Acceptation :** chaque limite citée renvoie au paramètre qui la porte, sans valeur recopiée.
+- **Dépend de :** M10.05, M10.12, M10.16
+
+#### M10.28 — Ouverture du service
+- **Issue :** [#545](https://github.com/gaetanthouvenin/code-coverage/issues/545)
+- **Objectif :** ouvrir l'instance de production à des organisations tierces et le vérifier.
+- **Couches :** exploitation.
+- **Fichiers :** liste de vérification `docs/operations/hosted-service-launch.md` :
+  - App GitHub rendue publique (« Any account ») et permission e-mail acceptée ;
+  - pages légales validées, `Admission:Mode` à `Open`, limites `Plans:Free:*` revues ;
+  - parcours complet par une organisation tierce : installation, conditions, activation, upload, statuts, quota atteint, accès de support, export, effacement ;
+  - sonde externe et restauration hors site vérifiées.
+- **Tests :** liste de vérification exécutée (propriétaire).
+- **Acceptation :** chaque ligne est cochée ou ouverte en écart nommé ; les organisations existantes ne voient aucune régression (propriétaire).
+- **Dépend de :** M10.05, M10.11, M10.12, M10.17, M10.18, M10.20, M10.21, M10.23, M10.24, M10.25, M10.26, M10.27
+
 ---
 
 ## 10. Écarts et compléments par rapport à l'architecture
@@ -5787,15 +6240,17 @@ M8 ne crée donc ni table, ni coordinateur, ni réception, ni cas d'usage de tra
     - les endpoints de Bitbucket (début de M8) ;
     - l'accès au plan Free de GitLab et la forme des badges de sous-groupes (spike en tête de M9).
 
+13. **Service hébergé : tranché**, gratuit au lancement, admission en libre-service derrière `Admission:Mode`, sur la VM de production, cadre légal planifié (décision du propriétaire du 2026-11-27, jalon M10, ADR-018 proposé par M10.01). La facturation n'est pas planifiée ; elle demandera sa propre décision (GitHub Marketplace, Stripe ou autre) avant toute autre formule que `Free`.
+
 ### Backlog de l'isolation entre organisations
 
 Hors périmètre d'ADR-013 ; chaque point attend son déclencheur. `Jobs.OrganizationId` et `AuditEntries.OrganizationId` (M1.16g1, M1.16g2) les préparent sans reprise de données.
 
-- **Réclamation équitable des jobs entre organisations** : à construire si le pilote mesure qu'un arriéré d'une organisation retarde les statuts d'une autre.
-- **Limite agrégée d'upload par organisation** : à construire si le pilote mesure une organisation qui sature l'instance.
+- **Réclamation équitable des jobs entre organisations** : planifiée par M10.11, déclenchée par l'ouverture du service hébergé.
+- **Limite agrégée d'upload par organisation** : planifiée par M10.08 (quota journalier et débit par minute).
 - **Résilience par installation** : à construire si les erreurs d'une installation dégradent les autres (M1.25 exclut déjà 403 et 429 du gestionnaire de résilience).
-- **Écrans d'exploitation en libre-service** (jobs, webhooks et audit par organisation) : quand une organisation le demande.
-- **Effacement des données d'une organisation** : lors d'un départ réel ou d'une obligation légale ; la suppression en cascade étant limitée sur SQL Server (M1.18), il lui faut son propre job reprenable.
+- **Écrans d'exploitation en libre-service** (jobs, webhooks et audit par organisation) : planifiés par M10.13 et M10.14.
+- **Effacement des données d'une organisation** : planifié par M10.16, job reprenable puisque la suppression en cascade est limitée sur SQL Server (M1.18).
 
 ### Manques connus
 
